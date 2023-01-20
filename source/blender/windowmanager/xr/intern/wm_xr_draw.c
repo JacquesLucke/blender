@@ -160,6 +160,8 @@ void wm_xr_draw_view(const GHOST_XrDrawViewInfo *draw_view, void *customdata)
                                   draw_data->scene,
                                   &settings->shading,
                                   (eDrawType)settings->shading.type,
+                                  settings->object_type_exclude_viewport,
+                                  settings->object_type_exclude_select,
                                   draw_view->width,
                                   draw_view->height,
                                   display_flags,
@@ -211,9 +213,9 @@ static GPUBatch *wm_xr_controller_model_batch_create(GHOST_XrContextHandle xr_co
   GPUIndexBuf *ibo = NULL;
   if (model_data.count_indices > 0 && ((model_data.count_indices % 3) == 0)) {
     GPUIndexBufBuilder ibo_builder;
-    const unsigned int prim_len = model_data.count_indices / 3;
+    const uint prim_len = model_data.count_indices / 3;
     GPU_indexbuf_init(&ibo_builder, GPU_PRIM_TRIS, prim_len, model_data.count_vertices);
-    for (unsigned int i = 0; i < prim_len; ++i) {
+    for (uint i = 0; i < prim_len; ++i) {
       const uint32_t *idx = &model_data.indices[i * 3];
       GPU_indexbuf_add_tri_verts(&ibo_builder, idx[0], idx[1], idx[2]);
     }
@@ -233,11 +235,15 @@ static void wm_xr_controller_model_draw(const XrSessionSettings *settings,
   switch (settings->controller_draw_style) {
     case XR_CONTROLLER_DRAW_DARK:
     case XR_CONTROLLER_DRAW_DARK_RAY:
-      color[0] = color[1] = color[2] = 0.0f, color[3] = 0.4f;
+      color[0] = color[1] = color[2] = 0.0f;
+      color[3] = 0.4f;
       break;
     case XR_CONTROLLER_DRAW_LIGHT:
     case XR_CONTROLLER_DRAW_LIGHT_RAY:
-      color[0] = 0.422f, color[1] = 0.438f, color[2] = 0.446f, color[3] = 0.4f;
+      color[0] = 0.422f;
+      color[1] = 0.438f;
+      color[2] = 0.446f;
+      color[3] = 0.4f;
       break;
   }
 
@@ -259,8 +265,7 @@ static void wm_xr_controller_model_draw(const XrSessionSettings *settings,
 
       GPU_matrix_push();
       GPU_matrix_mul(controller->grip_mat);
-      for (unsigned int component_idx = 0; component_idx < model_data.count_components;
-           ++component_idx) {
+      for (uint component_idx = 0; component_idx < model_data.count_components; ++component_idx) {
         const GHOST_XrControllerModelComponent *component = &model_data.components[component_idx];
         GPU_matrix_push();
         GPU_matrix_mul(component->transform);

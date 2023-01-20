@@ -9,6 +9,10 @@
 
 #include "util/log.h"
 
+#ifdef WITH_OSL
+#  include <OSL/oslversion.h>
+#endif
+
 #ifdef WITH_OPTIX
 #  include <optix_function_table_definition.h>
 #endif
@@ -31,12 +35,12 @@ bool device_optix_init()
   const OptixResult result = optixInit();
 
   if (result == OPTIX_ERROR_UNSUPPORTED_ABI_VERSION) {
-    VLOG(1) << "OptiX initialization failed because the installed NVIDIA driver is too old. "
-               "Please update to the latest driver first!";
+    VLOG_WARNING << "OptiX initialization failed because the installed NVIDIA driver is too old. "
+                    "Please update to the latest driver first!";
     return false;
   }
   else if (result != OPTIX_SUCCESS) {
-    VLOG(1) << "OptiX initialization failed with error code " << (unsigned int)result;
+    VLOG_WARNING << "OptiX initialization failed with error code " << (unsigned int)result;
     return false;
   }
 
@@ -65,6 +69,9 @@ void device_optix_info(const vector<DeviceInfo> &cuda_devices, vector<DeviceInfo
 
     info.type = DEVICE_OPTIX;
     info.id += "_OptiX";
+#  if defined(WITH_OSL) && (OSL_VERSION_MINOR >= 13 || OSL_VERSION_MAJOR > 1)
+    info.has_osl = true;
+#  endif
     info.denoisers |= DENOISER_OPTIX;
 
     devices.push_back(info);

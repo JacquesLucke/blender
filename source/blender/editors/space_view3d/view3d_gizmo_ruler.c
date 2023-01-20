@@ -17,6 +17,7 @@
 #include "BKE_main.h"
 #include "BKE_report.h"
 
+#include "BKE_layer.h"
 #include "BKE_material.h"
 #include "BKE_object.h"
 #include "BKE_scene.h"
@@ -300,10 +301,13 @@ static void ruler_state_set(RulerInfo *ruler_info, int state)
   }
 
   if (state == RULER_STATE_NORMAL) {
-    /* pass */
+    WM_gizmo_set_flag(ruler_info->snap_data.gizmo, WM_GIZMO_DRAW_VALUE, false);
   }
   else if (state == RULER_STATE_DRAG) {
     memset(&ruler_info->drag_state_prev, 0x0, sizeof(ruler_info->drag_state_prev));
+
+    /* Force the snap cursor to appear even though it is not highlighted. */
+    WM_gizmo_set_flag(ruler_info->snap_data.gizmo, WM_GIZMO_DRAW_VALUE, true);
   }
   else {
     BLI_assert(0);
@@ -357,11 +361,12 @@ static bool view3d_ruler_item_mousemove(const bContext *C,
                                                   depsgraph,
                                                   ruler_info->region,
                                                   v3d,
-                                                  SCE_SNAP_MODE_FACE,
+                                                  SCE_SNAP_MODE_FACE_RAYCAST,
                                                   &(const struct SnapObjectParams){
-                                                      .snap_select = SNAP_ALL,
+                                                      .snap_target_select = SCE_SNAP_TARGET_ALL,
                                                       .edit_mode_type = SNAP_GEOM_CAGE,
                                                   },
+                                                  NULL,
                                                   mval_fl,
                                                   NULL,
                                                   &dist_px,
@@ -374,7 +379,7 @@ static bool view3d_ruler_item_mousemove(const bContext *C,
                                              depsgraph,
                                              v3d,
                                              &(const struct SnapObjectParams){
-                                                 .snap_select = SNAP_ALL,
+                                                 .snap_target_select = SCE_SNAP_TARGET_ALL,
                                                  .edit_mode_type = SNAP_GEOM_CAGE,
                                              },
                                              ray_start,
@@ -419,7 +424,8 @@ static bool view3d_ruler_item_mousemove(const bContext *C,
         Scene *scene = DEG_get_input_scene(depsgraph);
         ViewLayer *view_layer = DEG_get_input_view_layer(depsgraph);
         RegionView3D *rv3d = ruler_info->region->regiondata;
-        Object *ob = OBACT(view_layer);
+        BKE_view_layer_synced_ensure(scene, view_layer);
+        Object *ob = BKE_view_layer_active_object_get(view_layer);
         Object *obedit = OBEDIT_FROM_OBACT(ob);
 
         short orient_index = BKE_scene_orientation_get_index(scene, SCE_ORIENT_DEFAULT);
@@ -453,6 +459,19 @@ static bool view3d_ruler_item_mousemove(const bContext *C,
     return true;
   }
   return false;
+}
+
+/**
+ * When the gizmo-group has been created immediately before running an operator
+ * to manipulate rulers, it's possible the new gizmo-group has not yet been initialized.
+ * in 3.0 this happened because left-click drag would both select and add a new ruler,
+ * significantly increasing the likelihood of this happening.
+ * Workaround this crash by checking the gizmo's custom-data has not been cleared.
+ * The key-map has also been modified not to trigger this bug, see T95591.
+ */
+static bool gizmo_ruler_check_for_operator(const wmGizmoGroup *gzgroup)
+{
+  return gzgroup->customdata != NULL;
 }
 
 /** \} */
@@ -509,7 +528,7 @@ static bool view3d_ruler_to_gpencil(bContext *C, wmGizmoGroup *gzgroup)
     gpl->flag |= GP_LAYER_HIDE | GP_LAYER_IS_RULER;
   }
 
-  gpf = BKE_gpencil_layer_frame_get(gpl, CFRA, GP_GETFRAME_ADD_NEW);
+  gpf = BKE_gpencil_layer_frame_get(gpl, scene->r.cfra, GP_GETFRAME_ADD_NEW);
   BKE_gpencil_free_strokes(gpf);
 
   for (ruler_item = gzgroup_ruler_item_first_get(gzgroup); ruler_item;
@@ -563,7 +582,7 @@ static bool view3d_ruler_from_gpencil(const bContext *C, wmGizmoGroup *gzgroup)
     gpl = view3d_ruler_layer_get(scene->gpd);
     if (gpl) {
       bGPDframe *gpf;
-      gpf = BKE_gpencil_layer_frame_get(gpl, CFRA, GP_GETFRAME_USE_PREV);
+      gpf = BKE_gpencil_layer_frame_get(gpl, scene->r.cfra, GP_GETFRAME_USE_PREV);
       if (gpf) {
         bGPDstroke *gps;
         for (gps = gpf->strokes.first; gps; gps = gps->next) {
@@ -631,7 +650,7 @@ static void gizmo_ruler_draw(const bContext *C, wmGizmo *gz)
   GPU_line_width(1.0f);
 
   BLF_enable(blf_mono_font, BLF_ROTATION);
-  BLF_size(blf_mono_font, 14.0f * U.pixelsize, U.dpi);
+  BLF_size(blf_mono_font, 14.0f * U.dpi_fac);
   BLF_rotation(blf_mono_font, 0.0f);
 
   UI_GetThemeColor3ubv(TH_TEXT, color_text);
@@ -676,12 +695,10 @@ static void gizmo_ruler_draw(const bContext *C, wmGizmo *gz)
 
     immUniform1i("colors_len", 2); /* "advanced" mode */
     const float *col = is_act ? color_act : color_base;
-    immUniformArray4fv(
-        "colors",
-        (float *)(float[][4]){{0.67f, 0.67f, 0.67f, 1.0f}, {col[0], col[1], col[2], col[3]}},
-        2);
+    immUniform4f("color", 0.67f, 0.67f, 0.67f, 1.0f);
+    immUniform4f("color2", col[0], col[1], col[2], col[3]);
     immUniform1f("dash_width", 6.0f);
-    immUniform1f("dash_factor", 0.5f);
+    immUniform1f("udash_factor", 0.5f);
 
     immBegin(GPU_PRIM_LINE_STRIP, 3);
 
@@ -747,12 +764,10 @@ static void gizmo_ruler_draw(const bContext *C, wmGizmo *gz)
 
     immUniform1i("colors_len", 2); /* "advanced" mode */
     const float *col = is_act ? color_act : color_base;
-    immUniformArray4fv(
-        "colors",
-        (float *)(float[][4]){{0.67f, 0.67f, 0.67f, 1.0f}, {col[0], col[1], col[2], col[3]}},
-        2);
+    immUniform4f("color", 0.67f, 0.67f, 0.67f, 1.0f);
+    immUniform4f("color2", col[0], col[1], col[2], col[3]);
     immUniform1f("dash_width", 6.0f);
-    immUniform1f("dash_factor", 0.5f);
+    immUniform1f("udash_factor", 0.5f);
 
     immBegin(GPU_PRIM_LINES, 2);
 
@@ -773,7 +788,7 @@ static void gizmo_ruler_draw(const bContext *C, wmGizmo *gz)
       immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
   if (ruler_item->flag & RULERITEM_USE_ANGLE) {
-    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
     /* capping */
     {
       float rot_90_vec_a[2];
@@ -875,7 +890,7 @@ static void gizmo_ruler_draw(const bContext *C, wmGizmo *gz)
     }
   }
   else {
-    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
     sub_v2_v2v2(dir_ruler, co_ss[0], co_ss[2]);
 
@@ -1028,7 +1043,7 @@ static int gizmo_ruler_modal(bContext *C,
   const bool do_snap = !(tweak_flag & WM_GIZMO_TWEAK_SNAP);
 #endif
   const bool do_thickness = tweak_flag & WM_GIZMO_TWEAK_PRECISE;
-  if ((ruler_info->drag_state_prev.do_thickness != do_thickness)) {
+  if (ruler_info->drag_state_prev.do_thickness != do_thickness) {
     do_cursor_update = true;
   }
 
@@ -1069,7 +1084,8 @@ static int gizmo_ruler_invoke(bContext *C, wmGizmo *gz, const wmEvent *event)
 
   ARegion *region = ruler_info->region;
 
-  const float mval_fl[2] = {UNPACK2(event->mval)};
+  float mval_fl[2];
+  WM_event_drag_start_mval_fl(event, region, mval_fl);
 
 #ifdef USE_AXIS_CONSTRAINTS
   ruler_info->constrain_axis = CONSTRAIN_AXIS_NONE;
@@ -1218,11 +1234,7 @@ static void WIDGETGROUP_ruler_setup(const bContext *C, wmGizmoGroup *gzgroup)
     gzt_snap = WM_gizmotype_find("GIZMO_GT_snap_3d", true);
     gizmo = WM_gizmo_new_ptr(gzt_snap, gzgroup, NULL);
 
-    RNA_enum_set(gizmo->ptr,
-                 "snap_elements_force",
-                 (SCE_SNAP_MODE_VERTEX | SCE_SNAP_MODE_EDGE | SCE_SNAP_MODE_FACE |
-                  /* SCE_SNAP_MODE_VOLUME | SCE_SNAP_MODE_GRID | SCE_SNAP_MODE_INCREMENT | */
-                  SCE_SNAP_MODE_EDGE_PERPENDICULAR | SCE_SNAP_MODE_EDGE_MIDPOINT));
+    RNA_enum_set(gizmo->ptr, "snap_elements_force", SCE_SNAP_MODE_GEOM);
     ED_gizmotypes_snap_3d_flag_set(gizmo, V3D_SNAPCURSOR_SNAP_EDIT_GEOM_CAGE);
     WM_gizmo_set_color(gizmo, (float[4]){1.0f, 1.0f, 1.0f, 1.0f});
 
@@ -1294,13 +1306,21 @@ static int view3d_ruler_add_invoke(bContext *C, wmOperator *op, const wmEvent *e
   wmGizmoGroup *gzgroup = WM_gizmomap_group_find(gzmap, view3d_gzgt_ruler_id);
   const bool use_depth = (v3d->shading.type >= OB_SOLID);
 
+  if (!gizmo_ruler_check_for_operator(gzgroup)) {
+    return OPERATOR_CANCELLED;
+  }
+
+  int mval[2];
+  WM_event_drag_start_mval(event, region, mval);
+
   /* Create new line */
   RulerItem *ruler_item;
   ruler_item = ruler_item_add(gzgroup);
 
   /* This is a little weak, but there is no real good way to tweak directly. */
   WM_gizmo_highlight_set(gzmap, &ruler_item->gz);
-  if (WM_operator_name_call(C, "GIZMOGROUP_OT_gizmo_tweak", WM_OP_INVOKE_REGION_WIN, NULL) ==
+  if (WM_operator_name_call(
+          C, "GIZMOGROUP_OT_gizmo_tweak", WM_OP_INVOKE_REGION_WIN, NULL, event) ==
       OPERATOR_RUNNING_MODAL) {
     RulerInfo *ruler_info = gzgroup->customdata;
     RulerInteraction *inter = ruler_item->gz.interaction_data;
@@ -1312,7 +1332,7 @@ static int view3d_ruler_add_invoke(bContext *C, wmOperator *op, const wmEvent *e
                                   depsgraph,
                                   ruler_info,
                                   ruler_item,
-                                  event->mval,
+                                  mval,
                                   false
 #ifndef USE_SNAP_DETECT_FROM_KEYMAP_HACK
                                   ,
@@ -1327,7 +1347,7 @@ static int view3d_ruler_add_invoke(bContext *C, wmOperator *op, const wmEvent *e
     else {
       negate_v3_v3(inter->drag_start_co, rv3d->ofs);
       copy_v3_v3(ruler_item->co[0], inter->drag_start_co);
-      view3d_ruler_item_project(ruler_info, ruler_item->co[0], event->mval);
+      view3d_ruler_item_project(ruler_info, ruler_item->co[0], mval);
     }
 
     copy_v3_v3(ruler_item->co[2], ruler_item->co[0]);
@@ -1369,6 +1389,9 @@ static int view3d_ruler_remove_invoke(bContext *C, wmOperator *op, const wmEvent
   wmGizmoMap *gzmap = region->gizmo_map;
   wmGizmoGroup *gzgroup = WM_gizmomap_group_find(gzmap, view3d_gzgt_ruler_id);
   if (gzgroup) {
+    if (!gizmo_ruler_check_for_operator(gzgroup)) {
+      return OPERATOR_CANCELLED;
+    }
     RulerInfo *ruler_info = gzgroup->customdata;
     if (ruler_info->item_active) {
       RulerItem *ruler_item = ruler_info->item_active;

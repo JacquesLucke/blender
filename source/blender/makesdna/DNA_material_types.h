@@ -27,17 +27,28 @@ struct bNodeTree;
 /* WATCH IT: change type? also make changes in ipo.h */
 
 typedef struct TexPaintSlot {
-  /** Image to be painted on. */
+  DNA_DEFINE_CXX_METHODS(TexPaintSlot)
+
+  /** Image to be painted on. Mutual exclusive with attribute_name. */
   struct Image *ima;
+  struct ImageUser *image_user;
+
   /** Custom-data index for uv layer, #MAX_NAME. */
   char *uvname;
-  /** Do we have a valid image and UV map. */
+  /**
+   * Color attribute name when painting using color attributes. Mutual exclusive with ima.
+   * Points to the name of a CustomDataLayer.
+   */
+  char *attribute_name;
+  /** Do we have a valid image and UV map or attribute. */
   int valid;
   /** Copy of node interpolation setting. */
   int interp;
 } TexPaintSlot;
 
 typedef struct MaterialGPencilStyle {
+  DNA_DEFINE_CXX_METHODS(MaterialGPencilStyle)
+
   /** Texture image for strokes. */
   struct Image *sima;
   /** Texture image for filling. */
@@ -139,17 +150,20 @@ typedef struct MaterialLineArt {
   /** Maximum 255 levels of equivalent occlusion. */
   unsigned char mat_occlusion;
 
-  unsigned char _pad[2];
+  unsigned char intersection_priority;
+
+  char _pad;
 } MaterialLineArt;
 
 typedef enum eMaterialLineArtFlags {
   LRT_MATERIAL_MASK_ENABLED = (1 << 0),
-
-  /* Deprecated, kept for versioning code. */
   LRT_MATERIAL_CUSTOM_OCCLUSION_EFFECTIVENESS = (1 << 1),
+  LRT_MATERIAL_CUSTOM_INTERSECTION_PRIORITY = (1 << 2),
 } eMaterialLineArtFlags;
 
 typedef struct Material {
+  DNA_DEFINE_CXX_METHODS(Material)
+
   ID id;
   /** Animation data (must be immediately after id for utilities to use it). */
   struct AnimData *adt;
@@ -255,6 +269,7 @@ typedef struct Material {
 #define MA_RAMP_COLOR 15
 #define MA_RAMP_SOFT 16
 #define MA_RAMP_LINEAR 17
+#define MA_RAMP_EXCLUSION 18
 
 /* texco */
 #define TEXCO_ORCO (1 << 0)

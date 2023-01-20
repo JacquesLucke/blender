@@ -59,14 +59,15 @@ static void rna_Mask_update_parent(Main *bmain, Scene *scene, PointerRNA *ptr)
     if (GS(parent->id->name) == ID_MC) {
       MovieClip *clip = (MovieClip *)parent->id;
       MovieTracking *tracking = &clip->tracking;
-      MovieTrackingObject *object = BKE_tracking_object_get_named(tracking, parent->parent);
+      MovieTrackingObject *tracking_object = BKE_tracking_object_get_named(tracking,
+                                                                           parent->parent);
 
-      if (object) {
+      if (tracking_object) {
         int clip_framenr = BKE_movieclip_remap_scene_to_clip_frame(clip, scene->r.cfra);
 
         if (parent->type == MASK_PARENT_POINT_TRACK) {
-          MovieTrackingTrack *track = BKE_tracking_track_get_named(
-              tracking, object, parent->sub_parent);
+          MovieTrackingTrack *track = BKE_tracking_object_find_track_with_name(tracking_object,
+                                                                               parent->sub_parent);
 
           if (track) {
             MovieTrackingMarker *marker = BKE_tracking_marker_get(track, clip_framenr);
@@ -83,8 +84,8 @@ static void rna_Mask_update_parent(Main *bmain, Scene *scene, PointerRNA *ptr)
           }
         }
         else /* if (parent->type == MASK_PARENT_PLANE_TRACK) */ {
-          MovieTrackingPlaneTrack *plane_track = BKE_tracking_plane_track_get_named(
-              tracking, object, parent->sub_parent);
+          MovieTrackingPlaneTrack *plane_track = BKE_tracking_object_find_plane_track_with_name(
+              tracking_object, parent->sub_parent);
           if (plane_track) {
             MovieTrackingPlaneMarker *plane_marker = BKE_tracking_plane_marker_get(plane_track,
                                                                                    clip_framenr);
@@ -102,7 +103,7 @@ static void rna_Mask_update_parent(Main *bmain, Scene *scene, PointerRNA *ptr)
   rna_Mask_update_data(bmain, scene, ptr);
 }
 
-/* NOTE: this function exists only to avoid id refcounting. */
+/* NOTE: this function exists only to avoid id reference-counting. */
 static void rna_MaskParent_id_set(PointerRNA *ptr,
                                   PointerRNA value,
                                   struct ReportList *UNUSED(reports))
@@ -165,9 +166,9 @@ static void rna_Mask_layer_active_index_range(
   *softmax = *max;
 }
 
-static char *rna_MaskLayer_path(PointerRNA *ptr)
+static char *rna_MaskLayer_path(const PointerRNA *ptr)
 {
-  MaskLayer *masklay = (MaskLayer *)ptr->data;
+  const MaskLayer *masklay = (MaskLayer *)ptr->data;
   char name_esc[sizeof(masklay->name) * 2];
   BLI_str_escape(name_esc, masklay->name, sizeof(name_esc));
   return BLI_sprintfN("layers[\"%s\"]", name_esc);
@@ -1025,7 +1026,8 @@ static void rna_def_mask_layer(BlenderRNA *brna)
   RNA_def_property_enum_sdna(prop, NULL, "falloff");
   RNA_def_property_enum_items(prop, rna_enum_proportional_falloff_curve_only_items);
   RNA_def_property_ui_text(prop, "Falloff", "Falloff type the feather");
-  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_CURVE); /* Abusing id_curve :/ */
+  RNA_def_property_translation_context(prop,
+                                       BLT_I18NCONTEXT_ID_CURVE_LEGACY); /* Abusing id_curve :/ */
   RNA_def_property_update(prop, NC_MASK | NA_EDITED, NULL);
 
   /* filling options */

@@ -22,8 +22,8 @@ ShaderInterface::ShaderInterface() = default;
 ShaderInterface::~ShaderInterface()
 {
   /* Free memory used by name_buffer. */
-  MEM_freeN(name_buffer_);
-  MEM_freeN(inputs_);
+  MEM_SAFE_FREE(name_buffer_);
+  MEM_SAFE_FREE(inputs_);
 }
 
 static void sort_input_list(MutableSpan<ShaderInput> dst)
@@ -38,7 +38,7 @@ static void sort_input_list(MutableSpan<ShaderInput> dst)
 
   /* Simple sorting by going through the array and selecting the biggest element each time. */
   for (uint i = 0; i < dst.size(); i++) {
-    ShaderInput *input_src = &src[0];
+    ShaderInput *input_src = src.data();
     for (uint j = 1; j < src.size(); j++) {
       if (src[j].name_hash > input_src->name_hash) {
         input_src = &src[j];

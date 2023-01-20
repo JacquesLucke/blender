@@ -5,12 +5,6 @@
 
 #include "ED_screen.h"
 
-#include "RNA_access.h"
-#include "RNA_define.h"
-
-#include "WM_api.h"
-#include "WM_types.h"
-
 #include "BLI_listbase.h"
 
 #include "MEM_guardedalloc.h"
@@ -20,8 +14,6 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 
-#include "ED_screen.h"
-
 #include "WM_api.h"
 #include "WM_types.h"
 
@@ -30,7 +22,7 @@
 
 using namespace blender::ed::spreadsheet;
 
-static int row_filter_add_exec(bContext *C, wmOperator *UNUSED(op))
+static int row_filter_add_exec(bContext *C, wmOperator * /*op*/)
 {
   SpaceSpreadsheet *sspreadsheet = CTX_wm_space_spreadsheet(C);
 
@@ -86,13 +78,11 @@ static void SPREADSHEET_OT_remove_row_filter_rule(wmOperatorType *ot)
   RNA_def_int(ot->srna, "index", 0, 0, INT_MAX, "Index", "", 0, INT_MAX);
 }
 
-static int select_component_domain_invoke(bContext *C,
-                                          wmOperator *op,
-                                          const wmEvent *UNUSED(event))
+static int select_component_domain_invoke(bContext *C, wmOperator *op, const wmEvent * /*event*/)
 {
   GeometryComponentType component_type = static_cast<GeometryComponentType>(
       RNA_int_get(op->ptr, "component_type"));
-  AttributeDomain attribute_domain = static_cast<AttributeDomain>(
+  eAttrDomain attribute_domain = static_cast<eAttrDomain>(
       RNA_int_get(op->ptr, "attribute_domain_type"));
 
   SpaceSpreadsheet *sspreadsheet = CTX_wm_space_spreadsheet(C);

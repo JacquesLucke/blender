@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 import bpy
 from bpy.types import Panel
 from rna_prop_ui import PropertyPanel
+
+from bpy.app.translations import contexts as i18n_contexts
 
 
 class BoneButtonsPanel:
@@ -87,7 +87,7 @@ class BONE_PT_transform(BoneButtonsPanel, Panel):
                 row.use_property_decorate = False
                 row.prop(pchan, "lock_rotation", text="", emboss=False, icon='DECORATE_UNLOCKED')
             row = layout.row(align=True)
-            row.prop(pchan, "rotation_mode", text='Mode')
+            row.prop(pchan, "rotation_mode", text="Mode")
             row.label(text="", icon='BLANK1')
 
             col = layout.column()
@@ -158,8 +158,8 @@ class BONE_PT_curved(BoneButtonsPanel, Panel):
         col.prop(bbone, "bbone_scaleout", text="Scale Out")
 
         col = topcol.column(align=True)
-        col.prop(bbone, "bbone_easein", text="Ease In")
-        col.prop(bbone, "bbone_easeout", text="Out")
+        col.prop(bbone, "bbone_easein", text="Ease In", text_ctxt=i18n_contexts.id_armature)
+        col.prop(bbone, "bbone_easeout", text="Out", text_ctxt=i18n_contexts.id_armature)
         col.prop(bone, "use_scale_easing")
 
         col = topcol.column(align=True)
@@ -179,7 +179,7 @@ class BONE_PT_curved(BoneButtonsPanel, Panel):
         row2.prop(bone, "bbone_handle_use_scale_start", index=0, text="X", toggle=True)
         row2.prop(bone, "bbone_handle_use_scale_start", index=1, text="Y", toggle=True)
         row2.prop(bone, "bbone_handle_use_scale_start", index=2, text="Z", toggle=True)
-        split2.prop(bone, "bbone_handle_use_ease_start", text="Ease", toggle=True)
+        split2.prop(bone, "bbone_handle_use_ease_start", text="Ease", text_ctxt=i18n_contexts.id_armature, toggle=True)
         row.label(icon='BLANK1')
 
         col = topcol.column(align=True)
@@ -199,7 +199,7 @@ class BONE_PT_curved(BoneButtonsPanel, Panel):
         row2.prop(bone, "bbone_handle_use_scale_end", index=0, text="X", toggle=True)
         row2.prop(bone, "bbone_handle_use_scale_end", index=1, text="Y", toggle=True)
         row2.prop(bone, "bbone_handle_use_scale_end", index=2, text="Z", toggle=True)
-        split2.prop(bone, "bbone_handle_use_ease_end", text="Ease", toggle=True)
+        split2.prop(bone, "bbone_handle_use_ease_end", text="Ease", text_ctxt=i18n_contexts.id_armature, toggle=True)
         row.label(icon='BLANK1')
 
 
@@ -403,9 +403,9 @@ class BONE_PT_inverse_kinematics(BoneButtonsPanel, Panel):
             col.prop(pchan, "ik_rotation_weight", text="IK Rotation Weight", slider=True)
             col.active = active
             # not supported yet
-            #row = layout.row()
-            #row.prop(pchan, "use_ik_linear_control", text="Joint Size")
-            #row.prop(pchan, "ik_linear_weight", text="Weight", slider=True)
+            # row = layout.row()
+            # row.prop(pchan, "use_ik_linear_control", text="Joint Size")
+            # row.prop(pchan, "ik_linear_weight", text="Weight", slider=True)
 
 
 class BONE_PT_deform(BoneButtonsPanel, Panel):
@@ -444,7 +444,7 @@ class BONE_PT_deform(BoneButtonsPanel, Panel):
 
 
 class BONE_PT_custom_props(BoneButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'BLENDER_WORKBENCH'}
     _property_type = bpy.types.Bone, bpy.types.EditBone, bpy.types.PoseBone
 
     @property

@@ -68,12 +68,12 @@ static const EnumPropertyItem rna_enum_keyframe_type_items[] = {
      "KEYFRAME",
      ICON_KEYTYPE_KEYFRAME_VEC,
      "Keyframe",
-     "Normal keyframe - e.g. for key poses"},
+     "Normal keyframe, e.g. for key poses"},
     {BEZT_KEYTYPE_BREAKDOWN,
      "BREAKDOWN",
      ICON_KEYTYPE_BREAKDOWN_VEC,
      "Breakdown",
-     "A breakdown pose - e.g. for transitions between key poses"},
+     "A breakdown pose, e.g. for transitions between key poses"},
     {BEZT_KEYTYPE_MOVEHOLD,
      "MOVING_HOLD",
      ICON_KEYTYPE_MOVING_HOLD_VEC,
@@ -98,12 +98,12 @@ static const EnumPropertyItem rna_enum_onion_keyframe_type_items[] = {
      "KEYFRAME",
      ICON_KEYTYPE_KEYFRAME_VEC,
      "Keyframe",
-     "Normal keyframe - e.g. for key poses"},
+     "Normal keyframe, e.g. for key poses"},
     {BEZT_KEYTYPE_BREAKDOWN,
      "BREAKDOWN",
      ICON_KEYTYPE_BREAKDOWN_VEC,
      "Breakdown",
-     "A breakdown pose - e.g. for transitions between key poses"},
+     "A breakdown pose, e.g. for transitions between key poses"},
     {BEZT_KEYTYPE_MOVEHOLD,
      "MOVING_HOLD",
      ICON_KEYTYPE_MOVING_HOLD_VEC,
@@ -307,7 +307,7 @@ bool rna_GPencil_datablocks_obdata_poll(PointerRNA *UNUSED(ptr), const PointerRN
   return (gpd->flag & GP_DATA_ANNOTATIONS) == 0;
 }
 
-static char *rna_GPencilLayer_path(PointerRNA *ptr)
+static char *rna_GPencilLayer_path(const PointerRNA *ptr)
 {
   bGPDlayer *gpl = (bGPDlayer *)ptr->data;
   char name_esc[sizeof(gpl->info) * 2];
@@ -334,13 +334,13 @@ static int rna_GPencilLayer_active_frame_editable(PointerRNA *ptr, const char **
 static void set_parent(bGPDlayer *gpl, Object *par, const int type, const char *substr)
 {
   if (type == PAROBJECT) {
-    invert_m4_m4(gpl->inverse, par->obmat);
+    invert_m4_m4(gpl->inverse, par->object_to_world);
     gpl->parent = par;
     gpl->partype |= PAROBJECT;
     gpl->parsubstr[0] = 0;
   }
   else if (type == PARSKEL) {
-    invert_m4_m4(gpl->inverse, par->obmat);
+    invert_m4_m4(gpl->inverse, par->object_to_world);
     gpl->parent = par;
     gpl->partype |= PARSKEL;
     gpl->parsubstr[0] = 0;
@@ -349,12 +349,18 @@ static void set_parent(bGPDlayer *gpl, Object *par, const int type, const char *
     bPoseChannel *pchan = BKE_pose_channel_find_name(par->pose, substr);
     if (pchan) {
       float tmp_mat[4][4];
-      mul_m4_m4m4(tmp_mat, par->obmat, pchan->pose_mat);
+      mul_m4_m4m4(tmp_mat, par->object_to_world, pchan->pose_mat);
 
       invert_m4_m4(gpl->inverse, tmp_mat);
       gpl->parent = par;
       gpl->partype |= PARBONE;
       BLI_strncpy(gpl->parsubstr, substr, sizeof(gpl->parsubstr));
+    }
+    else {
+      invert_m4_m4(gpl->inverse, par->object_to_world);
+      gpl->parent = par;
+      gpl->partype |= PAROBJECT;
+      gpl->parsubstr[0] = 0;
     }
   }
 }
@@ -401,7 +407,7 @@ static void rna_GPencilLayer_parent_bone_set(PointerRNA *ptr, const char *value)
   }
 }
 
-static char *rna_GPencilLayerMask_path(PointerRNA *ptr)
+static char *rna_GPencilLayerMask_path(const PointerRNA *ptr)
 {
   bGPdata *gpd = (bGPdata *)ptr->owner_id;
   bGPDlayer *gpl = BKE_gpencil_layer_active_get(gpd);
@@ -842,10 +848,6 @@ static float rna_GPencilStrokePoints_weight_get(bGPDstroke *stroke,
   }
 
   MDeformVert *pt_dvert = stroke->dvert + point_index;
-  if ((pt_dvert) && (pt_dvert->totweight <= vertex_group_index || vertex_group_index < 0)) {
-    BKE_report(reports, RPT_ERROR, "Groups: index out of range");
-    return -1.0f;
-  }
 
   MDeformWeight *dw = BKE_defvert_find_index(pt_dvert, vertex_group_index);
   if (dw) {
@@ -1120,7 +1122,7 @@ static void rna_GPencil_clear(bGPdata *gpd)
   WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 }
 
-static char *rna_GreasePencilGrid_path(PointerRNA *UNUSED(ptr))
+static char *rna_GreasePencilGrid_path(const PointerRNA *UNUSED(ptr))
 {
   return BLI_strdup("grid");
 }
@@ -1805,6 +1807,7 @@ static void rna_def_gpencil_frame(BlenderRNA *brna)
   /* XXX NOTE: this cannot occur on the same frame as another sketch. */
   RNA_def_property_range(prop, -MAXFRAME, MAXFRAME);
   RNA_def_property_ui_text(prop, "Frame Number", "The frame on which this sketch appears");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   prop = RNA_def_property(srna, "keyframe_type", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "key_type");
@@ -1822,6 +1825,7 @@ static void rna_def_gpencil_frame(BlenderRNA *brna)
   prop = RNA_def_property(srna, "select", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_FRAME_SELECT);
   RNA_def_property_ui_text(prop, "Select", "Frame is selected for editing in the Dope Sheet");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* API */
   func = RNA_def_function(srna, "clear", "rna_GPencil_frame_clear");
@@ -2558,7 +2562,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, NULL, "curve_edit_corner_angle");
   RNA_def_property_range(prop, 0.0f, DEG2RADF(180.0f));
   RNA_def_property_float_default(prop, DEG2RADF(90.0f));
-  RNA_def_property_ui_text(prop, "Corner Angle", "Angle threshold to be treated as corners");
+  RNA_def_property_ui_text(prop, "Corner Angle", "Angles above this are considered corners");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 
   prop = RNA_def_property(srna, "use_multiedit", PROP_BOOLEAN, PROP_NONE);

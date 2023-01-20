@@ -272,7 +272,7 @@ typedef struct Ipo {
 #define SEQ_FAC_SPEED 2
 #define SEQ_FAC_OPACITY 3
 
-/* ********* Curve (ID_CU) *********** */
+/* ********* Curve (ID_CU_LEGACY) *********** */
 
 #define CU_TOTIPO 1
 #define CU_TOTNAM 1
@@ -338,7 +338,7 @@ typedef struct Ipo {
 #define CAM_STA 2
 #define CAM_END 3
 
-/* yafray aperture & focal distance curves */
+/* YAFRAY aperture & focal distance curves. */
 #define CAM_YF_APERT 4
 #define CAM_YF_FDIST 5
 

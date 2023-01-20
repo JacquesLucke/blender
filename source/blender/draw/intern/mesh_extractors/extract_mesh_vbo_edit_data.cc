@@ -5,7 +5,7 @@
  * \ingroup draw
  */
 
-#include "extract_mesh.h"
+#include "extract_mesh.hh"
 
 #include "draw_cache_impl.h"
 
@@ -60,14 +60,14 @@ static void mesh_render_data_edge_flag(const MeshRenderData *mr,
   if (mr->edge_crease_ofs != -1) {
     float crease = BM_ELEM_CD_GET_FLOAT(eed, mr->edge_crease_ofs);
     if (crease > 0) {
-      eattr->crease = (uchar)ceil(crease * 15.0f);
+      eattr->crease = uchar(ceil(crease * 15.0f));
     }
   }
   /* Use a byte for value range */
   if (mr->bweight_ofs != -1) {
     float bweight = BM_ELEM_CD_GET_FLOAT(eed, mr->bweight_ofs);
     if (bweight > 0) {
-      eattr->bweight = (uchar)(bweight * 255.0f);
+      eattr->bweight = uchar(bweight * 255.0f);
     }
   }
 #ifdef WITH_FREESTYLE
@@ -95,7 +95,7 @@ static void mesh_render_data_vert_flag(const MeshRenderData *mr,
   if (mr->vert_crease_ofs != -1) {
     float crease = BM_ELEM_CD_GET_FLOAT(eve, mr->vert_crease_ofs);
     if (crease > 0) {
-      eattr->crease |= (uchar)ceil(crease * 15.0f) << 4;
+      eattr->crease |= uchar(ceil(crease * 15.0f)) << 4;
     }
   }
 }
@@ -112,7 +112,7 @@ static GPUVertFormat *get_edit_data_format()
 }
 
 static void extract_edit_data_init(const MeshRenderData *mr,
-                                   struct MeshBatchCache *UNUSED(cache),
+                                   MeshBatchCache * /*cache*/,
                                    void *buf,
                                    void *tls_data)
 {
@@ -126,7 +126,7 @@ static void extract_edit_data_init(const MeshRenderData *mr,
 
 static void extract_edit_data_iter_poly_bm(const MeshRenderData *mr,
                                            const BMFace *f,
-                                           const int UNUSED(f_index),
+                                           const int /*f_index*/,
                                            void *_data)
 {
   EditLoopData *vbo_data = *(EditLoopData **)_data;
@@ -138,7 +138,7 @@ static void extract_edit_data_iter_poly_bm(const MeshRenderData *mr,
 
     EditLoopData *data = vbo_data + l_index;
     memset(data, 0x0, sizeof(*data));
-    mesh_render_data_face_flag(mr, f, -1, data);
+    mesh_render_data_face_flag(mr, f, {-1, -1, -1, -1}, data);
     mesh_render_data_edge_flag(mr, l_iter->e, data);
     mesh_render_data_vert_flag(mr, l_iter->v, data);
   } while ((l_iter = l_iter->next) != l_first);
@@ -161,7 +161,7 @@ static void extract_edit_data_iter_poly_mesh(const MeshRenderData *mr,
     BMEdge *eed = bm_original_edge_get(mr, ml->e);
     BMVert *eve = bm_original_vert_get(mr, ml->v);
     if (efa) {
-      mesh_render_data_face_flag(mr, efa, -1, data);
+      mesh_render_data_face_flag(mr, efa, {-1, -1, -1, -1}, data);
     }
     if (eed) {
       mesh_render_data_edge_flag(mr, eed, data);
@@ -223,7 +223,6 @@ static void extract_edit_data_iter_lvert_bm(const MeshRenderData *mr,
 }
 
 static void extract_edit_data_iter_lvert_mesh(const MeshRenderData *mr,
-                                              const MVert *UNUSED(mv),
                                               const int lvert_index,
                                               void *_data)
 {
@@ -240,14 +239,15 @@ static void extract_edit_data_iter_lvert_mesh(const MeshRenderData *mr,
 }
 
 static void extract_edit_data_init_subdiv(const DRWSubdivCache *subdiv_cache,
-                                          const MeshRenderData *mr,
-                                          MeshBatchCache *UNUSED(cache),
+                                          const MeshRenderData * /*mr*/,
+                                          MeshBatchCache * /*cache*/,
                                           void *buf,
                                           void *data)
 {
+  const DRWSubdivLooseGeom &loose_geom = subdiv_cache->loose_geom;
   GPUVertBuf *vbo = static_cast<GPUVertBuf *>(buf);
   GPU_vertbuf_init_with_format(vbo, get_edit_data_format());
-  GPU_vertbuf_data_alloc(vbo, subdiv_cache->num_subdiv_loops + mr->loop_loose_len);
+  GPU_vertbuf_data_alloc(vbo, subdiv_cache->num_subdiv_loops + loose_geom.loop_len);
   EditLoopData *vbo_data = (EditLoopData *)GPU_vertbuf_get_data(vbo);
   *(EditLoopData **)data = vbo_data;
 }
@@ -288,7 +288,7 @@ static void extract_edit_data_iter_subdiv_bm(const DRWSubdivCache *subdiv_cache,
     /* coarse_quad can be null when called by the mesh iteration below. */
     if (coarse_quad) {
       /* The -1 parameter is for edit_uvs, which we don't do here. */
-      mesh_render_data_face_flag(mr, coarse_quad, -1, edit_loop_data);
+      mesh_render_data_face_flag(mr, coarse_quad, {-1, -1, -1, -1}, edit_loop_data);
     }
   }
 }
@@ -299,34 +299,45 @@ static void extract_edit_data_iter_subdiv_mesh(const DRWSubdivCache *subdiv_cach
                                                uint subdiv_quad_index,
                                                const MPoly *coarse_quad)
 {
-  const int coarse_quad_index = static_cast<int>(coarse_quad - mr->mpoly);
+  const int coarse_quad_index = int(coarse_quad - mr->mpoly);
   BMFace *coarse_quad_bm = bm_original_face_get(mr, coarse_quad_index);
   extract_edit_data_iter_subdiv_bm(subdiv_cache, mr, _data, subdiv_quad_index, coarse_quad_bm);
 }
 
 static void extract_edit_data_loose_geom_subdiv(const DRWSubdivCache *subdiv_cache,
                                                 const MeshRenderData *mr,
-                                                const MeshExtractLooseGeom *loose_geom,
-                                                void *UNUSED(buffer),
+                                                void * /*buffer*/,
                                                 void *_data)
 {
-  if (loose_geom->edge_len == 0) {
+  const DRWSubdivLooseGeom &loose_geom = subdiv_cache->loose_geom;
+  if (loose_geom.edge_len == 0) {
     return;
   }
 
-  EditLoopData *vbo_data = *(EditLoopData **)_data;
+  blender::Span<DRWSubdivLooseEdge> loose_edges = draw_subdiv_cache_get_loose_edges(subdiv_cache);
 
-  for (int ledge_index = 0; ledge_index < loose_geom->edge_len; ledge_index++) {
-    const int offset = subdiv_cache->num_subdiv_loops + ledge_index * 2;
+  EditLoopData *vbo_data = *(EditLoopData **)_data;
+  int ledge_index = 0;
+
+  for (const DRWSubdivLooseEdge &loose_edge : loose_edges) {
+    const int offset = subdiv_cache->num_subdiv_loops + ledge_index++ * 2;
     EditLoopData *data = &vbo_data[offset];
     memset(data, 0, sizeof(EditLoopData));
-    const int edge_index = loose_geom->edges[ledge_index];
+    const int edge_index = loose_edge.coarse_edge_index;
     BMEdge *eed = mr->e_origindex ? bm_original_edge_get(mr, edge_index) :
                                     BM_edge_at_index(mr->bm, edge_index);
     mesh_render_data_edge_flag(mr, eed, &data[0]);
     data[1] = data[0];
-    mesh_render_data_vert_flag(mr, eed->v1, &data[0]);
-    mesh_render_data_vert_flag(mr, eed->v2, &data[1]);
+
+    const DRWSubdivLooseVertex &v1 = loose_geom.verts[loose_edge.loose_subdiv_v1_index];
+    const DRWSubdivLooseVertex &v2 = loose_geom.verts[loose_edge.loose_subdiv_v2_index];
+
+    if (v1.coarse_vertex_index != -1u) {
+      mesh_render_data_vert_flag(mr, eed->v1, &data[0]);
+    }
+    if (v2.coarse_vertex_index != -1u) {
+      mesh_render_data_vert_flag(mr, eed->v2, &data[1]);
+    }
   }
 }
 
@@ -355,6 +366,4 @@ constexpr MeshExtract create_extractor_edit_data()
 
 }  // namespace blender::draw
 
-extern "C" {
 const MeshExtract extract_edit_data = blender::draw::create_extractor_edit_data();
-}

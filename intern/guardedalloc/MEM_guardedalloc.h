@@ -55,8 +55,8 @@ extern void (*MEM_freeN)(void *vmemh);
 
 #if 0 /* UNUSED */
 /**
-   * Return zero if memory is not in allocated list
-   */
+ * Return zero if memory is not in allocated list
+ */
 extern short (*MEM_testN)(void *vmemh);
 #endif
 
@@ -169,7 +169,7 @@ extern unsigned int (*MEM_get_memory_blocks_in_use)(void);
 /** Reset the peak memory statistic to zero. */
 extern void (*MEM_reset_peak_memory)(void);
 
-/** Get the peak memory usage in bytes, including mmap allocations. */
+/** Get the peak memory usage in bytes, including `mmap` allocations. */
 extern size_t (*MEM_get_peak_memory)(void) ATTR_WARN_UNUSED_RESULT;
 
 #ifdef __GNUC__
@@ -199,6 +199,15 @@ extern size_t (*MEM_get_peak_memory)(void) ATTR_WARN_UNUSED_RESULT;
 
 #ifndef NDEBUG
 extern const char *(*MEM_name_ptr)(void *vmemh);
+/**
+ * Change the debugging name/string assigned to the memory allocated at \a vmemh. Only affects the
+ * guarded allocator. The name must be a static string, because only a pointer to it is stored!
+ *
+ * Handy when debugging leaking memory allocated by some often called, generic function with a
+ * unspecific name. A caller with more info can set a more specific name, and see which call to the
+ * generic function allocates the leaking memory.
+ */
+extern void (*MEM_name_ptr_set)(void *vmemh, const char *str) ATTR_NONNULL();
 #endif
 
 /**
@@ -262,20 +271,8 @@ void MEM_use_guarded_allocator(void);
 template<typename T, typename... Args>
 inline T *MEM_new(const char *allocation_name, Args &&...args)
 {
-  void *buffer = MEM_mallocN(sizeof(T), allocation_name);
+  void *buffer = MEM_mallocN_aligned(sizeof(T), alignof(T), allocation_name);
   return new (buffer) T(std::forward<Args>(args)...);
-}
-
-/**
- * Allocates zero-initialized memory for an object of type #T. The constructor of #T is not called,
- * therefor this should only used with trivial types (like all C types).
- * It's valid to call #MEM_freeN on a pointer returned by this, because a destructor call is not
- * necessary, because the type is trivial.
- */
-template<typename T> inline T *MEM_cnew(const char *allocation_name)
-{
-  static_assert(std::is_trivial_v<T>, "For non-trivial types, MEM_new should be used.");
-  return static_cast<T *>(MEM_callocN(sizeof(T), allocation_name));
 }
 
 /**
@@ -291,6 +288,47 @@ template<typename T> inline void MEM_delete(const T *ptr)
   /* C++ allows destruction of const objects, so the pointer is allowed to be const. */
   ptr->~T();
   MEM_freeN(const_cast<T *>(ptr));
+}
+
+/**
+ * Allocates zero-initialized memory for an object of type #T. The constructor of #T is not called,
+ * therefor this should only used with trivial types (like all C types).
+ * It's valid to call #MEM_freeN on a pointer returned by this, because a destructor call is not
+ * necessary, because the type is trivial.
+ */
+template<typename T> inline T *MEM_cnew(const char *allocation_name)
+{
+  static_assert(std::is_trivial_v<T>, "For non-trivial types, MEM_new should be used.");
+  return static_cast<T *>(MEM_callocN(sizeof(T), allocation_name));
+}
+
+/**
+ * Same as MEM_cnew but for arrays, better alternative to #MEM_calloc_arrayN.
+ */
+template<typename T> inline T *MEM_cnew_array(const size_t length, const char *allocation_name)
+{
+  static_assert(std::is_trivial_v<T>, "For non-trivial types, MEM_new should be used.");
+  return static_cast<T *>(MEM_calloc_arrayN(length, sizeof(T), allocation_name));
+}
+
+/**
+ * Allocate memory for an object of type #T and copy construct an object from `other`.
+ * Only applicable for a trivial types.
+ *
+ * This function works around problem of copy-constructing DNA structs which contains deprecated
+ * fields: some compilers will generate access deprecated field in implicitly defined copy
+ * constructors.
+ *
+ * This is a better alternative to #MEM_dupallocN.
+ */
+template<typename T> inline T *MEM_cnew(const char *allocation_name, const T &other)
+{
+  static_assert(std::is_trivial_v<T>, "For non-trivial types, MEM_new should be used.");
+  T *new_object = static_cast<T *>(MEM_mallocN(sizeof(T), allocation_name));
+  if (new_object) {
+    memcpy(new_object, &other, sizeof(T));
+  }
+  return new_object;
 }
 
 /* Allocation functions (for C++ only). */

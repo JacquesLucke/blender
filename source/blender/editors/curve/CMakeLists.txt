@@ -11,9 +11,13 @@ set(INC
   ../../makesrna
   ../../windowmanager
   ../../../../intern/clog
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
   ../../../../extern/curve_fit_nd
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
+)
+
+set(INC_SYS
 )
 
 set(SRC
@@ -21,6 +25,7 @@ set(SRC
   editcurve.c
   editcurve_add.c
   editcurve_paint.c
+  editcurve_pen.c
   editcurve_query.c
   editcurve_select.c
   editcurve_undo.c
@@ -38,3 +43,6 @@ set(LIB
 
 
 blender_add_lib(bf_editor_curve "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+# RNA_prototypes.h
+add_dependencies(bf_editor_curve bf_rna)

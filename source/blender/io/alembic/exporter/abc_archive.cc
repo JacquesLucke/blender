@@ -103,7 +103,7 @@ static void get_shutter_samples(double scene_fps,
                                 bool time_relative,
                                 std::vector<double> &r_samples)
 {
-  int frame_offset = time_relative ? params.frame_start : 0;
+  double frame_offset = time_relative ? params.frame_start : 0.0;
   double time_factor = time_relative ? scene_fps : 1.0;
   double shutter_open = params.shutter_open;
   double shutter_close = params.shutter_close;
@@ -130,13 +130,13 @@ static TimeSamplingPtr create_time_sampling(double scene_fps,
 
   get_shutter_samples(scene_fps, params, nr_of_samples, true, samples);
 
-  TimeSamplingType ts(static_cast<uint32_t>(samples.size()), 1.0 / scene_fps);
+  TimeSamplingType ts(uint32_t(samples.size()), 1.0 / scene_fps);
   return TimeSamplingPtr(new TimeSampling(ts, samples));  // NOLINT: modernize-make-shared
 }
 
 static void get_frames(double scene_fps,
                        const AlembicExportParams &params,
-                       unsigned int nr_of_samples,
+                       uint nr_of_samples,
                        std::set<double> &r_frames)
 {
   /* Get one set of shutter samples, then add those around each frame to export. */

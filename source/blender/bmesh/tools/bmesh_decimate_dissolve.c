@@ -289,14 +289,14 @@ void BM_mesh_decimate_dissolve_ex(BMesh *bm,
   int i;
 
   if (delimit & BMO_DELIM_UV) {
-    const int layer_len = CustomData_number_of_layers(&bm->ldata, CD_MLOOPUV);
+    const int layer_len = CustomData_number_of_layers(&bm->ldata, CD_PROP_FLOAT2);
     if (layer_len == 0) {
       delimit &= ~BMO_DELIM_UV;
     }
     else {
-      delimit_data.cd_loop_type = CD_MLOOPUV;
+      delimit_data.cd_loop_type = CD_PROP_FLOAT2;
       delimit_data.cd_loop_size = CustomData_sizeof(delimit_data.cd_loop_type);
-      delimit_data.cd_loop_offset = CustomData_get_n_offset(&bm->ldata, CD_MLOOPUV, 0);
+      delimit_data.cd_loop_offset = CustomData_get_n_offset(&bm->ldata, CD_PROP_FLOAT2, 0);
       delimit_data.cd_loop_offset_end = delimit_data.cd_loop_size * layer_len;
     }
   }
@@ -330,7 +330,7 @@ void BM_mesh_decimate_dissolve_ex(BMesh *bm,
     }
 
     while ((BLI_heap_is_empty(eheap) == false) &&
-           (BLI_heap_node_value((enode_top = BLI_heap_top(eheap))) < angle_limit_cos_neg)) {
+           (BLI_heap_node_value(enode_top = BLI_heap_top(eheap)) < angle_limit_cos_neg)) {
       BMFace *f_new = NULL;
       BMEdge *e;
 
@@ -451,7 +451,7 @@ void BM_mesh_decimate_dissolve_ex(BMesh *bm,
     }
 
     while ((BLI_heap_is_empty(vheap) == false) &&
-           (BLI_heap_node_value((vnode_top = BLI_heap_top(vheap))) < angle_limit)) {
+           (BLI_heap_node_value(vnode_top = BLI_heap_top(vheap)) < angle_limit)) {
       BMEdge *e_new = NULL;
       BMVert *v;
 

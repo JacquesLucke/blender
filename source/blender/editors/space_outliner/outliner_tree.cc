@@ -41,6 +41,7 @@
 #include "BLI_fnmatch.h"
 #include "BLI_listbase.h"
 #include "BLI_mempool.h"
+#include "BLI_timeit.hh"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
@@ -51,7 +52,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
-#include "BKE_outliner_treehash.h"
+#include "BKE_outliner_treehash.hh"
 
 #include "ED_screen.h"
 
@@ -69,13 +70,14 @@
 #  include "BLI_math_base.h" /* M_PI */
 #endif
 
-using namespace blender::ed::outliner;
+namespace blender::ed::outliner {
 
 /* prototypes */
 static int outliner_exclude_filter_get(const SpaceOutliner *space_outliner);
 
-/* ********************************************************* */
-/* Persistent Data */
+/* -------------------------------------------------------------------- */
+/** \name Persistent Data
+ * \{ */
 
 static void outliner_storage_cleanup(SpaceOutliner *space_outliner)
 {
@@ -89,7 +91,7 @@ static void outliner_storage_cleanup(SpaceOutliner *space_outliner)
     BLI_mempool_iter iter;
 
     BLI_mempool_iternew(ts, &iter);
-    while ((tselem = reinterpret_cast<TreeStoreElem *>(BLI_mempool_iterstep(&iter)))) {
+    while ((tselem = static_cast<TreeStoreElem *>(BLI_mempool_iterstep(&iter)))) {
       tselem->used = 0;
     }
 
@@ -99,7 +101,7 @@ static void outliner_storage_cleanup(SpaceOutliner *space_outliner)
       space_outliner->storeflag &= ~SO_TREESTORE_CLEANUP;
 
       BLI_mempool_iternew(ts, &iter);
-      while ((tselem = reinterpret_cast<TreeStoreElem *>(BLI_mempool_iterstep(&iter)))) {
+      while ((tselem = static_cast<TreeStoreElem *>(BLI_mempool_iterstep(&iter)))) {
         if (tselem->id == nullptr) {
           unused++;
         }
@@ -109,34 +111,30 @@ static void outliner_storage_cleanup(SpaceOutliner *space_outliner)
         if (BLI_mempool_len(ts) == unused) {
           BLI_mempool_destroy(ts);
           space_outliner->treestore = nullptr;
-          if (space_outliner->runtime->treehash) {
-            BKE_outliner_treehash_free(space_outliner->runtime->treehash);
-            space_outliner->runtime->treehash = nullptr;
-          }
+          space_outliner->runtime->tree_hash = nullptr;
         }
         else {
           TreeStoreElem *tsenew;
           BLI_mempool *new_ts = BLI_mempool_create(
               sizeof(TreeStoreElem), BLI_mempool_len(ts) - unused, 512, BLI_MEMPOOL_ALLOW_ITER);
           BLI_mempool_iternew(ts, &iter);
-          while ((tselem = reinterpret_cast<TreeStoreElem *>(BLI_mempool_iterstep(&iter)))) {
+          while ((tselem = static_cast<TreeStoreElem *>(BLI_mempool_iterstep(&iter)))) {
             if (tselem->id) {
-              tsenew = reinterpret_cast<TreeStoreElem *>(BLI_mempool_alloc(new_ts));
+              tsenew = static_cast<TreeStoreElem *>(BLI_mempool_alloc(new_ts));
               *tsenew = *tselem;
             }
           }
           BLI_mempool_destroy(ts);
           space_outliner->treestore = new_ts;
-          if (space_outliner->runtime->treehash) {
+          if (space_outliner->runtime->tree_hash) {
             /* update hash table to fix broken pointers */
-            BKE_outliner_treehash_rebuild_from_treestore(space_outliner->runtime->treehash,
-                                                         space_outliner->treestore);
+            space_outliner->runtime->tree_hash->rebuild_from_treestore(*space_outliner->treestore);
           }
         }
       }
     }
-    else if (space_outliner->runtime->treehash) {
-      BKE_outliner_treehash_clear_used(space_outliner->runtime->treehash);
+    else if (space_outliner->runtime->tree_hash) {
+      space_outliner->runtime->tree_hash->clear_used();
     }
   }
 }
@@ -149,15 +147,14 @@ static void check_persistent(
     space_outliner->treestore = BLI_mempool_create(
         sizeof(TreeStoreElem), 1, 512, BLI_MEMPOOL_ALLOW_ITER);
   }
-  if (space_outliner->runtime->treehash == nullptr) {
-    space_outliner->runtime->treehash = reinterpret_cast<GHash *>(
-        BKE_outliner_treehash_create_from_treestore(space_outliner->treestore));
+  if (space_outliner->runtime->tree_hash == nullptr) {
+    space_outliner->runtime->tree_hash = treehash::TreeHash::create_from_treestore(
+        *space_outliner->treestore);
   }
 
   /* find any unused tree element in treestore and mark it as used
    * (note that there may be multiple unused elements in case of linked objects) */
-  TreeStoreElem *tselem = BKE_outliner_treehash_lookup_unused(
-      space_outliner->runtime->treehash, type, nr, id);
+  TreeStoreElem *tselem = space_outliner->runtime->tree_hash->lookup_unused(type, nr, id);
   if (tselem) {
     te->store_elem = tselem;
     tselem->used = 1;
@@ -165,18 +162,21 @@ static void check_persistent(
   }
 
   /* add 1 element to treestore */
-  tselem = reinterpret_cast<TreeStoreElem *>(BLI_mempool_alloc(space_outliner->treestore));
+  tselem = static_cast<TreeStoreElem *>(BLI_mempool_alloc(space_outliner->treestore));
   tselem->type = type;
   tselem->nr = type ? nr : 0;
   tselem->id = id;
   tselem->used = 0;
   tselem->flag = TSE_CLOSED;
   te->store_elem = tselem;
-  BKE_outliner_treehash_add_element(space_outliner->runtime->treehash, tselem);
+  space_outliner->runtime->tree_hash->add_element(*tselem);
 }
 
-/* ********************************************************* */
-/* Tree Management */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Tree Management
+ * \{ */
 
 void outliner_free_tree(ListBase *tree)
 {
@@ -215,11 +215,6 @@ bool outliner_requires_rebuild_on_select_or_active_change(const SpaceOutliner *s
   /* Need to rebuild tree to re-apply filter if select/active changed while filtering based on
    * select/active. */
   return exclude_flags & (SO_FILTER_OB_STATE_SELECTED | SO_FILTER_OB_STATE_ACTIVE);
-}
-
-bool outliner_requires_rebuild_on_open_change(const SpaceOutliner *space_outliner)
-{
-  return ELEM(space_outliner->outlinevis, SO_DATA_API);
 }
 
 /* special handling of hierarchical non-lib data */
@@ -283,13 +278,10 @@ static void outliner_add_object_contents(SpaceOutliner *space_outliner,
     outliner_add_element(space_outliner, &te->subtree, ob, te, TSE_ANIM_DATA, 0);
   }
 
-  /* FIXME: add a special type for this. */
-  outliner_add_element(space_outliner, &te->subtree, ob->poselib, te, TSE_SOME_ID, 0);
-
   outliner_add_element(space_outliner, &te->subtree, ob->data, te, TSE_SOME_ID, 0);
 
   if (ob->pose) {
-    bArmature *arm = reinterpret_cast<bArmature *>(ob->data);
+    bArmature *arm = static_cast<bArmature *>(ob->data);
     TreeElement *tenla = outliner_add_element(
         space_outliner, &te->subtree, ob, te, TSE_POSE_BASE, 0);
     tenla->name = IFACE_("Pose");
@@ -335,7 +327,7 @@ static void outliner_add_object_contents(SpaceOutliner *space_outliner,
         }
       }
       /* make hierarchy */
-      TreeElement *ten = reinterpret_cast<TreeElement *>(tenla->subtree.first);
+      TreeElement *ten = static_cast<TreeElement *>(tenla->subtree.first);
       while (ten) {
         TreeElement *nten = ten->next, *par;
         tselem = TREESTORE(ten);
@@ -579,7 +571,7 @@ static void outliner_add_id_contents(SpaceOutliner *space_outliner,
        * would require going over all tfaces, sort images in use. etc... */
       break;
     }
-    case ID_CU: {
+    case ID_CU_LEGACY: {
       Curve *cu = (Curve *)id;
 
       if (outliner_animdata_test(cu->adt)) {
@@ -690,15 +682,15 @@ static void outliner_add_id_contents(SpaceOutliner *space_outliner,
           ebone->temp.p = ten;
         }
         /* make hierarchy */
-        TreeElement *ten = arm->edbo->first ? reinterpret_cast<TreeElement *>(
-                                                  ((EditBone *)arm->edbo->first)->temp.p) :
-                                              nullptr;
+        TreeElement *ten = arm->edbo->first ?
+                               static_cast<TreeElement *>(((EditBone *)arm->edbo->first)->temp.p) :
+                               nullptr;
         while (ten) {
           TreeElement *nten = ten->next, *par;
           EditBone *ebone = (EditBone *)ten->directdata;
           if (ebone->parent) {
             BLI_remlink(&te->subtree, ten);
-            par = reinterpret_cast<TreeElement *>(ebone->parent->temp.p);
+            par = static_cast<TreeElement *>(ebone->parent->temp.p);
             BLI_addtail(&par->subtree, ten);
             ten->parent = par;
           }
@@ -708,7 +700,8 @@ static void outliner_add_id_contents(SpaceOutliner *space_outliner,
       else {
         /* do not extend Armature when we have posemode */
         tselem = TREESTORE(te->parent);
-        if (GS(tselem->id->name) == ID_OB && ((Object *)tselem->id)->mode & OB_MODE_POSE) {
+        if (TSE_IS_REAL_ID(tselem) && GS(tselem->id->name) == ID_OB &&
+            ((Object *)tselem->id)->mode & OB_MODE_POSE) {
           /* pass */
         }
         else {
@@ -790,30 +783,32 @@ static void outliner_add_id_contents(SpaceOutliner *space_outliner,
   }
 }
 
-namespace blender::ed::outliner {
-
 TreeElement *outliner_add_element(SpaceOutliner *space_outliner,
                                   ListBase *lb,
                                   void *idv,
                                   TreeElement *parent,
                                   short type,
-                                  short index)
+                                  short index,
+                                  const bool expand)
 {
-  ID *id = reinterpret_cast<ID *>(idv);
+  ID *id = static_cast<ID *>(idv);
 
   if (ELEM(type, TSE_RNA_STRUCT, TSE_RNA_PROPERTY, TSE_RNA_ARRAY_ELEM)) {
     id = ((PointerRNA *)idv)->owner_id;
     if (!id) {
-      id = reinterpret_cast<ID *>(((PointerRNA *)idv)->data);
+      id = static_cast<ID *>(((PointerRNA *)idv)->data);
     }
   }
   else if (type == TSE_GP_LAYER) {
     /* idv is the layer itself */
     id = TREESTORE(parent)->id;
   }
+  else if (ELEM(type, TSE_GENERIC_LABEL)) {
+    id = nullptr;
+  }
 
   /* exceptions */
-  if (type == TSE_ID_BASE) {
+  if (ELEM(type, TSE_ID_BASE, TSE_GENERIC_LABEL)) {
     /* pass */
   }
   else if (id == nullptr) {
@@ -863,7 +858,7 @@ TreeElement *outliner_add_element(SpaceOutliner *space_outliner,
   else if (ELEM(type, TSE_LAYER_COLLECTION, TSE_SCENE_COLLECTION_BASE, TSE_VIEW_COLLECTION_BASE)) {
     /* pass */
   }
-  else if (type == TSE_ID_BASE) {
+  else if (ELEM(type, TSE_ID_BASE, TSE_GENERIC_LABEL)) {
     /* pass */
   }
   else if (type == TSE_SOME_ID) {
@@ -871,7 +866,10 @@ TreeElement *outliner_add_element(SpaceOutliner *space_outliner,
       BLI_assert_msg(0, "Expected this ID type to be ported to new Outliner tree-element design");
     }
   }
-  else if (ELEM(type, TSE_LIBRARY_OVERRIDE_BASE, TSE_LIBRARY_OVERRIDE)) {
+  else if (ELEM(type,
+                TSE_LIBRARY_OVERRIDE_BASE,
+                TSE_LIBRARY_OVERRIDE,
+                TSE_LIBRARY_OVERRIDE_OPERATION)) {
     if (!te->abstract_element) {
       BLI_assert_msg(0,
                      "Expected override types to be ported to new Outliner tree-element design");
@@ -889,14 +887,16 @@ TreeElement *outliner_add_element(SpaceOutliner *space_outliner,
     te->idcode = GS(id->name);
   }
 
-  if (te->abstract_element && te->abstract_element->isExpandValid()) {
+  if (!expand) {
+    /* Pass */
+  }
+  else if (te->abstract_element && te->abstract_element->isExpandValid()) {
     tree_element_expand(*te->abstract_element, *space_outliner);
   }
   else if (type == TSE_SOME_ID) {
     /* ID types not (fully) ported to new design yet. */
     if (te->abstract_element->expandPoll(*space_outliner)) {
       outliner_add_id_contents(space_outliner, te, tselem, id);
-      te->abstract_element->postExpand(*space_outliner);
     }
   }
   else if (ELEM(type,
@@ -911,18 +911,13 @@ TreeElement *outliner_add_element(SpaceOutliner *space_outliner,
                 TSE_RNA_ARRAY_ELEM,
                 TSE_SEQUENCE,
                 TSE_SEQ_STRIP,
-                TSE_SEQUENCE_DUP)) {
+                TSE_SEQUENCE_DUP,
+                TSE_GENERIC_LABEL)) {
     BLI_assert_msg(false, "Element type should already use new AbstractTreeElement design");
-  }
-
-  if (tree_element_warnings_get(te, nullptr, nullptr)) {
-    te->flag |= TE_HAS_WARNING;
   }
 
   return te;
 }
-
-}  // namespace blender::ed::outliner
 
 /* ======================================================= */
 
@@ -960,10 +955,14 @@ TreeElement *outliner_add_collection_recursive(SpaceOutliner *space_outliner,
   return ten;
 }
 
+/** \} */
+
 /* ======================================================= */
 /* Generic Tree Building helpers - order these are called is top to bottom */
 
-/* Sorting ------------------------------------------------------ */
+/* -------------------------------------------------------------------- */
+/** \name Tree Sorting Helper
+ * \{ */
 
 struct tTreeSort {
   TreeElement *te;
@@ -975,8 +974,8 @@ struct tTreeSort {
 /* alphabetical comparator, trying to put objects first */
 static int treesort_alpha_ob(const void *v1, const void *v2)
 {
-  const tTreeSort *x1 = reinterpret_cast<const tTreeSort *>(v1);
-  const tTreeSort *x2 = reinterpret_cast<const tTreeSort *>(v2);
+  const tTreeSort *x1 = static_cast<const tTreeSort *>(v1);
+  const tTreeSort *x2 = static_cast<const tTreeSort *>(v2);
 
   /* first put objects last (hierarchy) */
   int comp = (x1->idcode == ID_OB);
@@ -1014,8 +1013,8 @@ static int treesort_alpha_ob(const void *v1, const void *v2)
 /* Move children that are not in the collection to the end of the list. */
 static int treesort_child_not_in_collection(const void *v1, const void *v2)
 {
-  const tTreeSort *x1 = reinterpret_cast<const tTreeSort *>(v1);
-  const tTreeSort *x2 = reinterpret_cast<const tTreeSort *>(v2);
+  const tTreeSort *x1 = static_cast<const tTreeSort *>(v1);
+  const tTreeSort *x2 = static_cast<const tTreeSort *>(v2);
 
   /* Among objects first come the ones in the collection, followed by the ones not on it.
    * This way we can have the dashed lines in a separate style connecting the former. */
@@ -1028,8 +1027,8 @@ static int treesort_child_not_in_collection(const void *v1, const void *v2)
 /* alphabetical comparator */
 static int treesort_alpha(const void *v1, const void *v2)
 {
-  const tTreeSort *x1 = reinterpret_cast<const tTreeSort *>(v1);
-  const tTreeSort *x2 = reinterpret_cast<const tTreeSort *>(v2);
+  const tTreeSort *x1 = static_cast<const tTreeSort *>(v1);
+  const tTreeSort *x2 = static_cast<const tTreeSort *>(v2);
 
   int comp = BLI_strcasecmp_natural(x1->name, x2->name);
 
@@ -1086,7 +1085,7 @@ static int treesort_obtype_alpha(const void *v1, const void *v2)
 /* sort happens on each subtree individual */
 static void outliner_sort(ListBase *lb)
 {
-  TreeElement *last_te = reinterpret_cast<TreeElement *>(lb->last);
+  TreeElement *last_te = static_cast<TreeElement *>(lb->last);
   if (last_te == nullptr) {
     return;
   }
@@ -1098,7 +1097,7 @@ static void outliner_sort(ListBase *lb)
     int totelem = BLI_listbase_count(lb);
 
     if (totelem > 1) {
-      tTreeSort *tear = reinterpret_cast<tTreeSort *>(
+      tTreeSort *tear = static_cast<tTreeSort *>(
           MEM_mallocN(totelem * sizeof(tTreeSort), "tree sort array"));
       tTreeSort *tp = tear;
       int skip = 0;
@@ -1154,7 +1153,7 @@ static void outliner_sort(ListBase *lb)
 
 static void outliner_collections_children_sort(ListBase *lb)
 {
-  TreeElement *last_te = reinterpret_cast<TreeElement *>(lb->last);
+  TreeElement *last_te = static_cast<TreeElement *>(lb->last);
   if (last_te == nullptr) {
     return;
   }
@@ -1165,7 +1164,7 @@ static void outliner_collections_children_sort(ListBase *lb)
     int totelem = BLI_listbase_count(lb);
 
     if (totelem > 1) {
-      tTreeSort *tear = reinterpret_cast<tTreeSort *>(
+      tTreeSort *tear = static_cast<tTreeSort *>(
           MEM_mallocN(totelem * sizeof(tTreeSort), "tree sort array"));
       tTreeSort *tp = tear;
 
@@ -1195,7 +1194,11 @@ static void outliner_collections_children_sort(ListBase *lb)
   }
 }
 
-/* Filtering ----------------------------------------------- */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Tree Filtering Helper
+ * \{ */
 
 struct OutlinerTreeElementFocus {
   TreeStoreElem *tselem;
@@ -1389,7 +1392,8 @@ static int outliner_exclude_filter_get(const SpaceOutliner *space_outliner)
   return exclude_filter;
 }
 
-static bool outliner_element_visible_get(ViewLayer *view_layer,
+static bool outliner_element_visible_get(const Scene *scene,
+                                         ViewLayer *view_layer,
                                          TreeElement *te,
                                          const int exclude_filter)
 {
@@ -1444,6 +1448,7 @@ static bool outliner_element_visible_get(ViewLayer *view_layer,
 
     if (exclude_filter & SO_FILTER_OB_STATE) {
       if (base == nullptr) {
+        BKE_view_layer_synced_ensure(scene, view_layer);
         base = BKE_view_layer_base_find(view_layer, ob);
 
         if (base == nullptr) {
@@ -1453,7 +1458,7 @@ static bool outliner_element_visible_get(ViewLayer *view_layer,
 
       bool is_visible = true;
       if (exclude_filter & SO_FILTER_OB_STATE_VISIBLE) {
-        if ((base->flag & BASE_VISIBLE_VIEWLAYER) == 0) {
+        if ((base->flag & BASE_ENABLED_AND_VISIBLE_IN_DEFAULT_VIEWPORT) == 0) {
           is_visible = false;
         }
       }
@@ -1469,7 +1474,8 @@ static bool outliner_element_visible_get(ViewLayer *view_layer,
       }
       else {
         BLI_assert(exclude_filter & SO_FILTER_OB_STATE_ACTIVE);
-        if (base != BASACT(view_layer)) {
+        BKE_view_layer_synced_ensure(scene, view_layer);
+        if (base != BKE_view_layer_active_base_get(view_layer)) {
           is_visible = false;
         }
       }
@@ -1532,8 +1538,7 @@ static TreeElement *outliner_extract_children_from_subtree(TreeElement *element,
 
   if (outliner_element_is_collection_or_object(element)) {
     TreeElement *te_prev = nullptr;
-    for (TreeElement *te = reinterpret_cast<TreeElement *>(element->subtree.last); te;
-         te = te_prev) {
+    for (TreeElement *te = static_cast<TreeElement *>(element->subtree.last); te; te = te_prev) {
       te_prev = te->prev;
 
       if (!outliner_element_is_collection_or_object(te)) {
@@ -1552,6 +1557,7 @@ static TreeElement *outliner_extract_children_from_subtree(TreeElement *element,
 }
 
 static int outliner_filter_subtree(SpaceOutliner *space_outliner,
+                                   const Scene *scene,
                                    ViewLayer *view_layer,
                                    ListBase *lb,
                                    const char *search_string,
@@ -1560,20 +1566,20 @@ static int outliner_filter_subtree(SpaceOutliner *space_outliner,
   TreeElement *te, *te_next;
   TreeStoreElem *tselem;
 
-  for (te = reinterpret_cast<TreeElement *>(lb->first); te; te = te_next) {
+  for (te = static_cast<TreeElement *>(lb->first); te; te = te_next) {
     te_next = te->next;
-    if ((outliner_element_visible_get(view_layer, te, exclude_filter) == false)) {
+    if (outliner_element_visible_get(scene, view_layer, te, exclude_filter) == false) {
       /* Don't free the tree, but extract the children from the parent and add to this tree. */
       /* This also needs filtering the subtree prior (see T69246). */
       outliner_filter_subtree(
-          space_outliner, view_layer, &te->subtree, search_string, exclude_filter);
+          space_outliner, scene, view_layer, &te->subtree, search_string, exclude_filter);
       te_next = outliner_extract_children_from_subtree(te, lb);
       continue;
     }
     if ((exclude_filter & SO_FILTER_SEARCH) == 0) {
       /* Filter subtree too. */
       outliner_filter_subtree(
-          space_outliner, view_layer, &te->subtree, search_string, exclude_filter);
+          space_outliner, scene, view_layer, &te->subtree, search_string, exclude_filter);
       continue;
     }
 
@@ -1589,9 +1595,10 @@ static int outliner_filter_subtree(SpaceOutliner *space_outliner,
       /* flag as not a found item */
       tselem->flag &= ~TSE_SEARCHMATCH;
 
-      if ((!TSELEM_OPEN(tselem, space_outliner)) ||
+      if (!TSELEM_OPEN(tselem, space_outliner) ||
           outliner_filter_subtree(
-              space_outliner, view_layer, &te->subtree, search_string, exclude_filter) == 0) {
+              space_outliner, scene, view_layer, &te->subtree, search_string, exclude_filter) ==
+              0) {
         outliner_free_tree_element(te, lb);
       }
     }
@@ -1603,7 +1610,7 @@ static int outliner_filter_subtree(SpaceOutliner *space_outliner,
 
       /* filter subtree too */
       outliner_filter_subtree(
-          space_outliner, view_layer, &te->subtree, search_string, exclude_filter);
+          space_outliner, scene, view_layer, &te->subtree, search_string, exclude_filter);
     }
   }
 
@@ -1611,7 +1618,9 @@ static int outliner_filter_subtree(SpaceOutliner *space_outliner,
   return (BLI_listbase_is_empty(lb) == false);
 }
 
-static void outliner_filter_tree(SpaceOutliner *space_outliner, ViewLayer *view_layer)
+static void outliner_filter_tree(SpaceOutliner *space_outliner,
+                                 const Scene *scene,
+                                 ViewLayer *view_layer)
 {
   char search_buff[sizeof(((struct SpaceOutliner *)nullptr)->search_string) + 2];
   char *search_string;
@@ -1632,7 +1641,7 @@ static void outliner_filter_tree(SpaceOutliner *space_outliner, ViewLayer *view_
   }
 
   outliner_filter_subtree(
-      space_outliner, view_layer, &space_outliner->tree, search_string, exclude_filter);
+      space_outliner, scene, view_layer, &space_outliner->tree, search_string, exclude_filter);
 }
 
 static void outliner_clear_newid_from_main(Main *bmain)
@@ -1644,8 +1653,11 @@ static void outliner_clear_newid_from_main(Main *bmain)
   FOREACH_MAIN_ID_END;
 }
 
-/* ======================================================= */
-/* Main Tree Building API */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Main Tree Building API
+ * \{ */
 
 void outliner_build_tree(Main *mainvar,
                          Scene *scene,
@@ -1663,16 +1675,22 @@ void outliner_build_tree(Main *mainvar,
     space_outliner->search_flags &= ~SO_SEARCH_RECURSIVE;
   }
 
-  if (space_outliner->runtime->treehash && (space_outliner->storeflag & SO_TREESTORE_REBUILD) &&
+  if (space_outliner->runtime->tree_hash && (space_outliner->storeflag & SO_TREESTORE_REBUILD) &&
       space_outliner->treestore) {
-    BKE_outliner_treehash_rebuild_from_treestore(space_outliner->runtime->treehash,
-                                                 space_outliner->treestore);
+    space_outliner->runtime->tree_hash->rebuild_from_treestore(*space_outliner->treestore);
   }
   space_outliner->storeflag &= ~SO_TREESTORE_REBUILD;
 
   if (region->do_draw & RGN_DRAW_NO_REBUILD) {
+    BLI_assert_msg(space_outliner->runtime->tree_display != nullptr,
+                   "Skipping rebuild before tree was built properly, a full redraw should be "
+                   "triggered instead");
     return;
   }
+
+  /* Enable for benchmarking. Starts a timer, results will be printed on function exit. */
+  // SCOPED_TIMER("Outliner Rebuild");
+  // SCOPED_TIMER_AVERAGED("Outliner Rebuild");
 
   OutlinerTreeElementFocus focus;
   outliner_store_scrolling_position(space_outliner, region, &focus);
@@ -1700,10 +1718,14 @@ void outliner_build_tree(Main *mainvar,
     outliner_collections_children_sort(&space_outliner->tree);
   }
 
-  outliner_filter_tree(space_outliner, view_layer);
+  outliner_filter_tree(space_outliner, scene, view_layer);
   outliner_restore_scrolling_position(space_outliner, region, &focus);
 
   /* `ID.newid` pointer is abused when building tree, DO NOT call #BKE_main_id_newptr_and_tag_clear
    * as this expects valid IDs in this pointer, not random unknown data. */
   outliner_clear_newid_from_main(mainvar);
 }
+
+/** \} */
+
+}  // namespace blender::ed::outliner

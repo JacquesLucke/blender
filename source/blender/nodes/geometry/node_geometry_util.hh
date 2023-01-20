@@ -4,7 +4,8 @@
 
 #include <string.h>
 
-#include "BLI_math_vec_types.hh"
+#include "BLI_float4x4.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_utildefines.h"
 
 #include "MEM_guardedalloc.h"
@@ -20,47 +21,40 @@
 #include "NOD_socket_declarations.hh"
 #include "NOD_socket_declarations_geometry.hh"
 
+#include "RNA_access.h"
+
+#include "node_geometry_register.hh"
 #include "node_util.h"
 
+struct BVHTreeFromMesh;
+
 void geo_node_type_base(struct bNodeType *ntype, int type, const char *name, short nclass);
-bool geo_node_poll_default(struct bNodeType *ntype,
-                           struct bNodeTree *ntree,
+bool geo_node_poll_default(const struct bNodeType *ntype,
+                           const struct bNodeTree *ntree,
                            const char **r_disabled_hint);
 
 namespace blender::nodes {
-/**
- * Update the availability of a group of input sockets with the same name,
- * used for switching between attribute inputs or single values.
- *
- * \param mode: Controls which socket of the group to make available.
- * \param name_is_available: If false, make all sockets with this name unavailable.
- */
-void update_attribute_input_socket_availabilities(bNodeTree &ntree,
-                                                  bNode &node,
-                                                  const StringRef name,
-                                                  GeometryNodeAttributeInputMode mode,
-                                                  bool name_is_available = true);
-
-Array<uint32_t> get_geometry_element_ids_as_uints(const GeometryComponent &component,
-                                                  AttributeDomain domain);
 
 void transform_mesh(Mesh &mesh,
                     const float3 translation,
                     const float3 rotation,
                     const float3 scale);
 
-void transform_geometry_set(GeometrySet &geometry,
+void transform_geometry_set(GeoNodeExecParams &params,
+                            GeometrySet &geometry,
                             const float4x4 &transform,
                             const Depsgraph &depsgraph);
 
 Mesh *create_line_mesh(const float3 start, const float3 delta, int count);
 
-Mesh *create_grid_mesh(int verts_x, int verts_y, float size_x, float size_y);
+Mesh *create_grid_mesh(
+    int verts_x, int verts_y, float size_x, float size_y, const AttributeIDRef &uv_map_id);
 
 struct ConeAttributeOutputs {
-  StrongAnonymousAttributeID top_id;
-  StrongAnonymousAttributeID bottom_id;
-  StrongAnonymousAttributeID side_id;
+  AutoAnonymousAttributeID top_id;
+  AutoAnonymousAttributeID bottom_id;
+  AutoAnonymousAttributeID side_id;
+  AutoAnonymousAttributeID uv_map_id;
 };
 
 Mesh *create_cylinder_or_cone_mesh(float radius_top,
@@ -71,8 +65,6 @@ Mesh *create_cylinder_or_cone_mesh(float radius_top,
                                    int fill_segments,
                                    GeometryNodeMeshCircleFillType fill_type,
                                    ConeAttributeOutputs &attribute_outputs);
-
-Mesh *create_cuboid_mesh(float3 size, int verts_x, int verts_y, int verts_z);
 
 /**
  * Copies the point domain attributes from `in_component` that are in the mask to `out_component`.
@@ -87,35 +79,40 @@ void copy_point_attributes_based_on_mask(const GeometryComponent &in_component,
  * component. If no component can work with the domain, then `error_message` is set to true.
  */
 void separate_geometry(GeometrySet &geometry_set,
-                       AttributeDomain domain,
+                       eAttrDomain domain,
                        GeometryNodeDeleteGeometryMode mode,
                        const Field<bool> &selection_field,
-                       bool invert,
+                       const AnonymousAttributePropagationInfo &propagation_info,
                        bool &r_is_error);
 
-struct CurveToPointsResults {
-  int result_size;
-  MutableSpan<float3> positions;
-  MutableSpan<float> radii;
-  MutableSpan<float> tilts;
+void get_closest_in_bvhtree(BVHTreeFromMesh &tree_data,
+                            const VArray<float3> &positions,
+                            const IndexMask mask,
+                            const MutableSpan<int> r_indices,
+                            const MutableSpan<float> r_distances_sq,
+                            const MutableSpan<float3> r_positions);
 
-  Map<AttributeIDRef, GMutableSpan> point_attributes;
+int apply_offset_in_cyclic_range(IndexRange range, int start_index, int offset);
 
-  MutableSpan<float3> tangents;
-  MutableSpan<float3> normals;
-  MutableSpan<float3> rotations;
+std::optional<eCustomDataType> node_data_type_to_custom_data_type(eNodeSocketDatatype type);
+std::optional<eCustomDataType> node_socket_to_custom_data_type(const bNodeSocket &socket);
+
+class FieldAtIndexInput final : public bke::GeometryFieldInput {
+ private:
+  Field<int> index_field_;
+  GField value_field_;
+  eAttrDomain value_field_domain_;
+
+ public:
+  FieldAtIndexInput(Field<int> index_field, GField value_field, eAttrDomain value_field_domain);
+
+  GVArray get_varray_for_context(const bke::GeometryFieldContext &context,
+                                 const IndexMask mask) const final;
+
+  std::optional<eAttrDomain> preferred_domain(const GeometryComponent & /*component*/) const final
+  {
+    return value_field_domain_;
+  }
 };
-/**
- * Create references for all result point cloud attributes to simplify accessing them later on.
- */
-CurveToPointsResults curve_to_points_create_result_attributes(PointCloudComponent &points,
-                                                              const CurveEval &curve);
-
-void curve_create_default_rotation_attribute(Span<float3> tangents,
-                                             Span<float3> normals,
-                                             MutableSpan<float3> rotations);
-
-std::optional<CustomDataType> node_data_type_to_custom_data_type(eNodeSocketDatatype type);
-std::optional<CustomDataType> node_socket_to_custom_data_type(const bNodeSocket &socket);
 
 }  // namespace blender::nodes

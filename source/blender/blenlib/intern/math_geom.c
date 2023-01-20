@@ -68,7 +68,7 @@ float normal_quad_v3(
   return normalize_v3(n);
 }
 
-float normal_poly_v3(float n[3], const float verts[][3], unsigned int nr)
+float normal_poly_v3(float n[3], const float verts[][3], uint nr)
 {
   cross_poly_v3(n, verts, nr);
   return normalize_v3(n);
@@ -122,14 +122,14 @@ float area_tri_signed_v3(const float v1[3],
   return area;
 }
 
-float area_poly_v3(const float verts[][3], unsigned int nr)
+float area_poly_v3(const float verts[][3], uint nr)
 {
   float n[3];
   cross_poly_v3(n, verts, nr);
   return len_v3(n) * 0.5f;
 }
 
-float area_squared_poly_v3(const float verts[][3], unsigned int nr)
+float area_squared_poly_v3(const float verts[][3], uint nr)
 {
   float n[3];
 
@@ -138,9 +138,9 @@ float area_squared_poly_v3(const float verts[][3], unsigned int nr)
   return len_squared_v3(n);
 }
 
-float cross_poly_v2(const float verts[][2], unsigned int nr)
+float cross_poly_v2(const float verts[][2], uint nr)
 {
-  unsigned int a;
+  uint a;
   float cross;
   const float *co_curr, *co_prev;
 
@@ -157,11 +157,11 @@ float cross_poly_v2(const float verts[][2], unsigned int nr)
   return cross;
 }
 
-void cross_poly_v3(float n[3], const float verts[][3], unsigned int nr)
+void cross_poly_v3(float n[3], const float verts[][3], uint nr)
 {
   const float *v_prev = verts[nr - 1];
   const float *v_curr = verts[0];
-  unsigned int i;
+  uint i;
 
   zero_v3(n);
 
@@ -171,17 +171,17 @@ void cross_poly_v3(float n[3], const float verts[][3], unsigned int nr)
   }
 }
 
-float area_poly_v2(const float verts[][2], unsigned int nr)
+float area_poly_v2(const float verts[][2], uint nr)
 {
   return fabsf(0.5f * cross_poly_v2(verts, nr));
 }
 
-float area_poly_signed_v2(const float verts[][2], unsigned int nr)
+float area_poly_signed_v2(const float verts[][2], uint nr)
 {
   return (0.5f * cross_poly_v2(verts, nr));
 }
 
-float area_squared_poly_v2(const float verts[][2], unsigned int nr)
+float area_squared_poly_v2(const float verts[][2], uint nr)
 {
   float area = area_poly_signed_v2(verts, nr);
   return area * area;
@@ -294,46 +294,108 @@ float dist_to_line_segment_v2(const float p[2], const float l1[2], const float l
   return sqrtf(dist_squared_to_line_segment_v2(p, l1, l2));
 }
 
-void closest_to_line_segment_v2(float r_close[2],
-                                const float p[2],
-                                const float l1[2],
-                                const float l2[2])
+float closest_seg_seg_v2(float r_closest_a[2],
+                         float r_closest_b[2],
+                         float *r_lambda_a,
+                         float *r_lambda_b,
+                         const float a1[2],
+                         const float a2[2],
+                         const float b1[2],
+                         const float b2[2])
+{
+  if (isect_seg_seg_v2_simple(a1, a2, b1, b2)) {
+    float intersection[2];
+    isect_line_line_v2_point(a1, a2, b1, b2, intersection);
+    copy_v2_v2(r_closest_a, intersection);
+    copy_v2_v2(r_closest_b, intersection);
+    float tmp[2];
+    *r_lambda_a = closest_to_line_v2(tmp, intersection, a1, a2);
+    *r_lambda_b = closest_to_line_v2(tmp, intersection, b1, b2);
+    const float min_dist_sq = len_squared_v2v2(r_closest_a, r_closest_b);
+    return min_dist_sq;
+  }
+
+  float p1[2], p2[2], p3[2], p4[2];
+  const float lambda1 = closest_to_line_segment_v2(p1, a1, b1, b2);
+  const float lambda2 = closest_to_line_segment_v2(p2, a2, b1, b2);
+  const float lambda3 = closest_to_line_segment_v2(p3, b1, a1, a2);
+  const float lambda4 = closest_to_line_segment_v2(p4, b2, a1, a2);
+  const float dist_sq1 = len_squared_v2v2(p1, a1);
+  const float dist_sq2 = len_squared_v2v2(p2, a2);
+  const float dist_sq3 = len_squared_v2v2(p3, b1);
+  const float dist_sq4 = len_squared_v2v2(p4, b2);
+
+  const float min_dist_sq = min_ffff(dist_sq1, dist_sq2, dist_sq3, dist_sq4);
+  if (min_dist_sq == dist_sq1) {
+    copy_v2_v2(r_closest_a, a1);
+    copy_v2_v2(r_closest_b, p1);
+    *r_lambda_a = 0.0f;
+    *r_lambda_b = lambda1;
+  }
+  else if (min_dist_sq == dist_sq2) {
+    copy_v2_v2(r_closest_a, a2);
+    copy_v2_v2(r_closest_b, p2);
+    *r_lambda_a = 1.0f;
+    *r_lambda_b = lambda2;
+  }
+  else if (min_dist_sq == dist_sq3) {
+    copy_v2_v2(r_closest_a, p3);
+    copy_v2_v2(r_closest_b, b1);
+    *r_lambda_a = lambda3;
+    *r_lambda_b = 0.0f;
+  }
+  else {
+    BLI_assert(min_dist_sq == dist_sq4);
+    copy_v2_v2(r_closest_a, p4);
+    copy_v2_v2(r_closest_b, b2);
+    *r_lambda_a = lambda4;
+    *r_lambda_b = 1.0f;
+  }
+  return min_dist_sq;
+}
+
+float closest_to_line_segment_v2(float r_close[2],
+                                 const float p[2],
+                                 const float l1[2],
+                                 const float l2[2])
 {
   float lambda, cp[2];
 
   lambda = closest_to_line_v2(cp, p, l1, l2);
 
   /* flip checks for !finite case (when segment is a point) */
-  if (!(lambda > 0.0f)) {
+  if (lambda <= 0.0f) {
     copy_v2_v2(r_close, l1);
+    return 0.0f;
   }
-  else if (!(lambda < 1.0f)) {
+  if (lambda >= 1.0f) {
     copy_v2_v2(r_close, l2);
+    return 1.0f;
   }
-  else {
-    copy_v2_v2(r_close, cp);
-  }
+  copy_v2_v2(r_close, cp);
+  return lambda;
 }
 
-void closest_to_line_segment_v3(float r_close[3],
-                                const float p[3],
-                                const float l1[3],
-                                const float l2[3])
+float closest_to_line_segment_v3(float r_close[3],
+                                 const float p[3],
+                                 const float l1[3],
+                                 const float l2[3])
 {
   float lambda, cp[3];
 
   lambda = closest_to_line_v3(cp, p, l1, l2);
 
   /* flip checks for !finite case (when segment is a point) */
-  if (!(lambda > 0.0f)) {
+  if (lambda <= 0.0f) {
     copy_v3_v3(r_close, l1);
+    return 0.0f;
   }
-  else if (!(lambda < 1.0f)) {
+  if (lambda >= 1.0f) {
     copy_v3_v3(r_close, l2);
+    return 1.0f;
   }
-  else {
-    copy_v3_v3(r_close, cp);
-  }
+  copy_v3_v3(r_close, cp);
+  return lambda;
 }
 
 void closest_to_plane_v3(float r_close[3], const float plane[4], const float pt[3])
@@ -465,7 +527,7 @@ float dist_signed_squared_to_corner_v3v3v3(const float p[3],
 
   cross_v3_v3v3(axis, dir_a, dir_b);
 
-  if ((len_squared_v3(axis) < FLT_EPSILON)) {
+  if (len_squared_v3(axis) < FLT_EPSILON) {
     copy_v3_v3(axis, axis_ref);
   }
   else if (dot_v3v3(axis, axis_ref) < 0.0f) {
@@ -902,6 +964,18 @@ float dist_squared_to_projected_aabb_simple(const float projmat[4][4],
 }
 
 /** \} */
+
+float dist_seg_seg_v2(const float a1[3], const float a2[3], const float b1[3], const float b2[3])
+{
+  if (isect_seg_seg_v2_simple(a1, a2, b1, b2)) {
+    return 0.0f;
+  }
+  const float d1 = dist_squared_to_line_segment_v2(a1, b1, b2);
+  const float d2 = dist_squared_to_line_segment_v2(a2, b1, b2);
+  const float d3 = dist_squared_to_line_segment_v2(b1, a1, a2);
+  const float d4 = dist_squared_to_line_segment_v2(b2, a1, a2);
+  return sqrtf(min_ffff(d1, d2, d3, d4));
+}
 
 void closest_on_tri_to_point_v3(
     float r[3], const float p[3], const float v1[3], const float v2[3], const float v3[3])
@@ -1384,12 +1458,12 @@ int isect_line_sphere_v2(const float l1[2],
 
 bool isect_point_poly_v2(const float pt[2],
                          const float verts[][2],
-                         const unsigned int nr,
+                         const uint nr,
                          const bool UNUSED(use_holes))
 {
   /* Keep in sync with #isect_point_poly_v2_int. */
 
-  unsigned int i, j;
+  uint i, j;
   bool isect = false;
   for (i = 0, j = nr - 1; i < nr; j = i++) {
     if (((verts[i][1] > pt[1]) != (verts[j][1] > pt[1])) &&
@@ -1403,12 +1477,12 @@ bool isect_point_poly_v2(const float pt[2],
 }
 bool isect_point_poly_v2_int(const int pt[2],
                              const int verts[][2],
-                             const unsigned int nr,
+                             const uint nr,
                              const bool UNUSED(use_holes))
 {
   /* Keep in sync with #isect_point_poly_v2. */
 
-  unsigned int i, j;
+  uint i, j;
   bool isect = false;
   for (i = 0, j = nr - 1; i < nr; j = i++) {
     if (((verts[i][1] > pt[1]) != (verts[j][1] > pt[1])) &&
@@ -1593,8 +1667,8 @@ bool isect_ray_tri_v3(const float ray_origin[3],
                       float *r_lambda,
                       float r_uv[2])
 {
-  /* NOTE(campbell): these values were 0.000001 in 2.4x but for projection snapping on
-   * a human head (1BU == 1m), subsurf level 2, this gave many errors. */
+  /* NOTE(@campbellbarton): these values were 0.000001 in 2.4x but for projection snapping on
+   * a human head `(1BU == 1m)`, subdivision-surface level 2, this gave many errors. */
   const float epsilon = 0.00000001f;
   float p[3], s[3], e1[3], e2[3], q[3];
   float a, f, u, v;
@@ -2134,7 +2208,7 @@ bool isect_planes_v3_fn(
         int i_test;
         for (i_test = 0; i_test < planes_len; i_test++) {
           const float *np_test = planes[i_test];
-          if (((dot_v3v3(np_test, co_test) + np_test[3]) > eps_isect)) {
+          if ((dot_v3v3(np_test, co_test) + np_test[3]) > eps_isect) {
             /* For low epsilon values the point could intersect its own plane. */
             if (!ELEM(i_test, i, j, k)) {
               break;
@@ -2622,7 +2696,7 @@ bool isect_sweeping_sphere_tri_v3(const float p1[3],
     z = x + y - (a * c - b * b);
 
     if (z <= 0.0f && (x >= 0.0f && y >= 0.0f)) {
-      //(((unsigned int)z)& ~(((unsigned int)x)|((unsigned int)y))) & 0x80000000) {
+      //(((uint)z)& ~(((uint)x)|((uint)y))) & 0x80000000) {
       *r_lambda = t0;
       copy_v3_v3(ipoint, point);
       return true;
@@ -2674,7 +2748,7 @@ bool isect_sweeping_sphere_tri_v3(const float p1[3],
   edotv = dot_v3v3(e1, vel);
   edotbv = dot_v3v3(e1, bv);
 
-  a = elen2 * (-dot_v3v3(vel, vel)) + edotv * edotv;
+  a = elen2 * -dot_v3v3(vel, vel) + edotv * edotv;
   b = 2.0f * (elen2 * dot_v3v3(vel, bv) - edotv * edotbv);
   c = elen2 * (radius2 - dot_v3v3(bv, bv)) + edotbv * edotbv;
 
@@ -2696,7 +2770,7 @@ bool isect_sweeping_sphere_tri_v3(const float p1[3],
   edotv = dot_v3v3(e2, vel);
   edotbv = dot_v3v3(e2, bv);
 
-  a = elen2 * (-dot_v3v3(vel, vel)) + edotv * edotv;
+  a = elen2 * -dot_v3v3(vel, vel) + edotv * edotv;
   b = 2.0f * (elen2 * dot_v3v3(vel, bv) - edotv * edotbv);
   c = elen2 * (radius2 - dot_v3v3(bv, bv)) + edotbv * edotbv;
 
@@ -2723,7 +2797,7 @@ bool isect_sweeping_sphere_tri_v3(const float p1[3],
   edotv = dot_v3v3(e3, vel);
   edotbv = dot_v3v3(e3, bv);
 
-  a = elen2 * (-dot_v3v3(vel, vel)) + edotv * edotv;
+  a = elen2 * -dot_v3v3(vel, vel) + edotv * edotv;
   b = 2.0f * (elen2 * dot_v3v3(vel, bv) - edotv * edotbv);
   c = elen2 * (radius2 - dot_v3v3(bv, bv)) + edotbv * edotbv;
 
@@ -3390,7 +3464,7 @@ bool clip_segment_v3_plane(
 bool clip_segment_v3_plane_n(const float p1[3],
                              const float p2[3],
                              const float plane_array[][4],
-                             const int plane_tot,
+                             const int plane_num,
                              float r_p1[3],
                              float r_p2[3])
 {
@@ -3400,7 +3474,7 @@ bool clip_segment_v3_plane_n(const float p1[3],
   float dp[3];
   sub_v3_v3v3(dp, p2, p1);
 
-  for (int i = 0; i < plane_tot; i++) {
+  for (int i = 0; i < plane_num; i++) {
     const float *plane = plane_array[i];
     const float div = dot_v3v3(dp, plane);
 
@@ -3699,7 +3773,7 @@ void barycentric_weights_v2_quad(const float v1[2],
                                  const float co[2],
                                  float w[4])
 {
-  /* NOTE(campbell): fabsf() here is not needed for convex quads
+  /* NOTE(@campbellbarton): fabsf() here is not needed for convex quads
    * (and not used in #interp_weights_poly_v2).
    * But in the case of concave/bow-tie quads for the mask rasterizer it
    * gives unreliable results without adding `absf()`. If this becomes an issue for more general
@@ -4840,39 +4914,59 @@ void box_minmax_bounds_m4(float min[3], float max[3], float boundbox[2][3], floa
 
 /********************************** Mapping **********************************/
 
-void map_to_tube(float *r_u, float *r_v, const float x, const float y, const float z)
+static float snap_coordinate(float u)
 {
-  float len;
-
-  *r_v = (z + 1.0f) / 2.0f;
-
-  len = sqrtf(x * x + y * y);
-  if (len > 0.0f) {
-    *r_u = (1.0f - (atan2f(x / len, y / len) / (float)M_PI)) / 2.0f;
+  /* Adjust a coordinate value `u` to obtain a value inside the (closed) unit interval.
+   *   i.e. 0.0 <= snap_coordinate(u) <= 1.0.
+   * Due to round-off errors, it is possible that the value of `u` may be close to the boundary of
+   * the unit interval, but not exactly on it. In order to handle these cases, `snap_coordinate`
+   * checks whether `u` is within `epsilon` of the boundary, and if so, it snaps the return value
+   * to the boundary. */
+  if (u < 0.0f) {
+    u += 1.0f; /* Get back into the unit interval. */
   }
-  else {
-    *r_v = *r_u = 0.0f; /* to avoid un-initialized variables */
+  BLI_assert(0.0f <= u);
+  BLI_assert(u <= 1.0f);
+  const float epsilon = 0.25f / 65536.0f; /* i.e. Quarter of a texel on a 65536 x 65536 texture. */
+  if (u < epsilon) {
+    return 0.0f; /* `u` is close to 0, just return 0. */
   }
+  if (1.0f - epsilon < u) {
+    return 1.0f; /* `u` is close to 1, just return 1. */
+  }
+  return u;
 }
 
-void map_to_sphere(float *r_u, float *r_v, const float x, const float y, const float z)
+bool map_to_tube(float *r_u, float *r_v, const float x, const float y, const float z)
 {
-  float len;
-
-  len = sqrtf(x * x + y * y + z * z);
-  if (len > 0.0f) {
-    if (UNLIKELY(x == 0.0f && y == 0.0f)) {
-      *r_u = 0.0f; /* Otherwise domain error. */
-    }
-    else {
-      *r_u = (1.0f - atan2f(x, y) / (float)M_PI) / 2.0f;
-    }
-
-    *r_v = 1.0f - saacos(z / len) / (float)M_PI;
+  bool regular = true;
+  if (x * x + y * y < 1e-6f * 1e-6f) {
+    regular = false; /* We're too close to the cylinder's axis. */
+    *r_u = 0.5f;
   }
   else {
-    *r_v = *r_u = 0.0f; /* to avoid un-initialized variables */
+    /* The "Regular" case, just compute the coordinate. */
+    *r_u = snap_coordinate(atan2f(x, -y) / (float)(2.0f * M_PI));
   }
+  *r_v = (z + 1.0f) / 2.0f;
+  return regular;
+}
+
+bool map_to_sphere(float *r_u, float *r_v, const float x, const float y, const float z)
+{
+  bool regular = true;
+  const float epsilon = 0.25f / 65536.0f; /* i.e. Quarter of a texel on a 65536 x 65536 texture. */
+  const float len_xy = sqrtf(x * x + y * y);
+  if (len_xy <= fabsf(z) * epsilon) {
+    regular = false; /* We're on the line that runs through the north and south poles. */
+    *r_u = 0.5f;
+  }
+  else {
+    /* The "Regular" case, just compute the coordinate. */
+    *r_u = snap_coordinate(atan2f(x, -y) / (float)(2.0f * M_PI));
+  }
+  *r_v = snap_coordinate(atan2f(len_xy, -z) / (float)M_PI);
+  return regular;
 }
 
 void map_to_plane_v2_v3v3(float r_co[2], const float co[3], const float no[3])
@@ -5729,10 +5823,10 @@ bool is_quad_convex_v2(const float v1[2], const float v2[2], const float v3[2], 
   return (isect_seg_seg_v2(v1, v3, v2, v4) > 0);
 }
 
-bool is_poly_convex_v2(const float verts[][2], unsigned int nr)
+bool is_poly_convex_v2(const float verts[][2], uint nr)
 {
-  unsigned int sign_flag = 0;
-  unsigned int a;
+  uint sign_flag = 0;
+  uint a;
   const float *co_curr, *co_prev;
   float dir_curr[2], dir_prev[2];
 

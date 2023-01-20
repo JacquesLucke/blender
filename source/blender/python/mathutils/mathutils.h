@@ -6,7 +6,7 @@
  * \ingroup pymathutils
  */
 
-/* Can cast different mathutils types to this, use for generic funcs */
+/* Can cast different mathutils types to this, use for generic functions. */
 
 #include "BLI_compiler_attrs.h"
 
@@ -17,11 +17,12 @@ extern char BaseMathObject_is_frozen_doc[];
 extern char BaseMathObject_is_valid_doc[];
 extern char BaseMathObject_owner_doc[];
 
-#define BASE_MATH_NEW(struct_name, root_type, base_type) \
-  ((struct_name *)((base_type ? (base_type)->tp_alloc(base_type, 0) : \
-                                _PyObject_GC_New(&(root_type)))))
+PyObject *_BaseMathObject_new_impl(PyTypeObject *root_type, PyTypeObject *base_type);
 
-/** BaseMathObject.flag */
+#define BASE_MATH_NEW(struct_name, root_type, base_type) \
+  ((struct_name *)_BaseMathObject_new_impl(&root_type, base_type))
+
+/** #BaseMathObject.flag */
 enum {
   /**
    * Do not own the memory used in this vector,
@@ -43,9 +44,9 @@ enum {
   float *_data; \
   /** If this vector references another object, otherwise NULL, *Note* this owns its reference */ \
   PyObject *cb_user; \
-  /** Which user funcs do we adhere to, RNA, etc */ \
+  /** Which user functions do we adhere to, RNA, etc */ \
   unsigned char cb_type; \
-  /** Subtype: location, rotation... \
+  /** Sub-type: location, rotation... \
    * to avoid defining many new functions for every attribute of the same type */ \
   unsigned char cb_subtype; \
   /** Wrapped data type. */ \
@@ -76,6 +77,7 @@ PyObject *BaseMathObject_freeze(BaseMathObject *self);
 int BaseMathObject_traverse(BaseMathObject *self, visitproc visit, void *arg);
 int BaseMathObject_clear(BaseMathObject *self);
 void BaseMathObject_dealloc(BaseMathObject *self);
+int BaseMathObject_is_gc(BaseMathObject *self);
 
 PyMODINIT_FUNC PyInit_mathutils(void);
 
@@ -153,12 +155,12 @@ void _BaseMathObject_RaiseNotFrozenExc(const BaseMathObject *self);
  * \return length of `value`, -1 on error.
  */
 int mathutils_array_parse(
-    float *array, int array_min, int array_max, PyObject *value, const char *error_prefix);
+    float *array, int array_num_min, int array_num_max, PyObject *value, const char *error_prefix);
 /**
  * \return -1 is returned on error and no allocation is made.
  */
 int mathutils_array_parse_alloc(float **array,
-                                int array_min,
+                                int array_num_min,
                                 PyObject *value,
                                 const char *error_prefix);
 /**

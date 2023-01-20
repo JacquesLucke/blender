@@ -162,13 +162,13 @@ static GHash *text_autocomplete_build(Text *text)
         /* seek identifier beginning */
         i_pos = i_start;
         while ((i_start < linep->len) &&
-               (!text_check_identifier_nodigit_unicode(
-                   BLI_str_utf8_as_unicode_step(linep->line, linep->len, &i_pos)))) {
+               !text_check_identifier_nodigit_unicode(
+                   BLI_str_utf8_as_unicode_step(linep->line, linep->len, &i_pos))) {
           i_start = i_pos;
         }
         i_pos = i_end = i_start;
-        while ((i_end < linep->len) && (text_check_identifier_unicode(BLI_str_utf8_as_unicode_step(
-                                           linep->line, linep->len, &i_pos)))) {
+        while ((i_end < linep->len) && text_check_identifier_unicode(BLI_str_utf8_as_unicode_step(
+                                           linep->line, linep->len, &i_pos))) {
           i_end = i_pos;
         }
 
@@ -267,7 +267,8 @@ static void confirm_suggestion(Text *text)
   //  for (i = 0; i < skipleft; i++)
   //      txt_move_left(text, 0);
   BLI_assert(memcmp(sel->name, &line[i], over) == 0);
-  txt_insert_buf(text, sel->name + over);
+  const char *buf = sel->name + over;
+  txt_insert_buf(text, buf, strlen(buf));
 
   //  for (i = 0; i < skipleft; i++)
   //      txt_move_right(text, 0);
@@ -313,7 +314,7 @@ static int doc_scroll = 0;
 
 static int text_autocomplete_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
-  /* NOTE(campbell): this code could be refactored or rewritten. */
+  /* NOTE(@campbellbarton): this code could be refactored or rewritten. */
   SpaceText *st = CTX_wm_space_text(C);
   ScrArea *area = CTX_wm_area(C);
   ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_WINDOW);
@@ -408,7 +409,7 @@ static int text_autocomplete_modal(bContext *C, wmOperator *op, const wmEvent *e
     case EVT_BACKSPACEKEY:
       if (event->val == KM_PRESS) {
         if (tools & TOOL_SUGG_LIST) {
-          if (event->ctrl) {
+          if (event->modifier & KM_CTRL) {
             texttool_suggest_clear();
             retval = OPERATOR_CANCELLED;
             draw = 1;
@@ -445,7 +446,7 @@ static int text_autocomplete_modal(bContext *C, wmOperator *op, const wmEvent *e
     case EVT_RIGHTARROWKEY:
       if (event->val == KM_PRESS) {
         if (tools & TOOL_SUGG_LIST) {
-          if (event->ctrl) {
+          if (event->modifier & KM_CTRL) {
             texttool_suggest_clear();
             retval = OPERATOR_CANCELLED;
             draw = 1;

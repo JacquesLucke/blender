@@ -57,7 +57,7 @@ typedef struct uiFontStyle {
   /** Saved in file, 0 is default. */
   short uifont_id;
   char _pad1[2];
-  /** Actual size depends on 'global' dpi. */
+  /** Actual size depends on 'global' DPI. */
   float points;
   /** Style hint. */
   short italic, bold;
@@ -146,6 +146,7 @@ typedef struct ThemeUI {
   uiWidgetColors wcol_num, wcol_numslider, wcol_tab;
   uiWidgetColors wcol_menu, wcol_pulldown, wcol_menu_back, wcol_menu_item, wcol_tooltip;
   uiWidgetColors wcol_box, wcol_scroll, wcol_progress, wcol_list_item, wcol_pie_menu;
+  uiWidgetColors wcol_view_item;
 
   uiWidgetStateColors wcol_state;
 
@@ -314,7 +315,7 @@ typedef struct ThemeSpace {
   char _pad5[3];
   float dash_alpha;
 
-  /* syntax for textwindow and nodes */
+  /* Syntax for text-window and nodes. */
   unsigned char syntaxl[4], syntaxs[4]; /* in nodespace used for backdrop matte */
   unsigned char syntaxb[4], syntaxn[4]; /* in nodespace used for color input */
   unsigned char syntaxv[4], syntaxc[4]; /* in nodespace used for converter group */
@@ -580,7 +581,6 @@ typedef struct bUserAssetLibrary {
 typedef struct SolidLight {
   int flag;
   float smooth;
-  char _pad0[8];
   float col[4], spec[4], vec[4];
 } SolidLight;
 
@@ -637,20 +637,21 @@ typedef struct UserDef_Experimental {
   char use_undo_legacy;
   char no_override_auto_resync;
   char use_cycles_debug;
-  char use_geometry_nodes_legacy;
   char show_asset_debug_info;
   char no_asset_indexing;
+  char use_viewport_debug;
+  char use_all_linked_data_direct;
   char SANITIZE_AFTER_HERE;
   /* The following options are automatically sanitized (set to 0)
    * when the release cycle is not alpha. */
-  char use_new_curves_type;
+  char use_new_curves_tools;
   char use_new_point_cloud_type;
   char use_full_frame_compositor;
-  char use_sculpt_vertex_colors;
   char use_sculpt_tools_tilt;
   char use_extended_asset_browser;
   char use_override_templates;
-  char _pad[2];
+  char enable_eevee_next;
+  char use_sculpt_texture_paint;
   /** `makesdna` does not allow empty structs. */
 } UserDef_Experimental;
 
@@ -825,7 +826,10 @@ typedef struct UserDef {
   /** Seconds to zoom around current frame. */
   float view_frame_seconds;
 
-  char _pad7[6];
+  /** #eGPUBackendType */
+  short gpu_backend;
+
+  char _pad7[4];
 
   /** Private, defaults to 20 for 72 DPI setting. */
   short widget_unit;
@@ -856,7 +860,7 @@ typedef struct UserDef {
 
   float glalphaclip;
 
-  /** #eAutokey_Mode, autokeying mode. */
+  /** #eAutokey_Mode, auto-keying mode. */
   short autokey_mode;
   /** Flags for autokeying. */
   short autokey_flag;
@@ -911,8 +915,7 @@ typedef struct UserDef {
   /** Pie menu distance from center before a direction is set. */
   short pie_menu_threshold;
 
-  short opensubdiv_compute_type;
-  short _pad6;
+  short _pad6[2];
 
   char factor_display_type;
 
@@ -1073,7 +1076,7 @@ typedef enum eWalkNavigation_Flag {
 
 /** #UserDef.uiflag */
 typedef enum eUserpref_UI_Flag {
-  USER_UIFLAG_UNUSED_0 = (1 << 0), /* cleared */
+  USER_NO_MULTITOUCH_GESTURES = (1 << 0),
   USER_UIFLAG_UNUSED_1 = (1 << 1), /* cleared */
   USER_WHEELZOOMDIR = (1 << 2),
   USER_FILTERFILEEXTS = (1 << 3),
@@ -1159,7 +1162,7 @@ typedef enum eUserpref_StatusBar_Flag {
  * #UserDef.autokey_mode
  */
 typedef enum eAutokey_Mode {
-  /* AUTOKEY_ON is a bitflag */
+  /* AUTOKEY_ON is a bit-flag. */
   AUTOKEY_ON = 1,
 
   /**
@@ -1318,6 +1321,7 @@ typedef enum eNdof_Flag {
   NDOF_PANY_INVERT_AXIS = (1 << 13),
   NDOF_PANZ_INVERT_AXIS = (1 << 14),
   NDOF_TURNTABLE = (1 << 15),
+  NDOF_CAMERA_PAN_ZOOM = (1 << 16),
 } eNdof_Flag;
 
 #define NDOF_PIXELS_PER_SECOND 600.0f

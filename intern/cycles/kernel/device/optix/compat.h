@@ -8,7 +8,6 @@
 #include <optix.h>
 
 #define __KERNEL_GPU__
-#define __KERNEL_GPU_RAYTRACING__
 #define __KERNEL_CUDA__ /* OptiX kernels are implicitly CUDA kernels too */
 #define __KERNEL_OPTIX__
 #define CCL_NAMESPACE_BEGIN
@@ -34,14 +33,16 @@ typedef unsigned long long uint64_t;
 #endif
 
 #define ccl_device \
-  __device__ __forceinline__  // Function calls are bad for OptiX performance, so inline everything
+  static __device__ \
+      __forceinline__  // Function calls are bad for OptiX performance, so inline everything
+#define ccl_device_extern extern "C" __device__
 #define ccl_device_inline ccl_device
 #define ccl_device_forceinline ccl_device
-#define ccl_device_inline_method ccl_device
-#define ccl_device_noinline __device__ __noinline__
+#define ccl_device_inline_method __device__ __forceinline__
+#define ccl_device_noinline static __device__ __noinline__
 #define ccl_device_noinline_cpu ccl_device
 #define ccl_global
-#define ccl_inline_constant __constant__
+#define ccl_inline_constant static __constant__
 #define ccl_device_constant __constant__ __device__
 #define ccl_constant const
 #define ccl_gpu_shared __shared__
@@ -58,31 +59,14 @@ typedef unsigned long long uint64_t;
 
 #define kernel_assert(cond)
 
-/* GPU thread, block, grid size and index */
-
-#define ccl_gpu_thread_idx_x (threadIdx.x)
-#define ccl_gpu_block_dim_x (blockDim.x)
-#define ccl_gpu_block_idx_x (blockIdx.x)
-#define ccl_gpu_grid_dim_x (gridDim.x)
-#define ccl_gpu_warp_size (warpSize)
-#define ccl_gpu_thread_mask(thread_warp) uint(0xFFFFFFFF >> (ccl_gpu_warp_size - thread_warp))
-
-#define ccl_gpu_global_id_x() (ccl_gpu_block_idx_x * ccl_gpu_block_dim_x + ccl_gpu_thread_idx_x)
-#define ccl_gpu_global_size_x() (ccl_gpu_grid_dim_x * ccl_gpu_block_dim_x)
-
-/* GPU warp synchronization. */
-
-#define ccl_gpu_syncthreads() __syncthreads()
-#define ccl_gpu_ballot(predicate) __ballot_sync(0xFFFFFFFF, predicate)
-#define ccl_gpu_shfl_down_sync(mask, var, detla) __shfl_down_sync(mask, var, detla)
-
 /* GPU texture objects */
 
 typedef unsigned long long CUtexObject;
-typedef CUtexObject ccl_gpu_tex_object;
+typedef CUtexObject ccl_gpu_tex_object_2D;
+typedef CUtexObject ccl_gpu_tex_object_3D;
 
 template<typename T>
-ccl_device_forceinline T ccl_gpu_tex_object_read_2D(const ccl_gpu_tex_object texobj,
+ccl_device_forceinline T ccl_gpu_tex_object_read_2D(const ccl_gpu_tex_object_2D texobj,
                                                     const float x,
                                                     const float y)
 {
@@ -90,7 +74,7 @@ ccl_device_forceinline T ccl_gpu_tex_object_read_2D(const ccl_gpu_tex_object tex
 }
 
 template<typename T>
-ccl_device_forceinline T ccl_gpu_tex_object_read_3D(const ccl_gpu_tex_object texobj,
+ccl_device_forceinline T ccl_gpu_tex_object_read_3D(const ccl_gpu_tex_object_3D texobj,
                                                     const float x,
                                                     const float y,
                                                     const float z)
@@ -102,14 +86,14 @@ ccl_device_forceinline T ccl_gpu_tex_object_read_3D(const ccl_gpu_tex_object tex
 
 typedef unsigned short half;
 
-__device__ half __float2half(const float f)
+ccl_device_forceinline half __float2half(const float f)
 {
   half val;
   asm("{  cvt.rn.f16.f32 %0, %1;}\n" : "=h"(val) : "f"(f));
   return val;
 }
 
-__device__ float __half2float(const half h)
+ccl_device_forceinline float __half2float(const half h)
 {
   float val;
   asm("{  cvt.f32.f16 %0, %1;}\n" : "=f"(val) : "h"(h));

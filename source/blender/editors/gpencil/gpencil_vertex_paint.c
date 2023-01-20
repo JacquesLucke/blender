@@ -29,6 +29,7 @@
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_prototypes.h"
 
 #include "UI_view2d.h"
 
@@ -737,7 +738,7 @@ static bool gpencil_vertexpaint_brush_init(bContext *C, wmOperator *op)
   /* Save mask. */
   gso->mask = ts->gpencil_selectmode_vertex;
 
-  /* Multiframe settings. */
+  /* Multi-frame settings. */
   gso->is_multiframe = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gso->gpd);
   gso->use_multiframe_falloff = (ts->gp_sculpt.flag & GP_SCULPT_SETT_FLAG_FRAME_FALLOFF) != 0;
 
@@ -845,12 +846,12 @@ static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
   if (gps->totpoints == 1) {
     bGPDspoint pt_temp;
     pt = &gps->points[0];
-    gpencil_point_to_parent_space(gps->points, diff_mat, &pt_temp);
+    gpencil_point_to_world_space(gps->points, diff_mat, &pt_temp);
     gpencil_point_to_xy(gsc, gps, &pt_temp, &pc1[0], &pc1[1]);
 
     pt_active = (pt->runtime.pt_orig) ? pt->runtime.pt_orig : pt;
     /* Do bound-box check first. */
-    if ((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) {
+    if (!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1]) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) {
       /* only check if point is inside */
       int mval_i[2];
       round_v2i_v2fl(mval_i, gso->mval);
@@ -883,15 +884,15 @@ static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
       }
 
       bGPDspoint npt;
-      gpencil_point_to_parent_space(pt1, diff_mat, &npt);
+      gpencil_point_to_world_space(pt1, diff_mat, &npt);
       gpencil_point_to_xy(gsc, gps, &npt, &pc1[0], &pc1[1]);
 
-      gpencil_point_to_parent_space(pt2, diff_mat, &npt);
+      gpencil_point_to_world_space(pt2, diff_mat, &npt);
       gpencil_point_to_xy(gsc, gps, &npt, &pc2[0], &pc2[1]);
 
       /* Check that point segment of the bound-box of the selection stroke. */
-      if (((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) ||
-          ((!ELEM(V2D_IS_CLIPPED, pc2[0], pc2[1])) && BLI_rcti_isect_pt(rect, pc2[0], pc2[1]))) {
+      if ((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1]) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) ||
+          (!ELEM(V2D_IS_CLIPPED, pc2[0], pc2[1]) && BLI_rcti_isect_pt(rect, pc2[0], pc2[1]))) {
         /* Check if point segment of stroke had anything to do with
          * brush region  (either within stroke painted, or on its lines)
          * - this assumes that line-width is irrelevant.
@@ -956,7 +957,7 @@ static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
     }
 
     /* If nothing hit, check if the mouse is inside any filled stroke. */
-    if ((!hit) && (ELEM(tool, GPAINT_TOOL_TINT, GPVERTEX_TOOL_DRAW))) {
+    if ((!hit) && ELEM(tool, GPAINT_TOOL_TINT, GPVERTEX_TOOL_DRAW)) {
       MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(gso->object,
                                                                      gps_active->mat_nr + 1);
       if (gp_style->flag & GP_MATERIAL_FILL_SHOW) {
@@ -1112,7 +1113,7 @@ static bool gpencil_vertexpaint_brush_apply_to_layers(bContext *C, tGP_BrushVert
   /* Find visible strokes, and perform operations on those if hit */
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     /* If locked or no active frame, don't do anything. */
-    if ((!BKE_gpencil_layer_is_editable(gpl)) || (gpl->actframe == NULL)) {
+    if (!BKE_gpencil_layer_is_editable(gpl) || (gpl->actframe == NULL)) {
       continue;
     }
 
@@ -1241,7 +1242,7 @@ static void gpencil_vertexpaint_brush_apply_event(bContext *C,
   RNA_collection_add(op->ptr, "stroke", &itemptr);
 
   RNA_float_set_array(&itemptr, "mouse", mouse);
-  RNA_boolean_set(&itemptr, "pen_flip", event->ctrl != false);
+  RNA_boolean_set(&itemptr, "pen_flip", event->modifier & KM_CTRL);
   RNA_boolean_set(&itemptr, "is_start", gso->first);
 
   /* Handle pressure sensitivity (which is supplied by tablets). */

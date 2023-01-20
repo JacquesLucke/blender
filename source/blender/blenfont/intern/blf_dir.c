@@ -115,7 +115,7 @@ char *blf_dir_search(const char *file)
   char *s = NULL;
 
   for (dir = global_font_dir.first; dir; dir = dir->next) {
-    BLI_join_dirfile(full_path, sizeof(full_path), dir->path, file);
+    BLI_path_join(full_path, sizeof(full_path), dir->path, file);
     if (BLI_exists(full_path)) {
       s = BLI_strdup(full_path);
       break;
@@ -132,12 +132,12 @@ char *blf_dir_search(const char *file)
   return s;
 }
 
-char *blf_dir_metrics_search(const char *filename)
+char *blf_dir_metrics_search(const char *filepath)
 {
   char *mfile;
   char *s;
 
-  mfile = BLI_strdup(filename);
+  mfile = BLI_strdup(filepath);
   s = strrchr(mfile, '.');
   if (s) {
     if (BLI_strnlen(s, 4) < 4) {

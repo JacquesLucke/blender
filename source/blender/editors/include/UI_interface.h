@@ -22,10 +22,8 @@ extern "C" {
 struct ARegion;
 struct AssetFilterSettings;
 struct AssetHandle;
-struct AssetMetaData;
 struct AutoComplete;
 struct EnumPropertyItem;
-struct FileDirEntry;
 struct FileSelectParams;
 struct ID;
 struct IDProperty;
@@ -48,7 +46,6 @@ struct bNodeTree;
 struct bScreen;
 struct rctf;
 struct rcti;
-struct uiBlockInteraction_Handle;
 struct uiButSearch;
 struct uiFontStyle;
 struct uiList;
@@ -64,6 +61,7 @@ struct wmKeyMapItem;
 struct wmMsgBus;
 struct wmOperator;
 struct wmOperatorType;
+struct wmRegionListenerParams;
 struct wmWindow;
 
 typedef struct uiBlock uiBlock;
@@ -71,20 +69,24 @@ typedef struct uiBut uiBut;
 typedef struct uiButExtraOpIcon uiButExtraOpIcon;
 typedef struct uiLayout uiLayout;
 typedef struct uiPopupBlockHandle uiPopupBlockHandle;
-/* C handle for C++ #ui::AbstractTreeView type. */
-typedef struct uiTreeViewHandle uiTreeViewHandle;
-/* C handle for C++ #ui::AbstractTreeViewItem type. */
-typedef struct uiTreeViewItemHandle uiTreeViewItemHandle;
+/* C handle for C++ #ui::AbstractView type. */
+typedef struct uiViewHandle uiViewHandle;
+/* C handle for C++ #ui::AbstractViewItem type. */
+typedef struct uiViewItemHandle uiViewItemHandle;
 
 /* Defines */
 
-/* char for splitting strings, aligning shortcuts in menus, users never see */
+/**
+ * Character used for splitting labels (right align text after this character).
+ * Users should never see this character.
+ * Only applied when #UI_BUT_HAS_SEP_CHAR flag is enabled, see it's doc-string for details.
+ */
 #define UI_SEP_CHAR '|'
 #define UI_SEP_CHAR_S "|"
 
 /* Separator for text in search menus (right pointing arrow).
  * keep in sync with `string_search.cc`. */
-#define UI_MENU_ARROW_SEP "\xe2\x96\xb6"
+#define UI_MENU_ARROW_SEP "\xe2\x96\xb8"
 
 /* names */
 #define UI_MAX_DRAW_STR 400
@@ -132,6 +134,8 @@ enum {
 /** #uiBlock.flag (controls) */
 enum {
   UI_BLOCK_LOOP = 1 << 0,
+  /** Indicate that items in a popup are drawn with inverted order. Used for arrow key navigation
+   *  so that it knows to invert the navigation direction to match the drawing order. */
   UI_BLOCK_IS_FLIP = 1 << 1,
   UI_BLOCK_NO_FLIP = 1 << 2,
   UI_BLOCK_NUMSELECT = 1 << 3,
@@ -157,6 +161,8 @@ enum {
   UI_BLOCK_POPOVER_ONCE = 1 << 22,
   /** Always show key-maps, even for non-menus. */
   UI_BLOCK_SHOW_SHORTCUT_ALWAYS = 1 << 23,
+  /** Don't show library override state for buttons in this block. */
+  UI_BLOCK_NO_DRAW_OVERRIDDEN_STATE = 1 << 24,
   /** The block is only used during the search process and will not be drawn.
    * Currently just for the case of a closed panel's sub-panel (and its sub-panels). */
   UI_BLOCK_SEARCH_ONLY = 1 << 25,
@@ -182,26 +188,26 @@ enum {
 
 /** #uiBut.flag general state flags. */
 enum {
-  /* WARNING: the first 7 flags are internal (see #UI_SELECT definition). */
-  UI_BUT_ICON_SUBMENU = 1 << 7,
-  UI_BUT_ICON_PREVIEW = 1 << 8,
+  /* WARNING: the first 8 flags are internal (see #UI_SELECT definition). */
+  UI_BUT_ICON_SUBMENU = 1 << 8,
+  UI_BUT_ICON_PREVIEW = 1 << 9,
 
-  UI_BUT_NODE_LINK = 1 << 9,
-  UI_BUT_NODE_ACTIVE = 1 << 10,
-  UI_BUT_DRAG_LOCK = 1 << 11,
+  UI_BUT_NODE_LINK = 1 << 10,
+  UI_BUT_NODE_ACTIVE = 1 << 11,
+  UI_BUT_DRAG_LOCK = 1 << 12,
   /** Grayed out and un-editable. */
-  UI_BUT_DISABLED = 1 << 12,
+  UI_BUT_DISABLED = 1 << 13,
 
-  UI_BUT_ANIMATED = 1 << 13,
-  UI_BUT_ANIMATED_KEY = 1 << 14,
-  UI_BUT_DRIVEN = 1 << 15,
-  UI_BUT_REDALERT = 1 << 16,
+  UI_BUT_ANIMATED = 1 << 14,
+  UI_BUT_ANIMATED_KEY = 1 << 15,
+  UI_BUT_DRIVEN = 1 << 16,
+  UI_BUT_REDALERT = 1 << 17,
   /** Grayed out but still editable. */
-  UI_BUT_INACTIVE = 1 << 17,
-  UI_BUT_LAST_ACTIVE = 1 << 18,
-  UI_BUT_UNDO = 1 << 19,
-  UI_BUT_IMMEDIATE = 1 << 20,
-  UI_BUT_NO_UTF8 = 1 << 21,
+  UI_BUT_INACTIVE = 1 << 18,
+  UI_BUT_LAST_ACTIVE = 1 << 19,
+  UI_BUT_UNDO = 1 << 20,
+  /* UNUSED = 1 << 21, */
+  UI_BUT_NO_UTF8 = 1 << 22,
 
   /** For popups, pressing return activates this button, overriding the highlighted button.
    * For non-popups this is just used as a display hint for the user to let them
@@ -215,11 +221,16 @@ enum {
   /** Use for popups to start editing the button on initialization. */
   UI_BUT_ACTIVATE_ON_INIT = 1 << 26,
 
-  /** #uiBut.str contains #UI_SEP_CHAR, used for key shortcuts */
+  /**
+   * #uiBut.str contains #UI_SEP_CHAR, used to show key-shortcuts right aligned.
+   *
+   * Since a label may contain #UI_SEP_CHAR, it's important to split on the last occurrence
+   * (meaning the right aligned text can't contain this character).
+   */
   UI_BUT_HAS_SEP_CHAR = 1 << 27,
   /** Don't run updates while dragging (needed in rare cases). */
   UI_BUT_UPDATE_DELAY = 1 << 28,
-  /** When widget is in textedit mode, update value on each char stroke */
+  /** When widget is in text-edit mode, update value on each char stroke. */
   UI_BUT_TEXTEDIT_UPDATE = 1 << 29,
   /** Show 'x' icon to clear/unlink value of text or search button. */
   UI_BUT_VALUE_CLEAR = 1 << 30,
@@ -351,7 +362,7 @@ typedef enum {
   UI_BTYPE_LABEL = 20 << 9,
   UI_BTYPE_KEY_EVENT = 24 << 9,
   UI_BTYPE_HSVCUBE = 26 << 9,
-  /** menu (often used in headers), **_MENU /w different draw-type */
+  /** Menu (often used in headers), `*_MENU` with different draw-type. */
   UI_BTYPE_PULLDOWN = 27 << 9,
   UI_BTYPE_ROUNDBOX = 28 << 9,
   UI_BTYPE_COLORBAND = 30 << 9,
@@ -383,11 +394,11 @@ typedef enum {
   UI_BTYPE_SEPR_LINE = 55 << 9,
   /** Dynamically fill available space. */
   UI_BTYPE_SEPR_SPACER = 56 << 9,
-  /** Resize handle (resize uilist). */
+  /** Resize handle (resize UI-list). */
   UI_BTYPE_GRIP = 57 << 9,
   UI_BTYPE_DECORATOR = 58 << 9,
-  /* An item in a tree view. Parent items may be collapsible. */
-  UI_BTYPE_TREEROW = 59 << 9,
+  /* An item a view (see #ui::AbstractViewItem). */
+  UI_BTYPE_VIEW_ITEM = 59 << 9,
 } eButType;
 
 #define BUTTYPE (63 << 9)
@@ -448,11 +459,10 @@ void UI_draw_safe_areas(uint pos,
                         const float title_aspect[2],
                         const float action_aspect[2]);
 
-/** State for scrolldrawing. */
+/** State for scroll-drawing. */
 enum {
   UI_SCROLL_PRESSED = 1 << 0,
   UI_SCROLL_ARROWS = 1 << 1,
-  UI_SCROLL_NO_OUTLINE = 1 << 2,
 };
 /**
  * Function in use for buttons and for view2d sliders.
@@ -506,6 +516,10 @@ typedef void (*uiButHandleNFunc)(struct bContext *C, void *argN, void *arg2);
 typedef void (*uiButHandleHoldFunc)(struct bContext *C, struct ARegion *butregion, uiBut *but);
 typedef int (*uiButCompleteFunc)(struct bContext *C, char *str, void *arg);
 
+/** Function to compare the identity of two buttons over redraws, to check if they represent the
+ * same data, and thus should be considered the same button over redraws. */
+typedef bool (*uiButIdentityCompareFunc)(const uiBut *a, const uiBut *b);
+
 /* Search types. */
 typedef struct ARegion *(*uiButSearchCreateFn)(struct bContext *C,
                                                struct ARegion *butregion,
@@ -526,6 +540,7 @@ typedef struct ARegion *(*uiButSearchTooltipFn)(struct bContext *C,
                                                 const struct rcti *item_rect,
                                                 void *arg,
                                                 void *active);
+typedef void (*uiButSearchListenFn)(const struct wmRegionListenerParams *params, void *arg);
 
 /* Must return allocated string. */
 typedef char *(*uiButToolTipFunc)(struct bContext *C, void *argN, const char *tip);
@@ -593,9 +608,11 @@ typedef void (*uiMenuHandleFunc)(struct bContext *C, void *arg, int event);
  */
 typedef bool (*uiMenuStepFunc)(struct bContext *C, int direction, void *arg1);
 
+typedef void *(*uiCopyArgFunc)(const void *arg);
 typedef void (*uiFreeArgFunc)(void *arg);
 
 /* interface_query.c */
+
 bool UI_but_has_tooltip_label(const uiBut *but);
 bool UI_but_is_tool(const uiBut *but);
 /* file selectors are exempt from utf-8 checks */
@@ -609,6 +626,7 @@ bool UI_block_can_add_separator(const uiBlock *block);
 struct uiList *UI_list_find_mouse_over(const struct ARegion *region, const struct wmEvent *event);
 
 /* interface_region_menu_popup.c */
+
 /**
  * Popup Menus
  *
@@ -632,7 +650,7 @@ uiPopupMenu *UI_popup_menu_begin_ex(struct bContext *C,
  * Set the whole structure to work.
  */
 void UI_popup_menu_end(struct bContext *C, struct uiPopupMenu *pup);
-bool UI_popup_menu_end_or_cancel(struct bContext *C, struct uiPopupMenu *head);
+bool UI_popup_menu_end_or_cancel(struct bContext *C, struct uiPopupMenu *pup);
 struct uiLayout *UI_popup_menu_layout(uiPopupMenu *pup);
 
 void UI_popup_menu_reports(struct bContext *C, struct ReportList *reports) ATTR_NONNULL();
@@ -674,6 +692,7 @@ struct uiLayout *UI_popover_layout(uiPopover *pup);
 void UI_popover_once_clear(uiPopover *pup);
 
 /* interface_region_menu_pie.c */
+
 /* Pie menus */
 typedef struct uiPieMenu uiPieMenu;
 
@@ -773,6 +792,9 @@ void UI_block_set_search_only(uiBlock *block, bool search_only);
  * Can be called with C==NULL.
  */
 void UI_block_free(const struct bContext *C, uiBlock *block);
+
+void UI_block_listen(const uiBlock *block, const struct wmRegionListenerParams *listener_params);
+
 /**
  * Can be called with C==NULL.
  */
@@ -841,33 +863,6 @@ void UI_block_flag_disable(uiBlock *block, int flag);
 void UI_block_translate(uiBlock *block, int x, int y);
 
 int UI_but_return_value_get(uiBut *but);
-
-void UI_but_drag_set_id(uiBut *but, struct ID *id);
-/**
- * Set an image to display while dragging. This works for any drag type (`WM_DRAG_XXX`).
- * Not to be confused with #UI_but_drag_set_image(), which sets up dragging of an image.
- */
-void UI_but_drag_attach_image(uiBut *but, struct ImBuf *imb, float scale);
-/**
- * \param asset: May be passed from a temporary variable, drag data only stores a copy of this.
- */
-void UI_but_drag_set_asset(uiBut *but,
-                           const struct AssetHandle *asset,
-                           const char *path,
-                           struct AssetMetaData *metadata,
-                           int import_type, /* eFileAssetImportType */
-                           int icon,
-                           struct ImBuf *imb,
-                           float scale);
-void UI_but_drag_set_rna(uiBut *but, struct PointerRNA *ptr);
-void UI_but_drag_set_path(uiBut *but, const char *path, bool use_free);
-void UI_but_drag_set_name(uiBut *but, const char *name);
-/**
- * Value from button itself.
- */
-void UI_but_drag_set_value(uiBut *but);
-void UI_but_drag_set_image(
-    uiBut *but, const char *path, int icon, struct ImBuf *imb, float scale, bool use_free);
 
 uiBut *UI_but_active_drop_name_button(const struct bContext *C);
 /**
@@ -1354,6 +1349,13 @@ uiBut *uiDefIconTextButO_ptr(uiBlock *block,
 /* for passing inputs to ButO buttons */
 struct PointerRNA *UI_but_operator_ptr_get(uiBut *but);
 
+void UI_but_context_ptr_set(uiBlock *block,
+                            uiBut *but,
+                            const char *name,
+                            const struct PointerRNA *ptr);
+const struct PointerRNA *UI_but_context_ptr_get(const uiBut *but,
+                                                const char *name,
+                                                const StructRNA *type CPP_ARG_DEFAULT(nullptr));
 struct bContextStore *UI_but_context_get(const uiBut *but);
 
 void UI_but_unit_type_set(uiBut *but, int unit_type);
@@ -1402,6 +1404,7 @@ void UI_but_extra_icon_string_info_get(struct bContext *C, uiButExtraOpIcon *ext
  * - AutoButR: RNA property button with type automatically defined.
  */
 enum {
+  UI_ID_NOP = 0,
   UI_ID_RENAME = 1 << 0,
   UI_ID_BROWSE = 1 << 1,
   UI_ID_ADD_NEW = 1 << 2,
@@ -1522,31 +1525,6 @@ uiBut *uiDefIconTextBlockBut(uiBlock *block,
                              short height,
                              const char *tip);
 
-uiBut *uiDefKeyevtButS(uiBlock *block,
-                       int retval,
-                       const char *str,
-                       int x,
-                       int y,
-                       short width,
-                       short height,
-                       short *spoin,
-                       const char *tip);
-
-/**
- * Short pointers hard-coded.
- * \param modkeypoin: will be set to #KM_SHIFT, #KM_ALT, #KM_CTRL, #KM_OSKEY bits.
- */
-uiBut *uiDefHotKeyevtButS(uiBlock *block,
-                          int retval,
-                          const char *str,
-                          int x,
-                          int y,
-                          short width,
-                          short height,
-                          short *keypoin,
-                          const short *modkeypoin,
-                          const char *tip);
-
 /**
  * \param arg: A pointer to string/name, use #UI_but_func_search_set() below to make this work.
  * here `a1` and `a2`, if set, control thumbnail preview rows/cols.
@@ -1593,12 +1571,14 @@ typedef enum {
 } eButLabelAlign;
 
 /* Return info for uiDefAutoButsRNA */
-typedef enum {
+typedef enum eAutoPropButsReturn {
   /* Returns when no buttons were added */
   UI_PROP_BUTS_NONE_ADDED = 1 << 0,
   /* Returned when any property failed the custom check callback (check_prop) */
   UI_PROP_BUTS_ANY_FAILED_CHECK = 1 << 1,
 } eAutoPropButsReturn;
+
+ENUM_OPERATORS(eAutoPropButsReturn, UI_PROP_BUTS_ANY_FAILED_CHECK);
 
 uiBut *uiDefAutoButR(uiBlock *block,
                      struct PointerRNA *ptr,
@@ -1610,6 +1590,14 @@ uiBut *uiDefAutoButR(uiBlock *block,
                      int y,
                      int width,
                      int height);
+void uiDefAutoButsArrayR(uiBlock *block,
+                         PointerRNA *ptr,
+                         PropertyRNA *prop,
+                         const int icon,
+                         const int x,
+                         const int y,
+                         const int tot_width,
+                         const int height);
 /**
  * \a check_prop callback filters functions to avoid drawing certain properties,
  * in cases where PROP_HIDDEN flag can't be used for a property.
@@ -1627,6 +1615,18 @@ eAutoPropButsReturn uiDefAutoButsRNA(uiLayout *layout,
                                      bool compact);
 
 /**
+ * Callback to compare the identity of two buttons, used to identify buttons over redraws. If the
+ * callback returns true, the given buttons are considered to be matching and relevant state is
+ * preserved (copied from the old to the new button). If it returns false, it's considered
+ * non-matching and no further checks are done.
+ *
+ * If this is set, it is always executed instead of the default comparisons. However it is only
+ * executed for buttons that have the same type and the same callback. So callbacks can assume the
+ * button types match.
+ */
+void UI_but_func_identity_compare_set(uiBut *but, uiButIdentityCompareFunc cmp_fn);
+
+/**
  * Public function exported for functions that use #UI_BTYPE_SEARCH_MENU.
  *
  * Use inside searchfunc to add items.
@@ -1635,15 +1635,16 @@ eAutoPropButsReturn uiDefAutoButsRNA(uiLayout *layout,
  * \param name: Text to display for the item.
  * \param poin: Opaque pointer (for use by the caller).
  * \param iconid: The icon, #ICON_NONE for no icon.
- * \param state: The buttons state flag, compatible with #uiBut.flag,
- * typically #UI_BUT_DISABLED / #UI_BUT_INACTIVE.
+ * \param but_flag: Button flags (#uiBut.flag) indicating the state of the item, typically
+ *                  #UI_BUT_DISABLED, #UI_BUT_INACTIVE or #UI_BUT_HAS_SEP_CHAR.
+ *
  * \return false if there is nothing to add.
  */
 bool UI_search_item_add(uiSearchItems *items,
                         const char *name,
                         void *poin,
                         int iconid,
-                        int state,
+                        int but_flag,
                         uint8_t name_prefix_offset);
 
 /**
@@ -1671,6 +1672,7 @@ void UI_but_func_search_set(uiBut *but,
                             void *active);
 void UI_but_func_search_set_context_menu(uiBut *but, uiButSearchContextMenuFn context_menu_fn);
 void UI_but_func_search_set_tooltip(uiBut *but, uiButSearchTooltipFn tooltip_fn);
+void UI_but_func_search_set_listen(uiBut *but, uiButSearchListenFn listen_fn);
 /**
  * \param search_sep_string: when not NULL, this string is used as a separator,
  * showing the icon and highlighted text after the last instance of this string.
@@ -1692,8 +1694,7 @@ int UI_search_items_find_index(uiSearchItems *items, const char *name);
  * Adds a hint to the button which draws right aligned, grayed out and never clipped.
  */
 void UI_but_hint_drawstr_set(uiBut *but, const char *string);
-
-void UI_but_treerow_indentation_set(uiBut *but, int indentation);
+void UI_but_icon_indicator_number_set(uiBut *but, const int indicator_number);
 
 void UI_but_node_link_set(uiBut *but, struct bNodeSocket *socket, const float draw_color[4]);
 
@@ -1753,6 +1754,14 @@ struct PointerRNA *UI_but_extra_operator_icon_add(uiBut *but,
 struct wmOperatorType *UI_but_extra_operator_icon_optype_get(struct uiButExtraOpIcon *extra_icon);
 struct PointerRNA *UI_but_extra_operator_icon_opptr_get(struct uiButExtraOpIcon *extra_icon);
 
+/**
+ * A decent size for a button (typically #UI_BTYPE_PREVIEW_TILE) to display a nicely readable
+ * preview with label in.
+ */
+int UI_preview_tile_size_x(void);
+int UI_preview_tile_size_y(void);
+int UI_preview_tile_size_y_no_label(void);
+
 /* Autocomplete
  *
  * Tab complete helper functions, for use in uiButCompleteFunc callbacks.
@@ -1768,6 +1777,37 @@ typedef struct AutoComplete AutoComplete;
 AutoComplete *UI_autocomplete_begin(const char *startname, size_t maxlen);
 void UI_autocomplete_update_name(AutoComplete *autocpl, const char *name);
 int UI_autocomplete_end(AutoComplete *autocpl, char *autoname);
+
+/* Button drag-data (interface_drag.cc).
+ *
+ * Functions to set drag data for buttons. This enables dragging support, whereby the drag data is
+ * "dragged", not the button itself. */
+
+void UI_but_drag_set_id(uiBut *but, struct ID *id);
+/**
+ * Set an image to display while dragging. This works for any drag type (`WM_DRAG_XXX`).
+ * Not to be confused with #UI_but_drag_set_image(), which sets up dragging of an image.
+ */
+void UI_but_drag_attach_image(uiBut *but, struct ImBuf *imb, float scale);
+/**
+ * \param asset: May be passed from a temporary variable, drag data only stores a copy of this.
+ */
+void UI_but_drag_set_asset(uiBut *but,
+                           const struct AssetHandle *asset,
+                           const char *path,
+                           int import_type, /* eFileAssetImportType */
+                           int icon,
+                           struct ImBuf *imb,
+                           float scale);
+void UI_but_drag_set_rna(uiBut *but, struct PointerRNA *ptr);
+void UI_but_drag_set_path(uiBut *but, const char *path, bool use_free);
+void UI_but_drag_set_name(uiBut *but, const char *name);
+/**
+ * Value from button itself.
+ */
+void UI_but_drag_set_value(uiBut *but);
+void UI_but_drag_set_image(
+    uiBut *but, const char *path, int icon, struct ImBuf *imb, float scale, bool use_free);
 
 /* Panels
  *
@@ -1852,7 +1892,7 @@ struct PointerRNA *UI_region_panel_custom_data_under_cursor(const struct bContex
                                                             const struct wmEvent *event);
 void UI_panel_custom_data_set(struct Panel *panel, struct PointerRNA *custom_data);
 
-/* Polyinstantiated panels for representing a list of data. */
+/* Poly-instantiated panels for representing a list of data. */
 /**
  * Called in situations where panels need to be added dynamically rather than
  * having only one panel corresponding to each #PanelType.
@@ -1996,7 +2036,7 @@ enum {
   UI_TEMPLATE_OP_PROPS_NO_SPLIT_LAYOUT = 1 << 4,
 };
 
-/* used for transp checkers */
+/* Used for transparent checkers shown under color buttons that have an alpha component. */
 #define UI_ALPHA_CHECKER_DARK 100
 #define UI_ALPHA_CHECKER_LIGHT 160
 
@@ -2050,6 +2090,24 @@ void uiLayoutSetFunc(uiLayout *layout, uiMenuHandleFunc handlefunc, void *argv);
 void uiLayoutSetContextPointer(uiLayout *layout, const char *name, struct PointerRNA *ptr);
 struct bContextStore *uiLayoutGetContextStore(uiLayout *layout);
 void uiLayoutContextCopy(uiLayout *layout, struct bContextStore *context);
+
+/**
+ * Set tooltip function for all buttons in the layout.
+ * func, arg and free_arg are passed on to UI_but_func_tooltip_set, so their meaning is the same.
+ *
+ * \param func: The callback function that gets called to get tooltip content
+ * \param arg: An optional opaque pointer that gets passed to func
+ * \param free_arg: An optional callback for freeing arg (can be set to e.g. MEM_freeN)
+ * \param copy_arg: An optional callback for duplicating arg in case UI_but_func_tooltip_set
+ * is being called on multiple buttons (can be set to e.g. MEM_dupallocN). If set to NULL, arg will
+ * be passed as-is to all buttons.
+ */
+void uiLayoutSetTooltipFunc(uiLayout *layout,
+                            uiButToolTipFunc func,
+                            void *arg,
+                            uiCopyArgFunc copy_arg,
+                            uiFreeArgFunc free_arg);
+
 /**
  * This is a bit of a hack but best keep it in one place at least.
  */
@@ -2438,7 +2496,7 @@ enum uiTemplateListFlags {
 ENUM_OPERATORS(enum uiTemplateListFlags, UI_TEMPLATE_LIST_FLAGS_LAST);
 
 void uiTemplateList(uiLayout *layout,
-                    struct bContext *C,
+                    const struct bContext *C,
                     const char *listtype_name,
                     const char *list_id,
                     struct PointerRNA *dataptr,
@@ -2452,7 +2510,7 @@ void uiTemplateList(uiLayout *layout,
                     int columns,
                     enum uiTemplateListFlags flags);
 struct uiList *uiTemplateList_ex(uiLayout *layout,
-                                 struct bContext *C,
+                                 const struct bContext *C,
                                  const char *listtype_name,
                                  const char *list_id,
                                  struct PointerRNA *dataptr,
@@ -2477,6 +2535,7 @@ void uiTemplateNodeView(uiLayout *layout,
                         struct bNodeTree *ntree,
                         struct bNode *node,
                         struct bNodeSocket *input);
+void uiTemplateNodeAssetMenuItems(uiLayout *layout, struct bContext *C, const char *catalog_path);
 void uiTemplateTextureUser(uiLayout *layout, struct bContext *C);
 /**
  * Button to quickly show texture in Properties Editor texture tab.
@@ -2522,7 +2581,7 @@ enum {
   UI_TEMPLATE_ASSET_DRAW_NO_LIBRARY = (1 << 2),
 };
 void uiTemplateAssetView(struct uiLayout *layout,
-                         struct bContext *C,
+                         const struct bContext *C,
                          const char *list_id,
                          struct PointerRNA *asset_library_dataptr,
                          const char *asset_library_propname,
@@ -2697,7 +2756,8 @@ void uiItemPointerR_prop(uiLayout *layout,
                          struct PointerRNA *searchptr,
                          struct PropertyRNA *searchprop,
                          const char *name,
-                         int icon);
+                         int icon,
+                         bool results_are_suggestions);
 void uiItemPointerR(uiLayout *layout,
                     struct PointerRNA *ptr,
                     const char *propname,
@@ -2740,7 +2800,8 @@ typedef struct uiPropertySplitWrapper {
 uiPropertySplitWrapper uiItemPropertySplitWrapperCreate(uiLayout *parent_layout);
 
 void uiItemL(uiLayout *layout, const char *name, int icon); /* label */
-void uiItemL_ex(uiLayout *layout, const char *name, int icon, bool highlight, bool redalert);
+struct uiBut *uiItemL_ex(
+    uiLayout *layout, const char *name, int icon, bool highlight, bool redalert);
 /**
  * Helper to add a label and creates a property split layout if needed.
  */
@@ -2867,7 +2928,7 @@ void ED_keymap_ui(struct wmKeyConfig *keyconf);
 void ED_dropboxes_ui(void);
 void ED_uilisttypes_ui(void);
 
-void UI_drop_color_copy(struct wmDrag *drag, struct wmDropBox *drop);
+void UI_drop_color_copy(struct bContext *C, struct wmDrag *drag, struct wmDropBox *drop);
 bool UI_drop_color_poll(struct bContext *C, struct wmDrag *drag, const struct wmEvent *event);
 
 bool UI_context_copy_to_selected_list(struct bContext *C,
@@ -2902,7 +2963,7 @@ uiBut *UI_context_active_but_prop_get(const struct bContext *C,
                                       struct PointerRNA *r_ptr,
                                       struct PropertyRNA **r_prop,
                                       int *r_index);
-void UI_context_active_but_prop_handle(struct bContext *C);
+void UI_context_active_but_prop_handle(struct bContext *C, bool handle_undo);
 void UI_context_active_but_clear(struct bContext *C, struct wmWindow *win, struct ARegion *region);
 
 struct wmOperator *UI_context_active_operator_get(const struct bContext *C);
@@ -2933,7 +2994,7 @@ uiBlock *UI_region_block_find_mouse_over(const struct ARegion *region,
  */
 struct ARegion *UI_region_searchbox_region_get(const struct ARegion *button_region);
 
-/* uiFontStyle.align */
+/** #uiFontStyle.align */
 typedef enum eFontStyle_Align {
   UI_STYLE_TEXT_LEFT = 0,
   UI_STYLE_TEXT_CENTER = 1,
@@ -3066,6 +3127,20 @@ void UI_butstore_register(uiButStore *bs_handle, uiBut **but_p);
 bool UI_butstore_register_update(uiBlock *block, uiBut *but_dst, const uiBut *but_src);
 void UI_butstore_unregister(uiButStore *bs_handle, uiBut **but_p);
 
+/**
+ * A version of #WM_key_event_operator_string that's limited to UI elements.
+ *
+ * This supports showing shortcuts in context-menus (for example),
+ * for actions that can also be activated using shortcuts while the cursor is over the button.
+ * Without this those shortcuts aren't discoverable for users.
+ */
+const char *UI_key_event_operator_string(const struct bContext *C,
+                                         const char *opname,
+                                         IDProperty *properties,
+                                         const bool is_strict,
+                                         char *result,
+                                         const int result_len);
+
 /* ui_interface_region_tooltip.c */
 
 /**
@@ -3147,43 +3222,44 @@ void UI_interface_tag_script_reload(void);
 /* Support click-drag motion which presses the button and closes a popover (like a menu). */
 #define USE_UI_POPOVER_ONCE
 
-bool UI_tree_view_item_is_active(const uiTreeViewItemHandle *item);
-bool UI_tree_view_item_matches(const uiTreeViewItemHandle *a, const uiTreeViewItemHandle *b);
+bool UI_view_item_is_active(const uiViewItemHandle *item_handle);
+bool UI_view_item_matches(const uiViewItemHandle *a_handle, const uiViewItemHandle *b_handle);
 /**
- * Attempt to start dragging the tree-item \a item_. This will not work if the tree item doesn't
- * support dragging, i.e. it won't create a drag-controller upon request.
- * \return True if dragging started successfully, otherwise false.
- */
-bool UI_tree_view_item_drag_start(struct bContext *C, uiTreeViewItemHandle *item_);
-bool UI_tree_view_item_can_drop(const uiTreeViewItemHandle *item_,
-                                const struct wmDrag *drag,
-                                const char **r_disabled_hint);
-char *UI_tree_view_item_drop_tooltip(const uiTreeViewItemHandle *item, const struct wmDrag *drag);
-/**
- * Let a tree-view item handle a drop event.
- * \return True if the drop was handled by the tree-view item.
- */
-bool UI_tree_view_item_drop_handle(struct bContext *C,
-                                   const uiTreeViewItemHandle *item_,
-                                   const struct ListBase *drags);
-/**
- * Can \a item_handle be renamed right now? Not that this isn't just a mere wrapper around
- * #AbstractTreeViewItem::can_rename(). This also checks if there is another item being renamed,
+ * Can \a item_handle be renamed right now? Note that this isn't just a mere wrapper around
+ * #AbstractViewItem::supports_renaming(). This also checks if there is another item being renamed,
  * and returns false if so.
  */
-bool UI_tree_view_item_can_rename(const uiTreeViewItemHandle *item_handle);
-void UI_tree_view_item_begin_rename(uiTreeViewItemHandle *item_handle);
+bool UI_view_item_can_rename(const uiViewItemHandle *item_handle);
+void UI_view_item_begin_rename(uiViewItemHandle *item_handle);
 
-void UI_tree_view_item_context_menu_build(struct bContext *C,
-                                          const uiTreeViewItemHandle *item,
-                                          uiLayout *column);
+void UI_view_item_context_menu_build(struct bContext *C,
+                                     const uiViewItemHandle *item_handle,
+                                     uiLayout *column);
 
 /**
- * \param xy: Coordinate to find a tree-row item at, in window space.
+ * Attempt to start dragging \a item_. This will not work if the view item doesn't
+ * support dragging, i.e. if it won't create a drag-controller upon request.
+ * \return True if dragging started successfully, otherwise false.
  */
-uiTreeViewItemHandle *UI_block_tree_view_find_item_at(const struct ARegion *region,
-                                                      const int xy[2]) ATTR_NONNULL(1, 2);
-uiTreeViewItemHandle *UI_block_tree_view_find_active_item(const struct ARegion *region);
+bool UI_view_item_drag_start(struct bContext *C, const uiViewItemHandle *item_);
+bool UI_view_item_can_drop(const uiViewItemHandle *item_,
+                           const struct wmDrag *drag,
+                           const char **r_disabled_hint);
+char *UI_view_item_drop_tooltip(const uiViewItemHandle *item, const struct wmDrag *drag);
+/**
+ * Let a view item handle a drop event.
+ * \return True if the drop was handled by the view item.
+ */
+bool UI_view_item_drop_handle(struct bContext *C,
+                              const uiViewItemHandle *item_,
+                              const struct ListBase *drags);
+
+/**
+ * \param xy: Coordinate to find a view item at, in window space.
+ */
+uiViewItemHandle *UI_region_views_find_item_at(const struct ARegion *region, const int xy[2])
+    ATTR_NONNULL();
+uiViewItemHandle *UI_region_views_find_active_item(const struct ARegion *region);
 
 #ifdef __cplusplus
 }

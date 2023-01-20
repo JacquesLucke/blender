@@ -23,11 +23,9 @@ class HIPDeviceQueue : public DeviceQueue {
   ~HIPDeviceQueue();
 
   virtual int num_concurrent_states(const size_t state_size) const override;
-  virtual int num_concurrent_busy_states() const override;
+  virtual int num_concurrent_busy_states(const size_t state_size) const override;
 
   virtual void init_execution() override;
-
-  virtual bool kernel_available(DeviceKernel kernel) const override;
 
   virtual bool enqueue(DeviceKernel kernel,
                        const int work_size,

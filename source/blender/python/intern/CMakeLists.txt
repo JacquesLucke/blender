@@ -18,6 +18,8 @@ set(INC
   ../../../../intern/guardedalloc
   ../../../../intern/mantaflow/extern
   ../../../../intern/opencolorio
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
 set(INC_SYS
@@ -58,11 +60,13 @@ set(SRC
   bpy_rna_anim.c
   bpy_rna_array.c
   bpy_rna_callback.c
+  bpy_rna_context.c
   bpy_rna_data.c
   bpy_rna_driver.c
   bpy_rna_gizmo.c
   bpy_rna_id_collection.c
   bpy_rna_operator.c
+  bpy_rna_text.c
   bpy_rna_types_capi.c
   bpy_rna_ui.c
   bpy_traceback.c
@@ -98,11 +102,13 @@ set(SRC
   bpy_rna.h
   bpy_rna_anim.h
   bpy_rna_callback.h
+  bpy_rna_context.h
   bpy_rna_data.h
   bpy_rna_driver.h
   bpy_rna_gizmo.h
   bpy_rna_id_collection.h
   bpy_rna_operator.h
+  bpy_rna_text.h
   bpy_rna_types_capi.h
   bpy_rna_ui.h
   bpy_traceback.h
@@ -137,10 +143,13 @@ if(WITH_PYTHON_SAFETY)
   add_definitions(-DWITH_PYTHON_SAFETY)
 endif()
 
-
-
 if(WITH_AUDASPACE)
+  # It's possible to build with AUDASPACE (for file IO) but without the `aud` Python API,
+  # when building without NUMPY so define both `WITH_AUDASPACE` & `DWITH_AUDASPACE_PY`.
   add_definitions(-DWITH_AUDASPACE)
+  if(WITH_PYTHON_NUMPY)
+    add_definitions(-DWITH_AUDASPACE_PY)
+  endif()
 endif()
 
 if(WITH_BULLET)
@@ -165,8 +174,8 @@ if(WITH_CODEC_SNDFILE)
   add_definitions(-DWITH_SNDFILE)
 endif()
 
-if(WITH_COMPOSITOR)
-  add_definitions(-DWITH_COMPOSITOR)
+if(WITH_COMPOSITOR_CPU)
+  add_definitions(-DWITH_COMPOSITOR_CPU)
 endif()
 
 if(WITH_CYCLES)
@@ -220,6 +229,10 @@ endif()
 
 if(WITH_IMAGE_TIFF)
   add_definitions(-DWITH_TIFF)
+endif()
+
+if(WITH_WEBP)
+  add_definitions(-DWITH_WEBP)
 endif()
 
 if(WITH_INPUT_NDOF)
@@ -297,6 +310,18 @@ if(WITH_OPENCOLLADA)
   add_definitions(-DWITH_COLLADA)
 endif()
 
+if(WITH_IO_WAVEFRONT_OBJ)
+  add_definitions(-DWITH_IO_WAVEFRONT_OBJ)
+endif()
+
+if(WITH_IO_STL)
+  add_definitions(-DWITH_IO_STL)
+endif()
+
+if(WITH_IO_GPENCIL)
+  add_definitions(-DWITH_IO_GPENCIL)
+endif()
+
 if(WITH_ALEMBIC)
   add_definitions(-DWITH_ALEMBIC)
 endif()
@@ -357,3 +382,6 @@ if(WITH_HARU)
 endif()
 
 blender_add_lib(bf_python "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+# RNA_prototypes.h
+add_dependencies(bf_python bf_rna)

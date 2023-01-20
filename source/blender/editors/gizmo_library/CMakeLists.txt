@@ -13,8 +13,12 @@ set(INC
   ../../windowmanager
   ../../../../intern/clog
   ../../../../intern/eigen
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
+)
+
+set(INC_SYS
 )
 
 set(SRC
@@ -42,3 +46,6 @@ set(LIB
 
 
 blender_add_lib(bf_editor_gizmo_library "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+# RNA_prototypes.h
+add_dependencies(bf_editor_gizmo_library bf_rna)

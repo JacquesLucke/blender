@@ -36,6 +36,7 @@ struct IDRemapper {
     BLI_assert(old_id != nullptr);
     BLI_assert(new_id == nullptr || (GS(old_id->name) == GS(new_id->name)));
     mappings.add(old_id, new_id);
+    BLI_assert(BKE_idtype_idcode_to_idfilter(GS(old_id->name)) != 0);
     source_types |= BKE_idtype_idcode_to_idfilter(GS(old_id->name));
   }
 
@@ -86,7 +87,8 @@ struct IDRemapper {
     }
 
     if (options & ID_REMAP_APPLY_UPDATE_REFCOUNT) {
-      id_us_plus(*r_id_ptr);
+      /* Do not handle LIB_TAG_INDIRECT/LIB_TAG_EXTERN here. */
+      id_us_plus_no_lib(*r_id_ptr);
     }
 
     if (options & ID_REMAP_APPLY_ENSURE_REAL) {
@@ -219,7 +221,7 @@ const char *BKE_id_remapper_result_string(const IDRemapperApplyResult result)
   return "";
 }
 
-static void id_remapper_print_item_cb(ID *old_id, ID *new_id, void *UNUSED(user_data))
+static void id_remapper_print_item_cb(ID *old_id, ID *new_id, void * /*user_data*/)
 {
   if (old_id != nullptr && new_id != nullptr) {
     printf("Remap %s(%p) to %s(%p)\n", old_id->name, old_id, new_id->name, new_id);

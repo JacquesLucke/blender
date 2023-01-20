@@ -15,7 +15,7 @@ CCL_NAMESPACE_BEGIN
 #define TEX_IMAGE_MISSING_A 1
 
 /* Interpolation types for textures
- * cuda also use texture space to store other objects */
+ * CUDA also use texture space to store other objects. */
 typedef enum InterpolationType {
   INTERPOLATION_NONE = -1,
   INTERPOLATION_LINEAR = 0,
@@ -37,6 +37,8 @@ typedef enum ImageDataType {
   IMAGE_DATA_TYPE_USHORT = 7,
   IMAGE_DATA_TYPE_NANOVDB_FLOAT = 8,
   IMAGE_DATA_TYPE_NANOVDB_FLOAT3 = 9,
+  IMAGE_DATA_TYPE_NANOVDB_FPN = 10,
+  IMAGE_DATA_TYPE_NANOVDB_FP16 = 11,
 
   IMAGE_DATA_NUM_TYPES
 } ImageDataType;
@@ -63,6 +65,8 @@ typedef enum ExtensionType {
   EXTENSION_EXTEND = 1,
   /* Clip to image size and set exterior pixels as transparent. */
   EXTENSION_CLIP = 2,
+  /* Repeatedly flip the image horizontally and vertically. */
+  EXTENSION_MIRROR = 3,
 
   EXTENSION_NUM_TYPES,
 } ExtensionType;

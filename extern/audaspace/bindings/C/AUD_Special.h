@@ -53,6 +53,7 @@ extern AUD_API AUD_Handle* AUD_pauseAfter(AUD_Handle* handle, double seconds);
  * \param buffer The buffer to write to. Must have a size of 3*4*length.
  * \param length How many samples to read from the sound.
  * \param samples_per_second How many samples to read per second of the sound.
+ * \param interrupt Must point to a short that equals 0. If it is set to a non-zero value, the method will be interrupted and return 0.
  * \return How many samples really have been read. Always <= length.
  */
 extern AUD_API int AUD_readSound(AUD_Sound* sound, float* buffer, int length, int samples_per_second, short* interrupt);
@@ -70,13 +71,15 @@ extern AUD_API int AUD_readSound(AUD_Sound* sound, float* buffer, int length, in
  * \param bitrate The bitrate for encoding.
  * \param callback A callback function that is called periodically during mixdown, reporting progress if length > 0. Can be NULL.
  * \param data Pass through parameter that is passed to the callback.
- * \return An error message or NULL in case of success.
+ * \param error String buffer to copy the error message to in case of failure.
+ * \param errorsize The size of the error buffer.
+ * \return Whether or not the operation succeeded.
  */
-extern AUD_API const char* AUD_mixdown(AUD_Sound* sound, unsigned int start, unsigned int length,
+extern AUD_API int AUD_mixdown(AUD_Sound* sound, unsigned int start, unsigned int length,
 							   unsigned int buffersize, const char* filename,
 							   AUD_DeviceSpecs specs, AUD_Container format,
 							   AUD_Codec codec, unsigned int bitrate,
-							   void(*callback)(float, void*), void* data);
+							   void(*callback)(float, void*), void* data, char* error, size_t errorsize);
 
 /**
  * Mixes a sound down into multiple files.
@@ -91,13 +94,15 @@ extern AUD_API const char* AUD_mixdown(AUD_Sound* sound, unsigned int start, uns
  * \param bitrate The bitrate for encoding.
  * \param callback A callback function that is called periodically during mixdown, reporting progress if length > 0. Can be NULL.
  * \param data Pass through parameter that is passed to the callback.
- * \return An error message or NULL in case of success.
+ * \param error String buffer to copy the error message to in case of failure.
+ * \param errorsize The size of the error buffer.
+ * \return Whether or not the operation succeeded.
  */
-extern AUD_API const char* AUD_mixdown_per_channel(AUD_Sound* sound, unsigned int start, unsigned int length,
+extern AUD_API int AUD_mixdown_per_channel(AUD_Sound* sound, unsigned int start, unsigned int length,
 										   unsigned int buffersize, const char* filename,
 										   AUD_DeviceSpecs specs, AUD_Container format,
 										   AUD_Codec codec, unsigned int bitrate,
-										   void(*callback)(float, void*), void* data);
+										   void(*callback)(float, void*), void* data, char* error, size_t errorsize);
 
 /**
  * Opens a read device and prepares it for mixdown of the sound scene.

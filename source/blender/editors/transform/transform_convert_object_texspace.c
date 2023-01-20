@@ -11,6 +11,7 @@
 
 #include "BKE_animsys.h"
 #include "BKE_context.h"
+#include "BKE_layer.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
 
@@ -29,22 +30,23 @@
  *
  * \{ */
 
-void createTransTexspace(TransInfo *t)
+static void createTransTexspace(bContext *UNUSED(C), TransInfo *t)
 {
   ViewLayer *view_layer = t->view_layer;
   TransData *td;
   Object *ob;
   ID *id;
-  char *texflag;
+  char *texspace_flag;
 
-  ob = OBACT(view_layer);
+  BKE_view_layer_synced_ensure(t->scene, t->view_layer);
+  ob = BKE_view_layer_active_object_get(view_layer);
 
   if (ob == NULL) { /* Shouldn't logically happen, but still. */
     return;
   }
 
   id = ob->data;
-  if (id == NULL || !ELEM(GS(id->name), ID_ME, ID_CU, ID_MB)) {
+  if (id == NULL || !ELEM(GS(id->name), ID_ME, ID_CU_LEGACY, ID_MB)) {
     BKE_report(t->reports, RPT_ERROR, "Unsupported object type for text-space transform");
     return;
   }
@@ -63,20 +65,20 @@ void createTransTexspace(TransInfo *t)
   }
 
   td->flag = TD_SELECTED;
-  copy_v3_v3(td->center, ob->obmat[3]);
   td->ob = ob;
 
-  copy_m3_m4(td->mtx, ob->obmat);
-  copy_m3_m4(td->axismtx, ob->obmat);
+  copy_m3_m4(td->mtx, ob->object_to_world);
+  copy_m3_m4(td->axismtx, ob->object_to_world);
   normalize_m3(td->axismtx);
   pseudoinverse_m3_m3(td->smtx, td->mtx, PSEUDOINVERSE_EPSILON);
 
-  if (BKE_object_obdata_texspace_get(ob, &texflag, &td->loc, &td->ext->size)) {
+  if (BKE_object_obdata_texspace_get(ob, &texspace_flag, &td->loc, &td->ext->size)) {
     ob->dtx |= OB_TEXSPACE;
-    *texflag &= ~ME_AUTOSPACE;
+    *texspace_flag &= ~ME_TEXSPACE_FLAG_AUTO;
   }
 
   copy_v3_v3(td->iloc, td->loc);
+  copy_v3_v3(td->center, td->loc);
   copy_v3_v3(td->ext->isize, td->ext->size);
 }
 
@@ -86,11 +88,11 @@ void createTransTexspace(TransInfo *t)
 /** \name Recalc Data object
  * \{ */
 
-void recalcData_texspace(TransInfo *t)
+static void recalcData_texspace(TransInfo *t)
 {
 
   if (t->state != TRANS_CANCEL) {
-    applyProject(t);
+    transform_snap_project_individual_apply(t);
   }
 
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
@@ -106,3 +108,10 @@ void recalcData_texspace(TransInfo *t)
 }
 
 /** \} */
+
+TransConvertTypeInfo TransConvertType_ObjectTexSpace = {
+    /*flags*/ 0,
+    /*createTransData*/ createTransTexspace,
+    /*recalcData*/ recalcData_texspace,
+    /*special_aftertrans_update*/ NULL,
+};

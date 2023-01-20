@@ -41,14 +41,14 @@ typedef struct ScanFillIsect {
 #define EFLAG_SET(eed, val) \
   { \
     CHECK_TYPE(eed, ScanFillEdge *); \
-    (eed)->user_flag = (eed)->user_flag | (unsigned int)val; \
+    (eed)->user_flag = (eed)->user_flag | (uint)val; \
   } \
   (void)0
 #if 0
 #  define EFLAG_CLEAR(eed, val) \
     { \
       CHECK_TYPE(eed, ScanFillEdge *); \
-      (eed)->user_flag = (eed)->user_flag & ~(unsigned int)val; \
+      (eed)->user_flag = (eed)->user_flag & ~(uint)val; \
     } \
     (void)0
 #endif
@@ -56,14 +56,14 @@ typedef struct ScanFillIsect {
 #define VFLAG_SET(eve, val) \
   { \
     CHECK_TYPE(eve, ScanFillVert *); \
-    (eve)->user_flag = (eve)->user_flag | (unsigned int)val; \
+    (eve)->user_flag = (eve)->user_flag | (uint)val; \
   } \
   (void)0
 #if 0
 #  define VFLAG_CLEAR(eve, val) \
     { \
       CHECK_TYPE(eve, ScanFillVert *); \
-      (eve)->user_flags = (eve)->user_flag & ~(unsigned int)val; \
+      (eve)->user_flags = (eve)->user_flag & ~(uint)val; \
     } \
     (void)0
 #endif
@@ -72,7 +72,7 @@ typedef struct ScanFillIsect {
 void BLI_scanfill_obj_dump(ScanFillContext *sf_ctx)
 {
   FILE *f = fopen("test.obj", "w");
-  unsigned int i = 1;
+  uint i = 1;
 
   ScanFillVert *eve;
   ScanFillEdge *eed;
@@ -130,7 +130,7 @@ static int edge_isect_ls_sort_cb(void *thunk, const void *def_a_ptr, const void 
 }
 
 static ScanFillEdge *edge_step(PolyInfo *poly_info,
-                               const unsigned short poly_nr,
+                               const ushort poly_nr,
                                ScanFillVert *v_prev,
                                ScanFillVert *v_curr,
                                ScanFillEdge *e_curr)
@@ -158,7 +158,7 @@ static ScanFillEdge *edge_step(PolyInfo *poly_info,
 
 static bool scanfill_preprocess_self_isect(ScanFillContext *sf_ctx,
                                            PolyInfo *poly_info,
-                                           const unsigned short poly_nr,
+                                           const ushort poly_nr,
                                            ListBase *filledgebase)
 {
   PolyInfo *pi = &poly_info[poly_nr];
@@ -359,9 +359,8 @@ bool BLI_scanfill_calc_self_isect(ScanFillContext *sf_ctx,
                                   ListBase *remvertbase,
                                   ListBase *remedgebase)
 {
-  const unsigned int poly_tot = (unsigned int)sf_ctx->poly_nr + 1;
-  unsigned int eed_index = 0;
-  int totvert_new = 0;
+  const uint poly_num = (uint)sf_ctx->poly_nr + 1;
+  uint eed_index = 0;
   bool changed = false;
 
   PolyInfo *poly_info;
@@ -370,7 +369,7 @@ bool BLI_scanfill_calc_self_isect(ScanFillContext *sf_ctx,
     return false;
   }
 
-  poly_info = MEM_callocN(sizeof(*poly_info) * poly_tot, __func__);
+  poly_info = MEM_callocN(sizeof(*poly_info) * poly_num, __func__);
 
   /* get the polygon span */
   if (sf_ctx->poly_nr == 0) {
@@ -378,7 +377,7 @@ bool BLI_scanfill_calc_self_isect(ScanFillContext *sf_ctx,
     poly_info->edge_last = sf_ctx->filledgebase.last;
   }
   else {
-    unsigned short poly_nr;
+    ushort poly_nr;
     ScanFillEdge *eed;
 
     poly_nr = 0;
@@ -407,8 +406,8 @@ bool BLI_scanfill_calc_self_isect(ScanFillContext *sf_ctx,
 
   /* self-intersect each polygon */
   {
-    unsigned short poly_nr;
-    for (poly_nr = 0; poly_nr < poly_tot; poly_nr++) {
+    ushort poly_nr;
+    for (poly_nr = 0; poly_nr < poly_num; poly_nr++) {
       changed |= scanfill_preprocess_self_isect(sf_ctx, poly_info, poly_nr, remedgebase);
     }
   }
@@ -453,7 +452,6 @@ bool BLI_scanfill_calc_self_isect(ScanFillContext *sf_ctx,
       if (eve->user_flag != 1) {
         BLI_remlink(&sf_ctx->fillvertbase, eve);
         BLI_addtail(remvertbase, eve);
-        totvert_new--;
       }
       else {
         eve->user_flag = 0;

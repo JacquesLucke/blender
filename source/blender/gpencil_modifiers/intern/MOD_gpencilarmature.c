@@ -8,9 +8,8 @@
 #include <stdio.h>
 
 #include "BLI_listbase.h"
+#include "BLI_math_vector.h"
 #include "BLI_utildefines.h"
-
-#include "BLI_math.h"
 
 #include "BLT_translation.h"
 
@@ -42,6 +41,7 @@
 
 #include "MOD_gpencil_modifiertypes.h"
 #include "MOD_gpencil_ui_common.h"
+#include "MOD_gpencil_util.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -118,35 +118,12 @@ static void bakeModifier(Main *UNUSED(bmain),
                          GpencilModifierData *md,
                          Object *ob)
 {
-  Scene *scene = DEG_get_evaluated_scene(depsgraph);
-  Object *object_eval = DEG_get_evaluated_object(depsgraph, ob);
   ArmatureGpencilModifierData *mmd = (ArmatureGpencilModifierData *)md;
-  GpencilModifierData *md_eval = BKE_gpencil_modifiers_findby_name(object_eval, md->name);
-  bGPdata *gpd = (bGPdata *)ob->data;
-  int oldframe = (int)DEG_get_ctime(depsgraph);
 
   if (mmd->object == NULL) {
     return;
   }
-
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
-      /* apply armature effects on this frame
-       * NOTE: this assumes that we don't want armature animation on non-keyframed frames
-       */
-      CFRA = gpf->framenum;
-      BKE_scene_graph_update_for_newframe(depsgraph);
-
-      /* compute armature effects on this frame */
-      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        deformStroke(md_eval, depsgraph, object_eval, gpl, gpf, gps);
-      }
-    }
-  }
-
-  /* return frame state and DB to original state */
-  CFRA = oldframe;
-  BKE_scene_graph_update_for_newframe(depsgraph);
+  generic_bake_deform_stroke(depsgraph, md, ob, true, deformStroke);
 }
 
 static bool isDisabled(GpencilModifierData *md, int UNUSED(userRenderParams))
@@ -212,24 +189,24 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Armature = {
-    /* name */ "Armature",
-    /* structName */ "ArmatureGpencilModifierData",
-    /* structSize */ sizeof(ArmatureGpencilModifierData),
-    /* type */ eGpencilModifierTypeType_Gpencil,
-    /* flags */ eGpencilModifierTypeFlag_SupportsEditmode,
+    /*name*/ N_("Armature"),
+    /*structName*/ "ArmatureGpencilModifierData",
+    /*structSize*/ sizeof(ArmatureGpencilModifierData),
+    /*type*/ eGpencilModifierTypeType_Gpencil,
+    /*flags*/ eGpencilModifierTypeFlag_SupportsEditmode,
 
-    /* copyData */ copyData,
+    /*copyData*/ copyData,
 
-    /* deformStroke */ deformStroke,
-    /* generateStrokes */ NULL,
-    /* bakeModifier */ bakeModifier,
-    /* remapTime */ NULL,
-    /* initData */ initData,
-    /* freeData */ NULL,
-    /* isDisabled */ isDisabled,
-    /* updateDepsgraph */ updateDepsgraph,
-    /* dependsOnTime */ NULL,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ NULL,
-    /* panelRegister */ panelRegister,
+    /*deformStroke*/ deformStroke,
+    /*generateStrokes*/ NULL,
+    /*bakeModifier*/ bakeModifier,
+    /*remapTime*/ NULL,
+    /*initData*/ initData,
+    /*freeData*/ NULL,
+    /*isDisabled*/ isDisabled,
+    /*updateDepsgraph*/ updateDepsgraph,
+    /*dependsOnTime*/ NULL,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ NULL,
+    /*panelRegister*/ panelRegister,
 };

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "BKE_spline.hh"
+#include "BKE_curves.hh"
 
 #include "node_geometry_util.hh"
 
@@ -13,39 +13,37 @@ static void node_declare(NodeDeclarationBuilder &b)
       .supports_field()
       .description(N_("Output the handle positions relative to the corresponding control point "
                       "instead of in the local space of the geometry"));
-  b.add_output<decl::Vector>(N_("Left")).field_source();
-  b.add_output<decl::Vector>(N_("Right")).field_source();
+  b.add_output<decl::Vector>(N_("Left")).field_source_reference_all();
+  b.add_output<decl::Vector>(N_("Right")).field_source_reference_all();
 }
 
-class HandlePositionFieldInput final : public GeometryFieldInput {
+class HandlePositionFieldInput final : public bke::CurvesFieldInput {
   Field<bool> relative_;
   bool left_;
 
  public:
   HandlePositionFieldInput(Field<bool> relative, bool left)
-      : GeometryFieldInput(CPPType::get<float3>(), "Handle"), relative_(relative), left_(left)
+      : bke::CurvesFieldInput(CPPType::get<float3>(), "Handle"), relative_(relative), left_(left)
   {
   }
 
-  GVArray get_varray_for_context(const GeometryComponent &component,
-                                 const AttributeDomain domain,
-                                 IndexMask mask) const final
+  GVArray get_varray_for_context(const bke::CurvesGeometry &curves,
+                                 const eAttrDomain domain,
+                                 const IndexMask mask) const final
   {
-    if (component.type() != GEO_COMPONENT_TYPE_CURVE) {
-      return {};
-    }
-
-    GeometryComponentFieldContext field_context{component, ATTR_DOMAIN_POINT};
+    bke::CurvesFieldContext field_context{curves, ATTR_DOMAIN_POINT};
     fn::FieldEvaluator evaluator(field_context, &mask);
     evaluator.add(relative_);
     evaluator.evaluate();
-    const VArray<bool> &relative = evaluator.get_evaluated<bool>(0);
+    const VArray<bool> relative = evaluator.get_evaluated<bool>(0);
 
-    VArray<float3> positions = component.attribute_get_for_read<float3>(
+    const AttributeAccessor attributes = curves.attributes();
+
+    VArray<float3> positions = attributes.lookup_or_default<float3>(
         "position", ATTR_DOMAIN_POINT, {0, 0, 0});
 
     StringRef side = left_ ? "handle_left" : "handle_right";
-    VArray<float3> handles = component.attribute_get_for_read<float3>(
+    VArray<float3> handles = attributes.lookup_or_default<float3>(
         side, ATTR_DOMAIN_POINT, {0, 0, 0});
 
     if (relative.is_single()) {
@@ -54,10 +52,10 @@ class HandlePositionFieldInput final : public GeometryFieldInput {
         for (const int i : positions.index_range()) {
           output[i] = handles[i] - positions[i];
         }
-        return component.attribute_try_adapt_domain<float3>(
+        return attributes.adapt_domain<float3>(
             VArray<float3>::ForContainer(std::move(output)), ATTR_DOMAIN_POINT, domain);
       }
-      return component.attribute_try_adapt_domain<float3>(handles, ATTR_DOMAIN_POINT, domain);
+      return attributes.adapt_domain<float3>(handles, ATTR_DOMAIN_POINT, domain);
     }
 
     Array<float3> output(positions.size());
@@ -69,8 +67,13 @@ class HandlePositionFieldInput final : public GeometryFieldInput {
         output[i] = handles[i];
       }
     }
-    return component.attribute_try_adapt_domain<float3>(
+    return attributes.adapt_domain<float3>(
         VArray<float3>::ForContainer(std::move(output)), ATTR_DOMAIN_POINT, domain);
+  }
+
+  void for_each_field_input_recursive(FunctionRef<void(const FieldInput &)> fn) const override
+  {
+    relative_.node().for_each_field_input_recursive(fn);
   }
 
   uint64_t hash() const override
@@ -85,6 +88,11 @@ class HandlePositionFieldInput final : public GeometryFieldInput {
       return relative_ == other_handle->relative_ && left_ == other_handle->left_;
     }
     return false;
+  }
+
+  std::optional<eAttrDomain> preferred_domain(const CurvesGeometry & /*curves*/) const
+  {
+    return ATTR_DOMAIN_POINT;
   }
 };
 

@@ -44,16 +44,14 @@ void SVMShaderManager::device_update_shader(Scene *scene,
   }
   assert(shader->graph);
 
-  svm_nodes->push_back_slow(make_int4(NODE_SHADER_JUMP, 0, 0, 0));
-
   SVMCompiler::Summary summary;
   SVMCompiler compiler(scene);
   compiler.background = (shader == scene->background->get_shader(scene));
   compiler.compile(shader, *svm_nodes, 0, &summary);
 
-  VLOG(3) << "Compilation summary:\n"
-          << "Shader name: " << shader->name << "\n"
-          << summary.full_report();
+  VLOG_WORK << "Compilation summary:\n"
+            << "Shader name: " << shader->name << "\n"
+            << summary.full_report();
 }
 
 void SVMShaderManager::device_update_specific(Device *device,
@@ -72,7 +70,7 @@ void SVMShaderManager::device_update_specific(Device *device,
 
   const int num_shaders = scene->shaders.size();
 
-  VLOG(1) << "Total " << num_shaders << " shaders.";
+  VLOG_INFO << "Total " << num_shaders << " shaders.";
 
   double start_time = time_dt();
 
@@ -111,7 +109,7 @@ void SVMShaderManager::device_update_specific(Device *device,
     Shader *shader = scene->shaders[i];
 
     shader->clear_modified();
-    if (shader->get_use_mis() && shader->has_surface_emission) {
+    if (shader->emission_sampling != EMISSION_SAMPLING_NONE) {
       scene->light_manager->tag_update(scene, LightManager::SHADER_COMPILED);
     }
 
@@ -148,8 +146,8 @@ void SVMShaderManager::device_update_specific(Device *device,
 
   update_flags = UPDATE_NONE;
 
-  VLOG(1) << "Shader manager updated " << num_shaders << " shaders in " << time_dt() - start_time
-          << " seconds.";
+  VLOG_INFO << "Shader manager updated " << num_shaders << " shaders in " << time_dt() - start_time
+            << " seconds.";
 }
 
 void SVMShaderManager::device_free(Device *device, DeviceScene *dscene, Scene *scene)
@@ -170,6 +168,9 @@ SVMCompiler::SVMCompiler(Scene *scene) : scene(scene)
   background = false;
   mix_weight_offset = SVM_STACK_INVALID;
   compile_failed = false;
+
+  /* This struct has one entry for every node, in order of ShaderNodeType definition. */
+  svm_node_types_used = (std::atomic_int *)&scene->dscene.data.svm_usage;
 }
 
 int SVMCompiler::stack_size(SocketType::Type type)
@@ -378,11 +379,13 @@ void SVMCompiler::add_node(int a, int b, int c, int d)
 
 void SVMCompiler::add_node(ShaderNodeType type, int a, int b, int c)
 {
+  svm_node_types_used[type] = true;
   current_svm_nodes.push_back_slow(make_int4(type, a, b, c));
 }
 
 void SVMCompiler::add_node(ShaderNodeType type, const float3 &f)
 {
+  svm_node_types_used[type] = true;
   current_svm_nodes.push_back_slow(
       make_int4(type, __float_as_int(f.x), __float_as_int(f.y), __float_as_int(f.z)));
 }
@@ -513,8 +516,6 @@ void SVMCompiler::generate_closure_node(ShaderNode *node, CompilerState *state)
   mix_weight_offset = SVM_STACK_INVALID;
 
   if (current_type == SHADER_TYPE_SURFACE) {
-    if (node->has_surface_emission())
-      current_shader->has_surface_emission = true;
     if (node->has_surface_transparent())
       current_shader->has_surface_transparent = true;
     if (node->has_surface_bssrdf()) {
@@ -663,6 +664,7 @@ void SVMCompiler::generate_multi_closure(ShaderNode *root_node,
         /* Add instruction to skip closure and its dependencies if mix
          * weight is zero.
          */
+        svm_node_types_used[NODE_JUMP_IF_ONE] = true;
         current_svm_nodes.push_back_slow(make_int4(NODE_JUMP_IF_ONE, 0, stack_assign(facin), 0));
         int node_jump_skip_index = current_svm_nodes.size() - 1;
 
@@ -678,6 +680,7 @@ void SVMCompiler::generate_multi_closure(ShaderNode *root_node,
         /* Add instruction to skip closure and its dependencies if mix
          * weight is zero.
          */
+        svm_node_types_used[NODE_JUMP_IF_ZERO] = true;
         current_svm_nodes.push_back_slow(make_int4(NODE_JUMP_IF_ZERO, 0, stack_assign(facin), 0));
         int node_jump_skip_index = current_svm_nodes.size() - 1;
 
@@ -844,6 +847,9 @@ void SVMCompiler::compile_type(Shader *shader, ShaderGraph *graph, ShaderType ty
 
 void SVMCompiler::compile(Shader *shader, array<int4> &svm_nodes, int index, Summary *summary)
 {
+  svm_node_types_used[NODE_SHADER_JUMP] = true;
+  svm_nodes.push_back_slow(make_int4(NODE_SHADER_JUMP, 0, 0, 0));
+
   /* copy graph for shader with bump mapping */
   ShaderNode *output = shader->graph->output();
   int start_num_svm_nodes = svm_nodes.size();
@@ -865,7 +871,6 @@ void SVMCompiler::compile(Shader *shader, array<int4> &svm_nodes, int index, Sum
   current_shader = shader;
 
   shader->has_surface = false;
-  shader->has_surface_emission = false;
   shader->has_surface_transparent = false;
   shader->has_surface_raytrace = false;
   shader->has_surface_bssrdf = false;
@@ -920,6 +925,9 @@ void SVMCompiler::compile(Shader *shader, array<int4> &svm_nodes, int index, Sum
     summary->peak_stack_usage = max_stack_use;
     summary->num_svm_nodes = svm_nodes.size() - start_num_svm_nodes;
   }
+
+  /* Estimate emission for MIS. */
+  shader->estimate_emission();
 }
 
 /* Compiler summary implementation. */

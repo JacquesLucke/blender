@@ -8,6 +8,7 @@
 #include "BLI_string.h"
 
 #include "BKE_image.h"
+#include "BKE_image_format.h"
 #include "BKE_main.h"
 #include "BKE_scene.h"
 
@@ -149,7 +150,7 @@ int get_datatype_size(DataType datatype)
   }
 }
 
-static float *init_buffer(unsigned int width, unsigned int height, DataType datatype)
+static float *init_buffer(uint width, uint height, DataType datatype)
 {
   /* When initializing the tree during initial load the width and height can be zero. */
   if (width != 0 && height != 0) {
@@ -164,7 +165,7 @@ static void write_buffer_rect(rcti *rect,
                               const bNodeTree *tree,
                               SocketReader *reader,
                               float *buffer,
-                              unsigned int width,
+                              uint width,
                               DataType datatype)
 {
   float color[4];
@@ -191,7 +192,7 @@ static void write_buffer_rect(rcti *rect,
       }
       offset += size;
 
-      if (tree->test_break && tree->test_break(tree->tbh)) {
+      if (tree->runtime->test_break && tree->runtime->test_break(tree->runtime->tbh)) {
         breaked = true;
       }
     }
@@ -199,16 +200,14 @@ static void write_buffer_rect(rcti *rect,
   }
 }
 
-OutputSingleLayerOperation::OutputSingleLayerOperation(
-    const RenderData *rd,
-    const bNodeTree *tree,
-    DataType datatype,
-    ImageFormatData *format,
-    const char *path,
-    const ColorManagedViewSettings *view_settings,
-    const ColorManagedDisplaySettings *display_settings,
-    const char *view_name,
-    const bool save_as_render)
+OutputSingleLayerOperation::OutputSingleLayerOperation(const Scene *scene,
+                                                       const RenderData *rd,
+                                                       const bNodeTree *tree,
+                                                       DataType datatype,
+                                                       const ImageFormatData *format,
+                                                       const char *path,
+                                                       const char *view_name,
+                                                       const bool save_as_render)
 {
   rd_ = rd;
   tree_ = tree;
@@ -219,13 +218,22 @@ OutputSingleLayerOperation::OutputSingleLayerOperation(
   datatype_ = datatype;
   image_input_ = nullptr;
 
-  format_ = format;
+  BKE_image_format_init_for_write(&format_, scene, format);
+  if (!save_as_render) {
+    /* If not saving as render, stop IMB_colormanagement_imbuf_for_write using this
+     * colorspace for conversion. */
+    format_.linear_colorspace_settings.name[0] = '\0';
+  }
+
   BLI_strncpy(path_, path, sizeof(path_));
 
-  view_settings_ = view_settings;
-  display_settings_ = display_settings;
   view_name_ = view_name;
   save_as_render_ = save_as_render;
+}
+
+OutputSingleLayerOperation::~OutputSingleLayerOperation()
+{
+  BKE_image_format_free(&format_);
 }
 
 void OutputSingleLayerOperation::init_execution()
@@ -234,7 +242,7 @@ void OutputSingleLayerOperation::init_execution()
   output_buffer_ = init_buffer(this->get_width(), this->get_height(), datatype_);
 }
 
-void OutputSingleLayerOperation::execute_region(rcti *rect, unsigned int /*tile_number*/)
+void OutputSingleLayerOperation::execute_region(rcti *rect, uint /*tile_number*/)
 {
   write_buffer_rect(rect, tree_, image_input_, output_buffer_, this->get_width(), datatype_);
 }
@@ -244,7 +252,7 @@ void OutputSingleLayerOperation::deinit_execution()
   if (this->get_width() * this->get_height() != 0) {
 
     int size = get_datatype_size(datatype_);
-    ImBuf *ibuf = IMB_allocImBuf(this->get_width(), this->get_height(), format_->planes, 0);
+    ImBuf *ibuf = IMB_allocImBuf(this->get_width(), this->get_height(), format_.planes, 0);
     char filename[FILE_MAX];
     const char *suffix;
 
@@ -253,8 +261,7 @@ void OutputSingleLayerOperation::deinit_execution()
     ibuf->mall |= IB_rectfloat;
     ibuf->dither = rd_->dither_intensity;
 
-    IMB_colormanagement_imbuf_for_write(
-        ibuf, save_as_render_, false, view_settings_, display_settings_, format_);
+    IMB_colormanagement_imbuf_for_write(ibuf, save_as_render_, false, &format_);
 
     suffix = BKE_scene_multiview_view_suffix_get(rd_, view_name_);
 
@@ -262,12 +269,12 @@ void OutputSingleLayerOperation::deinit_execution()
                                  path_,
                                  BKE_main_blendfile_path_from_global(),
                                  rd_->cfra,
-                                 format_,
+                                 &format_,
                                  (rd_->scemode & R_EXTENSION) != 0,
                                  true,
                                  suffix);
 
-    if (0 == BKE_imbuf_write(ibuf, filename, format_)) {
+    if (0 == BKE_imbuf_write(ibuf, filename, &format_)) {
       printf("Cannot save Node File Output to %s\n", filename);
     }
     else {
@@ -280,7 +287,7 @@ void OutputSingleLayerOperation::deinit_execution()
   image_input_ = nullptr;
 }
 
-void OutputSingleLayerOperation::update_memory_buffer_partial(MemoryBuffer *UNUSED(output),
+void OutputSingleLayerOperation::update_memory_buffer_partial(MemoryBuffer * /*output*/,
                                                               const rcti &area,
                                                               Span<MemoryBuffer *> inputs)
 {
@@ -362,7 +369,7 @@ StampData *OutputOpenExrMultiLayerOperation::create_stamp_data() const
 
 void OutputOpenExrMultiLayerOperation::init_execution()
 {
-  for (unsigned int i = 0; i < layers_.size(); i++) {
+  for (uint i = 0; i < layers_.size(); i++) {
     if (layers_[i].use_layer) {
       SocketReader *reader = get_input_socket_reader(i);
       layers_[i].image_input = reader;
@@ -372,9 +379,9 @@ void OutputOpenExrMultiLayerOperation::init_execution()
   }
 }
 
-void OutputOpenExrMultiLayerOperation::execute_region(rcti *rect, unsigned int /*tile_number*/)
+void OutputOpenExrMultiLayerOperation::execute_region(rcti *rect, uint /*tile_number*/)
 {
-  for (unsigned int i = 0; i < layers_.size(); i++) {
+  for (uint i = 0; i < layers_.size(); i++) {
     OutputOpenExrLayer &layer = layers_[i];
     if (layer.image_input) {
       write_buffer_rect(
@@ -385,8 +392,8 @@ void OutputOpenExrMultiLayerOperation::execute_region(rcti *rect, unsigned int /
 
 void OutputOpenExrMultiLayerOperation::deinit_execution()
 {
-  unsigned int width = this->get_width();
-  unsigned int height = this->get_height();
+  uint width = this->get_width();
+  uint height = this->get_height();
   if (width != 0 && height != 0) {
     char filename[FILE_MAX];
     const char *suffix;
@@ -403,7 +410,7 @@ void OutputOpenExrMultiLayerOperation::deinit_execution()
                                suffix);
     BLI_make_existing_file(filename);
 
-    for (unsigned int i = 0; i < layers_.size(); i++) {
+    for (uint i = 0; i < layers_.size(); i++) {
       OutputOpenExrLayer &layer = layers_[i];
       if (!layer.image_input) {
         continue; /* skip unconnected sockets */
@@ -430,7 +437,7 @@ void OutputOpenExrMultiLayerOperation::deinit_execution()
     }
 
     IMB_exr_close(exrhandle);
-    for (unsigned int i = 0; i < layers_.size(); i++) {
+    for (uint i = 0; i < layers_.size(); i++) {
       if (layers_[i].output_buffer) {
         MEM_freeN(layers_[i].output_buffer);
         layers_[i].output_buffer = nullptr;
@@ -442,7 +449,7 @@ void OutputOpenExrMultiLayerOperation::deinit_execution()
   }
 }
 
-void OutputOpenExrMultiLayerOperation::update_memory_buffer_partial(MemoryBuffer *UNUSED(output),
+void OutputOpenExrMultiLayerOperation::update_memory_buffer_partial(MemoryBuffer * /*output*/,
                                                                     const rcti &area,
                                                                     Span<MemoryBuffer *> inputs)
 {

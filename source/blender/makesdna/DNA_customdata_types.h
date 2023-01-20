@@ -15,7 +15,15 @@
 extern "C" {
 #endif
 
-struct AnonymousAttributeID;
+/** Workaround to forward-declare C++ type in C header. */
+#ifdef __cplusplus
+namespace blender::bke {
+class AnonymousAttributeID;
+}  // namespace blender::bke
+using AnonymousAttributeIDHandle = blender::bke::AnonymousAttributeID;
+#else
+typedef struct AnonymousAttributeIDHandle AnonymousAttributeIDHandle;
+#endif
 
 /** Descriptor and storage for a custom data layer. */
 typedef struct CustomDataLayer {
@@ -36,23 +44,23 @@ typedef struct CustomDataLayer {
   /** Shape keyblock unique id reference. */
   int uid;
   /** Layer name, MAX_CUSTOMDATA_LAYER_NAME. */
-  char name[64];
+  char name[68];
+  char _pad1[4];
   /** Layer data. */
   void *data;
   /**
-   * Run-time identifier for this layer. If no one has a strong reference to this id anymore,
-   * the layer can be removed. The custom data layer only has a weak reference to the id, because
-   * otherwise there will always be a strong reference and the attribute can't be removed
-   * automatically.
+   * Run-time identifier for this layer. Can be used to retrieve information about where this
+   * attribute was created.
    */
-  const struct AnonymousAttributeID *anonymous_id;
+  const AnonymousAttributeIDHandle *anonymous_id;
 } CustomDataLayer;
 
-#define MAX_CUSTOMDATA_LAYER_NAME 64
+#define MAX_CUSTOMDATA_LAYER_NAME 68
+#define MAX_CUSTOMDATA_LAYER_NAME_NO_PREFIX 64
 
 typedef struct CustomDataExternal {
   /** FILE_MAX. */
-  char filename[1024];
+  char filepath[1024];
 } CustomDataExternal;
 
 /**
@@ -80,24 +88,28 @@ typedef struct CustomData {
   CustomDataExternal *external;
 } CustomData;
 
-/* CustomData.type */
-typedef enum CustomDataType {
+/** #CustomData.type */
+typedef enum eCustomDataType {
   /* Used by GLSL attributes in the cases when we need a delayed CD type
    * assignment (in the cases when we don't know in advance which layer
    * we are addressing).
    */
   CD_AUTO_FROM_NAME = -1,
 
-  CD_MVERT = 0,
 #ifdef DNA_DEPRECATED_ALLOW
+  CD_MVERT = 0,   /* DEPRECATED */
   CD_MSTICKY = 1, /* DEPRECATED */
 #endif
-  CD_MDEFORMVERT = 2,
+  CD_MDEFORMVERT = 2, /* Array of `MDeformVert`. */
   CD_MEDGE = 3,
   CD_MFACE = 4,
   CD_MTFACE = 5,
   CD_MCOL = 6,
   CD_ORIGINDEX = 7,
+  /**
+   * Used for derived face corner normals on mesh `ldata`, since currently they are not computed
+   * lazily. Derived vertex and polygon normals are stored in #Mesh_Runtime.
+   */
   CD_NORMAL = 8,
   CD_FACEMAP = 9, /* exclusive face group, each face can only be part of one */
   CD_PROP_FLOAT = 10,
@@ -109,10 +121,10 @@ typedef enum CustomDataType {
   CD_MTEXPOLY = 15, /* deprecated */
 #endif
   CD_MLOOPUV = 16,
-  CD_MLOOPCOL = 17,
+  CD_PROP_BYTE_COLOR = 17,
   CD_TANGENT = 18,
   CD_MDISPS = 19,
-  CD_PREVIEW_MCOL = 20,           /* for displaying weightpaint colors */
+  CD_PREVIEW_MCOL = 20,           /* For displaying weight-paint colors. */
                                   /*  CD_ID_MCOL          = 21, */
   /* CD_TEXTURE_MLOOPCOL = 22, */ /* UNUSED */
   CD_CLOTH_ORCO = 23,
@@ -123,12 +135,7 @@ typedef enum CustomDataType {
   CD_SHAPE_KEYINDEX = 27,
   CD_SHAPEKEY = 28,
   CD_BWEIGHT = 29,
-  /**
-   * Usage of #CD_CREASE depends on where on the Mesh the layer is added:
-   * - For vertex creasing, this is persistent data across all modes and is stored in the file.
-   * - For edge creasing, it is runtime data which is only used in edit-mode before being copied
-   *   to #MEdge when exiting edit-mode.
-   */
+  /** Subdivision sharpness data per edge or per vertex. */
   CD_CREASE = 30,
   CD_ORIGSPACE_MLOOP = 31,
   CD_PREVIEW_MLOOPCOL = 32,
@@ -157,10 +164,10 @@ typedef enum CustomDataType {
   CD_HAIRLENGTH = 51,
 
   CD_NUMTYPES = 52,
-} CustomDataType;
+} eCustomDataType;
 
-/* Bits for CustomDataMask */
-#define CD_MASK_MVERT (1 << CD_MVERT)
+/* Bits for eCustomDataMask */
+// #define CD_MASK_MVERT (1 << CD_MVERT) /* DEPRECATED */
 // #define CD_MASK_MSTICKY      (1 << CD_MSTICKY)  /* DEPRECATED */
 #define CD_MASK_MDEFORMVERT (1 << CD_MDEFORMVERT)
 #define CD_MASK_MEDGE (1 << CD_MEDGE)
@@ -176,8 +183,7 @@ typedef enum CustomDataType {
 #define CD_MASK_ORIGSPACE (1 << CD_ORIGSPACE)
 #define CD_MASK_ORCO (1 << CD_ORCO)
 // #define CD_MASK_MTEXPOLY (1 << CD_MTEXPOLY)  /* DEPRECATED */
-#define CD_MASK_MLOOPUV (1 << CD_MLOOPUV)
-#define CD_MASK_MLOOPCOL (1 << CD_MLOOPCOL)
+#define CD_MASK_PROP_BYTE_COLOR (1 << CD_PROP_BYTE_COLOR)
 #define CD_MASK_TANGENT (1 << CD_TANGENT)
 #define CD_MASK_MDISPS (1 << CD_MDISPS)
 #define CD_MASK_PREVIEW_MCOL (1 << CD_PREVIEW_MCOL)
@@ -202,7 +208,6 @@ typedef enum CustomDataType {
 #define CD_MASK_MLOOPTANGENT (1LL << CD_MLOOPTANGENT)
 #define CD_MASK_TESSLOOPNORMAL (1LL << CD_TESSLOOPNORMAL)
 #define CD_MASK_CUSTOMLOOPNORMAL (1LL << CD_CUSTOMLOOPNORMAL)
-#define CD_MASK_SCULPT_FACE_SETS (1LL << CD_SCULPT_FACE_SETS)
 #define CD_MASK_PROP_COLOR (1ULL << CD_PROP_COLOR)
 #define CD_MASK_PROP_FLOAT3 (1ULL << CD_PROP_FLOAT3)
 #define CD_MASK_PROP_FLOAT2 (1ULL << CD_PROP_FLOAT2)
@@ -211,7 +216,7 @@ typedef enum CustomDataType {
 
 #define CD_MASK_HAIRLENGTH (1ULL << CD_HAIRLENGTH)
 
-/** Multires loop data. */
+/** Multi-resolution loop data. */
 #define CD_MASK_MULTIRES_GRIDS (CD_MASK_MDISPS | CD_GRID_PAINT_MASK)
 
 /* All data layers. */
@@ -220,8 +225,11 @@ typedef enum CustomDataType {
 /* All generic attributes. */
 #define CD_MASK_PROP_ALL \
   (CD_MASK_PROP_FLOAT | CD_MASK_PROP_FLOAT2 | CD_MASK_PROP_FLOAT3 | CD_MASK_PROP_INT32 | \
-   CD_MASK_PROP_COLOR | CD_MASK_PROP_STRING | CD_MASK_MLOOPCOL | CD_MASK_PROP_BOOL | \
+   CD_MASK_PROP_COLOR | CD_MASK_PROP_STRING | CD_MASK_PROP_BYTE_COLOR | CD_MASK_PROP_BOOL | \
    CD_MASK_PROP_INT8)
+
+/* All color attributes */
+#define CD_MASK_COLOR_ALL (CD_MASK_PROP_COLOR | CD_MASK_PROP_BYTE_COLOR)
 
 typedef struct CustomData_MeshMasks {
   uint64_t vmask;
@@ -231,7 +239,7 @@ typedef struct CustomData_MeshMasks {
   uint64_t lmask;
 } CustomData_MeshMasks;
 
-/* CustomData.flag */
+/** #CustomData.flag */
 enum {
   /* Indicates layer should not be copied by CustomData_from_template or CustomData_copy_data */
   CD_FLAG_NOCOPY = (1 << 0),
@@ -243,15 +251,16 @@ enum {
   CD_FLAG_EXTERNAL = (1 << 3),
   /* Indicates external data is read into memory */
   CD_FLAG_IN_MEMORY = (1 << 4),
+#ifdef DNA_DEPRECATED_ALLOW
+  CD_FLAG_COLOR_ACTIVE = (1 << 5),
+  CD_FLAG_COLOR_RENDER = (1 << 6)
+#endif
 };
 
 /* Limits */
 #define MAX_MTFACE 8
-#define MAX_MCOL 8
 
 #define DYNTOPO_NODE_NONE -1
-
-#define CD_TEMP_CHUNK_SIZE 128
 
 #ifdef __cplusplus
 }

@@ -66,8 +66,9 @@ const EnumPropertyItem rna_enum_keyframe_handle_type_items[] = {
  * Changes here will likely apply there too.
  */
 const EnumPropertyItem rna_enum_beztriple_interpolation_mode_items[] = {
-    /* interpolation */
-    {0, "", 0, N_("Interpolation"), "Standard transitions between keyframes"},
+    /* Interpolation. */
+    RNA_ENUM_ITEM_HEADING(CTX_N_(BLT_I18NCONTEXT_ID_ACTION, "Interpolation"),
+                          N_("Standard transitions between keyframes")),
     {BEZT_IPO_CONST,
      "CONSTANT",
      ICON_IPO_CONSTANT,
@@ -84,13 +85,10 @@ const EnumPropertyItem rna_enum_beztriple_interpolation_mode_items[] = {
      "Bezier",
      "Smooth interpolation between A and B, with some control over curve shape"},
 
-    /* easing */
-    {0,
-     "",
-     0,
-     N_("Easing (by strength)"),
-     "Predefined inertial transitions, useful for motion graphics (from least to most "
-     "''dramatic'')"},
+    /* Easing. */
+    RNA_ENUM_ITEM_HEADING(CTX_N_(BLT_I18NCONTEXT_ID_ACTION, "Easing (by strength)"),
+                          N_("Predefined inertial transitions, useful for motion graphics "
+                             "(from least to most \"dramatic\")")),
     {BEZT_IPO_SINE,
      "SINE",
      ICON_IPO_SINE,
@@ -107,7 +105,8 @@ const EnumPropertyItem rna_enum_beztriple_interpolation_mode_items[] = {
      "Circular",
      "Circular easing (strongest and most dynamic)"},
 
-    {0, "", 0, N_("Dynamic Effects"), "Simple physics-inspired easing effects"},
+    RNA_ENUM_ITEM_HEADING(CTX_N_(BLT_I18NCONTEXT_ID_ACTION, "Dynamic Effects"),
+                          N_("Simple physics-inspired easing effects")),
     {BEZT_IPO_BACK, "BACK", ICON_IPO_BACK, "Back", "Cubic easing with overshoot and settle"},
     {BEZT_IPO_BOUNCE,
      "BOUNCE",
@@ -261,7 +260,7 @@ static void rna_Curve_texspace_set(Main *UNUSED(bmain), Scene *UNUSED(scene), Po
 {
   Curve *cu = (Curve *)ptr->data;
 
-  if (cu->texflag & CU_AUTOSPACE) {
+  if (cu->texspace_flag & CU_TEXSPACE_FLAG_AUTO) {
     BKE_curve_texspace_calc(cu);
   }
 }
@@ -269,23 +268,23 @@ static void rna_Curve_texspace_set(Main *UNUSED(bmain), Scene *UNUSED(scene), Po
 static int rna_Curve_texspace_editable(PointerRNA *ptr, const char **UNUSED(r_info))
 {
   Curve *cu = (Curve *)ptr->data;
-  return (cu->texflag & CU_AUTOSPACE) ? 0 : PROP_EDITABLE;
+  return (cu->texspace_flag & CU_TEXSPACE_FLAG_AUTO) ? 0 : PROP_EDITABLE;
 }
 
-static void rna_Curve_texspace_loc_get(PointerRNA *ptr, float *values)
+static void rna_Curve_texspace_location_get(PointerRNA *ptr, float *values)
 {
   Curve *cu = (Curve *)ptr->data;
 
   BKE_curve_texspace_ensure(cu);
 
-  copy_v3_v3(values, cu->loc);
+  copy_v3_v3(values, cu->texspace_location);
 }
 
-static void rna_Curve_texspace_loc_set(PointerRNA *ptr, const float *values)
+static void rna_Curve_texspace_location_set(PointerRNA *ptr, const float *values)
 {
   Curve *cu = (Curve *)ptr->data;
 
-  copy_v3_v3(cu->loc, values);
+  copy_v3_v3(cu->texspace_location, values);
 }
 
 static void rna_Curve_texspace_size_get(PointerRNA *ptr, float *values)
@@ -294,14 +293,14 @@ static void rna_Curve_texspace_size_get(PointerRNA *ptr, float *values)
 
   BKE_curve_texspace_ensure(cu);
 
-  copy_v3_v3(values, cu->size);
+  copy_v3_v3(values, cu->texspace_size);
 }
 
 static void rna_Curve_texspace_size_set(PointerRNA *ptr, const float *values)
 {
   Curve *cu = (Curve *)ptr->data;
 
-  copy_v3_v3(cu->size, values);
+  copy_v3_v3(cu->texspace_size, values);
 }
 
 static void rna_Curve_material_index_range(
@@ -440,8 +439,8 @@ static void rna_Curve_bevelObject_set(PointerRNA *ptr,
 
   if (ob) {
     /* If bevel object has got the save curve, as object, for which it's set as bevobj,
-     * there could be infinity loop in #DispList calculation. */
-    if (ob->type == OB_CURVE && ob->data != cu) {
+     * there could be an infinite loop in curve evaluation. */
+    if (ob->type == OB_CURVES_LEGACY && ob->data != cu) {
       cu->bevobj = ob;
       id_lib_extern((ID *)ob);
     }
@@ -486,7 +485,7 @@ static bool rna_Curve_otherObject_poll(PointerRNA *ptr, PointerRNA value)
   Object *ob = (Object *)value.data;
 
   if (ob) {
-    if (ob->type == OB_CURVE && ob->data != cu) {
+    if (ob->type == OB_CURVES_LEGACY && ob->data != cu) {
       return 1;
     }
   }
@@ -515,8 +514,8 @@ static void rna_Curve_taperObject_set(PointerRNA *ptr,
 
   if (ob) {
     /* If taper object has got the save curve, as object, for which it's set as bevobj,
-     * there could be infinity loop in #DispList calculation. */
-    if (ob->type == OB_CURVE && ob->data != cu) {
+     * there could be an infinite loop in curve evaluation. */
+    if (ob->type == OB_CURVES_LEGACY && ob->data != cu) {
       cu->taperobj = ob;
       id_lib_extern((ID *)ob);
     }
@@ -770,7 +769,7 @@ static void rna_Curve_active_spline_set(PointerRNA *ptr,
   }
 }
 
-static char *rna_Curve_spline_path(PointerRNA *ptr)
+static char *rna_Curve_spline_path(const PointerRNA *ptr)
 {
   Curve *cu = (Curve *)ptr->owner_id;
   ListBase *nubase = BKE_curve_nurbs_get(cu);
@@ -786,7 +785,7 @@ static char *rna_Curve_spline_path(PointerRNA *ptr)
 }
 
 /* use for both bezier and nurbs */
-static char *rna_Curve_spline_point_path(PointerRNA *ptr)
+static char *rna_Curve_spline_point_path(const PointerRNA *ptr)
 {
   Curve *cu = (Curve *)ptr->owner_id;
   Nurb *nu;
@@ -808,10 +807,10 @@ static char *rna_Curve_spline_point_path(PointerRNA *ptr)
   }
 }
 
-static char *rna_TextBox_path(PointerRNA *ptr)
+static char *rna_TextBox_path(const PointerRNA *ptr)
 {
-  Curve *cu = (Curve *)ptr->owner_id;
-  TextBox *tb = ptr->data;
+  const Curve *cu = (Curve *)ptr->owner_id;
+  const TextBox *tb = ptr->data;
   int index = (int)(tb - cu->tb);
 
   if (index >= 0 && index < cu->totbox) {
@@ -998,7 +997,7 @@ static void rna_def_path(BlenderRNA *UNUSED(brna), StructRNA *srna)
   RNA_def_property_int_sdna(prop, NULL, "pathlen");
   RNA_def_property_range(prop, 1, MAXFRAME);
   RNA_def_property_ui_text(prop,
-                           "Path Length",
+                           "Path Duration",
                            "The number of frames that are needed to traverse the path, "
                            "defining the maximum value for the 'Evaluation Time' setting");
   RNA_def_property_update(prop, 0, "rna_Curve_update_data");
@@ -1806,7 +1805,7 @@ static void rna_def_curve(BlenderRNA *brna)
 
   /* texture space */
   prop = RNA_def_property(srna, "use_auto_texspace", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "texflag", CU_AUTOSPACE);
+  RNA_def_property_boolean_sdna(prop, NULL, "texspace_flag", CU_TEXSPACE_FLAG_AUTO);
   RNA_def_property_ui_text(
       prop,
       "Auto Texture Space",
@@ -1819,7 +1818,7 @@ static void rna_def_curve(BlenderRNA *brna)
   RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
   RNA_def_property_editable_func(prop, "rna_Curve_texspace_editable");
   RNA_def_property_float_funcs(
-      prop, "rna_Curve_texspace_loc_get", "rna_Curve_texspace_loc_set", NULL);
+      prop, "rna_Curve_texspace_location_get", "rna_Curve_texspace_location_set", NULL);
   RNA_def_property_update(prop, 0, "rna_Curve_update_data");
 
   prop = RNA_def_property(srna, "texspace_size", PROP_FLOAT, PROP_XYZ);
@@ -1948,22 +1947,23 @@ static void rna_def_curve_nurb(BlenderRNA *brna)
   prop = RNA_def_property(srna, "order_u", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "orderu");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_range(prop, 2, 6);
-  RNA_def_property_ui_text(
-      prop,
-      "Order U",
-      "NURBS order in the U direction (for splines and surfaces, higher values "
-      "let points influence a greater area)");
+  RNA_def_property_range(prop, 2, 64);
+  RNA_def_property_ui_range(prop, 2, 6, 1, -1);
+  RNA_def_property_ui_text(prop,
+                           "Order U",
+                           "NURBS order in the U direction. Higher values make each point "
+                           "influence a greater area, but have worse performance");
   RNA_def_property_update(prop, 0, "rna_Nurb_update_knot_u");
 
   prop = RNA_def_property(srna, "order_v", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "orderv");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_range(prop, 2, 6);
+  RNA_def_property_range(prop, 2, 64);
+  RNA_def_property_ui_range(prop, 2, 6, 1, -1);
   RNA_def_property_ui_text(prop,
                            "Order V",
-                           "NURBS order in the V direction (for surfaces only, higher values "
-                           "let points influence a greater area)");
+                           "NURBS order in the V direction. Higher values make each point "
+                           "influence a greater area, but have worse performance");
   RNA_def_property_update(prop, 0, "rna_Nurb_update_knot_v");
 
   prop = RNA_def_property(srna, "resolution_u", PROP_INT, PROP_NONE);
@@ -1995,24 +1995,20 @@ static void rna_def_curve_nurb(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Cyclic V", "Make this surface a closed loop in the V direction");
   RNA_def_property_update(prop, 0, "rna_Nurb_update_cyclic_v");
 
-  /* NOTE: endpoint and bezier flags should never be on at the same time! */
   prop = RNA_def_property(srna, "use_endpoint_u", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flagu", CU_NURB_ENDPOINT);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(
       prop,
       "Endpoint U",
-      "Make this nurbs curve or surface meet the endpoints in the U direction "
-      "(Cyclic U must be disabled)");
+      "Make this nurbs curve or surface meet the endpoints in the U direction");
   RNA_def_property_update(prop, 0, "rna_Nurb_update_knot_u");
 
   prop = RNA_def_property(srna, "use_endpoint_v", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flagv", CU_NURB_ENDPOINT);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(prop,
-                           "Endpoint V",
-                           "Make this nurbs surface meet the endpoints in the V direction "
-                           "(Cyclic V must be disabled)");
+  RNA_def_property_ui_text(
+      prop, "Endpoint V", "Make this nurbs surface meet the endpoints in the V direction ");
   RNA_def_property_update(prop, 0, "rna_Nurb_update_knot_v");
 
   prop = RNA_def_property(srna, "use_bezier_u", PROP_BOOLEAN, PROP_NONE);
@@ -2021,17 +2017,14 @@ static void rna_def_curve_nurb(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop,
       "Bezier U",
-      "Make this nurbs curve or surface act like a Bezier spline in the U direction "
-      "(Order U must be 3 or 4, Cyclic U must be disabled)");
+      "Make this nurbs curve or surface act like a Bezier spline in the U direction");
   RNA_def_property_update(prop, 0, "rna_Nurb_update_knot_u");
 
   prop = RNA_def_property(srna, "use_bezier_v", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flagv", CU_NURB_BEZIER);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(prop,
-                           "Bezier V",
-                           "Make this nurbs surface act like a Bezier spline in the V direction "
-                           "(Order V must be 3 or 4, Cyclic V must be disabled)");
+  RNA_def_property_ui_text(
+      prop, "Bezier V", "Make this nurbs surface act like a Bezier spline in the V direction");
   RNA_def_property_update(prop, 0, "rna_Nurb_update_knot_v");
 
   prop = RNA_def_property(srna, "use_smooth", PROP_BOOLEAN, PROP_NONE);

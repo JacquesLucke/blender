@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8-80 compliant>
-
 __all__ = (
     "ExportHelper",
     "ImportHelper",
@@ -14,7 +12,7 @@ __all__ = (
     "path_reference",
     "path_reference_copy",
     "path_reference_mode",
-    "unique_name"
+    "unique_name",
 )
 
 import bpy
@@ -23,6 +21,7 @@ from bpy.props import (
     EnumProperty,
     StringProperty,
 )
+from bpy.app.translations import pgettext_data as data_
 
 
 def _check_axis_conversion(op):
@@ -58,7 +57,7 @@ class ExportHelper:
         if not self.filepath:
             blend_filepath = context.blend_data.filepath
             if not blend_filepath:
-                blend_filepath = "untitled"
+                blend_filepath = data_("untitled")
             else:
                 blend_filepath = os.path.splitext(blend_filepath)[0]
 
@@ -296,7 +295,7 @@ def axis_conversion(from_forward='Y', from_up='Z', to_forward='Y', to_up='Z'):
     for i, axis_lut in enumerate(_axis_convert_lut):
         if value in axis_lut:
             return Matrix(_axis_convert_matrix[i])
-    assert(0)
+    assert 0
 
 
 def axis_conversion_ensure(operator, forward_attr, up_attr):
@@ -344,7 +343,6 @@ def create_derived_objects(depsgraph, objects):
     :rtype: dict
     """
     result = {}
-    has_instancer = False
     for ob in objects:
         ob_parent = ob.parent
         if ob_parent and ob_parent.instance_type in {'VERTS', 'FACES'}:
@@ -398,11 +396,11 @@ path_reference_mode = EnumProperty(
     name="Path Mode",
     description="Method used to reference paths",
     items=(
-        ('AUTO', "Auto", "Use Relative paths with subdirectories only"),
+        ('AUTO', "Auto", "Use relative paths with subdirectories only"),
         ('ABSOLUTE', "Absolute", "Always write absolute paths"),
         ('RELATIVE', "Relative", "Always write relative paths "
          "(where possible)"),
-        ('MATCH', "Match", "Match Absolute/Relative "
+        ('MATCH', "Match", "Match absolute/relative "
          "setting with input path"),
         ('STRIP', "Strip Path", "Filename only"),
         ('COPY', "Copy", "Copy the file to the destination path "

@@ -31,6 +31,13 @@
 #include "BPy_ViewMap.h"
 #include "BPy_ViewShape.h"
 
+#include "BKE_appdir.h"
+#include "DNA_scene_types.h"
+#include "FRS_freestyle.h"
+#include "RNA_access.h"
+#include "RNA_prototypes.h"
+#include "bpy_rna.h" /* pyrna_struct_CreatePyObject() */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -38,12 +45,6 @@ extern "C" {
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 //------------------------ MODULE FUNCTIONS ----------------------------------
-
-#include "BKE_appdir.h"
-#include "DNA_scene_types.h"
-#include "FRS_freestyle.h"
-#include "RNA_access.h"
-#include "bpy_rna.h" /* pyrna_struct_CreatePyObject() */
 
 static char Freestyle_getCurrentScene___doc__[] =
     ".. function:: getCurrentScene()\n"
@@ -89,6 +90,9 @@ static int ramp_blend_type(const char *type)
   }
   if (STREQ(type, "DIFFERENCE")) {
     return MA_RAMP_DIFF;
+  }
+  if (STREQ(type, "EXCLUSION")) {
+    return MA_RAMP_EXCLUSION;
   }
   if (STREQ(type, "DARKEN")) {
     return MA_RAMP_DARK;
@@ -199,7 +203,7 @@ static PyObject *Freestyle_evaluateColorRamp(PyObject * /*self*/, PyObject *args
   ColorBand *coba;
   float in, out[4];
 
-  if (!(PyArg_ParseTuple(args, "O!f", &pyrna_struct_Type, &py_srna, &in))) {
+  if (!PyArg_ParseTuple(args, "O!f", &pyrna_struct_Type, &py_srna, &in)) {
     return nullptr;
   }
   if (!RNA_struct_is_a(py_srna->ptr.type, &RNA_ColorRamp)) {
@@ -238,7 +242,7 @@ static PyObject *Freestyle_evaluateCurveMappingF(PyObject * /*self*/, PyObject *
   int cur;
   float value;
 
-  if (!(PyArg_ParseTuple(args, "O!if", &pyrna_struct_Type, &py_srna, &cur, &value))) {
+  if (!PyArg_ParseTuple(args, "O!if", &pyrna_struct_Type, &py_srna, &cur, &value)) {
     return nullptr;
   }
   if (!RNA_struct_is_a(py_srna->ptr.type, &RNA_CurveMapping)) {
@@ -508,10 +512,14 @@ static PyMethodDef module_functions[] = {
 
 static PyModuleDef module_definition = {
     PyModuleDef_HEAD_INIT,
-    "_freestyle",
-    module_docstring,
-    -1,
-    module_functions,
+    /*m_name*/ "_freestyle",
+    /*m_doc*/ module_docstring,
+    /*m_size*/ -1,
+    /*m_methods*/ module_functions,
+    /*m_slots*/ nullptr,
+    /*m_traverse*/ nullptr,
+    /*m_clear*/ nullptr,
+    /*m_free*/ nullptr,
 };
 
 //-------------------MODULE INITIALIZATION--------------------------------
@@ -530,7 +538,7 @@ PyObject *Freestyle_Init(void)
   const char *const path = BKE_appdir_folder_id(BLENDER_SYSTEM_SCRIPTS, "freestyle");
   if (path) {
     char modpath[FILE_MAX];
-    BLI_join_dirfile(modpath, sizeof(modpath), path, "modules");
+    BLI_path_join(modpath, sizeof(modpath), path, "modules");
     PyObject *sys_path = PySys_GetObject("path"); /* borrow */
     PyObject *py_modpath = PyUnicode_FromString(modpath);
     PyList_Append(sys_path, py_modpath);

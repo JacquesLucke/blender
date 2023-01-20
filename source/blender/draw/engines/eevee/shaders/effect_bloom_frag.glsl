@@ -28,33 +28,7 @@
 
 #pragma BLENDER_REQUIRE(common_math_lib.glsl)
 
-uniform sampler2D sourceBuffer; /* Buffer to filter */
-uniform vec2 sourceBufferTexelSize;
-
-/* Step Blit */
-uniform vec4 curveThreshold;
-uniform float clampIntensity;
-
-/* Step Upsample */
-uniform sampler2D baseBuffer; /* Previous accumulation buffer */
-uniform vec2 baseBufferTexelSize;
-uniform float sampleScale;
-
-/* Step Resolve */
-uniform vec3 bloomColor;
-uniform bool bloomAddBase;
-
-in vec4 uvcoordsvar;
-
-out vec4 FragColor;
-
 /* -------------- Utils ------------- */
-
-vec3 safe_color(vec3 c)
-{
-  /* Clamp to avoid black square artifacts if a pixel goes NaN. */
-  return clamp(c, vec3(0.0), vec3(1e20)); /* 1e20 arbitrary. */
-}
 
 /* 3-tap median filter */
 vec3 median(vec3 a, vec3 b, vec3 c)
@@ -156,7 +130,7 @@ vec4 step_blit(void)
   float br = max_v3(m);
 
   /* Under-threshold part: quadratic curve */
-  float rq = clamp(br - curveThreshold.x, 0, curveThreshold.y);
+  float rq = clamp(br - curveThreshold.x, 0.0, curveThreshold.y);
   rq = curveThreshold.z * rq * rq;
 
   /* Combine and apply the brightness response curve. */

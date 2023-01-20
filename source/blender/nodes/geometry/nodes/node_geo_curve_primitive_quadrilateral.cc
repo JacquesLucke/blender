@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "BKE_spline.hh"
+#include "BKE_curves.hh"
 #include "UI_interface.h"
 #include "UI_resources.h"
 
@@ -68,12 +68,12 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Geometry>(N_("Curve"));
 }
 
-static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "mode", 0, "", ICON_NONE);
 }
 
-static void node_init(bNodeTree *UNUSED(tree), bNode *node)
+static void node_init(bNodeTree * /*tree*/, bNode *node)
 {
   NodeGeometryCurvePrimitiveQuad *data = MEM_cnew<NodeGeometryCurvePrimitiveQuad>(__func__);
   data->mode = GEO_NODE_CURVE_PRIMITIVE_QUAD_MODE_RECTANGLE;
@@ -83,10 +83,9 @@ static void node_init(bNodeTree *UNUSED(tree), bNode *node)
 static void node_update(bNodeTree *ntree, bNode *node)
 {
   const NodeGeometryCurvePrimitiveQuad &storage = node_storage(*node);
-  GeometryNodeCurvePrimitiveQuadMode mode = static_cast<GeometryNodeCurvePrimitiveQuadMode>(
-      storage.mode);
+  GeometryNodeCurvePrimitiveQuadMode mode = GeometryNodeCurvePrimitiveQuadMode(storage.mode);
 
-  bNodeSocket *width = ((bNodeSocket *)node->inputs.first);
+  bNodeSocket *width = static_cast<bNodeSocket *>(node->inputs.first);
   bNodeSocket *height = width->next;
   bNodeSocket *bottom = height->next;
   bNodeSocket *top = bottom->next;
@@ -137,10 +136,10 @@ static void node_gather_link_searches(GatherLinkSearchOpParams &params)
 {
   const NodeDeclaration &declaration = *params.node_type().fixed_declaration;
   if (params.in_out() == SOCK_OUT) {
-    search_link_ops_for_declarations(params, declaration.outputs());
+    search_link_ops_for_declarations(params, declaration.outputs);
   }
   else if (params.node_tree().typeinfo->validate_link(
-               static_cast<eNodeSocketDatatype>(params.other_socket().type), SOCK_FLOAT)) {
+               eNodeSocketDatatype(params.other_socket().type), SOCK_FLOAT)) {
     params.add_item(IFACE_("Width"),
                     SocketSearchOp{"Width", GEO_NODE_CURVE_PRIMITIVE_QUAD_MODE_RECTANGLE});
     params.add_item(IFACE_("Height"),
@@ -216,13 +215,11 @@ static void node_geo_exec(GeoNodeExecParams params)
   const NodeGeometryCurvePrimitiveQuad &storage = node_storage(params.node());
   const GeometryNodeCurvePrimitiveQuadMode mode = (GeometryNodeCurvePrimitiveQuadMode)storage.mode;
 
-  std::unique_ptr<CurveEval> curve = std::make_unique<CurveEval>();
-  std::unique_ptr<PolySpline> spline = std::make_unique<PolySpline>();
-  spline->resize(4);
-  spline->radii().fill(1.0f);
-  spline->tilts().fill(0.0f);
-  spline->set_cyclic(true);
-  MutableSpan<float3> positions = spline->positions();
+  Curves *curves_id = bke::curves_new_nomain_single(4, CURVE_TYPE_POLY);
+  bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id->geometry);
+  curves.cyclic_for_write().first() = true;
+
+  MutableSpan<float3> positions = curves.positions_for_write();
 
   switch (mode) {
     case GEO_NODE_CURVE_PRIMITIVE_QUAD_MODE_RECTANGLE:
@@ -262,9 +259,7 @@ static void node_geo_exec(GeoNodeExecParams params)
       return;
   }
 
-  curve->add_spline(std::move(spline));
-  curve->attributes.reallocate(curve->splines().size());
-  params.set_output("Curve", GeometrySet::create_with_curve(curve.release()));
+  params.set_output("Curve", GeometrySet::create_with_curves(curves_id));
 }
 
 }  // namespace blender::nodes::node_geo_curve_primitive_quadrilateral_cc
@@ -279,8 +274,8 @@ void register_node_type_geo_curve_primitive_quadrilateral()
   ntype.declare = file_ns::node_declare;
   ntype.geometry_node_execute = file_ns::node_geo_exec;
   ntype.draw_buttons = file_ns::node_layout;
-  node_type_update(&ntype, file_ns::node_update);
-  node_type_init(&ntype, file_ns::node_init);
+  ntype.updatefunc = file_ns::node_update;
+  ntype.initfunc = file_ns::node_init;
   node_type_storage(&ntype,
                     "NodeGeometryCurvePrimitiveQuad",
                     node_free_standard_storage,

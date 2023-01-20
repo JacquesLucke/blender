@@ -29,6 +29,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph_query.h"
 
@@ -46,9 +47,7 @@ static void initData(ModifierData *md)
   MEMCPY_STRUCT_AFTER(lmd, DNA_struct_default_get(LatticeModifierData), modifier);
 }
 
-static void requiredDataMask(Object *UNUSED(ob),
-                             ModifierData *md,
-                             CustomData_MeshMasks *r_cddata_masks)
+static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_masks)
 {
   LatticeModifierData *lmd = (LatticeModifierData *)md;
 
@@ -86,25 +85,25 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
     DEG_add_object_relation(ctx->node, lmd->object, DEG_OB_COMP_GEOMETRY, "Lattice Modifier");
     DEG_add_object_relation(ctx->node, lmd->object, DEG_OB_COMP_TRANSFORM, "Lattice Modifier");
   }
-  DEG_add_modifier_to_transform_relation(ctx->node, "Lattice Modifier");
+  DEG_add_depends_on_transform_relation(ctx->node, "Lattice Modifier");
 }
 
 static void deformVerts(ModifierData *md,
                         const ModifierEvalContext *ctx,
                         struct Mesh *mesh,
                         float (*vertexCos)[3],
-                        int numVerts)
+                        int verts_num)
 {
   LatticeModifierData *lmd = (LatticeModifierData *)md;
   struct Mesh *mesh_src = MOD_deform_mesh_eval_get(
-      ctx->object, NULL, mesh, NULL, numVerts, false, false);
+      ctx->object, NULL, mesh, NULL, verts_num, false);
 
   MOD_previous_vcos_store(md, vertexCos); /* if next modifier needs original vertices */
 
   BKE_lattice_deform_coords_with_mesh(lmd->object,
                                       ctx->object,
                                       vertexCos,
-                                      numVerts,
+                                      verts_num,
                                       lmd->flag,
                                       lmd->name,
                                       lmd->strength,
@@ -120,10 +119,10 @@ static void deformVertsEM(ModifierData *md,
                           struct BMEditMesh *em,
                           struct Mesh *mesh,
                           float (*vertexCos)[3],
-                          int numVerts)
+                          int verts_num)
 {
   if (mesh != NULL) {
-    deformVerts(md, ctx, mesh, vertexCos, numVerts);
+    deformVerts(md, ctx, mesh, vertexCos, verts_num);
     return;
   }
 
@@ -132,7 +131,7 @@ static void deformVertsEM(ModifierData *md,
   MOD_previous_vcos_store(md, vertexCos); /* if next modifier needs original vertices */
 
   BKE_lattice_deform_coords_with_editmesh(
-      lmd->object, ctx->object, vertexCos, numVerts, lmd->flag, lmd->name, lmd->strength, em);
+      lmd->object, ctx->object, vertexCos, verts_num, lmd->flag, lmd->name, lmd->strength, em);
 }
 
 static void panel_draw(const bContext *UNUSED(C), Panel *panel)
@@ -159,35 +158,35 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Lattice = {
-    /* name */ "Lattice",
-    /* structName */ "LatticeModifierData",
-    /* structSize */ sizeof(LatticeModifierData),
-    /* srna */ &RNA_LatticeModifier,
-    /* type */ eModifierTypeType_OnlyDeform,
-    /* flags */ eModifierTypeFlag_AcceptsCVs | eModifierTypeFlag_AcceptsVertexCosOnly |
+    /*name*/ N_("Lattice"),
+    /*structName*/ "LatticeModifierData",
+    /*structSize*/ sizeof(LatticeModifierData),
+    /*srna*/ &RNA_LatticeModifier,
+    /*type*/ eModifierTypeType_OnlyDeform,
+    /*flags*/ eModifierTypeFlag_AcceptsCVs | eModifierTypeFlag_AcceptsVertexCosOnly |
         eModifierTypeFlag_SupportsEditmode,
-    /* icon */ ICON_MOD_LATTICE,
+    /*icon*/ ICON_MOD_LATTICE,
 
-    /* copyData */ BKE_modifier_copydata_generic,
+    /*copyData*/ BKE_modifier_copydata_generic,
 
-    /* deformVerts */ deformVerts,
-    /* deformMatrices */ NULL,
-    /* deformVertsEM */ deformVertsEM,
-    /* deformMatricesEM */ NULL,
-    /* modifyMesh */ NULL,
-    /* modifyGeometrySet */ NULL,
+    /*deformVerts*/ deformVerts,
+    /*deformMatrices*/ NULL,
+    /*deformVertsEM*/ deformVertsEM,
+    /*deformMatricesEM*/ NULL,
+    /*modifyMesh*/ NULL,
+    /*modifyGeometrySet*/ NULL,
 
-    /* initData */ initData,
-    /* requiredDataMask */ requiredDataMask,
-    /* freeData */ NULL,
-    /* isDisabled */ isDisabled,
-    /* updateDepsgraph */ updateDepsgraph,
-    /* dependsOnTime */ NULL,
-    /* dependsOnNormals */ NULL,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ NULL,
-    /* freeRuntimeData */ NULL,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ NULL,
-    /* blendRead */ NULL,
+    /*initData*/ initData,
+    /*requiredDataMask*/ requiredDataMask,
+    /*freeData*/ NULL,
+    /*isDisabled*/ isDisabled,
+    /*updateDepsgraph*/ updateDepsgraph,
+    /*dependsOnTime*/ NULL,
+    /*dependsOnNormals*/ NULL,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ NULL,
+    /*freeRuntimeData*/ NULL,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ NULL,
+    /*blendRead*/ NULL,
 };

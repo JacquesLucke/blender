@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 from bpy.types import Header, Menu, Panel
 from bl_ui.space_dopesheet import (
     DopesheetFilterPopoverBase,
@@ -324,6 +322,7 @@ class GRAPH_MT_key_snap(Menu):
         layout.operator("graph.frame_jump", text="Cursor to Selection")
         layout.operator("graph.snap_cursor_value", text="Cursor Value to Selection")
 
+
 class GRAPH_MT_slider(Menu):
     bl_label = "Slider Operators"
 
@@ -331,7 +330,9 @@ class GRAPH_MT_slider(Menu):
         layout = self.layout
 
         layout.operator("graph.breakdown", text="Breakdown")
-        layout.operator("graph.blend_to_neighbor", text="Blend To Neighbor")
+        layout.operator("graph.blend_to_neighbor", text="Blend to Neighbor")
+        layout.operator("graph.blend_to_default", text="Blend to Default Value")
+        layout.operator("graph.ease", text="Ease")
 
 
 class GRAPH_MT_view_pie(Menu):

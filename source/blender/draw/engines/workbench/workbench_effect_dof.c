@@ -31,22 +31,22 @@ static void square_to_circle(float x, float y, float *r, float *T)
   if (x > -y) {
     if (x > y) {
       *r = x;
-      *T = (M_PI / 4.0f) * (y / x);
+      *T = M_PI_4 * (y / x);
     }
     else {
       *r = y;
-      *T = (M_PI / 4.0f) * (2 - (x / y));
+      *T = M_PI_4 * (2 - (x / y));
     }
   }
   else {
     if (x < y) {
       *r = -x;
-      *T = (M_PI / 4.0f) * (4 + (y / x));
+      *T = M_PI_4 * (4 + (y / x));
     }
     else {
       *r = -y;
       if (y != 0) {
-        *T = (M_PI / 4.0f) * (6 - (x / y));
+        *T = M_PI_4 * (6 - (x / y));
       }
       else {
         *T = 0.0f;
@@ -128,7 +128,7 @@ void workbench_dof_engine_init(WORKBENCH_Data *vedata)
     camera = wpd->cam_original_ob;
   }
 
-  Camera *cam = camera != NULL ? camera->data : NULL;
+  Camera *cam = camera != NULL && camera->type == OB_CAMERA ? camera->data : NULL;
   if ((wpd->shading.flag & V3D_SHADING_DEPTH_OF_FIELD) == 0 || (cam == NULL) ||
       ((cam->dof.flag & CAM_DOF_ENABLED) == 0)) {
     wpd->dof_enabled = false;

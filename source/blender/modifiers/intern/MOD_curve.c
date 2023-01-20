@@ -32,6 +32,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -50,9 +51,7 @@ static void initData(ModifierData *md)
   MEMCPY_STRUCT_AFTER(cmd, DNA_struct_default_get(CurveModifierData), modifier);
 }
 
-static void requiredDataMask(Object *UNUSED(ob),
-                             ModifierData *md,
-                             CustomData_MeshMasks *r_cddata_masks)
+static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_masks)
 {
   CurveModifierData *cmd = (CurveModifierData *)md;
 
@@ -71,7 +70,7 @@ static bool isDisabled(const Scene *UNUSED(scene), ModifierData *md, bool UNUSED
    *
    * In other cases it should be impossible to have a type mismatch.
    */
-  return !cmd->object || cmd->object->type != OB_CURVE;
+  return !cmd->object || cmd->object->type != OB_CURVES_LEGACY;
 }
 
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
@@ -96,24 +95,24 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
     DEG_add_special_eval_flag(ctx->node, &cmd->object->id, DAG_EVAL_NEED_CURVE_PATH);
   }
 
-  DEG_add_modifier_to_transform_relation(ctx->node, "Curve Modifier");
+  DEG_add_depends_on_transform_relation(ctx->node, "Curve Modifier");
 }
 
 static void deformVerts(ModifierData *md,
                         const ModifierEvalContext *ctx,
                         Mesh *mesh,
                         float (*vertexCos)[3],
-                        int numVerts)
+                        int verts_num)
 {
   CurveModifierData *cmd = (CurveModifierData *)md;
   Mesh *mesh_src = NULL;
 
   if (ctx->object->type == OB_MESH && cmd->name[0] != '\0') {
     /* mesh_src is only needed for vgroups. */
-    mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, mesh, NULL, numVerts, false, false);
+    mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, mesh, NULL, verts_num, false);
   }
 
-  struct MDeformVert *dvert = NULL;
+  const MDeformVert *dvert = NULL;
   int defgrp_index = -1;
   MOD_get_vgroup(ctx->object, mesh_src, cmd->name, &dvert, &defgrp_index);
 
@@ -123,7 +122,7 @@ static void deformVerts(ModifierData *md,
   BKE_curve_deform_coords(cmd->object,
                           ctx->object,
                           vertexCos,
-                          numVerts,
+                          verts_num,
                           dvert,
                           defgrp_index,
                           cmd->flag,
@@ -139,10 +138,10 @@ static void deformVertsEM(ModifierData *md,
                           BMEditMesh *em,
                           Mesh *mesh,
                           float (*vertexCos)[3],
-                          int numVerts)
+                          int verts_num)
 {
   if (mesh != NULL) {
-    deformVerts(md, ctx, mesh, vertexCos, numVerts);
+    deformVerts(md, ctx, mesh, vertexCos, verts_num);
     return;
   }
 
@@ -161,7 +160,7 @@ static void deformVertsEM(ModifierData *md,
     BKE_curve_deform_coords_with_editmesh(cmd->object,
                                           ctx->object,
                                           vertexCos,
-                                          numVerts,
+                                          verts_num,
                                           defgrp_index,
                                           cmd->flag,
                                           cmd->defaxis - 1,
@@ -171,7 +170,7 @@ static void deformVertsEM(ModifierData *md,
     BKE_curve_deform_coords(cmd->object,
                             ctx->object,
                             vertexCos,
-                            numVerts,
+                            verts_num,
                             NULL,
                             defgrp_index,
                             cmd->flag,
@@ -202,35 +201,35 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Curve = {
-    /* name */ "Curve",
-    /* structName */ "CurveModifierData",
-    /* structSize */ sizeof(CurveModifierData),
-    /* srna */ &RNA_CurveModifier,
-    /* type */ eModifierTypeType_OnlyDeform,
-    /* flags */ eModifierTypeFlag_AcceptsCVs | eModifierTypeFlag_AcceptsVertexCosOnly |
+    /*name*/ N_("Curve"),
+    /*structName*/ "CurveModifierData",
+    /*structSize*/ sizeof(CurveModifierData),
+    /*srna*/ &RNA_CurveModifier,
+    /*type*/ eModifierTypeType_OnlyDeform,
+    /*flags*/ eModifierTypeFlag_AcceptsCVs | eModifierTypeFlag_AcceptsVertexCosOnly |
         eModifierTypeFlag_SupportsEditmode,
-    /* icon */ ICON_MOD_CURVE,
+    /*icon*/ ICON_MOD_CURVE,
 
-    /* copyData */ BKE_modifier_copydata_generic,
+    /*copyData*/ BKE_modifier_copydata_generic,
 
-    /* deformVerts */ deformVerts,
-    /* deformMatrices */ NULL,
-    /* deformVertsEM */ deformVertsEM,
-    /* deformMatricesEM */ NULL,
-    /* modifyMesh */ NULL,
-    /* modifyGeometrySet */ NULL,
+    /*deformVerts*/ deformVerts,
+    /*deformMatrices*/ NULL,
+    /*deformVertsEM*/ deformVertsEM,
+    /*deformMatricesEM*/ NULL,
+    /*modifyMesh*/ NULL,
+    /*modifyGeometrySet*/ NULL,
 
-    /* initData */ initData,
-    /* requiredDataMask */ requiredDataMask,
-    /* freeData */ NULL,
-    /* isDisabled */ isDisabled,
-    /* updateDepsgraph */ updateDepsgraph,
-    /* dependsOnTime */ NULL,
-    /* dependsOnNormals */ NULL,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ NULL,
-    /* freeRuntimeData */ NULL,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ NULL,
-    /* blendRead */ NULL,
+    /*initData*/ initData,
+    /*requiredDataMask*/ requiredDataMask,
+    /*freeData*/ NULL,
+    /*isDisabled*/ isDisabled,
+    /*updateDepsgraph*/ updateDepsgraph,
+    /*dependsOnTime*/ NULL,
+    /*dependsOnNormals*/ NULL,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ NULL,
+    /*freeRuntimeData*/ NULL,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ NULL,
+    /*blendRead*/ NULL,
 };

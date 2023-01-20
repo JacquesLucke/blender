@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright 2016 Blender Foundation. All rights reserved.
 
+# Too noisy for code we don't maintain.
+if(CMAKE_COMPILER_IS_GNUCC)
+  add_cxx_flag("-Wno-cast-function-type")
+endif()
+
 set(INC
   src
   src/gflags

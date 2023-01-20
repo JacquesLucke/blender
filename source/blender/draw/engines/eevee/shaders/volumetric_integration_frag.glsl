@@ -7,21 +7,10 @@
 /* Step 3 : Integrate for each froxel the final amount of light
  * scattered back to the viewer and the amount of transmittance. */
 
-uniform sampler3D volumeScattering; /* Result of the scatter step */
-uniform sampler3D volumeExtinction;
-
+/* Globals when using OPTI */
 #ifdef USE_VOLUME_OPTI
-uniform layout(r11f_g11f_b10f) writeonly restrict image3D finalScattering_img;
-uniform layout(r11f_g11f_b10f) writeonly restrict image3D finalTransmittance_img;
-
 vec3 finalScattering;
 vec3 finalTransmittance;
-#else
-
-flat in int slice;
-
-layout(location = 0) out vec3 finalScattering;
-layout(location = 1) out vec3 finalTransmittance;
 #endif
 
 void main()
@@ -50,9 +39,11 @@ void main()
 #ifdef USE_VOLUME_OPTI
   int slice = textureSize(volumeScattering, 0).z;
   ivec2 texco = ivec2(gl_FragCoord.xy);
+#else
+  int slice = volumetric_geom_iface.slice;
 #endif
   for (int i = 0; i <= slice; i++) {
-    ivec3 volume_cell = ivec3(gl_FragCoord.xy, i);
+    ivec3 volume_cell = ivec3(ivec2(gl_FragCoord.xy), i);
 
     vec3 Lscat = texelFetch(volumeScattering, volume_cell, 0).rgb;
     vec3 s_extinction = texelFetch(volumeExtinction, volume_cell, 0).rgb;
@@ -70,7 +61,11 @@ void main()
     vec3 Tr = exp(-s_extinction * s_len);
 
     /* integrate along the current step segment */
-    Lscat = (Lscat - Lscat * Tr) / max(vec3(1e-8), s_extinction);
+    /* NOTE: Original calculation carries precision issues when compiling for AMD GPUs
+     * and running Metal. This version of the equation retains precision well for all
+     * macOS HW configurations. */
+    Lscat = (Lscat * (1.0f - Tr)) / max(vec3(1e-8), s_extinction);
+
     /* accumulate and also take into account the transmittance from previous steps */
     finalScattering += finalTransmittance * Lscat;
 

@@ -611,7 +611,7 @@ typedef struct FluidDomainSettings {
 
   /* Fluid guiding options. */
   float guide_alpha;      /* Guiding weight scalar (determines strength). */
-  int guide_beta;         /* Guiding blur radius (affects size of vortices vortices). */
+  int guide_beta;         /* Guiding blur radius (affects size of vortices). */
   float guide_vel_factor; /* Multiply guiding velocity by this factor. */
   int guide_res[3];       /* Res for velocity guide grids - independent from base res. */
   short guide_source;
@@ -670,7 +670,10 @@ typedef struct FluidDomainSettings {
   char interp_method;
   char gridlines_color_field; /* Simulation field used to color map onto gridlines. */
   char gridlines_cell_filter;
-  char _pad10[7]; /* Unused. */
+  char _pad10[3]; /* Unused. */
+
+  /* Velocity factor for motion blur rendering. */
+  float velocity_scale;
 
   /* OpenVDB cache options. */
   int openvdb_compression;
@@ -781,14 +784,15 @@ typedef struct FluidFlowSettings {
   float texture_offset;
   char _pad2[4];
   /* MAX_CUSTOMDATA_LAYER_NAME. */
-  char uvlayer_name[64];
+  char uvlayer_name[68];
+  char _pad3[4];
   short vgroup_density;
 
   short type;     /* Smoke, flames, both, outflow, liquid. */
   short behavior; /* Inflow, outflow, static. */
   short source;
   short texture_type;
-  short _pad3[3];
+  short _pad4[3];
   int flags; /* Absolute emission etc. */
 } FluidFlowSettings;
 

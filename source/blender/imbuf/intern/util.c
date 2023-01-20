@@ -41,12 +41,12 @@
 #define UTIL_DEBUG 0
 
 const char *imb_ext_image[] = {
-    ".png", ".tga",  ".bmp", ".jpg", ".jpeg", ".sgi", ".rgb", ".rgba",
+    ".png",  ".tga",  ".bmp", ".jpg", ".jpeg", ".sgi", ".rgb", ".rgba",
 #ifdef WITH_TIFF
-    ".tif", ".tiff", ".tx",
+    ".tif",  ".tiff", ".tx",
 #endif
 #ifdef WITH_OPENJPEG
-    ".jp2", ".j2c",
+    ".jp2",  ".j2c",
 #endif
 #ifdef WITH_HDR
     ".hdr",
@@ -55,13 +55,16 @@ const char *imb_ext_image[] = {
     ".dds",
 #endif
 #ifdef WITH_CINEON
-    ".dpx", ".cin",
+    ".dpx",  ".cin",
 #endif
 #ifdef WITH_OPENEXR
     ".exr",
 #endif
 #ifdef WITH_OPENIMAGEIO
-    ".psd", ".pdd",  ".psb",
+    ".psd",  ".pdd",  ".psb",
+#endif
+#ifdef WITH_WEBP
+    ".webp",
 #endif
     NULL,
 };
@@ -103,8 +106,7 @@ const char *imb_ext_audio[] = {
 /* Increased from 32 to 64 because of the bitmaps header size. */
 #define HEADER_SIZE 64
 
-static ssize_t imb_ispic_read_header_from_filepath(const char *filepath,
-                                                   unsigned char buf[HEADER_SIZE])
+static ssize_t imb_ispic_read_header_from_filepath(const char *filepath, uchar buf[HEADER_SIZE])
 {
   BLI_stat_t st;
   int fp;
@@ -132,7 +134,7 @@ static ssize_t imb_ispic_read_header_from_filepath(const char *filepath,
   return size;
 }
 
-int IMB_ispic_type_from_memory(const unsigned char *buf, const size_t buf_size)
+int IMB_ispic_type_from_memory(const uchar *buf, const size_t buf_size)
 {
   for (const ImFileType *type = IMB_FILE_TYPES; type < IMB_FILE_TYPES_LAST; type++) {
     if (type->is_a != NULL) {
@@ -147,7 +149,7 @@ int IMB_ispic_type_from_memory(const unsigned char *buf, const size_t buf_size)
 
 int IMB_ispic_type(const char *filepath)
 {
-  unsigned char buf[HEADER_SIZE];
+  uchar buf[HEADER_SIZE];
   const ssize_t buf_size = imb_ispic_read_header_from_filepath(filepath, buf);
   if (buf_size <= 0) {
     return IMB_FTYPE_NONE;
@@ -157,7 +159,7 @@ int IMB_ispic_type(const char *filepath)
 
 bool IMB_ispic_type_matches(const char *filepath, int filetype)
 {
-  unsigned char buf[HEADER_SIZE];
+  uchar buf[HEADER_SIZE];
   const ssize_t buf_size = imb_ispic_read_header_from_filepath(filepath, buf);
   if (buf_size <= 0) {
     return false;
@@ -248,9 +250,9 @@ const char *IMB_ffmpeg_last_error(void)
 static int isffmpeg(const char *filepath)
 {
   AVFormatContext *pFormatCtx = NULL;
-  unsigned int i;
+  uint i;
   int videoStream;
-  AVCodec *pCodec;
+  const AVCodec *pCodec;
 
   if (BLI_path_extension_check_n(filepath,
                                  ".swf",
@@ -386,15 +388,4 @@ bool IMB_isanim(const char *filepath)
   type = imb_get_anim_type(filepath);
 
   return (type && type != ANIM_SEQUENCE);
-}
-
-bool IMB_isfloat(const ImBuf *ibuf)
-{
-  const ImFileType *type = IMB_file_type_from_ibuf(ibuf);
-  if (type != NULL) {
-    if (type->flag & IM_FTYPE_FLOAT) {
-      return true;
-    }
-  }
-  return false;
 }

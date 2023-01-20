@@ -64,7 +64,7 @@
   ime.event.target_end = -1;
 
   /* Register a function to be executed when Input Method is changed using
-   * 'Control + Space' or language-specific keys (such as 'Eisu / Kana' key for Japanese).*/
+   * 'Control + Space' or language-specific keys (such as 'Eisu / Kana' key for Japanese). */
   NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
   [center addObserver:self
              selector:@selector(ImeDidChangeCallback:)
@@ -226,7 +226,7 @@
     [super drawRect:rect];
     systemCocoa->handleWindowEvent(GHOST_kEventWindowUpdate, associatedWindow);
 
-    /* For some cases like entering fullscreen we need to redraw immediately
+    /* For some cases like entering full-screen we need to redraw immediately
      * so our window does not show blank during the animation */
     if (associatedWindow->getImmediateDraw())
       systemCocoa->dispatchEvents();

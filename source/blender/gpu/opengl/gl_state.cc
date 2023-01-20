@@ -12,10 +12,7 @@
 
 #include "GPU_capabilities.h"
 
-#include "glew-mx.h"
-
 #include "gl_context.hh"
-#include "gl_debug.hh"
 #include "gl_framebuffer.hh"
 #include "gl_texture.hh"
 
@@ -152,12 +149,12 @@ void GLStateManager::set_mutable_state(const GPUStateMutable &state)
     }
   }
 
-  if (changed.line_width != 0) {
+  if (float_as_uint(changed.line_width) != 0) {
     /* TODO: remove, should use wide line shader. */
     glLineWidth(clamp_f(state.line_width, line_width_range_[0], line_width_range_[1]));
   }
 
-  if (changed.depth_range[0] != 0 || changed.depth_range[1] != 0) {
+  if (float_as_uint(changed.depth_range[0]) != 0 || float_as_uint(changed.depth_range[1]) != 0) {
     /* TODO: remove, should modify the projection matrix instead. */
     glDepthRange(UNPACK2(state.depth_range));
   }
@@ -566,14 +563,14 @@ void GLStateManager::image_bind(Texture *tex_, int unit)
   }
   images_[unit] = tex->tex_id_;
   formats_[unit] = to_gl_internal_format(tex->format_);
-  tex->is_bound_ = true;
+  tex->is_bound_image_ = true;
   dirty_image_binds_ |= 1ULL << unit;
 }
 
 void GLStateManager::image_unbind(Texture *tex_)
 {
   GLTexture *tex = static_cast<GLTexture *>(tex_);
-  if (!tex->is_bound_) {
+  if (!tex->is_bound_image_) {
     return;
   }
 
@@ -584,7 +581,7 @@ void GLStateManager::image_unbind(Texture *tex_)
       dirty_image_binds_ |= 1ULL << i;
     }
   }
-  tex->is_bound_ = false;
+  tex->is_bound_image_ = false;
 }
 
 void GLStateManager::image_unbind_all()
@@ -644,6 +641,34 @@ void GLStateManager::issue_barrier(eGPUBarrier barrier_bits)
   glMemoryBarrier(to_gl(barrier_bits));
 }
 
+GLFence::~GLFence()
+{
+  if (gl_sync_ != nullptr) {
+    glDeleteSync(gl_sync_);
+    gl_sync_ = nullptr;
+  }
+}
+
+void GLFence::signal()
+{
+  /* If fence is already signalled, create a newly signalled fence primitive. */
+  if (gl_sync_) {
+    glDeleteSync(gl_sync_);
+  }
+
+  gl_sync_ = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+  signalled_ = true;
+}
+
+void GLFence::wait()
+{
+  /* Do not wait if fence does not yet exist. */
+  if (gl_sync_ == nullptr) {
+    return;
+  }
+  glWaitSync(gl_sync_, 0, GL_TIMEOUT_IGNORED);
+  signalled_ = false;
+}
 /** \} */
 
 }  // namespace blender::gpu

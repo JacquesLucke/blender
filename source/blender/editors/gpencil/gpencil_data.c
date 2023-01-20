@@ -223,10 +223,20 @@ static int gpencil_layer_add_exec(bContext *C, wmOperator *op)
     Object *ob = CTX_data_active_object(C);
     if ((ob != NULL) && (ob->type == OB_GPENCIL)) {
       gpd = (bGPdata *)ob->data;
-      bGPDlayer *gpl = BKE_gpencil_layer_addnew(gpd, DATA_("GP_Layer"), true, false);
+      PropertyRNA *prop;
+      char name[128];
+      prop = RNA_struct_find_property(op->ptr, "new_layer_name");
+      if (RNA_property_is_set(op->ptr, prop)) {
+        RNA_property_string_get(op->ptr, prop, name);
+      }
+      else {
+        strcpy(name, "GP_Layer");
+      }
+      bGPDlayer *gpl = BKE_gpencil_layer_addnew(gpd, name, true, false);
+
       /* Add a new frame to make it visible in Dopesheet. */
       if (gpl != NULL) {
-        gpl->actframe = BKE_gpencil_layer_frame_get(gpl, CFRA, GP_GETFRAME_ADD_NEW);
+        gpl->actframe = BKE_gpencil_layer_frame_get(gpl, scene->r.cfra, GP_GETFRAME_ADD_NEW);
       }
     }
   }
@@ -237,22 +247,39 @@ static int gpencil_layer_add_exec(bContext *C, wmOperator *op)
                       ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
   }
   WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, NULL);
 
   return OPERATOR_FINISHED;
 }
-
+static int gpencil_layer_add_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+  const int tmp = ED_gpencil_new_layer_dialog(C, op);
+  if (tmp != 0) {
+    return tmp;
+  }
+  return gpencil_layer_add_exec(C, op);
+}
 void GPENCIL_OT_layer_add(wmOperatorType *ot)
 {
+  PropertyRNA *prop;
   /* identifiers */
   ot->name = "Add New Layer";
   ot->idname = "GPENCIL_OT_layer_add";
   ot->description = "Add new layer or note for the active data-block";
 
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
   /* callbacks */
   ot->exec = gpencil_layer_add_exec;
+  ot->invoke = gpencil_layer_add_invoke;
   ot->poll = gpencil_add_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+  prop = RNA_def_int(ot->srna, "layer", 0, -1, INT_MAX, "Grease Pencil Layer", "", -1, INT_MAX);
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+
+  prop = RNA_def_string(
+      ot->srna, "new_layer_name", NULL, MAX_NAME, "Name", "Name of the newly added layer");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+  ot->prop = prop;
 }
 
 static bool gpencil_add_annotation_poll(bContext *C)
@@ -623,6 +650,7 @@ void GPENCIL_OT_layer_duplicate_object(wmOperatorType *ot)
                          true,
                          "Only Active",
                          "Copy only active Layer, uncheck to append all layers");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_GPENCIL);
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 
@@ -646,12 +674,12 @@ static int gpencil_frame_duplicate_exec(bContext *C, wmOperator *op)
   }
 
   if (mode == 0) {
-    BKE_gpencil_frame_addcopy(gpl_active, CFRA);
+    BKE_gpencil_frame_addcopy(gpl_active, scene->r.cfra);
   }
   else {
     LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
       if ((gpl->flag & GP_LAYER_LOCKED) == 0) {
-        BKE_gpencil_frame_addcopy(gpl, CFRA);
+        BKE_gpencil_frame_addcopy(gpl, scene->r.cfra);
       }
     }
   }
@@ -854,7 +882,7 @@ void GPENCIL_OT_frame_clean_loose(wmOperatorType *ot)
               INT_MAX);
 }
 
-/* ********************* Clean Duplicated Frames ************************** */
+/* ********************* Clean Duplicate Frames ************************** */
 static bool gpencil_frame_is_equal(const bGPDframe *gpf_a, const bGPDframe *gpf_b)
 {
   if ((gpf_a == NULL) || (gpf_b == NULL)) {
@@ -988,9 +1016,9 @@ void GPENCIL_OT_frame_clean_duplicate(wmOperatorType *ot)
   };
 
   /* identifiers */
-  ot->name = "Clean Duplicated Frames";
+  ot->name = "Clean Duplicate Frames";
   ot->idname = "GPENCIL_OT_frame_clean_duplicate";
-  ot->description = "Remove any duplicated frame";
+  ot->description = "Remove duplicate keyframes";
 
   /* callbacks */
   ot->exec = gpencil_frame_clean_duplicate_exec;
@@ -2076,6 +2104,9 @@ static void gpencil_brush_delete_mode_brushes(Main *bmain,
     }
 
     BKE_brush_delete(bmain, brush);
+    if (brush == brush_active) {
+      brush_active = NULL;
+    }
   }
 }
 
@@ -2109,8 +2140,8 @@ static int gpencil_brush_reset_all_exec(bContext *C, wmOperator *UNUSED(op))
 
   char tool = '0';
   if (paint) {
-    Brush *brush_active = paint->brush;
-    if (brush_active) {
+    if (paint->brush) {
+      Brush *brush_active = paint->brush;
       switch (mode) {
         case CTX_MODE_PAINT_GPENCIL: {
           tool = brush_active->gpencil_tool;
@@ -2195,8 +2226,9 @@ static bool gpencil_vertex_group_poll(bContext *C)
   Object *ob = CTX_data_active_object(C);
 
   if ((ob) && (ob->type == OB_GPENCIL)) {
+    Main *bmain = CTX_data_main(C);
     const bGPdata *gpd = (const bGPdata *)ob->data;
-    if (!ID_IS_LINKED(ob) && !ID_IS_LINKED(ob->data) &&
+    if (BKE_id_is_editable(bmain, &ob->id) && BKE_id_is_editable(bmain, ob->data) &&
         !BLI_listbase_is_empty(&gpd->vertex_group_names)) {
       if (ELEM(ob->mode, OB_MODE_EDIT_GPENCIL, OB_MODE_SCULPT_GPENCIL)) {
         return true;
@@ -2212,8 +2244,9 @@ static bool gpencil_vertex_group_weight_poll(bContext *C)
   Object *ob = CTX_data_active_object(C);
 
   if ((ob) && (ob->type == OB_GPENCIL)) {
+    Main *bmain = CTX_data_main(C);
     const bGPdata *gpd = (const bGPdata *)ob->data;
-    if (!ID_IS_LINKED(ob) && !ID_IS_LINKED(ob->data) &&
+    if (BKE_id_is_editable(bmain, &ob->id) && BKE_id_is_editable(bmain, ob->data) &&
         !BLI_listbase_is_empty(&gpd->vertex_group_names)) {
       if (ob->mode == OB_MODE_WEIGHT_GPENCIL) {
         return true;
@@ -2908,8 +2941,8 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
         float offset_global[3];
         float offset_local[3];
 
-        sub_v3_v3v3(offset_global, ob_active->loc, ob_iter->obmat[3]);
-        copy_m3_m4(bmat, ob_active->obmat);
+        sub_v3_v3v3(offset_global, ob_active->loc, ob_iter->object_to_world[3]);
+        copy_m3_m4(bmat, ob_active->object_to_world);
 
         /* Inverse transform for all selected curves in this object,
          * See #object_join_exec for detailed comment on why the safe version is used. */
@@ -3681,6 +3714,7 @@ void GPENCIL_OT_materials_copy_to_object(wmOperatorType *ot)
                          true,
                          "Only Active",
                          "Append only active material, uncheck to append all materials");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_GPENCIL);
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 

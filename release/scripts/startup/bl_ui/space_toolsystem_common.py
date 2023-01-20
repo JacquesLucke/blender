@@ -1,12 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 import bpy
 from bpy.types import (
     Menu,
 )
 
 from bpy.app.translations import pgettext_tip as tip_
+from bpy.app.translations import pgettext_iface as iface_
 
 __all__ = (
     "ToolDef",
@@ -52,10 +51,10 @@ ToolDef = namedtuple(
         "idname",
         # The name to display in the interface.
         "label",
-        # Description (for tool-tip), when not set, use the description of 'operator',
-        # may be a string or a 'function(context, item, key-map) -> string'.
+        # Description (for tool-tip), when not set, use the description of `operator`,
+        # may be a string or a `function(context, item, key-map) -> string`.
         "description",
-        # The name of the icon to use (found in ``release/datafiles/icons``) or None for no icon.
+        # The name of the icon to use (found in `release/datafiles/icons`) or None for no icon.
         "icon",
         # An optional cursor to use when this tool is active.
         "cursor",
@@ -65,12 +64,12 @@ ToolDef = namedtuple(
         "widget",
         # Optional key-map for tool, possible values are:
         #
-        # - ``None`` when the tool doesn't have a key-map.
+        # - `None` when the tool doesn't have a key-map.
         #   Also the default value when no key-map value is defined.
         #
         # - A string literal for the key-map name, the key-map items are located in the default key-map.
         #
-        # - ``()`` an empty tuple for a default name.
+        # - `()` an empty tuple for a default name.
         #   This is convenience functionality for generating a key-map name.
         #   So if a tool name is "Bone Size", in "Edit Armature" mode for the "3D View",
         #   All of these values are combined into an id, e.g:
@@ -82,14 +81,14 @@ ToolDef = namedtuple(
         # - A function that populates a key-maps passed in as an argument.
         #
         # - A tuple filled with triple's of:
-        #   ``(operator_id, operator_properties, keymap_item_args)``.
+        #   `(operator_id, operator_properties, keymap_item_args)`.
         #
         #   Use this to define the key-map in-line.
         #
         #   Note that this isn't used for Blender's built in tools which use the built-in key-map.
         #   Keep this functionality since it's likely useful for add-on key-maps.
         #
-        # Warning: currently 'from_dict' this is a list of one item,
+        # Warning: currently `from_dict` this is a list of one item,
         # so internally we can swap the key-map function for the key-map itself.
         # This isn't very nice and may change, tool definitions shouldn't care about this.
         "keymap",
@@ -226,14 +225,14 @@ class ToolSelectPanelHelper:
         return next(
             (cls for cls in ToolSelectPanelHelper.__subclasses__()
              if cls.bl_space_type == space_type),
-            None
+            None,
         )
 
     @staticmethod
     def _icon_value_from_icon_handle(icon_name):
         import os
         if icon_name is not None:
-            assert(type(icon_name) is str)
+            assert type(icon_name) is str
             icon_value = _icon_cache.get(icon_name)
             if icon_value is None:
                 dirname = bpy.utils.system_resource('DATAFILES', path="icons")
@@ -257,7 +256,7 @@ class ToolSelectPanelHelper:
 
     # tool flattening
     #
-    # usually 'tools' is already expanded into ToolDef
+    # usually 'tools' is already expanded into `ToolDef`
     # but when registering a tool, this can still be a function
     # (_tools_flatten is usually called with cls.tools_from_context(context)
     # [that already yields from the function])
@@ -793,10 +792,10 @@ class ToolSelectPanelHelper:
         item, tool, icon_value = cls._tool_get_active(context, space_type, mode, with_icon=True)
         if item is None:
             return None
-        # Note: we could show 'item.text' here but it makes the layout jitter when switching tools.
+        # NOTE: we could show `item.text` here but it makes the layout jitter when switching tools.
         # Add some spacing since the icon is currently assuming regular small icon size.
         if show_tool_icon_always:
-            layout.label(text="    " + item.label, icon_value=icon_value)
+            layout.label(text="    " + iface_(item.label, "Operator"), icon_value=icon_value)
             layout.separator()
         else:
             if context.space_data.show_region_toolbar:
@@ -827,7 +826,7 @@ class ToolSelectPanelHelper:
             row.label(text="Drag:")
             row = split.row()
             row.context_pointer_set("tool", tool)
-            row.popover(panel="TOPBAR_PT_tool_fallback", text=label)
+            row.popover(panel="TOPBAR_PT_tool_fallback", text=iface_(label, "Operator"))
 
         return tool
 
@@ -905,7 +904,8 @@ class ToolSelectPanelHelper:
             "workspace_tool_type",
             value='DEFAULT',
             text="Active Tool",
-            icon='TOOL_SETTINGS',  # Could use a less generic icon.
+            # Could use a less generic icon.
+            icon='TOOL_SETTINGS',
         )
         is_active_tool = (tool_settings.workspace_tool_type == 'DEFAULT')
 
@@ -1038,9 +1038,6 @@ def _activate_by_item(context, space_type, item, index, *, as_fallback=False):
         if props is None:
             print("Error:", gizmo_group, "could not access properties!")
         else:
-            for key in props.bl_rna.properties.keys():
-                props.property_unset(key)
-
             gizmo_properties = item.widget_properties
             if gizmo_properties is not None:
                 if not isinstance(gizmo_properties, list):

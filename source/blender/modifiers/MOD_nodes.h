@@ -2,7 +2,6 @@
 
 #pragma once
 
-struct Main;
 struct NodesModifierData;
 struct Object;
 
@@ -16,8 +15,6 @@ extern "C" {
  * the values.
  */
 void MOD_nodes_update_interface(struct Object *object, struct NodesModifierData *nmd);
-
-void MOD_nodes_init(struct Main *bmain, struct NodesModifierData *nmd);
 
 #ifdef __cplusplus
 }

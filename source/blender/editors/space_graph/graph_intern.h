@@ -18,6 +18,7 @@ struct bContext;
 
 /* ***************************************** */
 /* graph_draw.c */
+
 /**
  * Left hand part.
  */
@@ -112,7 +113,9 @@ void GRAPH_OT_delete(struct wmOperatorType *ot);
 void GRAPH_OT_clean(struct wmOperatorType *ot);
 void GRAPH_OT_blend_to_neighbor(struct wmOperatorType *ot);
 void GRAPH_OT_breakdown(struct wmOperatorType *ot);
+void GRAPH_OT_ease(struct wmOperatorType *ot);
 void GRAPH_OT_decimate(struct wmOperatorType *ot);
+void GRAPH_OT_blend_to_default(struct wmOperatorType *ot);
 void GRAPH_OT_sample(struct wmOperatorType *ot);
 void GRAPH_OT_bake(struct wmOperatorType *ot);
 void GRAPH_OT_unbake(struct wmOperatorType *ot);
@@ -222,5 +225,6 @@ bool graphop_selected_fcurve_poll(struct bContext *C);
 
 /* ***************************************** */
 /* graph_ops.c */
+
 void graphedit_keymap(struct wmKeyConfig *keyconf);
 void graphedit_operatortypes(void);

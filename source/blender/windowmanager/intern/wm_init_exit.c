@@ -59,6 +59,7 @@
 #include "BKE_mask.h"     /* free mask clipboard */
 #include "BKE_material.h" /* BKE_material_copybuf_clear */
 #include "BKE_studiolight.h"
+#include "BKE_subdiv.h"
 #include "BKE_tracking.h" /* free tracking clipboard */
 
 #include "RE_engine.h"
@@ -114,9 +115,6 @@
 #include "GPU_init_exit.h"
 #include "GPU_material.h"
 
-#include "BKE_sound.h"
-#include "BKE_subdiv.h"
-
 #include "COM_compositor.h"
 
 #include "DEG_depsgraph.h"
@@ -163,15 +161,19 @@ static bool opengl_is_init = false;
 
 void WM_init_opengl(void)
 {
-  /* must be called only once */
+  /* Must be called only once. */
   BLI_assert(opengl_is_init == false);
 
   if (G.background) {
-    /* Ghost is still not init elsewhere in background mode. */
-    wm_ghost_init(NULL);
+    /* Ghost is still not initialized elsewhere in background mode. */
+    wm_ghost_init_background();
   }
 
-  /* Needs to be first to have an ogl context bound. */
+  if (!GPU_backend_supported()) {
+    return;
+  }
+
+  /* Needs to be first to have an OpenGL context bound. */
   DRW_opengl_context_create();
 
   GPU_init();
@@ -308,10 +310,8 @@ void WM_init(bContext *C, int argc, const char **argv)
   /* For file-system. Called here so can include user preference paths if needed. */
   ED_file_init();
 
-  /* That one is generated on demand, we need to be sure it's clear on init. */
-  IMB_thumb_clear_translations();
-
   if (!G.background) {
+    GPU_render_begin();
 
 #ifdef WITH_INPUT_NDOF
     /* Sets 3D mouse dead-zone. */
@@ -324,7 +324,10 @@ void WM_init(bContext *C, int argc, const char **argv)
       exit(-1);
     }
 
+    GPU_context_begin_frame(GPU_context_active_get());
     UI_init();
+    GPU_context_end_frame(GPU_context_active_get());
+    GPU_render_end();
   }
 
   BKE_subdiv_init();
@@ -340,10 +343,10 @@ void WM_init(bContext *C, int argc, const char **argv)
 
   if (!G.background) {
     if (wm_start_with_console) {
-      setConsoleWindowState(GHOST_kConsoleWindowStateShow);
+      GHOST_setConsoleWindowState(GHOST_kConsoleWindowStateShow);
     }
     else {
-      setConsoleWindowState(GHOST_kConsoleWindowStateHideForNonConsoleLaunch);
+      GHOST_setConsoleWindowState(GHOST_kConsoleWindowStateHideForNonConsoleLaunch);
     }
   }
 
@@ -365,7 +368,7 @@ void WM_init_splash(bContext *C)
 
     if (wm->windows.first) {
       CTX_wm_window_set(C, wm->windows.first);
-      WM_operator_name_call(C, "WM_OT_splash", WM_OP_INVOKE_DEFAULT, NULL);
+      WM_operator_name_call(C, "WM_OT_splash", WM_OP_INVOKE_DEFAULT, NULL, NULL);
       CTX_wm_window_set(C, prevwin);
     }
   }
@@ -382,7 +385,7 @@ static void free_openrecent(void)
 }
 
 #ifdef WIN32
-/* Read console events until there is a key event.  Also returns on any error. */
+/* Read console events until there is a key event. Also returns on any error. */
 static void wait_for_console_key(void)
 {
   HANDLE hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
@@ -425,6 +428,8 @@ void wm_exit_schedule_delayed(const bContext *C)
   WM_event_add_mousemove(win); /* ensure handler actually gets called */
 }
 
+void UV_clipboard_free(void);
+
 void WM_exit_ex(bContext *C, const bool do_python)
 {
   wmWindowManager *wm = C ? CTX_wm_manager(C) : NULL;
@@ -440,19 +445,19 @@ void WM_exit_ex(bContext *C, const bool do_python)
       if (undo_memfile != NULL) {
         /* save the undo state as quit.blend */
         Main *bmain = CTX_data_main(C);
-        char filename[FILE_MAX];
+        char filepath[FILE_MAX];
         bool has_edited;
         const int fileflags = G.fileflags & ~G_FILE_COMPRESS;
 
-        BLI_join_dirfile(filename, sizeof(filename), BKE_tempdir_base(), BLENDER_QUIT_FILE);
+        BLI_path_join(filepath, sizeof(filepath), BKE_tempdir_base(), BLENDER_QUIT_FILE);
 
         has_edited = ED_editors_flush_edits(bmain);
 
         if ((has_edited &&
              BLO_write_file(
-                 bmain, filename, fileflags, &(const struct BlendFileWriteParams){0}, NULL)) ||
-            (BLO_memfile_write_file(undo_memfile, filename))) {
-          printf("Saved session recovery to '%s'\n", filename);
+                 bmain, filepath, fileflags, &(const struct BlendFileWriteParams){0}, NULL)) ||
+            BLO_memfile_write_file(undo_memfile, filepath)) {
+          printf("Saved session recovery to '%s'\n", filepath);
         }
       }
     }
@@ -532,9 +537,10 @@ void WM_exit_ex(bContext *C, const bool do_python)
   BKE_tracking_clipboard_free();
   BKE_mask_clipboard_free();
   BKE_vfont_clipboard_free();
-  BKE_node_clipboard_free();
+  ED_node_clipboard_free();
+  UV_clipboard_free();
 
-#ifdef WITH_COMPOSITOR
+#ifdef WITH_COMPOSITOR_CPU
   COM_deinitialize();
 #endif
 
@@ -570,14 +576,6 @@ void WM_exit_ex(bContext *C, const bool do_python)
 
   BLF_exit();
 
-  if (opengl_is_init) {
-    DRW_opengl_context_enable_ex(false);
-    GPU_pass_cache_free();
-    GPU_exit();
-    DRW_opengl_context_disable_ex(false);
-    DRW_opengl_context_destroy();
-  }
-
   BLT_lang_free();
 
   ANIM_keyingset_infos_exit();
@@ -602,12 +600,23 @@ void WM_exit_ex(bContext *C, const bool do_python)
 
   ED_file_exit(); /* for fsmenu */
 
-  UI_exit();
+  /* Delete GPU resources and context. The UI also uses GPU resources and so
+   * is also deleted with the context active. */
+  if (opengl_is_init) {
+    DRW_opengl_context_enable_ex(false);
+    UI_exit();
+    GPU_pass_cache_free();
+    GPU_exit();
+    DRW_opengl_context_disable_ex(false);
+    DRW_opengl_context_destroy();
+  }
+  else {
+    UI_exit();
+  }
+
   BKE_blender_userdef_data_free(&U, false);
 
   RNA_exit(); /* should be after BPY_python_end so struct python slots are cleared */
-
-  GPU_backend_exit();
 
   wm_ghost_exit();
 
@@ -625,13 +634,16 @@ void WM_exit_ex(bContext *C, const bool do_python)
   BKE_sound_exit();
 
   BKE_appdir_exit();
-  CLG_exit();
 
   BKE_blender_atexit();
 
   wm_autosave_delete();
 
   BKE_tempdir_session_purge();
+
+  /* Logging cannot be called after exiting (#CLOG_INFO, #CLOG_WARN etc will crash).
+   * So postpone exiting until other sub-systems that may use logging have shut down. */
+  CLG_exit();
 }
 
 void WM_exit(bContext *C)

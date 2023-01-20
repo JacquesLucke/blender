@@ -58,6 +58,7 @@ void sequencer_operatortypes(void)
   WM_operatortype_append(SEQUENCER_OT_change_effect_input);
   WM_operatortype_append(SEQUENCER_OT_change_effect_type);
   WM_operatortype_append(SEQUENCER_OT_change_path);
+  WM_operatortype_append(SEQUENCER_OT_change_scene);
 
   WM_operatortype_append(SEQUENCER_OT_set_range_to_strips);
   WM_operatortype_append(SEQUENCER_OT_strip_transform_clear);
@@ -81,6 +82,7 @@ void sequencer_operatortypes(void)
 
   /* sequencer_add.c */
   WM_operatortype_append(SEQUENCER_OT_scene_strip_add);
+  WM_operatortype_append(SEQUENCER_OT_scene_strip_add_new);
   WM_operatortype_append(SEQUENCER_OT_movieclip_strip_add);
   WM_operatortype_append(SEQUENCER_OT_mask_strip_add);
   WM_operatortype_append(SEQUENCER_OT_movie_strip_add);
@@ -102,6 +104,9 @@ void sequencer_operatortypes(void)
   WM_operatortype_append(SEQUENCER_OT_view_zoom_ratio);
   WM_operatortype_append(SEQUENCER_OT_view_selected);
   WM_operatortype_append(SEQUENCER_OT_view_ghost_border);
+
+  /* sequencer_channels_edit.c */
+  WM_operatortype_append(SEQUENCER_OT_rename_channel);
 }
 
 void sequencer_keymap(wmKeyConfig *keyconf)
@@ -114,6 +119,9 @@ void sequencer_keymap(wmKeyConfig *keyconf)
 
   /* Preview Region ----------------------------------------------------------- */
   WM_keymap_ensure(keyconf, "SequencerPreview", SPACE_SEQ, 0);
+
+  /* Channels Region ----------------------------------------------------------- */
+  WM_keymap_ensure(keyconf, "Sequencer Channels", SPACE_SEQ, 0);
 }
 
 void ED_operatormacros_sequencer(void)

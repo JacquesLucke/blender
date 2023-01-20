@@ -5,6 +5,8 @@
  * \ingroup balembic
  */
 
+#include "BLI_span.hh"
+
 #include "abc_customdata.h"
 #include "abc_reader_object.h"
 
@@ -14,8 +16,6 @@ namespace blender::io::alembic {
 
 class AbcMeshReader final : public AbcObjectReader {
   Alembic::AbcGeom::IPolyMeshSchema m_schema;
-
-  CDStreamConfig m_mesh_data;
 
  public:
   AbcMeshReader(const Alembic::Abc::IObject &object, ImportSettings &settings);
@@ -32,7 +32,7 @@ class AbcMeshReader final : public AbcObjectReader {
                          const char *velocity_name,
                          float velocity_scale,
                          const char **err_str) override;
-  bool topology_changed(Mesh *existing_mesh,
+  bool topology_changed(const Mesh *existing_mesh,
                         const Alembic::Abc::ISampleSelector &sample_sel) override;
 
  private:
@@ -40,16 +40,13 @@ class AbcMeshReader final : public AbcObjectReader {
                           Mesh *mesh,
                           const Alembic::AbcGeom::ISampleSelector &sample_sel);
 
-  void assign_facesets_to_mpoly(const Alembic::Abc::ISampleSelector &sample_sel,
-                                MPoly *mpoly,
-                                int totpoly,
-                                std::map<std::string, int> &r_mat_map);
+  void assign_facesets_to_material_indices(const Alembic::Abc::ISampleSelector &sample_sel,
+                                           MutableSpan<int> material_indices,
+                                           std::map<std::string, int> &r_mat_map);
 };
 
 class AbcSubDReader final : public AbcObjectReader {
   Alembic::AbcGeom::ISubDSchema m_schema;
-
-  CDStreamConfig m_mesh_data;
 
  public:
   AbcSubDReader(const Alembic::Abc::IObject &object, ImportSettings &settings);

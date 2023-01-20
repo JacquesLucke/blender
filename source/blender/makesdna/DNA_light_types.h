@@ -24,6 +24,8 @@ struct Ipo;
 struct bNodeTree;
 
 typedef struct Light {
+  DNA_DEFINE_CXX_METHODS(Light)
+
   ID id;
   /** Animation data (must be immediately after id for utilities to use it). */
   struct AnimData *adt;
@@ -46,9 +48,7 @@ typedef struct Light {
 
   float clipsta, clipend;
   float bias;
-  float soft;      /* DEPRECATED kept for compatibility. */
-  float bleedbias; /* DEPRECATED kept for compatibility. */
-  float bleedexp;  /* DEPRECATED kept for compatibility. */
+  float radius;
   short bufsize, samp, buffers, filtertype;
   char bufflag, buftype;
 
@@ -64,7 +64,6 @@ typedef struct Light {
   /** Old animation system, deprecated for 2.5. */
   struct Ipo *ipo DNA_DEPRECATED;
   short pr_texture, use_nodes;
-  char _pad6[4];
 
   /* Eevee */
   float cascade_max_dist;
@@ -74,7 +73,6 @@ typedef struct Light {
 
   float contact_dist;
   float contact_bias;
-  float contact_spread; /* DEPRECATED kept for compatibility. */
   float contact_thickness;
 
   float diff_fac, volume_fac;
@@ -118,7 +116,7 @@ typedef struct Light {
 /* #define LA_NO_DIFF       (1 << 11) */ /* not used anywhere */
 /* #define LA_NO_SPEC       (1 << 12) */ /* not used anywhere */
 /* #define LA_SHAD_RAY      (1 << 13) */ /* not used anywhere - cleaned */
-/* yafray: light shadowbuffer flag, softlight */
+/* YAFRAY: light shadow-buffer flag, soft-light. */
 /* Since it is used with LOCAL light, can't use LA_SHAD */
 /* #define LA_YF_SOFT       (1 << 14) */ /* not used anymore */
 /* #define LA_LAYER_SHADOW  (1 << 15) */ /* not used anymore */

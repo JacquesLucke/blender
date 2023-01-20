@@ -15,14 +15,26 @@
 #include "BKE_node_tree_update.h"
 
 #include "RNA_define.h"
+#include "RNA_enum_types.h"
 #include "rna_internal.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
 
+const EnumPropertyItem rna_enum_color_space_convert_default_items[] = {
+    {0,
+     "NONE",
+     0,
+     "None",
+     "Do not perform any color transform on load, treat colors as in scene linear space "
+     "already"},
+    {0, NULL, 0, NULL, NULL},
+};
+
 #ifdef RNA_RUNTIME
 
 #  include "RNA_access.h"
+#  include "RNA_path.h"
 
 #  include "DNA_image_types.h"
 #  include "DNA_material_types.h"
@@ -157,7 +169,7 @@ static void rna_CurveMapping_clipmaxy_range(
   *max = 100.0f;
 }
 
-static char *rna_ColorRamp_path(PointerRNA *ptr)
+static char *rna_ColorRamp_path(const PointerRNA *ptr)
 {
   char *path = NULL;
 
@@ -173,11 +185,7 @@ static char *rna_ColorRamp_path(PointerRNA *ptr)
         char *node_path;
 
         for (node = ntree->nodes.first; node; node = node->next) {
-          if (ELEM(node->type,
-                   SH_NODE_VALTORGB,
-                   CMP_NODE_VALTORGB,
-                   TEX_NODE_VALTORGB,
-                   GEO_NODE_LEGACY_ATTRIBUTE_COLOR_RAMP)) {
+          if (ELEM(node->type, SH_NODE_VALTORGB, CMP_NODE_VALTORGB, TEX_NODE_VALTORGB)) {
             if (node->storage == ptr->data) {
               /* all node color ramp properties called 'color_ramp'
                * prepend path from ID to the node
@@ -212,7 +220,7 @@ static char *rna_ColorRamp_path(PointerRNA *ptr)
   return path;
 }
 
-static char *rna_ColorRampElement_path(PointerRNA *ptr)
+static char *rna_ColorRampElement_path(const PointerRNA *ptr)
 {
   PointerRNA ramp_ptr;
   PropertyRNA *prop;
@@ -304,11 +312,7 @@ static void rna_ColorRamp_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *
         bNode *node;
 
         for (node = ntree->nodes.first; node; node = node->next) {
-          if (ELEM(node->type,
-                   SH_NODE_VALTORGB,
-                   CMP_NODE_VALTORGB,
-                   TEX_NODE_VALTORGB,
-                   GEO_NODE_LEGACY_ATTRIBUTE_COLOR_RAMP)) {
+          if (ELEM(node->type, SH_NODE_VALTORGB, CMP_NODE_VALTORGB, TEX_NODE_VALTORGB)) {
             BKE_ntree_update_tag_node_property(ntree, node);
             ED_node_tree_propagate_change(NULL, bmain, ntree);
           }
@@ -446,7 +450,7 @@ static void rna_ColorManagedDisplaySettings_display_device_update(Main *bmain,
   }
 }
 
-static char *rna_ColorManagedDisplaySettings_path(PointerRNA *UNUSED(ptr))
+static char *rna_ColorManagedDisplaySettings_path(const PointerRNA *UNUSED(ptr))
 {
   return BLI_strdup("display_settings");
 }
@@ -534,7 +538,7 @@ static void rna_ColorManagedViewSettings_use_curves_set(PointerRNA *ptr, bool va
   }
 }
 
-static char *rna_ColorManagedViewSettings_path(PointerRNA *UNUSED(ptr))
+static char *rna_ColorManagedViewSettings_path(const PointerRNA *UNUSED(ptr))
 {
   return BLI_strdup("view_settings");
 }
@@ -613,10 +617,16 @@ static void rna_ColorManagedColorspaceSettings_reload_update(Main *bmain,
 {
   ID *id = ptr->owner_id;
 
+  if (!id) {
+    /* Happens for color space settings on operators. */
+    return;
+  }
+
   if (GS(id->name) == ID_IM) {
     Image *ima = (Image *)id;
 
     DEG_id_tag_update(&ima->id, 0);
+    DEG_id_tag_update(&ima->id, ID_RECALC_SOURCE);
 
     BKE_image_signal(bmain, ima, NULL, IMA_SIGNAL_COLORMANAGE);
 
@@ -665,12 +675,12 @@ static void rna_ColorManagedColorspaceSettings_reload_update(Main *bmain,
   }
 }
 
-static char *rna_ColorManagedSequencerColorspaceSettings_path(PointerRNA *UNUSED(ptr))
+static char *rna_ColorManagedSequencerColorspaceSettings_path(const PointerRNA *UNUSED(ptr))
 {
   return BLI_strdup("sequencer_colorspace_settings");
 }
 
-static char *rna_ColorManagedInputColorspaceSettings_path(PointerRNA *UNUSED(ptr))
+static char *rna_ColorManagedInputColorspaceSettings_path(const PointerRNA *UNUSED(ptr))
 {
   return BLI_strdup("colorspace_settings");
 }
@@ -684,7 +694,6 @@ static void rna_ColorManagement_update(Main *UNUSED(bmain), Scene *UNUSED(scene)
   }
 
   if (GS(id->name) == ID_SCE) {
-    DEG_id_tag_update(id, 0);
     WM_main_add_notifier(NC_SCENE | ND_SEQUENCER, NULL);
   }
 }
@@ -719,7 +728,7 @@ static void rna_def_curvemappoint(BlenderRNA *brna)
   PropertyRNA *prop;
   static const EnumPropertyItem prop_handle_type_items[] = {
       {0, "AUTO", 0, "Auto Handle", ""},
-      {CUMA_HANDLE_AUTO_ANIM, "AUTO_CLAMPED", 0, "Auto Clamped Handle", ""},
+      {CUMA_HANDLE_AUTO_ANIM, "AUTO_CLAMPED", 0, "Auto-Clamped Handle", ""},
       {CUMA_HANDLE_VECTOR, "VECTOR", 0, "Vector Handle", ""},
       {0, NULL, 0, NULL, NULL},
   };
@@ -1193,16 +1202,6 @@ static void rna_def_colormanage(BlenderRNA *brna)
       {0, NULL, 0, NULL, NULL},
   };
 
-  static const EnumPropertyItem color_space_items[] = {
-      {0,
-       "NONE",
-       0,
-       "None",
-       "Do not perform any color transform on load, treat colors as in scene linear space "
-       "already"},
-      {0, NULL, 0, NULL, NULL},
-  };
-
   /* ** Display Settings ** */
   srna = RNA_def_struct(brna, "ColorManagedDisplaySettings", NULL);
   RNA_def_struct_path_func(srna, "rna_ColorManagedDisplaySettings_path");
@@ -1273,7 +1272,7 @@ static void rna_def_colormanage(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Use Curves", "Use RGB curved for pre-display transformation");
   RNA_def_property_update(prop, NC_WINDOW, "rna_ColorManagement_update");
 
-  /* ** Colorspace ** */
+  /* ** Color-space ** */
   srna = RNA_def_struct(brna, "ColorManagedInputColorspaceSettings", NULL);
   RNA_def_struct_path_func(srna, "rna_ColorManagedInputColorspaceSettings_path");
   RNA_def_struct_ui_text(
@@ -1282,7 +1281,7 @@ static void rna_def_colormanage(BlenderRNA *brna)
   prop = RNA_def_property(srna, "name", PROP_ENUM, PROP_NONE);
   RNA_def_property_flag(prop, PROP_ENUM_NO_CONTEXT);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_enum_items(prop, color_space_items);
+  RNA_def_property_enum_items(prop, rna_enum_color_space_convert_default_items);
   RNA_def_property_enum_funcs(prop,
                               "rna_ColorManagedColorspaceSettings_colorspace_get",
                               "rna_ColorManagedColorspaceSettings_colorspace_set",
@@ -1312,7 +1311,7 @@ static void rna_def_colormanage(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "name", PROP_ENUM, PROP_NONE);
   RNA_def_property_flag(prop, PROP_ENUM_NO_CONTEXT);
-  RNA_def_property_enum_items(prop, color_space_items);
+  RNA_def_property_enum_items(prop, rna_enum_color_space_convert_default_items);
   RNA_def_property_enum_funcs(prop,
                               "rna_ColorManagedColorspaceSettings_colorspace_get",
                               "rna_ColorManagedColorspaceSettings_colorspace_set",

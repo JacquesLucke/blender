@@ -119,7 +119,7 @@ struct DynamicPaintSurface *get_activeSurface(struct DynamicPaintCanvasSettings 
 int dynamicPaint_createUVSurface(struct Scene *scene,
                                  struct DynamicPaintSurface *surface,
                                  float *progress,
-                                 short *do_update);
+                                 bool *do_update);
 /**
  * Calculate a single frame and included sub-frames for surface.
  */
@@ -129,7 +129,7 @@ int dynamicPaint_calculateFrame(struct DynamicPaintSurface *surface,
                                 struct Object *cObject,
                                 int frame);
 void dynamicPaint_outputSurfaceImage(struct DynamicPaintSurface *surface,
-                                     char *filename,
+                                     const char *filepath,
                                      short output_layer);
 
 /* PaintPoint state */

@@ -16,7 +16,6 @@
 #include "MEM_guardedalloc.h"
 
 #include "../generic/py_capi_utils.h"
-#include "../generic/python_utildefines.h"
 
 #include "gpu_py.h"
 #include "gpu_py_element.h" /* own include */
@@ -27,8 +26,6 @@
 
 static PyObject *pygpu_IndexBuf__tp_new(PyTypeObject *UNUSED(type), PyObject *args, PyObject *kwds)
 {
-  BPYGPU_IS_INIT_OR_ERROR_OBJ;
-
   const char *error_prefix = "IndexBuf.__new__";
   bool ok = true;
 
@@ -40,7 +37,13 @@ static PyObject *pygpu_IndexBuf__tp_new(PyTypeObject *UNUSED(type), PyObject *ar
   GPUIndexBufBuilder builder;
 
   static const char *_keywords[] = {"type", "seq", NULL};
-  static _PyArg_Parser _parser = {"$O&O:IndexBuf.__new__", _keywords, 0};
+  static _PyArg_Parser _parser = {
+      "$O" /* `type` */
+      "&O" /* `seq` */
+      ":IndexBuf.__new__",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(
           args, kwds, &_parser, PyC_ParseStringEnum, &prim_type, &seq)) {
     return NULL;
@@ -64,12 +67,14 @@ static PyObject *pygpu_IndexBuf__tp_new(PyTypeObject *UNUSED(type), PyObject *ar
 
     if (pybuffer.ndim != 1 && pybuffer.shape[1] != verts_per_prim) {
       PyErr_Format(PyExc_ValueError, "Each primitive must exactly %d indices", verts_per_prim);
+      PyBuffer_Release(&pybuffer);
       return NULL;
     }
 
     if (pybuffer.itemsize != 4 ||
         PyC_StructFmt_type_is_float_any(PyC_StructFmt_type_from_str(pybuffer.format))) {
       PyErr_Format(PyExc_ValueError, "Each index must be an 4-bytes integer value");
+      PyBuffer_Release(&pybuffer);
       return NULL;
     }
 
@@ -83,15 +88,11 @@ static PyObject *pygpu_IndexBuf__tp_new(PyTypeObject *UNUSED(type), PyObject *ar
     /* Use `INT_MAX` instead of the actual number of vertices. */
     GPU_indexbuf_init(&builder, prim_type.value_found, index_len, INT_MAX);
 
-#if 0
     uint *buf = pybuffer.buf;
     for (uint i = index_len; i--; buf++) {
       GPU_indexbuf_add_generic_vert(&builder, *buf);
     }
-#else
-    memcpy(builder.data, pybuffer.buf, index_len * sizeof(*builder.data));
-    builder.index_len = index_len;
-#endif
+
     PyBuffer_Release(&pybuffer);
   }
   else {
@@ -177,7 +178,7 @@ PyDoc_STRVAR(pygpu_IndexBuf__tp_doc,
              "   :arg type: The primitive type this index buffer is composed of.\n"
              "      Possible values are `POINTS`, `LINES`, `TRIS` and `LINE_STRIP_ADJ`.\n"
              "   :type type: str\n"
-             "   :param seq: Indices this index buffer will contain.\n"
+             "   :arg seq: Indices this index buffer will contain.\n"
              "      Whether a 1D or 2D sequence is required depends on the type.\n"
              "      Optionally the sequence can support the buffer protocol.\n"
              "   :type seq: 1D or 2D sequence\n");

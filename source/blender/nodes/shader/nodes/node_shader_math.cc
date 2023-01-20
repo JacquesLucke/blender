@@ -61,16 +61,16 @@ static void sh_node_math_gather_link_searches(GatherLinkSearchOpParams &params)
            ELEM(item->value, NODE_MATH_COMPARE, NODE_MATH_GREATER_THAN, NODE_MATH_LESS_THAN)) ?
               -1 :
               weight;
-      params.add_item(
-          IFACE_(item->name), SocketSearchOp{"Value", (NodeMathOperation)item->value}, gn_weight);
+      params.add_item(CTX_IFACE_(BLT_I18NCONTEXT_ID_NODETREE, item->name),
+                      SocketSearchOp{"Value", (NodeMathOperation)item->value},
+                      gn_weight);
     }
   }
 }
 
 static const char *gpu_shader_get_name(int mode)
 {
-  const blender::nodes::FloatMathOperationInfo *info =
-      blender::nodes::get_float_math_operation_info(mode);
+  const FloatMathOperationInfo *info = get_float_math_operation_info(mode);
   if (!info) {
     return nullptr;
   }
@@ -82,7 +82,7 @@ static const char *gpu_shader_get_name(int mode)
 
 static int gpu_shader_math(GPUMaterial *mat,
                            bNode *node,
-                           bNodeExecData *UNUSED(execdata),
+                           bNodeExecData * /*execdata*/,
                            GPUNodeStack *in,
                            GPUNodeStack *out)
 {
@@ -102,35 +102,35 @@ static int gpu_shader_math(GPUMaterial *mat,
   return 0;
 }
 
-static const blender::fn::MultiFunction *get_base_multi_function(bNode &node)
+static const mf::MultiFunction *get_base_multi_function(const bNode &node)
 {
   const int mode = node.custom1;
-  const blender::fn::MultiFunction *base_fn = nullptr;
+  const mf::MultiFunction *base_fn = nullptr;
 
-  blender::nodes::try_dispatch_float_math_fl_to_fl(
-      mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SO<float, float> fn{info.title_case_name.c_str(),
-                                                            function};
+  try_dispatch_float_math_fl_to_fl(
+      mode, [&](auto devi_fn, auto function, const FloatMathOperationInfo &info) {
+        static auto fn = mf::build::SI1_SO<float, float>(
+            info.title_case_name.c_str(), function, devi_fn);
         base_fn = &fn;
       });
   if (base_fn != nullptr) {
     return base_fn;
   }
 
-  blender::nodes::try_dispatch_float_math_fl_fl_to_fl(
-      mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SO<float, float, float> fn{info.title_case_name.c_str(),
-                                                                      function};
+  try_dispatch_float_math_fl_fl_to_fl(
+      mode, [&](auto devi_fn, auto function, const FloatMathOperationInfo &info) {
+        static auto fn = mf::build::SI2_SO<float, float, float>(
+            info.title_case_name.c_str(), function, devi_fn);
         base_fn = &fn;
       });
   if (base_fn != nullptr) {
     return base_fn;
   }
 
-  blender::nodes::try_dispatch_float_math_fl_fl_fl_to_fl(
-      mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SI_SO<float, float, float, float> fn{
-            info.title_case_name.c_str(), function};
+  try_dispatch_float_math_fl_fl_fl_to_fl(
+      mode, [&](auto devi_fn, auto function, const FloatMathOperationInfo &info) {
+        static auto fn = mf::build::SI3_SO<float, float, float, float>(
+            info.title_case_name.c_str(), function, devi_fn);
         base_fn = &fn;
       });
   if (base_fn != nullptr) {
@@ -140,27 +140,24 @@ static const blender::fn::MultiFunction *get_base_multi_function(bNode &node)
   return nullptr;
 }
 
-class ClampWrapperFunction : public blender::fn::MultiFunction {
+class ClampWrapperFunction : public mf::MultiFunction {
  private:
-  const blender::fn::MultiFunction &fn_;
+  const mf::MultiFunction &fn_;
 
  public:
-  ClampWrapperFunction(const blender::fn::MultiFunction &fn) : fn_(fn)
+  ClampWrapperFunction(const mf::MultiFunction &fn) : fn_(fn)
   {
     this->set_signature(&fn.signature());
   }
 
-  void call(blender::IndexMask mask,
-            blender::fn::MFParams params,
-            blender::fn::MFContext context) const override
+  void call(IndexMask mask, mf::Params params, mf::Context context) const override
   {
     fn_.call(mask, params, context);
 
     /* Assumes the output parameter is the last one. */
     const int output_param_index = this->param_amount() - 1;
     /* This has actually been initialized in the call above. */
-    blender::MutableSpan<float> results = params.uninitialized_single_output<float>(
-        output_param_index);
+    MutableSpan<float> results = params.uninitialized_single_output<float>(output_param_index);
 
     for (const int i : mask) {
       float &value = results[i];
@@ -169,9 +166,9 @@ class ClampWrapperFunction : public blender::fn::MultiFunction {
   }
 };
 
-static void sh_node_math_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_math_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
-  const blender::fn::MultiFunction *base_function = get_base_multi_function(builder.node());
+  const mf::MultiFunction *base_function = get_base_multi_function(builder.node());
 
   const bool clamp_output = builder.node().custom2 != 0;
   if (clamp_output) {
@@ -193,8 +190,8 @@ void register_node_type_sh_math()
   sh_fn_node_type_base(&ntype, SH_NODE_MATH, "Math", NODE_CLASS_CONVERTER);
   ntype.declare = file_ns::sh_node_math_declare;
   ntype.labelfunc = node_math_label;
-  node_type_gpu(&ntype, file_ns::gpu_shader_math);
-  node_type_update(&ntype, node_math_update);
+  ntype.gpu_fn = file_ns::gpu_shader_math;
+  ntype.updatefunc = node_math_update;
   ntype.build_multi_function = file_ns::sh_node_math_build_multi_function;
   ntype.gather_link_search_ops = file_ns::sh_node_math_gather_link_searches;
 

@@ -41,7 +41,7 @@ void viewzoom_modal_keymap(wmKeyConfig *keyconf)
 
   wmKeyMap *keymap = WM_modalkeymap_find(keyconf, "View3D Zoom Modal");
 
-  /* this function is called for each spacetype, only needs to add map once */
+  /* This function is called for each space-type, only needs to add map once. */
   if (keymap && keymap->modal_items) {
     return;
   }
@@ -50,9 +50,30 @@ void viewzoom_modal_keymap(wmKeyConfig *keyconf)
 
   /* disabled mode switching for now, can re-implement better, later on */
 #if 0
-  WM_modalkeymap_add_item(keymap, LEFTMOUSE, KM_RELEASE, KM_ANY, 0, VIEWROT_MODAL_SWITCH_ROTATE);
-  WM_modalkeymap_add_item(keymap, LEFTCTRLKEY, KM_RELEASE, KM_ANY, 0, VIEWROT_MODAL_SWITCH_ROTATE);
-  WM_modalkeymap_add_item(keymap, LEFTSHIFTKEY, KM_PRESS, KM_ANY, 0, VIEWROT_MODAL_SWITCH_MOVE);
+  WM_modalkeymap_add_item(keymap,
+                          &(const KeyMapItem_Params){
+                              .type = LEFTMOUSE,
+                              .value = KM_RELEASE,
+                              .modifier = KM_ANY,
+                              .direction = KM_ANY,
+                          },
+                          VIEWROT_MODAL_SWITCH_ROTATE);
+  WM_modalkeymap_add_item(keymap,
+                          &(const KeyMapItem_Params){
+                              .type = EVT_LEFTCTRLKEY,
+                              .value = KM_RELEASE,
+                              .modifier = KM_ANY,
+                              .direction = KM_ANY,
+                          },
+                          VIEWROT_MODAL_SWITCH_ROTATE);
+  WM_modalkeymap_add_item(keymap,
+                          &(const KeyMapItem_Params){
+                              .type = EVT_LEFTSHIFTKEY,
+                              .value = KM_PRESS,
+                              .modifier = KM_ANY,
+                              .direction = KM_ANY,
+                          },
+                          VIEWROT_MODAL_SWITCH_MOVE);
 #endif
 
   /* assign map to operators */
@@ -125,18 +146,18 @@ static void view_zoom_to_window_xy_3d(ARegion *region, float dfac, const int zoo
     float dvec[3];
     float tvec[3];
     float tpos[3];
-    float mval_f[2];
+    float xy_delta[2];
 
     float zfac;
 
     negate_v3_v3(tpos, rv3d->ofs);
 
-    mval_f[0] = (float)(((zoom_xy[0] - region->winrct.xmin) * 2) - region->winx) / 2.0f;
-    mval_f[1] = (float)(((zoom_xy[1] - region->winrct.ymin) * 2) - region->winy) / 2.0f;
+    xy_delta[0] = (float)(((zoom_xy[0] - region->winrct.xmin) * 2) - region->winx) / 2.0f;
+    xy_delta[1] = (float)(((zoom_xy[1] - region->winrct.ymin) * 2) - region->winy) / 2.0f;
 
     /* Project cursor position into 3D space */
-    zfac = ED_view3d_calc_zfac(rv3d, tpos, NULL);
-    ED_view3d_win_to_delta(region, mval_f, dvec, zfac);
+    zfac = ED_view3d_calc_zfac(rv3d, tpos);
+    ED_view3d_win_to_delta(region, xy_delta, zfac, dvec);
 
     /* Calculate view target position for dolly */
     add_v3_v3v3(tvec, tpos, dvec);
@@ -356,54 +377,86 @@ static int viewzoom_modal(bContext *C, wmOperator *op, const wmEvent *event)
   bool use_autokey = false;
   int ret = OPERATOR_RUNNING_MODAL;
 
-  /* execute the events */
-  if (event->type == TIMER && event->customdata == vod->timer) {
-    /* continuous zoom */
-    event_code = VIEW_APPLY;
-  }
-  else if (event->type == MOUSEMOVE) {
-    event_code = VIEW_APPLY;
-  }
-  else if (event->type == EVT_MODAL_MAP) {
+  /* Execute the events. */
+  if (event->type == EVT_MODAL_MAP) {
     switch (event->val) {
       case VIEW_MODAL_CONFIRM:
         event_code = VIEW_CONFIRM;
         break;
       case VIEWROT_MODAL_SWITCH_MOVE:
-        WM_operator_name_call(C, "VIEW3D_OT_move", WM_OP_INVOKE_DEFAULT, NULL);
+        WM_operator_name_call(C, "VIEW3D_OT_move", WM_OP_INVOKE_DEFAULT, NULL, event);
         event_code = VIEW_CONFIRM;
         break;
       case VIEWROT_MODAL_SWITCH_ROTATE:
-        WM_operator_name_call(C, "VIEW3D_OT_rotate", WM_OP_INVOKE_DEFAULT, NULL);
+        WM_operator_name_call(C, "VIEW3D_OT_rotate", WM_OP_INVOKE_DEFAULT, NULL, event);
         event_code = VIEW_CONFIRM;
         break;
     }
   }
-  else if (event->type == vod->init.event_type && event->val == KM_RELEASE) {
-    event_code = VIEW_CONFIRM;
-  }
-
-  if (event_code == VIEW_APPLY) {
-    const bool use_cursor_init = RNA_boolean_get(op->ptr, "use_cursor_init");
-    viewzoom_apply(vod,
-                   event->xy,
-                   (eViewZoom_Style)U.viewzoom,
-                   (U.uiflag & USER_ZOOM_INVERT) != 0,
-                   (use_cursor_init && (U.uiflag & USER_ZOOM_TO_MOUSEPOS)));
-    if (ED_screen_animation_playing(CTX_wm_manager(C))) {
-      use_autokey = true;
+  else {
+    if (event->type == MOUSEMOVE) {
+      event_code = VIEW_APPLY;
+    }
+    else if (event->type == TIMER) {
+      if (event->customdata == vod->timer) {
+        /* Continuous zoom. */
+        event_code = VIEW_APPLY;
+      }
+    }
+    else if (event->type == vod->init.event_type) {
+      if (event->val == KM_RELEASE) {
+        event_code = VIEW_CONFIRM;
+      }
+    }
+    else if (ELEM(event->type, EVT_ESCKEY, RIGHTMOUSE)) {
+      if (event->val == KM_PRESS) {
+        event_code = VIEW_CANCEL;
+      }
     }
   }
-  else if (event_code == VIEW_CONFIRM) {
-    use_autokey = true;
-    ret = OPERATOR_FINISHED;
+
+  switch (event_code) {
+    case VIEW_APPLY: {
+      const bool use_cursor_init = RNA_boolean_get(op->ptr, "use_cursor_init");
+      viewzoom_apply(vod,
+                     event->xy,
+                     (eViewZoom_Style)U.viewzoom,
+                     (U.uiflag & USER_ZOOM_INVERT) != 0,
+                     (use_cursor_init && (U.uiflag & USER_ZOOM_TO_MOUSEPOS)));
+      if (ED_screen_animation_playing(CTX_wm_manager(C))) {
+        use_autokey = true;
+      }
+      break;
+    }
+    case VIEW_CONFIRM: {
+      use_autokey = true;
+      ret = OPERATOR_FINISHED;
+      break;
+    }
+    case VIEW_CANCEL: {
+      /* Note this does not remove auto-keys on locked cameras. */
+      vod->rv3d->dist = vod->init.dist;
+      /* The offset may have change when zooming to mouse position. */
+      copy_v3_v3(vod->rv3d->ofs, vod->init.ofs);
+      vod->rv3d->camzoom = vod->init.camzoom;
+      /* Zoom to mouse position in camera view changes these values. */
+      vod->rv3d->camdx = vod->init.camdx;
+      vod->rv3d->camdy = vod->init.camdy;
+
+      ED_view3d_camera_lock_sync(vod->depsgraph, vod->v3d, vod->rv3d);
+      ret = OPERATOR_CANCELLED;
+      break;
+    }
   }
 
   if (use_autokey) {
     ED_view3d_camera_lock_autokey(vod->v3d, vod->rv3d, C, false, true);
   }
 
-  if (ret & OPERATOR_FINISHED) {
+  if ((ret & OPERATOR_RUNNING_MODAL) == 0) {
+    if (ret & OPERATOR_FINISHED) {
+      ED_view3d_camera_lock_undo_push(op->type->name, vod->v3d, vod->rv3d, C);
+    }
     viewops_data_free(C, op->customdata);
     op->customdata = NULL;
   }
@@ -486,6 +539,7 @@ static int viewzoom_exec(bContext *C, wmOperator *op)
 
   ED_region_tag_redraw(region);
 
+  ED_view3d_camera_lock_undo_grouped_push(op->type->name, v3d, rv3d, C);
   viewops_data_free(C, op->customdata);
   op->customdata = NULL;
 

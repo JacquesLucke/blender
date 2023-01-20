@@ -3,6 +3,8 @@
 
 #include "node_shader_util.hh"
 
+#include "IMB_colormanagement.h"
+
 namespace blender::nodes::node_shader_volume_principled_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
@@ -27,10 +29,11 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Color>(N_("Blackbody Tint")).default_value({1.0f, 1.0f, 1.0f, 1.0f});
   b.add_input<decl::Float>(N_("Temperature")).default_value(1000.0f).min(0.0f).max(6500.0f);
   b.add_input<decl::String>(N_("Temperature Attribute"));
+  b.add_input<decl::Float>(N_("Weight")).unavailable();
   b.add_output<decl::Shader>(N_("Volume"));
 }
 
-static void node_shader_init_volume_principled(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_volume_principled(bNodeTree * /*ntree*/, bNode *node)
 {
   LISTBASE_FOREACH (bNodeSocket *, sock, &node->inputs) {
     if (STREQ(sock->name, "Density Attribute")) {
@@ -42,9 +45,21 @@ static void node_shader_init_volume_principled(bNodeTree *UNUSED(ntree), bNode *
   }
 }
 
+static void attribute_post_process(GPUMaterial *mat,
+                                   const char *attribute_name,
+                                   GPUNodeLink **attribute_link)
+{
+  if (STREQ(attribute_name, "color")) {
+    GPU_link(mat, "node_attribute_color", *attribute_link, attribute_link);
+  }
+  else if (STREQ(attribute_name, "temperature")) {
+    GPU_link(mat, "node_attribute_temperature", *attribute_link, attribute_link);
+  }
+}
+
 static int node_shader_gpu_volume_principled(GPUMaterial *mat,
                                              bNode *node,
-                                             bNodeExecData *UNUSED(execdata),
+                                             bNodeExecData * /*execdata*/,
                                              GPUNodeStack *in,
                                              GPUNodeStack *out)
 {
@@ -66,28 +81,29 @@ static int node_shader_gpu_volume_principled(GPUMaterial *mat,
     }
 
     if (STREQ(sock->name, "Density Attribute")) {
-      density = GPU_volume_grid(mat, attribute_name, GPU_VOLUME_DEFAULT_1);
+      density = GPU_attribute_with_default(mat, CD_AUTO_FROM_NAME, attribute_name, GPU_DEFAULT_1);
+      attribute_post_process(mat, attribute_name, &density);
     }
     else if (STREQ(sock->name, "Color Attribute")) {
-      color = GPU_volume_grid(mat, attribute_name, GPU_VOLUME_DEFAULT_1);
+      color = GPU_attribute_with_default(mat, CD_AUTO_FROM_NAME, attribute_name, GPU_DEFAULT_1);
+      attribute_post_process(mat, attribute_name, &color);
     }
     else if (use_blackbody && STREQ(sock->name, "Temperature Attribute")) {
-      temperature = GPU_volume_grid(mat, attribute_name, GPU_VOLUME_DEFAULT_0);
+      temperature = GPU_attribute(mat, CD_AUTO_FROM_NAME, attribute_name);
+      attribute_post_process(mat, attribute_name, &temperature);
     }
   }
 
   /* Default values if attributes not found. */
+  static float white[4] = {1.0f, 1.0f, 1.0f, 1.0f};
   if (!density) {
-    static float one = 1.0f;
-    density = GPU_constant(&one);
+    density = GPU_constant(white);
   }
   if (!color) {
-    static float white[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     color = GPU_constant(white);
   }
   if (!temperature) {
-    static float one = 1.0f;
-    temperature = GPU_constant(&one);
+    temperature = GPU_constant(white);
   }
 
   /* Create blackbody spectrum. */
@@ -95,7 +111,7 @@ static int node_shader_gpu_volume_principled(GPUMaterial *mat,
   float *data, layer;
   if (use_blackbody) {
     data = (float *)MEM_mallocN(sizeof(float) * size * 4, "blackbody texture");
-    blackbody_temperature_to_rgb_table(data, size, 965.0f, 12000.0f);
+    IMB_colormanagement_blackbody_temperature_to_rgb_table(data, size, 800.0f, 12000.0f);
   }
   else {
     data = (float *)MEM_callocN(sizeof(float) * size * 4, "blackbody black");
@@ -126,8 +142,8 @@ void register_node_type_sh_volume_principled()
   sh_node_type_base(&ntype, SH_NODE_VOLUME_PRINCIPLED, "Principled Volume", NODE_CLASS_SHADER);
   ntype.declare = file_ns::node_declare;
   node_type_size_preset(&ntype, NODE_SIZE_LARGE);
-  node_type_init(&ntype, file_ns::node_shader_init_volume_principled);
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_volume_principled);
+  ntype.initfunc = file_ns::node_shader_init_volume_principled;
+  ntype.gpu_fn = file_ns::node_shader_gpu_volume_principled;
 
   nodeRegisterType(&ntype);
 }

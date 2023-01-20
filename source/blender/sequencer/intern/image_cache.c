@@ -36,6 +36,7 @@
 #include "SEQ_prefetch.h"
 #include "SEQ_relations.h"
 #include "SEQ_sequencer.h"
+#include "SEQ_time.h"
 
 #include "disk_cache.h"
 #include "image_cache.h"
@@ -49,10 +50,11 @@
  * Function:
  * All images created during rendering are added to cache, even if the cache is already full.
  * This is because:
- *  - one image may be needed multiple times during rendering.
- *  - keeping the last rendered frame allows us for faster re-render when user edits strip in stack
- *  - we can decide if we keep frame only when it's completely rendered. Otherwise we risk having
- *    "holes" in the cache, which can be annoying
+ * - One image may be needed multiple times during rendering.
+ * - Keeping the last rendered frame allows us for faster re-render when user edits strip in stack.
+ * - We can decide if we keep frame only when it's completely rendered. Otherwise we risk having
+ *   "holes" in the cache, which can be annoying.
+ *
  * If the cache is full all entries for pending frame will have is_temp_cache set.
  *
  * Linking: We use links to reduce number of iterations over entries needed to manage cache.
@@ -96,9 +98,9 @@ static bool seq_cmp_render_data(const SeqRenderData *a, const SeqRenderData *b)
           (a->scene->r.views_format != b->scene->r.views_format) || (a->view_id != b->view_id));
 }
 
-static unsigned int seq_hash_render_data(const SeqRenderData *a)
+static uint seq_hash_render_data(const SeqRenderData *a)
 {
-  unsigned int rval = a->rectx + a->recty;
+  uint rval = a->rectx + a->recty;
 
   rval ^= a->preview_render_size;
   rval ^= ((intptr_t)a->bmain) << 6;
@@ -110,12 +112,12 @@ static unsigned int seq_hash_render_data(const SeqRenderData *a)
   return rval;
 }
 
-static unsigned int seq_cache_hashhash(const void *key_)
+static uint seq_cache_hashhash(const void *key_)
 {
   const SeqCacheKey *key = key_;
-  unsigned int rval = seq_hash_render_data(&key->context);
+  uint rval = seq_hash_render_data(&key->context);
 
-  rval ^= *(const unsigned int *)&key->frame_index;
+  rval ^= *(const uint *)&key->frame_index;
   rval += key->type;
   rval ^= ((intptr_t)key->seq) << 6;
 
@@ -131,21 +133,24 @@ static bool seq_cache_hashcmp(const void *a_, const void *b_)
           seq_cmp_render_data(&a->context, &b->context));
 }
 
-static float seq_cache_timeline_frame_to_frame_index(Sequence *seq, float timeline_frame, int type)
+static float seq_cache_timeline_frame_to_frame_index(Scene *scene,
+                                                     Sequence *seq,
+                                                     float timeline_frame,
+                                                     int type)
 {
   /* With raw images, map timeline_frame to strip input media frame range. This means that static
    * images or extended frame range of movies will only generate one cache entry. No special
    * treatment in converting frame index to timeline_frame is needed. */
   if (ELEM(type, SEQ_CACHE_STORE_RAW, SEQ_CACHE_STORE_THUMBNAIL)) {
-    return seq_give_frame_index(seq, timeline_frame);
+    return seq_give_frame_index(scene, seq, timeline_frame);
   }
 
-  return timeline_frame - seq->start;
+  return timeline_frame - SEQ_time_start_frame_get(seq);
 }
 
 float seq_cache_frame_index_to_timeline_frame(Sequence *seq, float frame_index)
 {
-  return frame_index + seq->start;
+  return frame_index + SEQ_time_start_frame_get(seq);
 }
 
 static SeqCache *seq_cache_get_from_scene(Scene *scene)
@@ -516,7 +521,8 @@ static void seq_cache_populate_key(SeqCacheKey *key,
   key->cache_owner = seq_cache_get_from_scene(context->scene);
   key->seq = seq;
   key->context = *context;
-  key->frame_index = seq_cache_timeline_frame_to_frame_index(seq, timeline_frame, type);
+  key->frame_index = seq_cache_timeline_frame_to_frame_index(
+      context->scene, seq, timeline_frame, type);
   key->timeline_frame = timeline_frame;
   key->type = type;
   key->link_prev = NULL;
@@ -556,9 +562,10 @@ void seq_cache_free_temp_cache(Scene *scene, short id, int timeline_frame)
     if (key->is_temp_cache && key->task_id == id && key->type != SEQ_CACHE_STORE_THUMBNAIL) {
       /* Use frame_index here to avoid freeing raw images if they are used for multiple frames. */
       float frame_index = seq_cache_timeline_frame_to_frame_index(
-          key->seq, timeline_frame, key->type);
-      if (frame_index != key->frame_index || timeline_frame > key->seq->enddisp ||
-          timeline_frame < key->seq->startdisp) {
+          scene, key->seq, timeline_frame, key->type);
+      if (frame_index != key->frame_index ||
+          timeline_frame > SEQ_time_right_handle_frame_get(scene, key->seq) ||
+          timeline_frame < SEQ_time_left_handle_frame_get(scene, key->seq)) {
         BLI_ghash_remove(cache->hash, key, seq_cache_keyfree, seq_cache_valfree);
       }
     }
@@ -633,17 +640,12 @@ void seq_cache_cleanup_sequence(Scene *scene,
 
   seq_cache_lock(scene);
 
-  int range_start = seq_changed->startdisp;
-  int range_end = seq_changed->enddisp;
+  int range_start = SEQ_time_left_handle_frame_get(scene, seq_changed);
+  int range_end = SEQ_time_right_handle_frame_get(scene, seq_changed);
 
   if (!force_seq_changed_range) {
-    if (seq->startdisp > range_start) {
-      range_start = seq->startdisp;
-    }
-
-    if (seq->enddisp < range_end) {
-      range_end = seq->enddisp;
-    }
+    range_start = max_ii(range_start, SEQ_time_left_handle_frame_get(scene, seq));
+    range_end = min_ii(range_end, SEQ_time_right_handle_frame_get(scene, seq));
   }
 
   int invalidate_composite = invalidate_types & SEQ_CACHE_STORE_FINAL_OUT;
@@ -667,8 +669,8 @@ void seq_cache_cleanup_sequence(Scene *scene,
     }
 
     if (key->type & invalidate_source && key->seq == seq &&
-        key->timeline_frame >= seq_changed->startdisp &&
-        key->timeline_frame <= seq_changed->enddisp) {
+        key->timeline_frame >= SEQ_time_left_handle_frame_get(scene, seq_changed) &&
+        key->timeline_frame <= SEQ_time_right_handle_frame_get(scene, seq_changed)) {
       if (key->link_next || key->link_prev) {
         seq_cache_relink_keys(key->link_next, key->link_prev);
       }
@@ -699,11 +701,11 @@ void seq_cache_thumbnail_cleanup(Scene *scene, rctf *view_area_safe)
     SeqCacheKey *key = BLI_ghashIterator_getKey(&gh_iter);
     BLI_ghashIterator_step(&gh_iter);
 
-    const int frame_index = key->timeline_frame - key->seq->startdisp;
-    const int frame_step = SEQ_render_thumbnails_guaranteed_set_frame_step_get(key->seq);
-    const int relative_base_frame = round_fl_to_int((frame_index / (float)frame_step)) *
-                                    frame_step;
-    const int nearest_guaranted_absolute_frame = relative_base_frame + key->seq->startdisp;
+    const int frame_index = key->timeline_frame - SEQ_time_left_handle_frame_get(scene, key->seq);
+    const int frame_step = SEQ_render_thumbnails_guaranteed_set_frame_step_get(scene, key->seq);
+    const int relative_base_frame = round_fl_to_int(frame_index / (float)frame_step) * frame_step;
+    const int nearest_guaranted_absolute_frame = relative_base_frame +
+                                                 SEQ_time_left_handle_frame_get(scene, key->seq);
 
     if (nearest_guaranted_absolute_frame == key->timeline_frame) {
       continue;
@@ -809,8 +811,11 @@ bool seq_cache_put_if_possible(
   return false;
 }
 
-void seq_cache_thumbnail_put(
-    const SeqRenderData *context, Sequence *seq, float timeline_frame, ImBuf *i, rctf *view_area)
+void seq_cache_thumbnail_put(const SeqRenderData *context,
+                             Sequence *seq,
+                             float timeline_frame,
+                             ImBuf *i,
+                             const rctf *view_area)
 {
   Scene *scene = context->scene;
 

@@ -30,10 +30,12 @@ struct Main;
 struct Scene;
 struct Sequence;
 struct SpaceOutliner;
-struct TreeElement;
 struct ViewLayer;
 
 namespace blender::ed::outliner {
+
+struct TreeElement;
+class TreeElementID;
 
 /**
  * \brief The data to build the tree from.
@@ -73,12 +75,25 @@ class AbstractTreeDisplay {
    */
   virtual ListBase buildTree(const TreeSourceData &source_data) = 0;
 
-  /** Accessor to whether given tree has some warnings to display. */
-  bool hasWarnings() const;
+  /**
+   * Define if the display mode should be allowed to show a mode column on the left. This column
+   * adds an icon to indicate which objects are in the current mode (edit mode, pose mode, etc.)
+   * and allows adding other objects to the mode by clicking the icon.
+   *
+   * Returns false by default.
+   */
+  virtual bool supportsModeColumn() const;
+
+  /**
+   * Some trees may want to skip building children of collapsed parents. This should be done if the
+   * tree type may become very complex, which could cause noticeable slowdowns.
+   * Problem: This doesn't address performance issues while searching, since all elements are
+   * constructed for that. Trees of this type have to be rebuilt for any change to the collapsed
+   * state of any element.
+   */
+  virtual bool is_lazy_built() const;
 
  protected:
-  bool has_warnings = false;
-
   /** All derived classes will need a handle to this, so storing it in the base for convenience. */
   SpaceOutliner &space_outliner_;
 };
@@ -90,6 +105,7 @@ class AbstractTreeDisplay {
  * \brief Tree-Display for the View Layer display mode.
  */
 class TreeDisplayViewLayer final : public AbstractTreeDisplay {
+  Scene *scene_ = nullptr;
   ViewLayer *view_layer_ = nullptr;
   bool show_objects_ = true;
 
@@ -97,6 +113,8 @@ class TreeDisplayViewLayer final : public AbstractTreeDisplay {
   TreeDisplayViewLayer(SpaceOutliner &space_outliner);
 
   ListBase buildTree(const TreeSourceData &source_data) override;
+
+  bool supportsModeColumn() const override;
 
  private:
   void add_view_layer(Scene &, ListBase &, TreeElement *);
@@ -127,18 +145,34 @@ class TreeDisplayLibraries final : public AbstractTreeDisplay {
 /* Library Overrides Tree-Display. */
 
 /**
- * \brief Tree-Display for the Library Overrides display mode.
+ * \brief Tree-Display for the Library Overrides display mode, Properties view mode.
  */
-class TreeDisplayOverrideLibrary final : public AbstractTreeDisplay {
+class TreeDisplayOverrideLibraryProperties final : public AbstractTreeDisplay {
  public:
-  TreeDisplayOverrideLibrary(SpaceOutliner &space_outliner);
+  TreeDisplayOverrideLibraryProperties(SpaceOutliner &space_outliner);
 
   ListBase buildTree(const TreeSourceData &source_data) override;
 
  private:
-  TreeElement *add_library_contents(Main &, ListBase &, Library *);
-  bool override_library_id_filter_poll(const Library *lib, ID *id) const;
+  ListBase add_library_contents(Main &);
   short id_filter_get() const;
+};
+
+/**
+ * \brief Tree-Display for the Library Overrides display mode, Hierarchies view mode.
+ */
+class TreeDisplayOverrideLibraryHierarchies final : public AbstractTreeDisplay {
+ public:
+  TreeDisplayOverrideLibraryHierarchies(SpaceOutliner &space_outliner);
+
+  ListBase buildTree(const TreeSourceData &source_data) override;
+
+  bool is_lazy_built() const override;
+
+ private:
+  ListBase build_hierarchy_for_lib_or_main(Main *bmain,
+                                           TreeElement &parent_te,
+                                           Library *lib = nullptr);
 };
 
 /* -------------------------------------------------------------------- */
@@ -195,6 +229,8 @@ class TreeDisplayScenes final : public AbstractTreeDisplay {
   TreeDisplayScenes(SpaceOutliner &space_outliner);
 
   ListBase buildTree(const TreeSourceData &source_data) override;
+
+  bool supportsModeColumn() const override;
 };
 
 /* -------------------------------------------------------------------- */
@@ -208,6 +244,8 @@ class TreeDisplayDataAPI final : public AbstractTreeDisplay {
   TreeDisplayDataAPI(SpaceOutliner &space_outliner);
 
   ListBase buildTree(const TreeSourceData &source_data) override;
+
+  bool is_lazy_built() const override;
 };
 
 }  // namespace blender::ed::outliner

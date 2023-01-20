@@ -278,7 +278,8 @@ static void rna_uiItemPointerR(uiLayout *layout,
                                const char *name,
                                const char *text_ctxt,
                                bool translate,
-                               int icon)
+                               int icon,
+                               const bool results_are_suggestions)
 {
   PropertyRNA *prop = RNA_struct_find_property(ptr, propname);
   if (!prop) {
@@ -295,7 +296,8 @@ static void rna_uiItemPointerR(uiLayout *layout,
   /* Get translated name (label). */
   name = rna_translate_ui_text(name, text_ctxt, NULL, prop, translate);
 
-  uiItemPointerR_prop(layout, ptr, prop, searchptr, searchprop, name, icon);
+  uiItemPointerR_prop(
+      layout, ptr, prop, searchptr, searchprop, name, icon, results_are_suggestions);
 }
 
 static PointerRNA rna_uiItemO(uiLayout *layout,
@@ -310,7 +312,7 @@ static PointerRNA rna_uiItemO(uiLayout *layout,
 {
   wmOperatorType *ot;
 
-  ot = WM_operatortype_find(opname, 0); /* print error next */
+  ot = WM_operatortype_find(opname, false); /* print error next */
   if (!ot || !ot->srna) {
     RNA_warning("%s '%s'", ot ? "unknown operator" : "operator missing srna", opname);
     return PointerRNA_NULL;
@@ -341,7 +343,7 @@ static PointerRNA rna_uiItemOMenuHold(uiLayout *layout,
                                       int icon_value,
                                       const char *menu)
 {
-  wmOperatorType *ot = WM_operatortype_find(opname, 0); /* print error next */
+  wmOperatorType *ot = WM_operatortype_find(opname, false); /* print error next */
   if (!ot || !ot->srna) {
     RNA_warning("%s '%s'", ot ? "unknown operator" : "operator missing srna", opname);
     return PointerRNA_NULL;
@@ -379,7 +381,7 @@ static PointerRNA rna_uiItemMenuEnumO(uiLayout *layout,
                                       bool translate,
                                       int icon)
 {
-  wmOperatorType *ot = WM_operatortype_find(opname, 0); /* print error next */
+  wmOperatorType *ot = WM_operatortype_find(opname, false); /* print error next */
 
   if (!ot || !ot->srna) {
     RNA_warning("%s '%s'", ot ? "unknown operator" : "operator missing srna", opname);
@@ -1142,6 +1144,8 @@ void RNA_api_ui_layout(StructRNA *srna)
       func, "search_property", NULL, 0, "", "Identifier of search collection property");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
   api_ui_item_common(func);
+  RNA_def_boolean(
+      func, "results_are_suggestions", false, "", "Accept inputs that do not match any item");
 
   func = RNA_def_function(srna, "prop_decorator", "uiItemDecoratorR");
   api_ui_item_rna_common(func);
@@ -1781,6 +1785,10 @@ void RNA_api_ui_layout(StructRNA *srna)
   parm = RNA_def_pointer(func, "socket", "NodeSocket", "", "");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
+  func = RNA_def_function(srna, "template_node_asset_menu_items", "uiTemplateNodeAssetMenuItems");
+  RNA_def_function_flag(func, FUNC_USE_CONTEXT);
+  parm = RNA_def_string(func, "catalog_path", NULL, 0, "", "");
+
   func = RNA_def_function(srna, "template_texture_user", "uiTemplateTextureUser");
   RNA_def_function_flag(func, FUNC_USE_CONTEXT);
 
@@ -1804,8 +1812,7 @@ void RNA_api_ui_layout(StructRNA *srna)
 
   func = RNA_def_function(
       srna, "template_colormanaged_view_settings", "uiTemplateColormanagedViewSettings");
-  RNA_def_function_ui_description(
-      func, "Item. A widget to control color managed view settings settings.");
+  RNA_def_function_ui_description(func, "Item. A widget to control color managed view settings.");
   RNA_def_function_flag(func, FUNC_USE_CONTEXT);
   api_ui_item_rna_common(func);
 #  if 0

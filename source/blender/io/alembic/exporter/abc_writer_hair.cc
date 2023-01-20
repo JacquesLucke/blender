@@ -18,6 +18,7 @@
 
 #include "BKE_customdata.h"
 #include "BKE_mesh.h"
+#include "BKE_mesh_legacy_convert.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_particle.h"
 
@@ -117,11 +118,12 @@ void ABCHairWriter::write_hair_sample(const HierarchyContext &context,
 {
   /* Get untransformed vertices, there's a xform under the hair. */
   float inv_mat[4][4];
-  invert_m4_m4_safe(inv_mat, context.object->obmat);
+  invert_m4_m4_safe(inv_mat, context.object->object_to_world);
 
-  MTFace *mtface = mesh->mtface;
-  MFace *mface = mesh->mface;
-  MVert *mverts = mesh->mvert;
+  MTFace *mtface = (MTFace *)CustomData_get_layer_for_write(
+      &mesh->fdata, CD_MTFACE, mesh->totface);
+  const MFace *mface = (const MFace *)CustomData_get_layer(&mesh->fdata, CD_MFACE);
+  const float(*positions)[3] = BKE_mesh_vert_positions(mesh);
   const float(*vert_normals)[3] = BKE_mesh_vertex_normals_ensure(mesh);
 
   if ((!mtface || !mface) && !uv_warning_shown_) {
@@ -150,8 +152,9 @@ void ABCHairWriter::write_hair_sample(const HierarchyContext &context,
       const int num = pa->num_dmcache >= 0 ? pa->num_dmcache : pa->num;
 
       if (num < mesh->totface) {
-        /* TODO(Sybren): check whether the NULL check here and if(mface) are actually required */
-        MFace *face = mface == nullptr ? nullptr : &mface[num];
+        /* TODO(Sybren): check whether the NULL check here and if(mface) are actually required
+         */
+        const MFace *face = mface == nullptr ? nullptr : &mface[num];
         MTFace *tface = mtface + num;
 
         if (mface) {
@@ -160,7 +163,8 @@ void ABCHairWriter::write_hair_sample(const HierarchyContext &context,
           psys_interpolate_uvs(tface, face->v4, pa->fuv, r_uv);
           uv_values.emplace_back(r_uv[0], r_uv[1]);
 
-          psys_interpolate_face(mverts,
+          psys_interpolate_face(mesh,
+                                positions,
                                 vert_normals,
                                 face,
                                 tface,
@@ -186,9 +190,9 @@ void ABCHairWriter::write_hair_sample(const HierarchyContext &context,
 
       /* iterate over all faces to find a corresponding underlying UV */
       for (int n = 0; n < mesh->totface; n++) {
-        MFace *face = &mface[n];
-        MTFace *tface = mtface + n;
-        unsigned int vtx[4];
+        const MFace *face = &mface[n];
+        const MTFace *tface = mtface + n;
+        uint vtx[4];
         vtx[0] = face->v1;
         vtx[1] = face->v2;
         vtx[2] = face->v3;
@@ -239,10 +243,12 @@ void ABCHairWriter::write_hair_child_sample(const HierarchyContext &context,
 {
   /* Get untransformed vertices, there's a xform under the hair. */
   float inv_mat[4][4];
-  invert_m4_m4_safe(inv_mat, context.object->obmat);
+  invert_m4_m4_safe(inv_mat, context.object->object_to_world);
 
-  MTFace *mtface = mesh->mtface;
-  MVert *mverts = mesh->mvert;
+  const MFace *mface = (const MFace *)CustomData_get_layer(&mesh->fdata, CD_MFACE);
+  MTFace *mtface = (MTFace *)CustomData_get_layer_for_write(
+      &mesh->fdata, CD_MTFACE, mesh->totface);
+  const float(*positions)[3] = BKE_mesh_vert_positions(mesh);
   const float(*vert_normals)[3] = BKE_mesh_vertex_normals_ensure(mesh);
 
   ParticleSystem *psys = context.particle_system;
@@ -267,7 +273,7 @@ void ABCHairWriter::write_hair_child_sample(const HierarchyContext &context,
         continue;
       }
 
-      MFace *face = &mesh->mface[num];
+      const MFace *face = &mface[num];
       MTFace *tface = mtface + num;
 
       float r_uv[2], tmpnor[3], mapfw[4], vec[3];
@@ -275,7 +281,8 @@ void ABCHairWriter::write_hair_child_sample(const HierarchyContext &context,
       psys_interpolate_uvs(tface, face->v4, pc->fuv, r_uv);
       uv_values.emplace_back(r_uv[0], r_uv[1]);
 
-      psys_interpolate_face(mverts,
+      psys_interpolate_face(mesh,
+                            positions,
                             vert_normals,
                             face,
                             tface,

@@ -32,6 +32,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -73,26 +74,24 @@ static void freeData(ModifierData *md)
   dynamicPaint_Modifier_free(pmd);
 }
 
-static void requiredDataMask(Object *UNUSED(ob),
-                             ModifierData *md,
-                             CustomData_MeshMasks *r_cddata_masks)
+static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_masks)
 {
   DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
 
   if (pmd->canvas) {
     DynamicPaintSurface *surface = pmd->canvas->surfaces.first;
     for (; surface; surface = surface->next) {
-      /* tface */
+      /* UVs: #CD_PROP_FLOAT2. */
       if (surface->format == MOD_DPAINT_SURFACE_F_IMAGESEQ ||
           surface->init_color_type == MOD_DPAINT_INITIAL_TEXTURE) {
-        r_cddata_masks->lmask |= CD_MASK_MLOOPUV;
+        r_cddata_masks->lmask |= CD_MASK_PROP_FLOAT2;
       }
-      /* mcol */
+      /* Vertex Colors: #CD_PROP_BYTE_COLOR. */
       if (surface->type == MOD_DPAINT_SURFACE_T_PAINT ||
           surface->init_color_type == MOD_DPAINT_INITIAL_VERTEXCOLOR) {
-        r_cddata_masks->lmask |= CD_MASK_MLOOPCOL;
+        r_cddata_masks->lmask |= CD_MASK_PROP_BYTE_COLOR;
       }
-      /* CD_MDEFORMVERT */
+      /* Vertex Weights: #CD_MDEFORMVERT. */
       if (surface->type == MOD_DPAINT_SURFACE_T_WEIGHT) {
         r_cddata_masks->vmask |= CD_MASK_MDEFORMVERT;
       }
@@ -141,9 +140,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   }
 }
 
-static bool dependsOnTime(struct Scene *UNUSED(scene),
-                          ModifierData *UNUSED(md),
-                          const int UNUSED(dag_eval_mode))
+static bool dependsOnTime(struct Scene *UNUSED(scene), ModifierData *UNUSED(md))
 {
   return true;
 }
@@ -159,7 +156,7 @@ static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *u
       walk(userData, ob, (ID **)&surface->brush_group, IDWALK_CB_NOP);
       walk(userData, ob, (ID **)&surface->init_texture, IDWALK_CB_USER);
       if (surface->effector_weights) {
-        walk(userData, ob, (ID **)&surface->effector_weights->group, IDWALK_CB_NOP);
+        walk(userData, ob, (ID **)&surface->effector_weights->group, IDWALK_CB_USER);
       }
     }
   }
@@ -190,36 +187,36 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_DynamicPaint = {
-    /* name */ "Dynamic Paint",
-    /* structName */ "DynamicPaintModifierData",
-    /* structSize */ sizeof(DynamicPaintModifierData),
-    /* srna */ &RNA_DynamicPaintModifier,
-    /* type */ eModifierTypeType_Constructive,
-    /* flags */ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_SupportsMapping |
+    /*name*/ N_("Dynamic Paint"),
+    /*structName*/ "DynamicPaintModifierData",
+    /*structSize*/ sizeof(DynamicPaintModifierData),
+    /*srna*/ &RNA_DynamicPaintModifier,
+    /*type*/ eModifierTypeType_Constructive,
+    /*flags*/ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_SupportsMapping |
         eModifierTypeFlag_UsesPointCache | eModifierTypeFlag_Single |
         eModifierTypeFlag_UsesPreview,
-    /* icon */ ICON_MOD_DYNAMICPAINT,
+    /*icon*/ ICON_MOD_DYNAMICPAINT,
 
-    /* copyData */ copyData,
+    /*copyData*/ copyData,
 
-    /* deformVerts */ NULL,
-    /* deformMatrices */ NULL,
-    /* deformVertsEM */ NULL,
-    /* deformMatricesEM */ NULL,
-    /* modifyMesh */ modifyMesh,
-    /* modifyGeometrySet */ NULL,
+    /*deformVerts*/ NULL,
+    /*deformMatrices*/ NULL,
+    /*deformVertsEM*/ NULL,
+    /*deformMatricesEM*/ NULL,
+    /*modifyMesh*/ modifyMesh,
+    /*modifyGeometrySet*/ NULL,
 
-    /* initData */ initData,
-    /* requiredDataMask */ requiredDataMask,
-    /* freeData */ freeData,
-    /* isDisabled */ NULL,
-    /* updateDepsgraph */ updateDepsgraph,
-    /* dependsOnTime */ dependsOnTime,
-    /* dependsOnNormals */ NULL,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ foreachTexLink,
-    /* freeRuntimeData */ freeRuntimeData,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ NULL,
-    /* blendRead */ NULL,
+    /*initData*/ initData,
+    /*requiredDataMask*/ requiredDataMask,
+    /*freeData*/ freeData,
+    /*isDisabled*/ NULL,
+    /*updateDepsgraph*/ updateDepsgraph,
+    /*dependsOnTime*/ dependsOnTime,
+    /*dependsOnNormals*/ NULL,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ foreachTexLink,
+    /*freeRuntimeData*/ freeRuntimeData,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ NULL,
+    /*blendRead*/ NULL,
 };

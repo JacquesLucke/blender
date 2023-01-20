@@ -28,6 +28,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph_query.h"
 
@@ -53,9 +54,7 @@ static void initData(ModifierData *md)
   MEMCPY_STRUCT_AFTER(dmd, DNA_struct_default_get(DecimateModifierData), modifier);
 }
 
-static void requiredDataMask(Object *UNUSED(ob),
-                             ModifierData *md,
-                             CustomData_MeshMasks *r_cddata_masks)
+static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_masks)
 {
   DecimateModifierData *dmd = (DecimateModifierData *)md;
 
@@ -90,6 +89,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   DecimateModifierData *dmd = (DecimateModifierData *)md;
   Mesh *mesh = meshData, *result = NULL;
   BMesh *bm;
+  bool calc_vert_normal;
   bool calc_face_normal;
   float *vweights = NULL;
 
@@ -106,18 +106,21 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
         return mesh;
       }
       calc_face_normal = true;
+      calc_vert_normal = true;
       break;
     case MOD_DECIM_MODE_UNSUBDIV:
       if (dmd->iter == 0) {
         return mesh;
       }
       calc_face_normal = false;
+      calc_vert_normal = false;
       break;
     case MOD_DECIM_MODE_DISSOLVE:
       if (dmd->angle == 0.0f) {
         return mesh;
       }
       calc_face_normal = true;
+      calc_vert_normal = false;
       break;
     default:
       return mesh;
@@ -130,7 +133,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
 
   if (dmd->mode == MOD_DECIM_MODE_COLLAPSE) {
     if (dmd->defgrp_name[0] && (dmd->defgrp_factor > 0.0f)) {
-      MDeformVert *dvert;
+      const MDeformVert *dvert;
       int defgrp_index;
 
       MOD_get_vgroup(ctx->object, mesh, dmd->defgrp_name, &dvert, &defgrp_index);
@@ -159,6 +162,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
                             &(struct BMeshCreateParams){0},
                             &(struct BMeshFromMeshParams){
                                 .calc_face_normal = calc_face_normal,
+                                .calc_vert_normal = calc_vert_normal,
                                 .cd_mask_extra = {.vmask = CD_MASK_ORIGINDEX,
                                                   .emask = CD_MASK_ORIGINDEX,
                                                   .pmask = CD_MASK_ORIGINDEX},
@@ -195,18 +199,16 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
 
   updateFaceCount(ctx, dmd, bm->totface);
 
-  result = BKE_mesh_from_bmesh_for_eval_nomain(bm, NULL, mesh);
   /* make sure we never alloc'd these */
   BLI_assert(bm->vtoolflagpool == NULL && bm->etoolflagpool == NULL && bm->ftoolflagpool == NULL);
-  BLI_assert(bm->vtable == NULL && bm->etable == NULL && bm->ftable == NULL);
+
+  result = BKE_mesh_from_bmesh_for_eval_nomain(bm, NULL, mesh);
 
   BM_mesh_free(bm);
 
 #ifdef USE_TIMEIT
   TIMEIT_END(decim);
 #endif
-
-  BKE_mesh_normals_tag_dirty(result);
 
   return result;
 }
@@ -267,34 +269,34 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Decimate = {
-    /* name */ "Decimate",
-    /* structName */ "DecimateModifierData",
-    /* structSize */ sizeof(DecimateModifierData),
-    /* srna */ &RNA_DecimateModifier,
-    /* type */ eModifierTypeType_Nonconstructive,
-    /* flags */ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_AcceptsCVs,
-    /* icon */ ICON_MOD_DECIM,
+    /*name*/ N_("Decimate"),
+    /*structName*/ "DecimateModifierData",
+    /*structSize*/ sizeof(DecimateModifierData),
+    /*srna*/ &RNA_DecimateModifier,
+    /*type*/ eModifierTypeType_Nonconstructive,
+    /*flags*/ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_AcceptsCVs,
+    /*icon*/ ICON_MOD_DECIM,
 
-    /* copyData */ BKE_modifier_copydata_generic,
+    /*copyData*/ BKE_modifier_copydata_generic,
 
-    /* deformVerts */ NULL,
-    /* deformMatrices */ NULL,
-    /* deformVertsEM */ NULL,
-    /* deformMatricesEM */ NULL,
-    /* modifyMesh */ modifyMesh,
-    /* modifyGeometrySet */ NULL,
+    /*deformVerts*/ NULL,
+    /*deformMatrices*/ NULL,
+    /*deformVertsEM*/ NULL,
+    /*deformMatricesEM*/ NULL,
+    /*modifyMesh*/ modifyMesh,
+    /*modifyGeometrySet*/ NULL,
 
-    /* initData */ initData,
-    /* requiredDataMask */ requiredDataMask,
-    /* freeData */ NULL,
-    /* isDisabled */ NULL,
-    /* updateDepsgraph */ NULL,
-    /* dependsOnTime */ NULL,
-    /* dependsOnNormals */ NULL,
-    /* foreachIDLink */ NULL,
-    /* foreachTexLink */ NULL,
-    /* freeRuntimeData */ NULL,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ NULL,
-    /* blendRead */ NULL,
+    /*initData*/ initData,
+    /*requiredDataMask*/ requiredDataMask,
+    /*freeData*/ NULL,
+    /*isDisabled*/ NULL,
+    /*updateDepsgraph*/ NULL,
+    /*dependsOnTime*/ NULL,
+    /*dependsOnNormals*/ NULL,
+    /*foreachIDLink*/ NULL,
+    /*foreachTexLink*/ NULL,
+    /*freeRuntimeData*/ NULL,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ NULL,
+    /*blendRead*/ NULL,
 };

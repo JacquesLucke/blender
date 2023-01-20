@@ -119,7 +119,7 @@ static void pixel_at_index(const ImBuf *ibuf, const int32_t idx, float r_col[4])
     copy_v4_v4(r_col, frgba);
   }
   else {
-    unsigned char *cp = (unsigned char *)(ibuf->rect + idx);
+    uchar *cp = (uchar *)(ibuf->rect + idx);
     r_col[0] = (float)cp[0] / 255.0f;
     r_col[1] = (float)cp[1] / 255.0f;
     r_col[2] = (float)cp[2] / 255.0f;
@@ -314,7 +314,7 @@ void ED_gpencil_trace_data_to_strokes(Main *bmain,
       if (sample > 0.0f) {
         /* Resample stroke. Don't need to call to BKE_gpencil_stroke_geometry_update() because
          * the sample function already call that. */
-        BKE_gpencil_stroke_sample(gpd, gps, sample, false);
+        BKE_gpencil_stroke_sample(gpd, gps, sample, false, 0);
       }
       else {
         BKE_gpencil_stroke_geometry_update(gpd, gps);

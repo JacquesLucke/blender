@@ -255,10 +255,10 @@ int ConeConfig::calculate_total_corners()
   return corner_total;
 }
 
-static void calculate_cone_vertices(const MutableSpan<MVert> &verts, const ConeConfig &config)
+static void calculate_cone_verts(const ConeConfig &config, MutableSpan<float3> positions)
 {
   Array<float2> circle(config.circle_segments);
-  const float angle_delta = 2.0f * (M_PI / static_cast<float>(config.circle_segments));
+  const float angle_delta = 2.0f * (M_PI / float(config.circle_segments));
   float angle = 0.0f;
   for (const int i : IndexRange(config.circle_segments)) {
     circle[i].x = std::cos(angle);
@@ -270,58 +270,56 @@ static void calculate_cone_vertices(const MutableSpan<MVert> &verts, const ConeC
 
   /* Top cone tip or triangle fan center. */
   if (config.top_has_center_vert) {
-    copy_v3_fl3(verts[vert_index++].co, 0.0f, 0.0f, config.height);
+    positions[vert_index++] = {0.0f, 0.0f, config.height};
   }
 
   /* Top fill including the outer edge of the fill. */
   if (!config.top_is_point) {
-    const float top_fill_radius_delta = config.radius_top /
-                                        static_cast<float>(config.fill_segments);
+    const float top_fill_radius_delta = config.radius_top / float(config.fill_segments);
     for (const int i : IndexRange(config.fill_segments)) {
       const float top_fill_radius = top_fill_radius_delta * (i + 1);
       for (const int j : IndexRange(config.circle_segments)) {
         const float x = circle[j].x * top_fill_radius;
         const float y = circle[j].y * top_fill_radius;
-        copy_v3_fl3(verts[vert_index++].co, x, y, config.height);
+        positions[vert_index++] = {x, y, config.height};
       }
     }
   }
 
   /* Rings along the side. */
   const float side_radius_delta = (config.radius_bottom - config.radius_top) /
-                                  static_cast<float>(config.side_segments);
-  const float height_delta = 2.0f * config.height / static_cast<float>(config.side_segments);
+                                  float(config.side_segments);
+  const float height_delta = 2.0f * config.height / float(config.side_segments);
   for (const int i : IndexRange(config.side_segments - 1)) {
     const float ring_radius = config.radius_top + (side_radius_delta * (i + 1));
     const float ring_height = config.height - (height_delta * (i + 1));
     for (const int j : IndexRange(config.circle_segments)) {
       const float x = circle[j].x * ring_radius;
       const float y = circle[j].y * ring_radius;
-      copy_v3_fl3(verts[vert_index++].co, x, y, ring_height);
+      positions[vert_index++] = {x, y, ring_height};
     }
   }
 
   /* Bottom fill including the outer edge of the fill. */
   if (!config.bottom_is_point) {
-    const float bottom_fill_radius_delta = config.radius_bottom /
-                                           static_cast<float>(config.fill_segments);
+    const float bottom_fill_radius_delta = config.radius_bottom / float(config.fill_segments);
     for (const int i : IndexRange(config.fill_segments)) {
       const float bottom_fill_radius = config.radius_bottom - (i * bottom_fill_radius_delta);
       for (const int j : IndexRange(config.circle_segments)) {
         const float x = circle[j].x * bottom_fill_radius;
         const float y = circle[j].y * bottom_fill_radius;
-        copy_v3_fl3(verts[vert_index++].co, x, y, -config.height);
+        positions[vert_index++] = {x, y, -config.height};
       }
     }
   }
 
   /* Bottom cone tip or triangle fan center. */
   if (config.bottom_has_center_vert) {
-    copy_v3_fl3(verts[vert_index++].co, 0.0f, 0.0f, -config.height);
+    positions[vert_index++] = {0.0f, 0.0f, -config.height};
   }
 }
 
-static void calculate_cone_edges(const MutableSpan<MEdge> &edges, const ConeConfig &config)
+static void calculate_cone_edges(const ConeConfig &config, MutableSpan<MEdge> edges)
 {
   int edge_index = 0;
 
@@ -331,7 +329,7 @@ static void calculate_cone_edges(const MutableSpan<MEdge> &edges, const ConeConf
       MEdge &edge = edges[edge_index++];
       edge.v1 = config.first_vert;
       edge.v2 = config.first_ring_verts_start + i;
-      edge.flag = ME_EDGEDRAW | ME_EDGERENDER;
+      edge.flag = ME_EDGEDRAW;
     }
   }
 
@@ -344,7 +342,7 @@ static void calculate_cone_edges(const MutableSpan<MEdge> &edges, const ConeConf
       MEdge &edge = edges[edge_index++];
       edge.v1 = this_ring_vert_start + j;
       edge.v2 = this_ring_vert_start + ((j + 1) % config.circle_segments);
-      edge.flag = ME_EDGEDRAW | ME_EDGERENDER;
+      edge.flag = ME_EDGEDRAW;
     }
     if (i == config.tot_edge_rings - 1) {
       /* There is one fewer ring of connecting edges. */
@@ -355,7 +353,7 @@ static void calculate_cone_edges(const MutableSpan<MEdge> &edges, const ConeConf
       MEdge &edge = edges[edge_index++];
       edge.v1 = this_ring_vert_start + j;
       edge.v2 = next_ring_vert_start + j;
-      edge.flag = ME_EDGEDRAW | ME_EDGERENDER;
+      edge.flag = ME_EDGEDRAW;
     }
   }
 
@@ -365,168 +363,168 @@ static void calculate_cone_edges(const MutableSpan<MEdge> &edges, const ConeConf
       MEdge &edge = edges[edge_index++];
       edge.v1 = config.last_ring_verts_start + i;
       edge.v2 = config.last_vert;
-      edge.flag = ME_EDGEDRAW | ME_EDGERENDER;
+      edge.flag = ME_EDGEDRAW;
     }
   }
 }
 
-static void calculate_cone_faces(const MutableSpan<MLoop> &loops,
-                                 const MutableSpan<MPoly> &polys,
-                                 const ConeConfig &config)
+static void calculate_cone_faces(const ConeConfig &config,
+                                 MutableSpan<MLoop> loops,
+                                 MutableSpan<MPoly> polys)
 {
-  int loop_index = 0;
-  int poly_index = 0;
-
+  int rings_poly_start = 0;
+  int rings_loop_start = 0;
   if (config.top_has_center_vert) {
+    rings_poly_start = config.circle_segments;
+    rings_loop_start = config.circle_segments * 3;
+
     /* Top cone tip or center triangle fan in the fill. */
     const int top_center_vert = 0;
     const int top_fan_edges_start = 0;
 
     for (const int i : IndexRange(config.circle_segments)) {
-      MPoly &poly = polys[poly_index++];
-      poly.loopstart = loop_index;
+      const int loop_start = i * 3;
+      MPoly &poly = polys[i];
+      poly.loopstart = loop_start;
       poly.totloop = 3;
 
-      MLoop &loop_a = loops[loop_index++];
-      loop_a.v = config.first_ring_verts_start + i;
-      loop_a.e = config.first_ring_edges_start + i;
-      MLoop &loop_b = loops[loop_index++];
-      loop_b.v = config.first_ring_verts_start + ((i + 1) % config.circle_segments);
-      loop_b.e = top_fan_edges_start + ((i + 1) % config.circle_segments);
-      MLoop &loop_c = loops[loop_index++];
-      loop_c.v = top_center_vert;
-      loop_c.e = top_fan_edges_start + i;
+      loops[loop_start + 0].v = config.first_ring_verts_start + i;
+      loops[loop_start + 0].e = config.first_ring_edges_start + i;
+
+      loops[loop_start + 1].v = config.first_ring_verts_start + ((i + 1) % config.circle_segments);
+      loops[loop_start + 1].e = top_fan_edges_start + ((i + 1) % config.circle_segments);
+
+      loops[loop_start + 2].v = top_center_vert;
+      loops[loop_start + 2].e = top_fan_edges_start + i;
     }
   }
   else if (config.fill_type == GEO_NODE_MESH_CIRCLE_FILL_NGON) {
+    rings_poly_start = 1;
+    rings_loop_start = config.circle_segments;
+
     /* Center n-gon in the fill. */
-    MPoly &poly = polys[poly_index++];
-    poly.loopstart = loop_index;
+    MPoly &poly = polys[0];
+    poly.loopstart = 0;
     poly.totloop = config.circle_segments;
     for (const int i : IndexRange(config.circle_segments)) {
-      MLoop &loop = loops[loop_index++];
-      loop.v = i;
-      loop.e = i;
+      loops[i].v = i;
+      loops[i].e = i;
     }
   }
 
   /* Quads connect one edge ring to the next one. */
-  if (config.tot_quad_rings > 0) {
-    for (const int i : IndexRange(config.tot_quad_rings)) {
-      const int this_ring_vert_start = config.first_ring_verts_start +
-                                       (i * config.circle_segments);
-      const int next_ring_vert_start = this_ring_vert_start + config.circle_segments;
+  for (const int i : IndexRange(config.tot_quad_rings)) {
+    const int this_ring_poly_start = rings_poly_start + i * config.circle_segments;
+    const int this_ring_loop_start = rings_loop_start + i * config.circle_segments * 4;
+    const int this_ring_vert_start = config.first_ring_verts_start + (i * config.circle_segments);
+    const int next_ring_vert_start = this_ring_vert_start + config.circle_segments;
 
-      const int this_ring_edges_start = config.first_ring_edges_start +
-                                        (i * 2 * config.circle_segments);
-      const int next_ring_edges_start = this_ring_edges_start + (2 * config.circle_segments);
-      const int ring_connections_start = this_ring_edges_start + config.circle_segments;
+    const int this_ring_edges_start = config.first_ring_edges_start +
+                                      (i * 2 * config.circle_segments);
+    const int next_ring_edges_start = this_ring_edges_start + (2 * config.circle_segments);
+    const int ring_connections_start = this_ring_edges_start + config.circle_segments;
 
-      for (const int j : IndexRange(config.circle_segments)) {
-        MPoly &poly = polys[poly_index++];
-        poly.loopstart = loop_index;
-        poly.totloop = 4;
+    for (const int j : IndexRange(config.circle_segments)) {
+      const int loop_start = this_ring_loop_start + j * 4;
+      MPoly &poly = polys[this_ring_poly_start + j];
+      poly.loopstart = loop_start;
+      poly.totloop = 4;
 
-        MLoop &loop_a = loops[loop_index++];
-        loop_a.v = this_ring_vert_start + j;
-        loop_a.e = ring_connections_start + j;
-        MLoop &loop_b = loops[loop_index++];
-        loop_b.v = next_ring_vert_start + j;
-        loop_b.e = next_ring_edges_start + j;
-        MLoop &loop_c = loops[loop_index++];
-        loop_c.v = next_ring_vert_start + ((j + 1) % config.circle_segments);
-        loop_c.e = ring_connections_start + ((j + 1) % config.circle_segments);
-        MLoop &loop_d = loops[loop_index++];
-        loop_d.v = this_ring_vert_start + ((j + 1) % config.circle_segments);
-        loop_d.e = this_ring_edges_start + j;
-      }
+      loops[loop_start + 0].v = this_ring_vert_start + j;
+      loops[loop_start + 0].e = ring_connections_start + j;
+
+      loops[loop_start + 1].v = next_ring_vert_start + j;
+      loops[loop_start + 1].e = next_ring_edges_start + j;
+
+      loops[loop_start + 2].v = next_ring_vert_start + ((j + 1) % config.circle_segments);
+      loops[loop_start + 2].e = ring_connections_start + ((j + 1) % config.circle_segments);
+
+      loops[loop_start + 3].v = this_ring_vert_start + ((j + 1) % config.circle_segments);
+      loops[loop_start + 3].e = this_ring_edges_start + j;
     }
   }
+
+  const int bottom_poly_start = rings_poly_start + config.tot_quad_rings * config.circle_segments;
+  const int bottom_loop_start = rings_loop_start +
+                                config.tot_quad_rings * config.circle_segments * 4;
 
   if (config.bottom_has_center_vert) {
     /* Bottom cone tip or center triangle fan in the fill. */
     for (const int i : IndexRange(config.circle_segments)) {
-      MPoly &poly = polys[poly_index++];
-      poly.loopstart = loop_index;
+      const int loop_start = bottom_loop_start + i * 3;
+      MPoly &poly = polys[bottom_poly_start + i];
+      poly.loopstart = loop_start;
       poly.totloop = 3;
 
-      MLoop &loop_a = loops[loop_index++];
-      loop_a.v = config.last_ring_verts_start + i;
-      loop_a.e = config.last_fan_edges_start + i;
-      MLoop &loop_b = loops[loop_index++];
-      loop_b.v = config.last_vert;
-      loop_b.e = config.last_fan_edges_start + (i + 1) % config.circle_segments;
-      MLoop &loop_c = loops[loop_index++];
-      loop_c.v = config.last_ring_verts_start + (i + 1) % config.circle_segments;
-      loop_c.e = config.last_ring_edges_start + i;
+      loops[loop_start + 0].v = config.last_ring_verts_start + i;
+      loops[loop_start + 0].e = config.last_fan_edges_start + i;
+
+      loops[loop_start + 1].v = config.last_vert;
+      loops[loop_start + 1].e = config.last_fan_edges_start + (i + 1) % config.circle_segments;
+
+      loops[loop_start + 2].v = config.last_ring_verts_start + (i + 1) % config.circle_segments;
+      loops[loop_start + 2].e = config.last_ring_edges_start + i;
     }
   }
   else if (config.fill_type == GEO_NODE_MESH_CIRCLE_FILL_NGON) {
     /* Center n-gon in the fill. */
-    MPoly &poly = polys[poly_index++];
-    poly.loopstart = loop_index;
+    MPoly &poly = polys[bottom_poly_start];
+    poly.loopstart = bottom_loop_start;
     poly.totloop = config.circle_segments;
 
     for (const int i : IndexRange(config.circle_segments)) {
       /* Go backwards to reverse surface normal. */
-      MLoop &loop = loops[loop_index++];
-      loop.v = config.last_vert - i;
-      loop.e = config.last_edge - ((i + 1) % config.circle_segments);
+      loops[bottom_loop_start + i].v = config.last_vert - i;
+      loops[bottom_loop_start + i].e = config.last_edge - ((i + 1) % config.circle_segments);
     }
   }
 }
 
-static void calculate_selection_outputs(Mesh *mesh,
-                                        const ConeConfig &config,
-                                        ConeAttributeOutputs &attribute_outputs)
+static void calculate_selection_outputs(const ConeConfig &config,
+                                        const ConeAttributeOutputs &attribute_outputs,
+                                        MutableAttributeAccessor attributes)
 {
-  MeshComponent mesh_component;
-  mesh_component.replace(mesh, GeometryOwnershipType::Editable);
-
   /* Populate "Top" selection output. */
   if (attribute_outputs.top_id) {
     const bool face = !config.top_is_point && config.fill_type != GEO_NODE_MESH_CIRCLE_FILL_NONE;
-    OutputAttribute_Typed<bool> attribute = mesh_component.attribute_try_get_for_output_only<bool>(
+    SpanAttributeWriter<bool> selection = attributes.lookup_or_add_for_write_span<bool>(
         attribute_outputs.top_id.get(), face ? ATTR_DOMAIN_FACE : ATTR_DOMAIN_POINT);
-    MutableSpan<bool> selection = attribute.as_span();
 
     if (config.top_is_point) {
-      selection[config.first_vert] = true;
+      selection.span[config.first_vert] = true;
     }
     else {
-      selection.slice(0, face ? config.top_faces_len : config.circle_segments).fill(true);
+      selection.span.slice(0, face ? config.top_faces_len : config.circle_segments).fill(true);
     }
-    attribute.save();
+    selection.finish();
   }
 
   /* Populate "Bottom" selection output. */
   if (attribute_outputs.bottom_id) {
     const bool face = !config.bottom_is_point &&
                       config.fill_type != GEO_NODE_MESH_CIRCLE_FILL_NONE;
-    OutputAttribute_Typed<bool> attribute = mesh_component.attribute_try_get_for_output_only<bool>(
+    SpanAttributeWriter<bool> selection = attributes.lookup_or_add_for_write_span<bool>(
         attribute_outputs.bottom_id.get(), face ? ATTR_DOMAIN_FACE : ATTR_DOMAIN_POINT);
-    MutableSpan<bool> selection = attribute.as_span();
 
     if (config.bottom_is_point) {
-      selection[config.last_vert] = true;
+      selection.span[config.last_vert] = true;
+    }
+    else if (face) {
+      selection.span.slice(config.bottom_faces_start, config.bottom_faces_len).fill(true);
     }
     else {
-      selection
-          .slice(config.bottom_faces_start,
-                 face ? config.bottom_faces_len : config.circle_segments)
-          .fill(true);
+      selection.span.slice(config.last_ring_verts_start + 1, config.circle_segments).fill(true);
     }
-    attribute.save();
+    selection.finish();
   }
 
   /* Populate "Side" selection output. */
   if (attribute_outputs.side_id) {
-    OutputAttribute_Typed<bool> attribute = mesh_component.attribute_try_get_for_output_only<bool>(
+    SpanAttributeWriter<bool> selection = attributes.lookup_or_add_for_write_span<bool>(
         attribute_outputs.side_id.get(), ATTR_DOMAIN_FACE);
-    MutableSpan<bool> selection = attribute.as_span();
 
-    selection.slice(config.side_faces_start, config.side_faces_len).fill(true);
-    attribute.save();
+    selection.span.slice(config.side_faces_start, config.side_faces_len).fill(true);
+    selection.finish();
   }
 }
 
@@ -538,17 +536,19 @@ static void calculate_selection_outputs(Mesh *mesh,
  * If the mesh is a truncated cone or a cylinder, the side faces are unwrapped into
  * a rectangle that fills the top half of the UV (or the entire UV, if there are no fills).
  */
-static void calculate_cone_uvs(Mesh *mesh, const ConeConfig &config)
+static void calculate_cone_uvs(const ConeConfig &config,
+                               Mesh *mesh,
+                               const AttributeIDRef &uv_map_id)
 {
-  MeshComponent mesh_component;
-  mesh_component.replace(mesh, GeometryOwnershipType::Editable);
-  OutputAttribute_Typed<float2> uv_attribute =
-      mesh_component.attribute_try_get_for_output_only<float2>("uv_map", ATTR_DOMAIN_CORNER);
-  MutableSpan<float2> uvs = uv_attribute.as_span();
+  MutableAttributeAccessor attributes = mesh->attributes_for_write();
+
+  SpanAttributeWriter<float2> uv_attribute = attributes.lookup_or_add_for_write_only_span<float2>(
+      uv_map_id, ATTR_DOMAIN_CORNER);
+  MutableSpan<float2> uvs = uv_attribute.span;
 
   Array<float2> circle(config.circle_segments);
   float angle = 0.0f;
-  const float angle_delta = 2.0f * M_PI / static_cast<float>(config.circle_segments);
+  const float angle_delta = 2.0f * M_PI / float(config.circle_segments);
   for (const int i : IndexRange(config.circle_segments)) {
     circle[i].x = std::cos(angle) * 0.225f;
     circle[i].y = std::sin(angle) * 0.225f;
@@ -560,9 +560,8 @@ static void calculate_cone_uvs(Mesh *mesh, const ConeConfig &config)
   /* Left circle of the UV representing the top fill or top cone tip. */
   if (config.top_is_point || config.fill_type != GEO_NODE_MESH_CIRCLE_FILL_NONE) {
     const float2 center_left(0.25f, 0.25f);
-    const float radius_factor_delta = 1.0f / (config.top_is_point ?
-                                                  static_cast<float>(config.side_segments) :
-                                                  static_cast<float>(config.fill_segments));
+    const float radius_factor_delta = 1.0f / (config.top_is_point ? float(config.side_segments) :
+                                                                    float(config.fill_segments));
     const int left_circle_segment_count = config.top_is_point ? config.side_segments :
                                                                 config.fill_segments;
 
@@ -599,8 +598,8 @@ static void calculate_cone_uvs(Mesh *mesh, const ConeConfig &config)
   if (!config.top_is_point && !config.bottom_is_point) {
     /* Mesh is a truncated cone or cylinder. The sides are unwrapped into a rectangle. */
     const float bottom = (config.fill_type == GEO_NODE_MESH_CIRCLE_FILL_NONE) ? 0.0f : 0.5f;
-    const float x_delta = 1.0f / static_cast<float>(config.circle_segments);
-    const float y_delta = (1.0f - bottom) / static_cast<float>(config.side_segments);
+    const float x_delta = 1.0f / float(config.circle_segments);
+    const float y_delta = (1.0f - bottom) / float(config.side_segments);
 
     for (const int i : IndexRange(config.side_segments)) {
       for (const int j : IndexRange(config.circle_segments)) {
@@ -616,8 +615,8 @@ static void calculate_cone_uvs(Mesh *mesh, const ConeConfig &config)
   if (config.bottom_is_point || config.fill_type != GEO_NODE_MESH_CIRCLE_FILL_NONE) {
     const float2 center_right(0.75f, 0.25f);
     const float radius_factor_delta = 1.0f / (config.bottom_is_point ?
-                                                  static_cast<float>(config.side_segments) :
-                                                  static_cast<float>(config.fill_segments));
+                                                  float(config.side_segments) :
+                                                  float(config.fill_segments));
     const int right_circle_segment_count = config.bottom_is_point ? config.side_segments :
                                                                     config.fill_segments;
 
@@ -654,14 +653,14 @@ static void calculate_cone_uvs(Mesh *mesh, const ConeConfig &config)
     }
   }
 
-  uv_attribute.save();
+  uv_attribute.finish();
 }
 
 static Mesh *create_vertex_mesh()
 {
   /* Returns a mesh with a single vertex at the origin. */
   Mesh *mesh = BKE_mesh_new_nomain(1, 0, 0, 0, 0);
-  copy_v3_fl3(mesh->mvert[0].co, 0.0f, 0.0f, 0.0f);
+  mesh->vert_positions_for_write().first() = float3(0);
   return mesh;
 }
 
@@ -683,7 +682,7 @@ Mesh *create_cylinder_or_cone_mesh(const float radius_top,
     if (config.height == 0.0f) {
       return create_vertex_mesh();
     }
-    const float z_delta = -2.0f * config.height / static_cast<float>(config.side_segments);
+    const float z_delta = -2.0f * config.height / float(config.side_segments);
     const float3 start(0.0f, 0.0f, config.height);
     const float3 delta(0.0f, 0.0f, z_delta);
     return create_line_mesh(start, delta, config.tot_verts);
@@ -693,16 +692,20 @@ Mesh *create_cylinder_or_cone_mesh(const float radius_top,
       config.tot_verts, config.tot_edges, 0, config.tot_corners, config.tot_faces);
   BKE_id_material_eval_ensure_default_slot(&mesh->id);
 
-  MutableSpan<MVert> verts{mesh->mvert, mesh->totvert};
-  MutableSpan<MLoop> loops{mesh->mloop, mesh->totloop};
-  MutableSpan<MEdge> edges{mesh->medge, mesh->totedge};
-  MutableSpan<MPoly> polys{mesh->mpoly, mesh->totpoly};
+  MutableSpan<float3> positions = mesh->vert_positions_for_write();
+  MutableSpan<MEdge> edges = mesh->edges_for_write();
+  MutableSpan<MPoly> polys = mesh->polys_for_write();
+  MutableSpan<MLoop> loops = mesh->loops_for_write();
 
-  calculate_cone_vertices(verts, config);
-  calculate_cone_edges(edges, config);
-  calculate_cone_faces(loops, polys, config);
-  calculate_cone_uvs(mesh, config);
-  calculate_selection_outputs(mesh, config, attribute_outputs);
+  calculate_cone_verts(config, positions);
+  calculate_cone_edges(config, edges);
+  calculate_cone_faces(config, loops, polys);
+  if (attribute_outputs.uv_map_id) {
+    calculate_cone_uvs(config, mesh, attribute_outputs.uv_map_id.get());
+  }
+  calculate_selection_outputs(config, attribute_outputs, mesh->attributes_for_write());
+
+  mesh->loose_edges_tag_none();
 
   return mesh;
 }
@@ -745,12 +748,13 @@ static void node_declare(NodeDeclarationBuilder &b)
       .subtype(PROP_DISTANCE)
       .description(N_("Height of the generated cone"));
   b.add_output<decl::Geometry>(N_("Mesh"));
-  b.add_output<decl::Bool>(N_("Top")).field_source();
-  b.add_output<decl::Bool>(N_("Bottom")).field_source();
-  b.add_output<decl::Bool>(N_("Side")).field_source();
+  b.add_output<decl::Bool>(N_("Top")).field_on_all();
+  b.add_output<decl::Bool>(N_("Bottom")).field_on_all();
+  b.add_output<decl::Bool>(N_("Side")).field_on_all();
+  b.add_output<decl::Vector>(N_("UV Map")).field_on_all();
 }
 
-static void node_init(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_init(bNodeTree * /*tree*/, bNode *node)
 {
   NodeGeometryMeshCone *node_storage = MEM_cnew<NodeGeometryMeshCone>(__func__);
 
@@ -761,7 +765,7 @@ static void node_init(bNodeTree *UNUSED(ntree), bNode *node)
 
 static void node_update(bNodeTree *ntree, bNode *node)
 {
-  bNodeSocket *vertices_socket = (bNodeSocket *)node->inputs.first;
+  bNodeSocket *vertices_socket = static_cast<bNodeSocket *>(node->inputs.first);
   bNodeSocket *rings_socket = vertices_socket->next;
   bNodeSocket *fill_subdiv_socket = rings_socket->next;
 
@@ -771,7 +775,7 @@ static void node_update(bNodeTree *ntree, bNode *node)
   nodeSetSocketAvailability(ntree, fill_subdiv_socket, has_fill);
 }
 
-static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiLayoutSetPropSep(layout, true);
   uiLayoutSetPropDecorate(layout, false);
@@ -810,15 +814,10 @@ static void node_geo_exec(GeoNodeExecParams params)
   const float depth = params.extract_input<float>("Depth");
 
   ConeAttributeOutputs attribute_outputs;
-  if (params.output_is_required("Top")) {
-    attribute_outputs.top_id = StrongAnonymousAttributeID("top_selection");
-  }
-  if (params.output_is_required("Bottom")) {
-    attribute_outputs.bottom_id = StrongAnonymousAttributeID("bottom_selection");
-  }
-  if (params.output_is_required("Side")) {
-    attribute_outputs.side_id = StrongAnonymousAttributeID("side_selection");
-  }
+  attribute_outputs.top_id = params.get_output_anonymous_attribute_id_if_needed("Top");
+  attribute_outputs.bottom_id = params.get_output_anonymous_attribute_id_if_needed("Bottom");
+  attribute_outputs.side_id = params.get_output_anonymous_attribute_id_if_needed("Side");
+  attribute_outputs.uv_map_id = params.get_output_anonymous_attribute_id_if_needed("UV Map");
 
   Mesh *mesh = create_cylinder_or_cone_mesh(radius_top,
                                             radius_bottom,
@@ -848,6 +847,12 @@ static void node_geo_exec(GeoNodeExecParams params)
                       AnonymousAttributeFieldInput::Create<bool>(
                           std::move(attribute_outputs.side_id), params.attribute_producer_name()));
   }
+  if (attribute_outputs.uv_map_id) {
+    params.set_output(
+        "UV Map",
+        AnonymousAttributeFieldInput::Create<float3>(std::move(attribute_outputs.uv_map_id),
+                                                     params.attribute_producer_name()));
+  }
 
   params.set_output("Mesh", GeometrySet::create_with_mesh(mesh));
 }
@@ -861,8 +866,8 @@ void register_node_type_geo_mesh_primitive_cone()
   static bNodeType ntype;
 
   geo_node_type_base(&ntype, GEO_NODE_MESH_PRIMITIVE_CONE, "Cone", NODE_CLASS_GEOMETRY);
-  node_type_init(&ntype, file_ns::node_init);
-  node_type_update(&ntype, file_ns::node_update);
+  ntype.initfunc = file_ns::node_init;
+  ntype.updatefunc = file_ns::node_update;
   node_type_storage(
       &ntype, "NodeGeometryMeshCone", node_free_standard_storage, node_copy_standard_storage);
   ntype.geometry_node_execute = file_ns::node_geo_exec;

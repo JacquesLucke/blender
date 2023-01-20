@@ -66,7 +66,9 @@ struct SocketType {
     LINK_NORMAL = (1 << 8),
     LINK_POSITION = (1 << 9),
     LINK_TANGENT = (1 << 10),
-    DEFAULT_LINK_MASK = (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8) | (1 << 9) | (1 << 10)
+    LINK_OSL_INITIALIZER = (1 << 11),
+    DEFAULT_LINK_MASK = (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8) | (1 << 9) |
+                        (1 << 10) | (1 << 11)
   };
 
   ustring name;
@@ -171,7 +173,7 @@ struct NodeType {
 #define SOCKET_DEFINE(name, ui_name, default_value, datatype, TYPE, flags, ...) \
   { \
     static datatype defval = default_value; \
-    CHECK_TYPE(T::name, datatype); \
+    static_assert(std::is_same_v<decltype(T::name), datatype>); \
     type->register_input(ustring(#name), \
                          ustring(ui_name), \
                          TYPE, \

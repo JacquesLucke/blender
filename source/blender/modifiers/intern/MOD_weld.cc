@@ -28,10 +28,6 @@
 #include "DNA_modifier_types.h"
 #include "DNA_screen_types.h"
 
-#ifdef USE_BVHTREEKDOP
-#  include "BKE_bvhutils.h"
-#endif
-
 #include "BKE_context.h"
 #include "BKE_deform.h"
 #include "BKE_modifier.h"
@@ -41,6 +37,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph.h"
 
@@ -126,7 +123,7 @@ static std::optional<Mesh *> calculate_weld(const Mesh &mesh, const WeldModifier
   return nullptr;
 }
 
-static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *UNUSED(ctx), Mesh *mesh)
+static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext * /*ctx*/, Mesh *mesh)
 {
   const WeldModifierData &wmd = reinterpret_cast<WeldModifierData &>(*md);
 
@@ -146,9 +143,7 @@ static void initData(ModifierData *md)
   MEMCPY_STRUCT_AFTER(wmd, DNA_struct_default_get(WeldModifierData), modifier);
 }
 
-static void requiredDataMask(Object *UNUSED(ob),
-                             ModifierData *md,
-                             CustomData_MeshMasks *r_cddata_masks)
+static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_masks)
 {
   WeldModifierData *wmd = (WeldModifierData *)md;
 
@@ -158,7 +153,7 @@ static void requiredDataMask(Object *UNUSED(ob),
   }
 }
 
-static void panel_draw(const bContext *UNUSED(C), Panel *panel)
+static void panel_draw(const bContext * /*C*/, Panel *panel)
 {
   uiLayout *layout = panel->layout;
 
@@ -184,39 +179,37 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Weld = {
-    /* name */ "Weld",
-    /* structName */ "WeldModifierData",
-    /* structSize */ sizeof(WeldModifierData),
-    /* srna */ &RNA_WeldModifier,
-    /* type */ eModifierTypeType_Constructive,
-    /* flags */
+    /*name*/ N_("Weld"),
+    /*structName*/ "WeldModifierData",
+    /*structSize*/ sizeof(WeldModifierData),
+    /*srna*/ &RNA_WeldModifier,
+    /*type*/ eModifierTypeType_Constructive,
+    /*flags*/
     (ModifierTypeFlag)(eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_SupportsMapping |
                        eModifierTypeFlag_SupportsEditmode | eModifierTypeFlag_EnableInEditmode |
                        eModifierTypeFlag_AcceptsCVs),
-    /* icon */ ICON_AUTOMERGE_OFF, /* TODO: Use correct icon. */
+    /*icon*/ ICON_AUTOMERGE_OFF, /* TODO: Use correct icon. */
 
-    /* copyData */ BKE_modifier_copydata_generic,
+    /*copyData*/ BKE_modifier_copydata_generic,
 
-    /* deformVerts */ nullptr,
-    /* deformMatrices */ nullptr,
-    /* deformVertsEM */ nullptr,
-    /* deformMatricesEM */ nullptr,
-    /* modifyMesh */ modifyMesh,
-    /* modifyGeometrySet */ nullptr,
+    /*deformVerts*/ nullptr,
+    /*deformMatrices*/ nullptr,
+    /*deformVertsEM*/ nullptr,
+    /*deformMatricesEM*/ nullptr,
+    /*modifyMesh*/ modifyMesh,
+    /*modifyGeometrySet*/ nullptr,
 
-    /* initData */ initData,
-    /* requiredDataMask */ requiredDataMask,
-    /* freeData */ nullptr,
-    /* isDisabled */ nullptr,
-    /* updateDepsgraph */ nullptr,
-    /* dependsOnTime */ nullptr,
-    /* dependsOnNormals */ nullptr,
-    /* foreachIDLink */ nullptr,
-    /* foreachTexLink */ nullptr,
-    /* freeRuntimeData */ nullptr,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ nullptr,
-    /* blendRead */ nullptr,
+    /*initData*/ initData,
+    /*requiredDataMask*/ requiredDataMask,
+    /*freeData*/ nullptr,
+    /*isDisabled*/ nullptr,
+    /*updateDepsgraph*/ nullptr,
+    /*dependsOnTime*/ nullptr,
+    /*dependsOnNormals*/ nullptr,
+    /*foreachIDLink*/ nullptr,
+    /*foreachTexLink*/ nullptr,
+    /*freeRuntimeData*/ nullptr,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ nullptr,
+    /*blendRead*/ nullptr,
 };
-
-/** \} */

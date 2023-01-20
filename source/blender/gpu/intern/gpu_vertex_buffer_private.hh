@@ -29,7 +29,12 @@ class VertBuf {
   /** Status flag. */
   GPUVertBufStatus flag = GPU_VERTBUF_INVALID;
   /** NULL indicates data in VRAM (unmapped) */
-  uchar *data = NULL;
+  uchar *data = nullptr;
+
+#ifndef NDEBUG
+  /** Usage including extended usage flags. */
+  GPUUsageType extended_usage_ = GPU_USAGE_STATIC;
+#endif
 
  protected:
   /** Usage hint for GL optimization. */
@@ -51,6 +56,7 @@ class VertBuf {
   void resize(uint vert_len);
   void upload();
   virtual void bind_as_ssbo(uint binding) = 0;
+  virtual void bind_as_texture(uint binding) = 0;
 
   virtual void wrap_handle(uint64_t handle) = 0;
 
@@ -80,6 +86,11 @@ class VertBuf {
     if (handle_refcount_ == 0) {
       delete this;
     }
+  }
+
+  GPUUsageType get_usage_type() const
+  {
+    return usage_;
   }
 
   virtual void update_sub(uint start, uint len, const void *data) = 0;

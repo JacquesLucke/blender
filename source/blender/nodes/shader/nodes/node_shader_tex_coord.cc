@@ -21,7 +21,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Vector>(N_("Reflection"));
 }
 
-static void node_shader_buts_tex_coord(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_shader_buts_tex_coord(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "object", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, 0);
   uiItemR(layout, ptr, "from_instancer", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, 0);
@@ -29,30 +29,24 @@ static void node_shader_buts_tex_coord(uiLayout *layout, bContext *UNUSED(C), Po
 
 static int node_shader_gpu_tex_coord(GPUMaterial *mat,
                                      bNode *node,
-                                     bNodeExecData *UNUSED(execdata),
+                                     bNodeExecData * /*execdata*/,
                                      GPUNodeStack *in,
                                      GPUNodeStack *out)
 {
   Object *ob = (Object *)node->id;
 
-  GPUNodeLink *inv_obmat = (ob != nullptr) ? GPU_uniform(&ob->imat[0][0]) :
-                                             GPU_builtin(GPU_INVERSE_OBJECT_MATRIX);
+  /* Use special matrix to let the shader branch to using the render object's matrix. */
+  float dummy_matrix[4][4];
+  dummy_matrix[3][3] = 0.0f;
+  GPUNodeLink *inv_obmat = (ob != nullptr) ? GPU_uniform(&ob->world_to_object[0][0]) :
+                                             GPU_uniform(&dummy_matrix[0][0]);
 
-  /* Opti: don't request orco if not needed. */
-  const float default_coords[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-  GPUNodeLink *orco = (!out[0].hasoutput) ? GPU_constant(default_coords) :
-                                            GPU_attribute(mat, CD_ORCO, "");
-  GPUNodeLink *mtface = GPU_attribute(mat, CD_MTFACE, "");
-  GPUNodeLink *viewpos = GPU_builtin(GPU_VIEW_POSITION);
-  GPUNodeLink *worldnor = GPU_builtin(GPU_WORLD_NORMAL);
-  GPUNodeLink *texcofacs = GPU_builtin(GPU_CAMERA_TEXCO_FACTORS);
+  /* Optimization: don't request orco if not needed. */
+  float4 zero(0.0f);
+  GPUNodeLink *orco = out[0].hasoutput ? GPU_attribute(mat, CD_ORCO, "") : GPU_constant(zero);
+  GPUNodeLink *mtface = GPU_attribute(mat, CD_AUTO_FROM_NAME, "");
 
-  if (out[0].hasoutput) {
-    GPU_link(mat, "generated_from_orco", orco, &orco);
-  }
-
-  GPU_stack_link(
-      mat, node, "node_tex_coord", in, out, viewpos, worldnor, inv_obmat, texcofacs, orco, mtface);
+  GPU_stack_link(mat, node, "node_tex_coord", in, out, inv_obmat, orco, mtface);
 
   int i;
   LISTBASE_FOREACH_INDEX (bNodeSocket *, sock, &node->outputs, i) {
@@ -61,7 +55,7 @@ static int node_shader_gpu_tex_coord(GPUMaterial *mat,
      * This is the case for interpolated, non linear functions.
      * The resulting vector can still be a bit wrong but not as much.
      * (see T70644) */
-    if (node->branch_tag != 0 && ELEM(i, 1, 6)) {
+    if (ELEM(i, 1, 6)) {
       GPU_link(mat,
                "vector_math_normalize",
                out[i].link,
@@ -88,7 +82,7 @@ void register_node_type_sh_tex_coord()
   sh_node_type_base(&ntype, SH_NODE_TEX_COORD, "Texture Coordinate", NODE_CLASS_INPUT);
   ntype.declare = file_ns::node_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_tex_coord;
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_tex_coord);
+  ntype.gpu_fn = file_ns::node_shader_gpu_tex_coord;
 
   nodeRegisterType(&ntype);
 }

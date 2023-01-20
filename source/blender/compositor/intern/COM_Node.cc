@@ -4,6 +4,7 @@
 #include "BKE_node.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "COM_Node.h" /* own include */
 
@@ -52,10 +53,10 @@ Node::Node(bNode *editor_node, bool create_sockets)
 Node::~Node()
 {
   while (!outputs_.is_empty()) {
-    delete (outputs_.pop_last());
+    delete outputs_.pop_last();
   }
   while (!inputs_.is_empty()) {
-    delete (inputs_.pop_last());
+    delete inputs_.pop_last();
   }
 }
 
@@ -80,12 +81,12 @@ void Node::add_output_socket(DataType datatype, bNodeSocket *bSocket)
   outputs_.append(socket);
 }
 
-NodeOutput *Node::get_output_socket(unsigned int index) const
+NodeOutput *Node::get_output_socket(uint index) const
 {
   return outputs_[index];
 }
 
-NodeInput *Node::get_input_socket(unsigned int index) const
+NodeInput *Node::get_input_socket(uint index) const
 {
   return inputs_[index];
 }

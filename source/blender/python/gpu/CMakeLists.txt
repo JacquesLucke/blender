@@ -8,12 +8,11 @@ set(INC
   ../../gpu
   ../../imbuf
   ../../makesdna
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
 )
 
 set(INC_SYS
-  ${GLEW_INCLUDE_PATH}
+  ${Epoxy_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_DIRS}
 )
 
@@ -30,6 +29,7 @@ set(SRC
   gpu_py_platform.c
   gpu_py_select.c
   gpu_py_shader.c
+  gpu_py_shader_create_info.cc
   gpu_py_state.c
   gpu_py_texture.c
   gpu_py_types.c
@@ -58,10 +58,9 @@ set(SRC
 )
 
 set(LIB
+  ${Epoxy_LIBRARIES}
   ${PYTHON_LINKFLAGS}
   ${PYTHON_LIBRARIES}
 )
-
-add_definitions(${GL_DEFINITIONS})
 
 blender_add_lib(bf_python_gpu "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

@@ -5,10 +5,11 @@
  * \ingroup draw
  */
 
+#include "BLI_math_vector_types.hh"
 #include "BLI_string.h"
 
 #include "draw_subdivision.h"
-#include "extract_mesh.h"
+#include "extract_mesh.hh"
 
 namespace blender::draw {
 
@@ -19,7 +20,7 @@ namespace blender::draw {
 /* Initialize the vertex format to be used for UVs. Return true if any UV layer is
  * found, false otherwise. */
 static bool mesh_extract_uv_format_init(GPUVertFormat *format,
-                                        struct MeshBatchCache *cache,
+                                        MeshBatchCache *cache,
                                         CustomData *cd_ldata,
                                         eMRExtractType extract_type,
                                         uint32_t &r_uv_layers)
@@ -29,7 +30,7 @@ static bool mesh_extract_uv_format_init(GPUVertFormat *format,
   uint32_t uv_layers = cache->cd_used.uv;
   /* HACK to fix T68857 */
   if (extract_type == MR_EXTRACT_BMESH && cache->cd_used.edit_uv == 1) {
-    int layer = CustomData_get_active_layer(cd_ldata, CD_MLOOPUV);
+    int layer = CustomData_get_active_layer(cd_ldata, CD_PROP_FLOAT2);
     if (layer != -1) {
       uv_layers |= (1 << layer);
     }
@@ -40,27 +41,24 @@ static bool mesh_extract_uv_format_init(GPUVertFormat *format,
   for (int i = 0; i < MAX_MTFACE; i++) {
     if (uv_layers & (1 << i)) {
       char attr_name[32], attr_safe_name[GPU_MAX_SAFE_ATTR_NAME];
-      const char *layer_name = CustomData_get_layer_name(cd_ldata, CD_MLOOPUV, i);
+      const char *layer_name = CustomData_get_layer_name(cd_ldata, CD_PROP_FLOAT2, i);
 
       GPU_vertformat_safe_attr_name(layer_name, attr_safe_name, GPU_MAX_SAFE_ATTR_NAME);
       /* UV layer name. */
-      BLI_snprintf(attr_name, sizeof(attr_name), "u%s", attr_safe_name);
-      GPU_vertformat_attr_add(format, attr_name, GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-      /* Auto layer name. */
       BLI_snprintf(attr_name, sizeof(attr_name), "a%s", attr_safe_name);
-      GPU_vertformat_alias_add(format, attr_name);
+      GPU_vertformat_attr_add(format, attr_name, GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
       /* Active render layer name. */
-      if (i == CustomData_get_render_layer(cd_ldata, CD_MLOOPUV)) {
-        GPU_vertformat_alias_add(format, "u");
+      if (i == CustomData_get_render_layer(cd_ldata, CD_PROP_FLOAT2)) {
+        GPU_vertformat_alias_add(format, "a");
       }
       /* Active display layer name. */
-      if (i == CustomData_get_active_layer(cd_ldata, CD_MLOOPUV)) {
+      if (i == CustomData_get_active_layer(cd_ldata, CD_PROP_FLOAT2)) {
         GPU_vertformat_alias_add(format, "au");
         /* Alias to `pos` for edit uvs. */
         GPU_vertformat_alias_add(format, "pos");
       }
       /* Stencil mask uv layer name. */
-      if (i == CustomData_get_stencil_layer(cd_ldata, CD_MLOOPUV)) {
+      if (i == CustomData_get_stencil_layer(cd_ldata, CD_PROP_FLOAT2)) {
         GPU_vertformat_alias_add(format, "mu");
       }
     }
@@ -75,9 +73,9 @@ static bool mesh_extract_uv_format_init(GPUVertFormat *format,
 }
 
 static void extract_uv_init(const MeshRenderData *mr,
-                            struct MeshBatchCache *cache,
+                            MeshBatchCache *cache,
                             void *buf,
-                            void *UNUSED(tls_data))
+                            void * /*tls_data*/)
 {
   GPUVertBuf *vbo = static_cast<GPUVertBuf *>(buf);
   GPUVertFormat format = {0};
@@ -93,27 +91,28 @@ static void extract_uv_init(const MeshRenderData *mr,
   GPU_vertbuf_init_with_format(vbo, &format);
   GPU_vertbuf_data_alloc(vbo, v_len);
 
-  float(*uv_data)[2] = (float(*)[2])GPU_vertbuf_get_data(vbo);
+  float2 *uv_data = static_cast<float2 *>(GPU_vertbuf_get_data(vbo));
   for (int i = 0; i < MAX_MTFACE; i++) {
     if (uv_layers & (1 << i)) {
       if (mr->extract_type == MR_EXTRACT_BMESH) {
-        int cd_ofs = CustomData_get_n_offset(cd_ldata, CD_MLOOPUV, i);
+        int cd_ofs = CustomData_get_n_offset(cd_ldata, CD_PROP_FLOAT2, i);
         BMIter f_iter;
         BMFace *efa;
         BM_ITER_MESH (efa, &f_iter, mr->bm, BM_FACES_OF_MESH) {
           BMLoop *l_iter, *l_first;
           l_iter = l_first = BM_FACE_FIRST_LOOP(efa);
           do {
-            MLoopUV *luv = (MLoopUV *)BM_ELEM_CD_GET_VOID_P(l_iter, cd_ofs);
-            memcpy(uv_data, luv->uv, sizeof(*uv_data));
+            float *luv = BM_ELEM_CD_GET_FLOAT_P(l_iter, cd_ofs);
+            memcpy(uv_data, luv, sizeof(*uv_data));
             uv_data++;
           } while ((l_iter = l_iter->next) != l_first);
         }
       }
       else {
-        MLoopUV *layer_data = (MLoopUV *)CustomData_get_layer_n(cd_ldata, CD_MLOOPUV, i);
+        const float2 *layer_data = static_cast<const float2 *>(
+            CustomData_get_layer_n(cd_ldata, CD_PROP_FLOAT2, i));
         for (int ml_index = 0; ml_index < mr->loop_len; ml_index++, uv_data++, layer_data++) {
-          memcpy(uv_data, layer_data->uv, sizeof(*uv_data));
+          memcpy(uv_data, layer_data, sizeof(*uv_data));
         }
       }
     }
@@ -121,10 +120,10 @@ static void extract_uv_init(const MeshRenderData *mr,
 }
 
 static void extract_uv_init_subdiv(const DRWSubdivCache *subdiv_cache,
-                                   const MeshRenderData *UNUSED(mr),
-                                   struct MeshBatchCache *cache,
+                                   const MeshRenderData * /*mr*/,
+                                   MeshBatchCache *cache,
                                    void *buffer,
-                                   void *UNUSED(data))
+                                   void * /*data*/)
 {
   Mesh *coarse_mesh = subdiv_cache->mesh;
   GPUVertBuf *vbo = static_cast<GPUVertBuf *>(buffer);
@@ -134,7 +133,7 @@ static void extract_uv_init_subdiv(const DRWSubdivCache *subdiv_cache,
   uint uv_layers;
   if (!mesh_extract_uv_format_init(
           &format, cache, &coarse_mesh->ldata, MR_EXTRACT_MESH, uv_layers)) {
-    // TODO(kevindietrich): handle this more gracefully.
+    /* TODO(kevindietrich): handle this more gracefully. */
     v_len = 1;
   }
 
@@ -148,7 +147,7 @@ static void extract_uv_init_subdiv(const DRWSubdivCache *subdiv_cache,
   int pack_layer_index = 0;
   for (int i = 0; i < MAX_MTFACE; i++) {
     if (uv_layers & (1 << i)) {
-      const int offset = (int)subdiv_cache->num_subdiv_loops * pack_layer_index++;
+      const int offset = int(subdiv_cache->num_subdiv_loops) * pack_layer_index++;
       draw_subdiv_extract_uvs(subdiv_cache, vbo, i, offset);
     }
   }
@@ -170,6 +169,4 @@ constexpr MeshExtract create_extractor_uv()
 
 }  // namespace blender::draw
 
-extern "C" {
 const MeshExtract extract_uv = blender::draw::create_extractor_uv();
-}

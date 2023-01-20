@@ -27,6 +27,11 @@ namespace blender::ed::outliner {
 
 std::unique_ptr<TreeElementID> TreeElementID::createFromID(TreeElement &legacy_te, ID &id)
 {
+  if (ID_TYPE_IS_DEPRECATED(GS(id.name))) {
+    BLI_assert_msg(0, "Outliner trying to build tree-element for deprecated ID type");
+    return nullptr;
+  }
+
   switch (ID_Type type = GS(id.name); type) {
     case ID_LI:
       return std::make_unique<TreeElementIDLibrary>(legacy_te, (Library &)id);
@@ -34,7 +39,7 @@ std::unique_ptr<TreeElementID> TreeElementID::createFromID(TreeElement &legacy_t
       return std::make_unique<TreeElementIDScene>(legacy_te, (Scene &)id);
     case ID_OB:
     case ID_ME:
-    case ID_CU:
+    case ID_CU_LEGACY:
     case ID_MB:
     case ID_MA:
     case ID_TE:
@@ -70,10 +75,9 @@ std::unique_ptr<TreeElementID> TreeElementID::createFromID(TreeElement &legacy_t
     case ID_PC:
     case ID_CF:
       return std::make_unique<TreeElementID>(legacy_te, id);
-      /* Deprecated */
     case ID_IP:
-      BLI_assert_msg(0, "Outliner trying to build tree-element for deprecated ID type");
-      return nullptr;
+      BLI_assert_unreachable();
+      break;
   }
 
   return nullptr;
@@ -91,17 +95,6 @@ TreeElementID::TreeElementID(TreeElement &legacy_te, ID &id)
   /* Default, some specific types override this. */
   legacy_te_.name = id.name + 2;
   legacy_te_.idcode = GS(id.name);
-}
-
-void TreeElementID::postExpand(SpaceOutliner &space_outliner) const
-{
-  const bool lib_overrides_visible = !SUPPORT_FILTER_OUTLINER(&space_outliner) ||
-                                     ((space_outliner.filter & SO_FILTER_NO_LIB_OVERRIDE) == 0);
-
-  if (lib_overrides_visible && ID_IS_OVERRIDE_LIBRARY_REAL(&id_)) {
-    outliner_add_element(
-        &space_outliner, &legacy_te_.subtree, &id_, &legacy_te_, TSE_LIBRARY_OVERRIDE_BASE, 0);
-  }
 }
 
 bool TreeElementID::expandPoll(const SpaceOutliner &space_outliner) const

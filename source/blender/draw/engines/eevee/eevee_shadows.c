@@ -147,13 +147,13 @@ void EEVEE_shadows_caster_register(EEVEE_ViewLayerData *sldata, Object *ob)
   }
 
   /* Update World AABB in frontbuffer. */
-  BoundBox *bb = BKE_object_boundbox_get(ob);
+  const BoundBox *bb = BKE_object_boundbox_get(ob);
   float min[3], max[3];
   INIT_MINMAX(min, max);
   for (int i = 0; i < 8; i++) {
     float vec[3];
     copy_v3_v3(vec, bb->vec[i]);
-    mul_m4_v3(ob->obmat, vec);
+    mul_m4_v3(ob->object_to_world, vec);
     minmax_v3v3_v3(min, max, vec);
   }
 
@@ -273,11 +273,9 @@ void EEVEE_shadows_update(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 
   /* Resize shcasters buffers if too big. */
   if (frontbuffer->alloc_count - frontbuffer->count > SH_CASTER_ALLOC_CHUNK) {
-    frontbuffer->alloc_count = (frontbuffer->count / SH_CASTER_ALLOC_CHUNK) *
+    frontbuffer->alloc_count = divide_ceil_u(max_ii(1, frontbuffer->count),
+                                             SH_CASTER_ALLOC_CHUNK) *
                                SH_CASTER_ALLOC_CHUNK;
-    frontbuffer->alloc_count += (frontbuffer->count % SH_CASTER_ALLOC_CHUNK != 0) ?
-                                    SH_CASTER_ALLOC_CHUNK :
-                                    0;
     frontbuffer->bbox = MEM_reallocN(frontbuffer->bbox,
                                      sizeof(EEVEE_BoundBox) * frontbuffer->alloc_count);
     BLI_BITMAP_RESIZE(frontbuffer->update, frontbuffer->alloc_count);

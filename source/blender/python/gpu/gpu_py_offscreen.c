@@ -13,8 +13,6 @@
 
 #include <Python.h>
 
-#include "MEM_guardedalloc.h"
-
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
@@ -31,7 +29,6 @@
 #include "GPU_texture.h"
 #include "GPU_viewport.h"
 
-#include "ED_view3d.h"
 #include "ED_view3d_offscreen.h"
 
 #include "../mathutils/mathutils.h"
@@ -188,7 +185,13 @@ static PyObject *pygpu_offscreen_unbind(BPyGPUOffScreen *self, PyObject *args, P
   BPY_GPU_OFFSCREEN_CHECK_OBJ(self);
 
   static const char *_keywords[] = {"restore", NULL};
-  static _PyArg_Parser _parser = {"|$O&:unbind", _keywords, 0};
+  static _PyArg_Parser _parser = {
+      "|$" /* Optional keyword only arguments. */
+      "O&" /* `restore` */
+      ":unbind",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(args, kwds, &_parser, PyC_ParseBool, &restore)) {
     return NULL;
   }
@@ -208,15 +211,21 @@ static PyObject *pygpu_offscreen__tp_new(PyTypeObject *UNUSED(self),
                                          PyObject *args,
                                          PyObject *kwds)
 {
-  BPYGPU_IS_INIT_OR_ERROR_OBJ;
-
   GPUOffScreen *ofs = NULL;
   int width, height;
   struct PyC_StringEnum pygpu_textureformat = {pygpu_framebuffer_color_texture_formats, GPU_RGBA8};
   char err_out[256];
 
   static const char *_keywords[] = {"width", "height", "format", NULL};
-  static _PyArg_Parser _parser = {"ii|$O&:GPUOffScreen.__new__", _keywords, 0};
+  static _PyArg_Parser _parser = {
+      "i"  /* `width` */
+      "i"  /* `height` */
+      "|$" /* Optional keyword only arguments. */
+      "O&" /* `format` */
+      ":GPUOffScreen.__new__",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(
           args, kwds, &_parser, &width, &height, PyC_ParseStringEnum, &pygpu_textureformat)) {
     return NULL;
@@ -309,16 +318,29 @@ static PyObject *pygpu_offscreen_draw_view3d(BPyGPUOffScreen *self, PyObject *ar
 
   BPY_GPU_OFFSCREEN_CHECK_OBJ(self);
 
-  static const char *_keywords[] = {"scene",
-                                    "view_layer",
-                                    "view3d",
-                                    "region",
-                                    "view_matrix",
-                                    "projection_matrix",
-                                    "do_color_management",
-                                    NULL};
-
-  static _PyArg_Parser _parser = {"OOOOO&O&|$O&:draw_view3d", _keywords, 0};
+  static const char *_keywords[] = {
+      "scene",
+      "view_layer",
+      "view3d",
+      "region",
+      "view_matrix",
+      "projection_matrix",
+      "do_color_management",
+      NULL,
+  };
+  static _PyArg_Parser _parser = {
+      "O"  /* `scene` */
+      "O"  /* `view_layer` */
+      "O"  /* `view3d` */
+      "O"  /* `region` */
+      "O&" /* `view_matrix` */
+      "O&" /* `projection_matrix` */
+      "|$" /* Optional keyword only arguments. */
+      "O&" /* `do_color_management` */
+      ":draw_view3d",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(args,
                                         kwds,
                                         &_parser,

@@ -96,8 +96,8 @@ static int view3d_zoom_border_exec(bContext *C, wmOperator *op)
       return OPERATOR_CANCELLED;
     }
     /* convert border to 3d coordinates */
-    if ((!ED_view3d_unproject_v3(region, cent[0], cent[1], depth_close, p)) ||
-        (!ED_view3d_unproject_v3(region, rect.xmin, rect.ymin, depth_close, p_corner))) {
+    if (!ED_view3d_unproject_v3(region, cent[0], cent[1], depth_close, p) ||
+        !ED_view3d_unproject_v3(region, rect.xmin, rect.ymin, depth_close, p_corner)) {
       return OPERATOR_CANCELLED;
     }
 
@@ -125,7 +125,7 @@ static int view3d_zoom_border_exec(bContext *C, wmOperator *op)
       negate_v3_v3(new_ofs, p);
     }
     else {
-      float mval_f[2];
+      float xy_delta[2];
       float zfac;
 
       /* We can't use the depth, fallback to the old way that doesn't set the center depth */
@@ -134,12 +134,12 @@ static int view3d_zoom_border_exec(bContext *C, wmOperator *op)
       {
         float tvec[3];
         negate_v3_v3(tvec, new_ofs);
-        zfac = ED_view3d_calc_zfac(rv3d, tvec, NULL);
+        zfac = ED_view3d_calc_zfac(rv3d, tvec);
       }
 
-      mval_f[0] = (rect.xmin + rect.xmax - vb[0]) / 2.0f;
-      mval_f[1] = (rect.ymin + rect.ymax - vb[1]) / 2.0f;
-      ED_view3d_win_to_delta(region, mval_f, dvec, zfac);
+      xy_delta[0] = (rect.xmin + rect.xmax - vb[0]) / 2.0f;
+      xy_delta[1] = (rect.ymin + rect.ymax - vb[1]) / 2.0f;
+      ED_view3d_win_to_delta(region, xy_delta, zfac, dvec);
       /* center the view to the center of the rectangle */
       sub_v3_v3(new_ofs, dvec);
     }
@@ -159,11 +159,15 @@ static int view3d_zoom_border_exec(bContext *C, wmOperator *op)
   /* clamp after because we may have been zooming out */
   CLAMP(new_dist, dist_range[0], dist_range[1]);
 
-  /* TODO(campbell): 'is_camera_lock' not currently working well. */
   const bool is_camera_lock = ED_view3d_camera_lock_check(v3d, rv3d);
-  if ((rv3d->persp == RV3D_CAMOB) && (is_camera_lock == false)) {
+  if (rv3d->persp == RV3D_CAMOB) {
     Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
-    ED_view3d_persp_switch_from_camera(depsgraph, v3d, rv3d, RV3D_PERSP);
+    if (is_camera_lock) {
+      ED_view3d_camera_lock_init(depsgraph, v3d, rv3d);
+    }
+    else {
+      ED_view3d_persp_switch_from_camera(depsgraph, v3d, rv3d, RV3D_PERSP);
+    }
   }
 
   ED_view3d_smooth_view(C,
@@ -173,6 +177,7 @@ static int view3d_zoom_border_exec(bContext *C, wmOperator *op)
                         &(const V3D_SmoothParams){
                             .ofs = new_ofs,
                             .dist = &new_dist,
+                            .undo_str = op->type->name,
                         });
 
   if (RV3D_LOCK_FLAGS(rv3d) & RV3D_BOXVIEW) {

@@ -304,7 +304,7 @@ static void bm_decim_build_edge_cost_single(BMEdge *e,
     const float e_weight = 2.0f - (vweights[BM_elem_index_get(e->v1)] +
                                    vweights[BM_elem_index_get(e->v2)]);
     if (e_weight) {
-      cost += (BM_edge_calc_length(e) * ((e_weight * vweight_factor)));
+      cost += (BM_edge_calc_length(e) * (e_weight * vweight_factor));
     }
   }
 
@@ -517,7 +517,6 @@ static bool bm_decim_triangulate_begin(BMesh *bm, int *r_edges_tri_tot)
 {
   BMIter iter;
   BMFace *f;
-  bool has_quad = false;
   bool has_ngon = false;
   bool has_cut = false;
 
@@ -533,7 +532,6 @@ static bool bm_decim_triangulate_begin(BMesh *bm, int *r_edges_tri_tot)
       BM_elem_index_set(l_iter, -1); /* set_dirty */
     } while ((l_iter = l_iter->next) != l_first);
 
-    has_quad |= (f->len > 3);
     has_ngon |= (f->len > 4);
   }
 
@@ -620,9 +618,9 @@ static void bm_decim_triangulate_end(BMesh *bm, const int edges_tri_tot)
     (BM_loop_is_manifold(l) && ((l)->v != (l)->radial_next->v) && \
      (l_a_index == BM_elem_index_get(l)) && (l_a_index == BM_elem_index_get((l)->radial_next)))
 
-            if ((l_a->f->len == 3 && l_b->f->len == 3) && (!CAN_LOOP_MERGE(l_a->next)) &&
-                (!CAN_LOOP_MERGE(l_a->prev)) && (!CAN_LOOP_MERGE(l_b->next)) &&
-                (!CAN_LOOP_MERGE(l_b->prev))) {
+            if ((l_a->f->len == 3 && l_b->f->len == 3) && !CAN_LOOP_MERGE(l_a->next) &&
+                !CAN_LOOP_MERGE(l_a->prev) && !CAN_LOOP_MERGE(l_b->next) &&
+                !CAN_LOOP_MERGE(l_b->prev)) {
               BMVert *vquad[4] = {
                   e->v1,
                   BM_vert_in_edge(e, l_a->next->v) ? l_a->prev->v : l_a->next->v,

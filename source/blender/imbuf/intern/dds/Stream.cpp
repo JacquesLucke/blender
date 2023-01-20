@@ -4,6 +4,8 @@
  * \ingroup imbdds
  */
 
+#include "BLI_sys_types.h" /* For `uint`. */
+
 #include <Stream.h>
 
 #include <cstdio>  /* printf */
@@ -12,14 +14,14 @@
 static const char *msg_error_seek = "DDS: trying to seek beyond end of stream (corrupt file?)";
 static const char *msg_error_read = "DDS: trying to read beyond end of stream (corrupt file?)";
 
-inline bool is_read_within_bounds(const Stream &mem, unsigned int cnt)
+inline bool is_read_within_bounds(const Stream &mem, uint count)
 {
   if (mem.pos >= mem.size) {
     /* No more data remained in the memory buffer. */
     return false;
   }
 
-  if (cnt > mem.size - mem.pos) {
+  if (count > mem.size - mem.pos) {
     /* Reading past the memory bounds. */
     return false;
   }
@@ -27,7 +29,7 @@ inline bool is_read_within_bounds(const Stream &mem, unsigned int cnt)
   return true;
 }
 
-unsigned int Stream::seek(unsigned int p)
+uint Stream::seek(uint p)
 {
   if (p > size) {
     set_failed(msg_error_seek);
@@ -39,40 +41,40 @@ unsigned int Stream::seek(unsigned int p)
   return pos;
 }
 
-unsigned int mem_read(Stream &mem, unsigned long long &i)
+uint mem_read(Stream &mem, unsigned long long &i)
 {
   if (!is_read_within_bounds(mem, 8)) {
     mem.set_failed(msg_error_seek);
     return 0;
   }
-  memcpy(&i, mem.mem + mem.pos, 8); /* @@ todo: make sure little endian */
+  memcpy(&i, mem.mem + mem.pos, 8); /* TODO: make sure little endian. */
   mem.pos += 8;
   return 8;
 }
 
-unsigned int mem_read(Stream &mem, unsigned int &i)
+uint mem_read(Stream &mem, uint &i)
 {
   if (!is_read_within_bounds(mem, 4)) {
     mem.set_failed(msg_error_read);
     return 0;
   }
-  memcpy(&i, mem.mem + mem.pos, 4); /* @@ todo: make sure little endian */
+  memcpy(&i, mem.mem + mem.pos, 4); /* TODO: make sure little endian. */
   mem.pos += 4;
   return 4;
 }
 
-unsigned int mem_read(Stream &mem, unsigned short &i)
+uint mem_read(Stream &mem, ushort &i)
 {
   if (!is_read_within_bounds(mem, 2)) {
     mem.set_failed(msg_error_read);
     return 0;
   }
-  memcpy(&i, mem.mem + mem.pos, 2); /* @@ todo: make sure little endian */
+  memcpy(&i, mem.mem + mem.pos, 2); /* TODO: make sure little endian. */
   mem.pos += 2;
   return 2;
 }
 
-unsigned int mem_read(Stream &mem, unsigned char &i)
+uint mem_read(Stream &mem, uchar &i)
 {
   if (!is_read_within_bounds(mem, 1)) {
     mem.set_failed(msg_error_read);
@@ -83,15 +85,15 @@ unsigned int mem_read(Stream &mem, unsigned char &i)
   return 1;
 }
 
-unsigned int mem_read(Stream &mem, unsigned char *i, unsigned int cnt)
+uint mem_read(Stream &mem, uchar *i, uint count)
 {
-  if (!is_read_within_bounds(mem, cnt)) {
+  if (!is_read_within_bounds(mem, count)) {
     mem.set_failed(msg_error_read);
     return 0;
   }
-  memcpy(i, mem.mem + mem.pos, cnt);
-  mem.pos += cnt;
-  return cnt;
+  memcpy(i, mem.mem + mem.pos, count);
+  mem.pos += count;
+  return count;
 }
 
 void Stream::set_failed(const char *msg)

@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 # -----------------------------------------------------------------------------
 # Export Functions
 
@@ -52,6 +50,8 @@ def kmi_args_as_data(kmi):
                 s.append(f"\"{attr:s}\": " + ("-1" if mod == -1 else "True"))
     if (mod := kmi.key_modifier) and (mod != 'NONE'):
         s.append(f"\"key_modifier\": '{mod:s}'")
+    if (direction := kmi.direction) and (direction != 'ANY'):
+        s.append(f"\"direction\": '{direction:s}'")
 
     if kmi.repeat:
         if (
@@ -229,7 +229,7 @@ def keyconfig_export_as_data(wm, kc, filepath, *, all_keymaps=False):
 # Take care making changes that could impact performance.
 
 def _init_properties_from_data(base_props, base_value):
-    assert(type(base_value) is list)
+    assert type(base_value) is list
     for attr, value in base_value:
         if type(value) is list:
             base_props.property_unset(attr)

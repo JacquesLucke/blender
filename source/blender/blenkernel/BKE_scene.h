@@ -97,7 +97,7 @@ int BKE_scene_base_iter_next(struct Depsgraph *depsgraph,
                              struct Base **base,
                              struct Object **ob);
 
-void BKE_scene_base_flag_to_objects(struct ViewLayer *view_layer);
+void BKE_scene_base_flag_to_objects(const struct Scene *scene, struct ViewLayer *view_layer);
 /**
  * Synchronize object base flags
  *
@@ -225,7 +225,7 @@ bool BKE_scene_remove_render_view(struct Scene *scene, struct SceneRenderView *s
 /* Render profile. */
 
 int get_render_subsurf_level(const struct RenderData *r, int lvl, bool for_render);
-int get_render_child_particle_number(const struct RenderData *r, int num, bool for_render);
+int get_render_child_particle_number(const struct RenderData *r, int child_num, bool for_render);
 
 bool BKE_scene_use_shading_nodes_custom(struct Scene *scene);
 bool BKE_scene_use_spherical_stereo(struct Scene *scene);
@@ -251,6 +251,10 @@ bool BKE_scene_check_rigidbody_active(const struct Scene *scene);
 int BKE_scene_num_threads(const struct Scene *scene);
 int BKE_render_num_threads(const struct RenderData *r);
 
+void BKE_render_resolution(const struct RenderData *r,
+                           const bool use_crop,
+                           int *r_width,
+                           int *r_height);
 int BKE_render_preview_pixel_size(const struct RenderData *r);
 
 /**********************************/
@@ -282,7 +286,7 @@ struct SceneRenderView *BKE_scene_multiview_render_view_findindex(const struct R
                                                                   int view_id);
 const char *BKE_scene_multiview_render_view_name_get(const struct RenderData *rd, int view_id);
 int BKE_scene_multiview_view_id_get(const struct RenderData *rd, const char *viewname);
-void BKE_scene_multiview_filepath_get(struct SceneRenderView *srv,
+void BKE_scene_multiview_filepath_get(const struct SceneRenderView *srv,
                                       const char *filepath,
                                       char *r_filepath);
 /**

@@ -23,6 +23,7 @@
 
 #define _DNA_DEFAULT_VolumeRender \
   { \
+    .precision = VOLUME_PRECISION_HALF, \
     .space = VOLUME_SPACE_OBJECT, \
     .step_size = 0.0f, \
     .clipping = 0.001f, \
@@ -36,7 +37,8 @@
     .frame_duration = 0, \
     .display = _DNA_DEFAULT_VolumeDisplay, \
     .render = _DNA_DEFAULT_VolumeRender, \
-  }
+    .velocity_scale = 1.0f, \
+}
 
 /** \} */
 

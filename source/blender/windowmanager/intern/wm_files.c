@@ -57,9 +57,10 @@
 #include "DNA_windowmanager_types.h"
 #include "DNA_workspace_types.h"
 
+#include "AS_asset_library.h"
+
 #include "BKE_addon.h"
 #include "BKE_appdir.h"
-#include "BKE_asset_library.h"
 #include "BKE_autoexec.h"
 #include "BKE_blender.h"
 #include "BKE_blendfile.h"
@@ -71,6 +72,7 @@
 #include "BKE_lib_override.h"
 #include "BKE_lib_remap.h"
 #include "BKE_main.h"
+#include "BKE_main_namemap.h"
 #include "BKE_packedFile.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -104,6 +106,8 @@
 
 #include "GHOST_C-api.h"
 #include "GHOST_Path-api.h"
+
+#include "GPU_context.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -158,7 +162,7 @@ void WM_file_tag_modified(void)
 bool wm_file_or_session_data_has_unsaved_changes(const Main *bmain, const wmWindowManager *wm)
 {
   return !wm->file_saved || ED_image_should_save_modified(bmain) ||
-         BKE_asset_library_has_any_unsaved_catalogs();
+         AS_asset_library_has_any_unsaved_catalogs();
 }
 
 /** \} */
@@ -204,6 +208,9 @@ static void wm_window_match_init(bContext *C, ListBase *wmlist)
   }
 
   BLI_listbase_clear(&G_MAIN->wm);
+  if (G_MAIN->name_map != NULL) {
+    BKE_main_namemap_destroy(&G_MAIN->name_map);
+  }
 
   /* reset active window */
   CTX_wm_window_set(C, active_win);
@@ -218,6 +225,11 @@ static void wm_window_match_init(bContext *C, ListBase *wmlist)
   CTX_wm_menu_set(C, NULL);
 
   ED_editors_exit(G_MAIN, true);
+
+  /* Asset loading is done by the UI/editors and they keep pointers into it. So make sure to clear
+   * it after UI/editors. */
+  ED_assetlist_storage_exit();
+  AS_asset_libraries_exit();
 }
 
 static void wm_window_substitute_old(wmWindowManager *oldwm,
@@ -246,7 +258,9 @@ static void wm_window_substitute_old(wmWindowManager *oldwm,
   oldwin->gpuctx = NULL;
 
   win->eventstate = oldwin->eventstate;
+  win->event_last_handled = oldwin->event_last_handled;
   oldwin->eventstate = NULL;
+  oldwin->event_last_handled = NULL;
 
   /* Ensure proper screen re-scaling. */
   win->sizex = oldwin->sizex;
@@ -291,6 +305,12 @@ static void wm_window_match_keep_current_wm(const bContext *C,
       bScreen *win_screen = WM_window_get_active_screen(win);
       win_screen->winid = win->winid;
     }
+  }
+
+  /* we'll be using the current wm list directly; make sure
+   * the names are validated and in the name map. */
+  LISTBASE_FOREACH (wmWindowManager *, wm_item, current_wm_list) {
+    BKE_main_namemap_get_name(bmain, &wm_item->id, wm_item->id.name + 2);
   }
 
   *r_new_wm_list = *current_wm_list;
@@ -424,6 +444,17 @@ static void wm_window_match_do(bContext *C,
 /** \name Preferences Initialization & Versioning
  * \{ */
 
+static void wm_gpu_backend_override_from_userdef(void)
+{
+  /* Check if GPU backend is already set from the command line arguments. The command line
+   * arguments have higher priority than user preferences. */
+  if (GPU_backend_type_selection_is_overridden()) {
+    return;
+  }
+
+  GPU_backend_type_selection_set_override(U.gpu_backend);
+}
+
 /**
  * In case #UserDef was read, re-initialize values that depend on it.
  */
@@ -453,10 +484,13 @@ static void wm_init_userdef(Main *bmain)
   /* Update the temporary directory from the preferences or fallback to the system default. */
   BKE_tempdir_init(U.tempdir);
 
-  /* Update tablet API preference. */
-  WM_init_tablet_api();
+  /* Update input device preference. */
+  WM_init_input_devices();
 
   BLO_sanitize_experimental_features_userpref_blend(&U);
+
+  wm_gpu_backend_override_from_userdef();
+  GPU_backend_type_selection_detect();
 }
 
 /* return codes */
@@ -696,6 +730,14 @@ static void wm_file_read_post(bContext *C, const struct wmFileReadPost_Params *p
     }
   }
 
+  if (is_factory_startup && BLT_translate_new_dataname()) {
+    /* Translate workspace names */
+    LISTBASE_FOREACH_MUTABLE (WorkSpace *, workspace, &bmain->workspaces) {
+      BKE_libblock_rename(
+          bmain, &workspace->id, CTX_DATA_(BLT_I18NCONTEXT_ID_WORKSPACE, workspace->id.name + 2));
+    }
+  }
+
   if (use_data) {
     /* important to do before NULL'ing the context */
     BKE_callback_exec_null(bmain, BKE_CB_EVT_VERSION_UPDATE);
@@ -844,8 +886,13 @@ static void file_read_reports_finalize(BlendFileReadReport *bf_reports)
                 bf_reports->count.missing_obproxies);
   }
   else {
-    BLI_assert(bf_reports->count.missing_obdata == 0);
-    BLI_assert(bf_reports->count.missing_obproxies == 0);
+    if (bf_reports->count.missing_obdata != 0 || bf_reports->count.missing_obproxies != 0) {
+      CLOG_ERROR(&LOG,
+                 "%d local ObjectData and %d local Object proxies are reported to be missing, "
+                 "this should never happen",
+                 bf_reports->count.missing_obdata,
+                 bf_reports->count.missing_obproxies);
+    }
   }
 
   if (bf_reports->resynced_lib_overrides_libraries_count != 0) {
@@ -860,14 +907,13 @@ static void file_read_reports_finalize(BlendFileReadReport *bf_reports)
 
   if (bf_reports->count.proxies_to_lib_overrides_success != 0 ||
       bf_reports->count.proxies_to_lib_overrides_failures != 0) {
-    BKE_reportf(
-        bf_reports->reports,
-        RPT_WARNING,
-        "Proxies have been removed from Blender (%d proxies were automatically converted "
-        "to library overrides, %d proxies could not be converted and were cleared). "
-        "Please also consider re-saving any library .blend file with the newest Blender version.",
-        bf_reports->count.proxies_to_lib_overrides_success,
-        bf_reports->count.proxies_to_lib_overrides_failures);
+    BKE_reportf(bf_reports->reports,
+                RPT_WARNING,
+                "Proxies have been removed from Blender (%d proxies were automatically converted "
+                "to library overrides, %d proxies could not be converted and were cleared). "
+                "Consider re-saving any library .blend file with the newest Blender version",
+                bf_reports->count.proxies_to_lib_overrides_success,
+                bf_reports->count.proxies_to_lib_overrides_failures);
   }
 
   if (bf_reports->count.sequence_strips_skipped != 0) {
@@ -997,6 +1043,8 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
 
   WM_cursor_wait(false);
 
+  BLI_assert(BKE_main_namemap_validate(CTX_data_main(C)));
+
   return success;
 }
 
@@ -1044,6 +1092,12 @@ void wm_homefile_read_ex(bContext *C,
   const bool use_data = params_homefile->use_data;
   const bool use_userdef = params_homefile->use_userdef;
   bool use_factory_settings = params_homefile->use_factory_settings;
+  /* Currently this only impacts preferences as it doesn't make much sense to keep the default
+   * startup open in the case the app-template doesn't happen to define it's own startup.
+   * Unlike preferences where we might want to only reset the app-template part of the preferences
+   * so as not to reset the preferences for all other Blender instances, see: T96427. */
+  const bool use_factory_settings_app_template_only =
+      params_homefile->use_factory_settings_app_template_only;
   const bool use_empty_data = params_homefile->use_empty_data;
   const char *filepath_startup_override = params_homefile->filepath_startup_override;
   const char *app_template_override = params_homefile->app_template_override;
@@ -1089,7 +1143,7 @@ void wm_homefile_read_ex(bContext *C,
   const bool reset_app_template = ((!app_template && U.app_template[0]) ||
                                    (app_template && !STREQ(app_template, U.app_template)));
 
-  /* options exclude eachother */
+  /* Options exclude each other. */
   BLI_assert((use_factory_settings && filepath_startup_override) == 0);
 
   if ((G.f & G_FLAG_SCRIPT_OVERRIDE_PREF) == 0) {
@@ -1136,12 +1190,10 @@ void wm_homefile_read_ex(bContext *C,
   const char *const cfgdir = BKE_appdir_folder_id(BLENDER_USER_CONFIG, NULL);
   if (!use_factory_settings) {
     if (cfgdir) {
-      BLI_path_join(
-          filepath_startup, sizeof(filepath_startup), cfgdir, BLENDER_STARTUP_FILE, NULL);
+      BLI_path_join(filepath_startup, sizeof(filepath_startup), cfgdir, BLENDER_STARTUP_FILE);
       filepath_startup_is_factory = false;
       if (use_userdef) {
-        BLI_path_join(
-            filepath_userdef, sizeof(filepath_startup), cfgdir, BLENDER_USERPREF_FILE, NULL);
+        BLI_path_join(filepath_userdef, sizeof(filepath_startup), cfgdir, BLENDER_USERPREF_FILE);
       }
     }
     else {
@@ -1156,7 +1208,11 @@ void wm_homefile_read_ex(bContext *C,
 
   /* load preferences before startup.blend */
   if (use_userdef) {
-    if (!use_factory_settings && BLI_exists(filepath_userdef)) {
+    if (use_factory_settings_app_template_only) {
+      /* Use the current preferences as-is (only load in the app_template preferences). */
+      skip_flags |= BLO_READ_SKIP_USERDEF;
+    }
+    else if (!use_factory_settings && BLI_exists(filepath_userdef)) {
       UserDef *userdef = BKE_blendfile_userdef_read(filepath_userdef, NULL);
       if (userdef != NULL) {
         BKE_blender_userdef_data_set_and_free(userdef);
@@ -1180,12 +1236,9 @@ void wm_homefile_read_ex(bContext *C,
     /* note that the path is being set even when 'use_factory_settings == true'
      * this is done so we can load a templates factory-settings */
     if (!use_factory_settings) {
-      BLI_path_join(app_template_config, sizeof(app_template_config), cfgdir, app_template, NULL);
-      BLI_path_join(filepath_startup,
-                    sizeof(filepath_startup),
-                    app_template_config,
-                    BLENDER_STARTUP_FILE,
-                    NULL);
+      BLI_path_join(app_template_config, sizeof(app_template_config), cfgdir, app_template);
+      BLI_path_join(
+          filepath_startup, sizeof(filepath_startup), app_template_config, BLENDER_STARTUP_FILE);
       filepath_startup_is_factory = false;
       if (BLI_access(filepath_startup, R_OK) != 0) {
         filepath_startup[0] = '\0';
@@ -1196,11 +1249,8 @@ void wm_homefile_read_ex(bContext *C,
     }
 
     if (filepath_startup[0] == '\0') {
-      BLI_path_join(filepath_startup,
-                    sizeof(filepath_startup),
-                    app_template_system,
-                    BLENDER_STARTUP_FILE,
-                    NULL);
+      BLI_path_join(
+          filepath_startup, sizeof(filepath_startup), app_template_system, BLENDER_STARTUP_FILE);
       filepath_startup_is_factory = true;
 
       /* Update defaults only for system templates. */
@@ -1269,16 +1319,14 @@ void wm_homefile_read_ex(bContext *C,
     char temp_path[FILE_MAX];
     temp_path[0] = '\0';
     if (!use_factory_settings) {
-      BLI_path_join(
-          temp_path, sizeof(temp_path), app_template_config, BLENDER_USERPREF_FILE, NULL);
+      BLI_path_join(temp_path, sizeof(temp_path), app_template_config, BLENDER_USERPREF_FILE);
       if (BLI_access(temp_path, R_OK) != 0) {
         temp_path[0] = '\0';
       }
     }
 
     if (temp_path[0] == '\0') {
-      BLI_path_join(
-          temp_path, sizeof(temp_path), app_template_system, BLENDER_USERPREF_FILE, NULL);
+      BLI_path_join(temp_path, sizeof(temp_path), app_template_system, BLENDER_USERPREF_FILE);
     }
 
     if (use_userdef) {
@@ -1373,29 +1421,27 @@ void wm_homefile_read_post(struct bContext *C,
 
 void wm_history_file_read(void)
 {
-  char name[FILE_MAX];
-  LinkNode *l, *lines;
-  struct RecentFile *recent;
-  const char *line;
-  int num;
   const char *const cfgdir = BKE_appdir_folder_id(BLENDER_USER_CONFIG, NULL);
-
   if (!cfgdir) {
     return;
   }
 
-  BLI_join_dirfile(name, sizeof(name), cfgdir, BLENDER_HISTORY_FILE);
+  char name[FILE_MAX];
+  LinkNode *l;
+  int num;
 
-  lines = BLI_file_read_as_lines(name);
+  BLI_path_join(name, sizeof(name), cfgdir, BLENDER_HISTORY_FILE);
+
+  LinkNode *lines = BLI_file_read_as_lines(name);
 
   wm_history_files_free();
 
   /* read list of recent opened files from recent-files.txt to memory */
   for (l = lines, num = 0; l && (num < U.recent_files); l = l->next) {
-    line = l->link;
+    const char *line = l->link;
     /* don't check if files exist, causes slow startup for remote/external drives */
     if (line[0]) {
-      recent = (RecentFile *)MEM_mallocN(sizeof(RecentFile), "RecentFile");
+      struct RecentFile *recent = (RecentFile *)MEM_mallocN(sizeof(RecentFile), "RecentFile");
       BLI_addtail(&(G.recent_files), recent);
       recent->filepath = BLI_strdup(line);
       num++;
@@ -1447,7 +1493,7 @@ static void wm_history_file_write(void)
     return;
   }
 
-  BLI_join_dirfile(name, sizeof(name), user_config_dir, BLENDER_HISTORY_FILE);
+  BLI_path_join(name, sizeof(name), user_config_dir, BLENDER_HISTORY_FILE);
 
   fp = BLI_fopen(name, "w");
   if (fp) {
@@ -1756,13 +1802,13 @@ static bool wm_file_write(bContext *C,
   ED_assets_pre_save(bmain);
 
   /* Enforce full override check/generation on file save. */
-  BKE_lib_override_library_main_operations_create(bmain, true);
+  BKE_lib_override_library_main_operations_create(bmain, true, NULL);
 
-  if (!G.background && BLI_thread_is_main()) {
-    /* Redraw to remove menus that might be open.
-     * But only in the main thread otherwise this can crash, see T92704. */
-    WM_redraw_windows(C);
-  }
+  /* NOTE: Ideally we would call `WM_redraw_windows` here to remove any open menus.
+   * But we can crash if saving from a script, see T92704 & T97627.
+   * Just checking `!G.background && BLI_thread_is_main()` is not sufficient to fix this.
+   * Additionally some EGL configurations don't support reading the front-buffer
+   * immediately after drawing, see: T98462. In that case off-screen drawing is necessary. */
 
   /* don't forget not to return without! */
   WM_cursor_wait(true);
@@ -1816,7 +1862,7 @@ static bool wm_file_write(bContext *C,
   ED_editors_flush_edits(bmain);
 
   /* XXX(ton): temp solution to solve bug, real fix coming. */
-  bmain->recovered = 0;
+  bmain->recovered = false;
 
   if (BLO_write_file(bmain,
                      filepath,
@@ -1875,13 +1921,10 @@ static bool wm_file_write(bContext *C,
 /** \name Auto-Save API
  * \{ */
 
-static void wm_autosave_location(char *filepath)
+static void wm_autosave_location(char filepath[FILE_MAX])
 {
   const int pid = abs(getpid());
   char path[1024];
-#ifdef WIN32
-  const char *savedir;
-#endif
 
   /* Normally there is no need to check for this to be NULL,
    * however this runs on exit when it may be cleared. */
@@ -1897,23 +1940,21 @@ static void wm_autosave_location(char *filepath)
     BLI_snprintf(path, sizeof(path), "%d_autosave.blend", pid);
   }
 
+  const char *tempdir_base = BKE_tempdir_base();
+  /* NOTE(@campbellbarton): It's strange that this is only used on WIN32.
+   * From reading commits it seems accessing the temporary directory used to be less reliable.
+   * If this is still the case on WIN32 - other features such as copy-paste will also fail.
+   * We could support #BLENDER_USER_AUTOSAVE on all platforms or remove it entirely. */
 #ifdef WIN32
-  /* XXX Need to investigate how to handle default location of '/tmp/'
-   * This is a relative directory on Windows, and it may be
-   * found. Example:
-   * Blender installed on D:\ drive, D:\ drive has D:\tmp\
-   * Now, BLI_exists() will find '/tmp/' exists, but
-   * BLI_make_file_string will create string that has it most likely on C:\
-   * through BLI_windows_get_default_root_dir().
-   * If there is no C:\tmp autosave fails. */
-  if (!BLI_exists(BKE_tempdir_base())) {
-    savedir = BKE_appdir_folder_id_create(BLENDER_USER_AUTOSAVE, NULL);
-    BLI_make_file_string("/", filepath, savedir, path);
-    return;
+  if (!BLI_exists(tempdir_base)) {
+    const char *savedir = BKE_appdir_folder_id_create(BLENDER_USER_AUTOSAVE, NULL);
+    if (savedir) {
+      tempdir_base = savedir;
+    }
   }
 #endif
 
-  BLI_join_dirfile(filepath, FILE_MAX, BKE_tempdir_base(), path);
+  BLI_path_join(filepath, FILE_MAX, tempdir_base, path);
 }
 
 static void wm_autosave_write(Main *bmain, wmWindowManager *wm)
@@ -1966,7 +2007,7 @@ void wm_autosave_timer_end(wmWindowManager *wm)
   }
 }
 
-void WM_autosave_init(wmWindowManager *wm)
+void WM_file_autosave_init(wmWindowManager *wm)
 {
   wm_autosave_timer_begin(wm);
 }
@@ -1997,22 +2038,42 @@ void wm_autosave_timer(Main *bmain, wmWindowManager *wm, wmTimer *UNUSED(wt))
 
 void wm_autosave_delete(void)
 {
-  char filename[FILE_MAX];
+  char filepath[FILE_MAX];
 
-  wm_autosave_location(filename);
+  wm_autosave_location(filepath);
 
-  if (BLI_exists(filename)) {
+  if (BLI_exists(filepath)) {
     char str[FILE_MAX];
-    BLI_join_dirfile(str, sizeof(str), BKE_tempdir_base(), BLENDER_QUIT_FILE);
+    BLI_path_join(str, sizeof(str), BKE_tempdir_base(), BLENDER_QUIT_FILE);
 
     /* if global undo; remove tempsave, otherwise rename */
     if (U.uiflag & USER_GLOBALUNDO) {
-      BLI_delete(filename, false, false);
+      BLI_delete(filepath, false, false);
     }
     else {
-      BLI_rename(filename, str);
+      BLI_rename(filepath, str);
     }
   }
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Shared Operator Properties
+ * \{ */
+
+/** Use for loading factory startup & preferences. */
+static void read_factory_reset_props(wmOperatorType *ot)
+{
+  PropertyRNA *prop;
+
+  /* So it's possible to reset app-template settings without resetting other defaults. */
+  prop = RNA_def_boolean(ot->srna,
+                         "use_factory_startup_app_template_only",
+                         false,
+                         "Factory Startup App-Template Only",
+                         "");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 
 /** \} */
@@ -2085,7 +2146,7 @@ static int wm_homefile_write_exec(bContext *C, wmOperator *op)
   /* update keymaps in user preferences */
   WM_keyconfig_update(wm);
 
-  BLI_path_join(filepath, sizeof(filepath), cfgdir, BLENDER_STARTUP_FILE, NULL);
+  BLI_path_join(filepath, sizeof(filepath), cfgdir, BLENDER_STARTUP_FILE);
 
   printf("Writing homefile: '%s' ", filepath);
 
@@ -2237,19 +2298,23 @@ static int wm_userpref_read_exec(bContext *C, wmOperator *op)
   const bool use_data = false;
   const bool use_userdef = true;
   const bool use_factory_settings = STREQ(op->type->idname, "WM_OT_read_factory_userpref");
+  const bool use_factory_settings_app_template_only =
+      (use_factory_settings && RNA_boolean_get(op->ptr, "use_factory_startup_app_template_only"));
 
   UserDef U_backup = U;
 
-  wm_homefile_read(C,
-                   &(const struct wmHomeFileRead_Params){
-                       .use_data = use_data,
-                       .use_userdef = use_userdef,
-                       .use_factory_settings = use_factory_settings,
-                       .use_empty_data = false,
-                       .filepath_startup_override = NULL,
-                       .app_template_override = WM_init_state_app_template_get(),
-                   },
-                   op->reports);
+  wm_homefile_read(
+      C,
+      &(const struct wmHomeFileRead_Params){
+          .use_data = use_data,
+          .use_userdef = use_userdef,
+          .use_factory_settings = use_factory_settings,
+          .use_factory_settings_app_template_only = use_factory_settings_app_template_only,
+          .use_empty_data = false,
+          .filepath_startup_override = NULL,
+          .app_template_override = WM_init_state_app_template_get(),
+      },
+      op->reports);
 
   wm_userpref_read_exceptions(&U, &U_backup);
   SET_FLAG_FROM_TEST(G.f, use_factory_settings, G_FLAG_USERPREF_NO_SAVE_ON_EXIT);
@@ -2290,6 +2355,8 @@ void WM_OT_read_factory_userpref(wmOperatorType *ot)
 
   ot->invoke = WM_operator_confirm;
   ot->exec = wm_userpref_read_exec;
+
+  read_factory_reset_props(ot);
 }
 
 /** \} */
@@ -2332,6 +2399,10 @@ static int wm_homefile_read_exec(bContext *C, wmOperator *op)
                                                      "WM_OT_read_factory_settings");
   const bool use_factory_settings = use_factory_startup_and_userdef ||
                                     RNA_boolean_get(op->ptr, "use_factory_startup");
+  const bool use_factory_settings_app_template_only =
+      (use_factory_startup_and_userdef &&
+       RNA_boolean_get(op->ptr, "use_factory_startup_app_template_only"));
+
   bool use_userdef = false;
   char filepath_buf[FILE_MAX];
   const char *filepath = NULL;
@@ -2388,16 +2459,18 @@ static int wm_homefile_read_exec(bContext *C, wmOperator *op)
     app_template = WM_init_state_app_template_get();
   }
 
-  wm_homefile_read(C,
-                   &(const struct wmHomeFileRead_Params){
-                       .use_data = true,
-                       .use_userdef = use_userdef,
-                       .use_factory_settings = use_factory_settings,
-                       .use_empty_data = use_empty_data,
-                       .filepath_startup_override = filepath,
-                       .app_template_override = app_template,
-                   },
-                   op->reports);
+  wm_homefile_read(
+      C,
+      &(const struct wmHomeFileRead_Params){
+          .use_data = true,
+          .use_userdef = use_userdef,
+          .use_factory_settings = use_factory_settings,
+          .use_factory_settings_app_template_only = use_factory_settings_app_template_only,
+          .use_empty_data = use_empty_data,
+          .filepath_startup_override = filepath,
+          .app_template_override = app_template,
+      },
+      op->reports);
 
   if (use_splash) {
     WM_init_splash(C);
@@ -2422,7 +2495,7 @@ static int wm_homefile_read_exec(bContext *C, wmOperator *op)
 static void wm_homefile_read_after_dialog_callback(bContext *C, void *user_data)
 {
   WM_operator_name_call_with_properties(
-      C, "WM_OT_read_homefile", WM_OP_EXEC_DEFAULT, (IDProperty *)user_data);
+      C, "WM_OT_read_homefile", WM_OP_EXEC_DEFAULT, (IDProperty *)user_data, NULL);
 }
 
 static int wm_homefile_read_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
@@ -2472,6 +2545,7 @@ void WM_OT_read_homefile(wmOperatorType *ot)
    * Match naming for `--factory-startup` command line argument. */
   prop = RNA_def_boolean(ot->srna, "use_factory_startup", false, "Factory Startup", "");
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+  read_factory_reset_props(ot);
 
   read_homefile_props(ot);
 
@@ -2488,9 +2562,11 @@ void WM_OT_read_factory_settings(wmOperatorType *ot)
 
   ot->invoke = WM_operator_confirm;
   ot->exec = wm_homefile_read_exec;
+  /* Omit poll to run in background mode. */
+
+  read_factory_reset_props(ot);
 
   read_homefile_props(ot);
-  /* omit poll to run in background mode */
 }
 
 /** \} */
@@ -2575,7 +2651,7 @@ static int wm_open_mainfile_dispatch(bContext *C, wmOperator *op);
 static void wm_open_mainfile_after_dialog_callback(bContext *C, void *user_data)
 {
   WM_operator_name_call_with_properties(
-      C, "WM_OT_open_mainfile", WM_OP_INVOKE_DEFAULT, (IDProperty *)user_data);
+      C, "WM_OT_open_mainfile", WM_OP_INVOKE_DEFAULT, (IDProperty *)user_data, NULL);
 }
 
 static int wm_open_mainfile__discard_changes(bContext *C, wmOperator *op)
@@ -2860,10 +2936,10 @@ void WM_OT_revert_mainfile(wmOperatorType *ot)
 /** \name Recover Last Session Operator
  * \{ */
 
-bool WM_recover_last_session(bContext *C, ReportList *reports)
+bool WM_file_recover_last_session(bContext *C, ReportList *reports)
 {
   char filepath[FILE_MAX];
-  BLI_join_dirfile(filepath, sizeof(filepath), BKE_tempdir_base(), BLENDER_QUIT_FILE);
+  BLI_path_join(filepath, sizeof(filepath), BKE_tempdir_base(), BLENDER_QUIT_FILE);
   G.fileflags |= G_FILE_RECOVER_READ;
   const bool success = wm_file_read_opwrap(C, filepath, reports);
   G.fileflags &= ~G_FILE_RECOVER_READ;
@@ -2874,7 +2950,7 @@ static int wm_recover_last_session_exec(bContext *C, wmOperator *op)
 {
   wm_open_init_use_scripts(op, true);
   SET_FLAG_FROM_TEST(G.f, RNA_boolean_get(op->ptr, "use_scripts"), G_FLAG_SCRIPT_AUTOEXEC);
-  if (WM_recover_last_session(C, op->reports)) {
+  if (WM_file_recover_last_session(C, op->reports)) {
     if (!G.background) {
       wmOperatorType *ot = op->type;
       PointerRNA *props_ptr = MEM_callocN(sizeof(PointerRNA), __func__);
@@ -2890,7 +2966,7 @@ static int wm_recover_last_session_exec(bContext *C, wmOperator *op)
 static void wm_recover_last_session_after_dialog_callback(bContext *C, void *user_data)
 {
   WM_operator_name_call_with_properties(
-      C, "WM_OT_recover_last_session", WM_OP_EXEC_DEFAULT, (IDProperty *)user_data);
+      C, "WM_OT_recover_last_session", WM_OP_EXEC_DEFAULT, (IDProperty *)user_data, NULL);
 }
 
 static int wm_recover_last_session_invoke(bContext *C,
@@ -2957,10 +3033,10 @@ static int wm_recover_auto_save_exec(bContext *C, wmOperator *op)
 
 static int wm_recover_auto_save_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-  char filename[FILE_MAX];
+  char filepath[FILE_MAX];
 
-  wm_autosave_location(filename);
-  RNA_string_set(op->ptr, "filepath", filename);
+  wm_autosave_location(filepath);
+  RNA_string_set(op->ptr, "filepath", filepath);
   wm_open_init_use_scripts(op, true);
   WM_event_add_fileselect(C, op);
 
@@ -2998,7 +3074,9 @@ void WM_OT_recover_auto_save(wmOperatorType *ot)
 static void wm_filepath_default(const Main *bmain, char *filepath)
 {
   if (bmain->filepath[0] == '\0') {
-    BLI_path_filename_ensure(filepath, FILE_MAX, "untitled.blend");
+    char filename_untitled[FILE_MAXFILE];
+    SNPRINTF(filename_untitled, "%s.blend", DATA_("untitled"));
+    BLI_path_filename_ensure(filepath, FILE_MAX, filename_untitled);
   }
 }
 
@@ -3058,8 +3136,7 @@ static int wm_save_as_mainfile_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   char path[FILE_MAX];
   const bool is_save_as = (op->type->invoke == wm_save_as_mainfile_invoke);
-  const bool use_save_as_copy = (RNA_struct_property_is_set(op->ptr, "copy") &&
-                                 RNA_boolean_get(op->ptr, "copy"));
+  const bool use_save_as_copy = is_save_as && RNA_boolean_get(op->ptr, "copy");
 
   /* We could expose all options to the users however in most cases remapping
    * existing relative paths is a good default.
@@ -3288,7 +3365,7 @@ static void wm_block_autorun_warning_reload_with_scripts(bContext *C,
 
   /* Save user preferences for permanent execution. */
   if ((U.flag & USER_SCRIPT_AUTOEXEC_DISABLE) == 0) {
-    WM_operator_name_call(C, "WM_OT_save_userpref", WM_OP_EXEC_DEFAULT, NULL);
+    WM_operator_name_call(C, "WM_OT_save_userpref", WM_OP_EXEC_DEFAULT, NULL, NULL);
   }
 
   /* Load file again with scripts enabled.
@@ -3307,7 +3384,7 @@ static void wm_block_autorun_warning_enable_scripts(bContext *C,
 
   /* Save user preferences for permanent execution. */
   if ((U.flag & USER_SCRIPT_AUTOEXEC_DISABLE) == 0) {
-    WM_operator_name_call(C, "WM_OT_save_userpref", WM_OP_EXEC_DEFAULT, NULL);
+    WM_operator_name_call(C, "WM_OT_save_userpref", WM_OP_EXEC_DEFAULT, NULL, NULL);
   }
 
   /* Force a full refresh, but without reloading the file. */
@@ -3476,7 +3553,7 @@ void wm_test_autorun_revert_action_exec(bContext *C)
     wm_test_autorun_revert_action_set(ot, ptr);
   }
 
-  WM_operator_name_call_ptr(C, ot, WM_OP_EXEC_DEFAULT, ptr);
+  WM_operator_name_call_ptr(C, ot, WM_OP_EXEC_DEFAULT, ptr, NULL);
   wm_test_autorun_revert_action_set(NULL, NULL);
 }
 
@@ -3557,13 +3634,13 @@ static void wm_block_file_close_save(bContext *C, void *arg_block, void *arg_dat
   bool file_has_been_saved_before = BKE_main_blendfile_path(bmain)[0] != '\0';
 
   if (file_has_been_saved_before) {
-    if (WM_operator_name_call(C, "WM_OT_save_mainfile", WM_OP_EXEC_DEFAULT, NULL) &
+    if (WM_operator_name_call(C, "WM_OT_save_mainfile", WM_OP_EXEC_DEFAULT, NULL, NULL) &
         OPERATOR_CANCELLED) {
       execute_callback = false;
     }
   }
   else {
-    WM_operator_name_call(C, "WM_OT_save_mainfile", WM_OP_INVOKE_DEFAULT, NULL);
+    WM_operator_name_call(C, "WM_OT_save_mainfile", WM_OP_INVOKE_DEFAULT, NULL, NULL);
     execute_callback = false;
   }
 
@@ -3632,7 +3709,7 @@ static uiBlock *block_create__close_file_dialog(struct bContext *C,
     BLI_split_file_part(blendfile_path, filename, sizeof(filename));
   }
   else {
-    STRNCPY(filename, "untitled.blend");
+    SNPRINTF(filename, "%s.blend", DATA_("untitled"));
   }
   uiItemL(layout, filename, ICON_NONE);
 
@@ -3693,7 +3770,7 @@ static uiBlock *block_create__close_file_dialog(struct bContext *C,
     has_extra_checkboxes = true;
   }
 
-  if (BKE_asset_library_has_any_unsaved_catalogs()) {
+  if (AS_asset_library_has_any_unsaved_catalogs()) {
     static char save_catalogs_when_file_is_closed;
 
     save_catalogs_when_file_is_closed = ED_asset_catalogs_get_save_catalogs_when_file_is_saved();

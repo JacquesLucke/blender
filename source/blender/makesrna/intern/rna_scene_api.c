@@ -140,7 +140,7 @@ static void rna_Scene_ray_cast(Scene *scene,
                                                      depsgraph,
                                                      NULL,
                                                      &(const struct SnapObjectParams){
-                                                         .snap_select = SNAP_ALL,
+                                                         .snap_target_select = SCE_SNAP_TARGET_ALL,
                                                      },
                                                      origin,
                                                      direction,
@@ -357,7 +357,7 @@ void RNA_api_scene(StructRNA *srna)
   RNA_def_boolean(func, "selected_only", 0, "Selected only", "Export only selected objects");
   RNA_def_boolean(func, "uvs", 1, "UVs", "Export UVs");
   RNA_def_boolean(func, "normals", 1, "Normals", "Export normals");
-  RNA_def_boolean(func, "vcolors", 0, "Vertex colors", "Export vertex colors");
+  RNA_def_boolean(func, "vcolors", 0, "Color Attributes", "Export color attributes");
   RNA_def_boolean(
       func, "apply_subdiv", 1, "Subsurfs as meshes", "Export subdivision surfaces as meshes");
   RNA_def_boolean(func, "flatten", 0, "Flatten hierarchy", "Flatten hierarchy");

@@ -40,10 +40,10 @@
 namespace blender ::io ::gpencil {
 
 /* Constructor. */
-GpencilExporterSVG::GpencilExporterSVG(const char *filename, const GpencilIOParams *iparams)
+GpencilExporterSVG::GpencilExporterSVG(const char *filepath, const GpencilIOParams *iparams)
     : GpencilExporter(iparams)
 {
-  filename_set(filename);
+  filepath_set(filepath);
 
   invert_axis_[0] = false;
   invert_axis_[1] = true;
@@ -66,16 +66,16 @@ bool GpencilExporterSVG::write()
   bool result = true;
 /* Support unicode character paths on Windows. */
 #ifdef WIN32
-  char filename_cstr[FILE_MAX];
-  BLI_strncpy(filename_cstr, filename_, FILE_MAX);
+  char filepath_cstr[FILE_MAX];
+  BLI_strncpy(filepath_cstr, filepath_, FILE_MAX);
 
-  UTF16_ENCODE(filename_cstr);
-  std::wstring wstr(filename_cstr_16);
+  UTF16_ENCODE(filepath_cstr);
+  std::wstring wstr(filepath_cstr_16);
   result = main_doc_.save_file(wstr.c_str());
 
-  UTF16_UN_ENCODE(filename_cstr);
+  UTF16_UN_ENCODE(filepath_cstr);
 #else
-  result = main_doc_.save_file(filename_);
+  result = main_doc_.save_file(filepath_);
 #endif
 
   return result;
@@ -90,7 +90,8 @@ void GpencilExporterSVG::create_document_header()
 
   pugi::xml_node comment = main_doc_.append_child(pugi::node_comment);
   char txt[128];
-  sprintf(txt, " Generator: Blender, %s - %s ", SVG_EXPORTER_NAME, SVG_EXPORTER_VERSION);
+  BLI_snprintf(
+      txt, sizeof(txt), " Generator: Blender, %s - %s ", SVG_EXPORTER_NAME, SVG_EXPORTER_VERSION);
   comment.set_value(txt);
 
   pugi::xml_node doctype = main_doc_.append_child(pugi::node_doctype);
@@ -147,7 +148,7 @@ void GpencilExporterSVG::export_gpencil_layers()
     pugi::xml_node ob_node = frame_node_.append_child("g");
 
     char obtxt[96];
-    sprintf(obtxt, "blender_object_%s", ob->id.name + 2);
+    BLI_snprintf(obtxt, sizeof(obtxt), "blender_object_%s", ob->id.name + 2);
     ob_node.append_attribute("id").set_value(obtxt);
 
     /* Use evaluated version to get strokes with modifiers. */
@@ -197,7 +198,8 @@ void GpencilExporterSVG::export_gpencil_layers()
         /* Apply layer thickness change. */
         gps_duplicate->thickness += gpl->line_change;
         /* Apply object scale to thickness. */
-        gps_duplicate->thickness *= mat4_to_scale(ob->obmat);
+        const float scalef = mat4_to_scale(ob->object_to_world);
+        gps_duplicate->thickness = ceilf(float(gps_duplicate->thickness) * scalef);
         CLAMP_MIN(gps_duplicate->thickness, 1.0f);
 
         const bool is_normalized = ((params_.flag & GP_EXPORT_NORM_THICKNESS) != 0) ||
@@ -217,11 +219,11 @@ void GpencilExporterSVG::export_gpencil_layers()
           }
           else {
             bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
-                rv3d_, gpd_, gpl, gps_duplicate, 3, diff_mat_.values);
+                rv3d_->viewmat, gpd_, gpl, gps_duplicate, 3, diff_mat_.values, 0.0f);
 
             /* Sample stroke. */
             if (params_.stroke_sample > 0.0f) {
-              BKE_gpencil_stroke_sample(gpd_eval, gps_perimeter, params_.stroke_sample, false);
+              BKE_gpencil_stroke_sample(gpd_eval, gps_perimeter, params_.stroke_sample, false, 0);
             }
 
             export_stroke_to_path(gpl, gps_perimeter, node_gpl, false);
@@ -292,7 +294,7 @@ void GpencilExporterSVG::export_stroke_to_polyline(bGPDlayer *gpl,
   /* Get the thickness in pixels using a simple 1 point stroke. */
   bGPDstroke *gps_temp = BKE_gpencil_stroke_duplicate(gps, false, false);
   gps_temp->totpoints = 1;
-  gps_temp->points = MEM_cnew<bGPDspoint>("gp_stroke_points");
+  gps_temp->points = MEM_new<bGPDspoint>("gp_stroke_points");
   bGPDspoint *pt_src = &gps->points[0];
   bGPDspoint *pt_dst = &gps_temp->points[0];
   copy_v3_v3(&pt_dst->x, &pt_src->x);
@@ -307,7 +309,9 @@ void GpencilExporterSVG::export_stroke_to_polyline(bGPDlayer *gpl,
   color_string_set(gpl, gps, node_gps, do_fill);
 
   if (is_stroke && !do_fill) {
-    node_gps.append_attribute("stroke-width").set_value((radius * 2.0f) - gpl->line_change);
+    const float width = MAX2(
+        MAX2(gps->thickness + gpl->line_change, (radius * 2.0f) + gpl->line_change), 1.0f);
+    node_gps.append_attribute("stroke-width").set_value(width);
   }
 
   std::string txt;
@@ -402,7 +406,7 @@ std::string GpencilExporterSVG::rgb_to_hexstr(const float color[3])
   uint8_t g = color[1] * 255.0f;
   uint8_t b = color[2] * 255.0f;
   char hex_string[20];
-  sprintf(hex_string, "#%02X%02X%02X", r, g, b);
+  BLI_snprintf(hex_string, sizeof(hex_string), "#%02X%02X%02X", r, g, b);
 
   std::string hexstr = hex_string;
 

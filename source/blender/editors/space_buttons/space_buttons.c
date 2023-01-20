@@ -37,6 +37,8 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 
+#include "BLO_read_write.h"
+
 #include "buttons_intern.h" /* own include */
 
 /* -------------------------------------------------------------------- */
@@ -507,7 +509,7 @@ static void buttons_main_region_layout(const bContext *C, ARegion *region)
 static void buttons_main_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -603,7 +605,7 @@ static void buttons_navigation_bar_region_draw(const bContext *C, ARegion *regio
   }
 
   ED_region_panels_layout(C, region);
-  /* ED_region_panels_layout adds vertical scrollbars, we don't want them. */
+  /* #ED_region_panels_layout adds vertical scroll-bars, we don't want them. */
   region->v2d.scroll &= ~V2D_SCROLL_VERTICAL;
   ED_region_panels_draw(C, region);
 }
@@ -645,7 +647,7 @@ static void buttons_area_redraw(ScrArea *area, short buttons)
 static void buttons_area_listener(const wmSpaceTypeListenerParams *params)
 {
   ScrArea *area = params->area;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
   SpaceProperties *sbuts = area->spacedata.first;
 
   /* context changes */
@@ -724,6 +726,9 @@ static void buttons_area_listener(const wmSpaceTypeListenerParams *params)
           /* Needed to refresh context path when changing active particle system index. */
           buttons_area_redraw(area, BCONTEXT_PARTICLE);
           break;
+        case ND_DRAW_ANIMVIZ:
+          buttons_area_redraw(area, BCONTEXT_OBJECT);
+          break;
         default:
           /* Not all object RNA props have a ND_ notifier (yet) */
           ED_area_tag_redraw(area);
@@ -774,6 +779,9 @@ static void buttons_area_listener(const wmSpaceTypeListenerParams *params)
         ED_area_tag_redraw(area);
         sbuts->preview = 1;
       }
+      break;
+    case NC_WORKSPACE:
+      buttons_area_redraw(area, BCONTEXT_TOOL);
       break;
     case NC_SPACE:
       if (wmn->data == ND_SPACE_PROPERTIES) {
@@ -861,12 +869,11 @@ static void buttons_id_remap(ScrArea *UNUSED(area),
     for (int i = 0; i < path->len; i++) {
       switch (BKE_id_remapper_apply(mappings, &path->ptr[i].owner_id, ID_REMAP_APPLY_DEFAULT)) {
         case ID_REMAP_RESULT_SOURCE_UNASSIGNED: {
-          if (i == 0) {
-            MEM_SAFE_FREE(sbuts->path);
-          }
-          else {
+          path->len = i;
+          if (i != 0) {
+            /* If the first item in the path is cleared, the whole path is cleared, so no need to
+             * clear further items here, see also at the end of this block. */
             memset(&path->ptr[i], 0, sizeof(path->ptr[i]) * (path->len - i));
-            path->len = i;
           }
           break;
         }
@@ -887,6 +894,9 @@ static void buttons_id_remap(ScrArea *UNUSED(area),
         }
       }
     }
+    if (path->len == 0) {
+      MEM_SAFE_FREE(sbuts->path);
+    }
   }
 
   if (sbuts->texuser) {
@@ -895,6 +905,31 @@ static void buttons_id_remap(ScrArea *UNUSED(area),
     BLI_freelistN(&ct->users);
     ct->user = NULL;
   }
+}
+
+static void buttons_blend_read_data(BlendDataReader *UNUSED(reader), SpaceLink *sl)
+{
+  SpaceProperties *sbuts = (SpaceProperties *)sl;
+
+  sbuts->path = NULL;
+  sbuts->texuser = NULL;
+  sbuts->mainbo = sbuts->mainb;
+  sbuts->mainbuser = sbuts->mainb;
+  sbuts->runtime = NULL;
+}
+
+static void buttons_blend_read_lib(BlendLibReader *reader, ID *parent_id, SpaceLink *sl)
+{
+  SpaceProperties *sbuts = (SpaceProperties *)sl;
+  BLO_read_id_address(reader, parent_id->lib, &sbuts->pinid);
+  if (sbuts->pinid == NULL) {
+    sbuts->flag &= ~SB_PIN_CONTEXT;
+  }
+}
+
+static void buttons_blend_write(BlendWriter *writer, SpaceLink *sl)
+{
+  BLO_write_struct(writer, SpaceProperties, sl);
 }
 
 /** \} */
@@ -909,7 +944,7 @@ void ED_spacetype_buttons(void)
   ARegionType *art;
 
   st->spaceid = SPACE_PROPERTIES;
-  strncpy(st->name, "Buttons", BKE_ST_MAXNAME);
+  STRNCPY(st->name, "Buttons");
 
   st->create = buttons_create;
   st->free = buttons_free;
@@ -920,6 +955,9 @@ void ED_spacetype_buttons(void)
   st->listener = buttons_area_listener;
   st->context = buttons_context;
   st->id_remap = buttons_id_remap;
+  st->blend_read_data = buttons_blend_read_data;
+  st->blend_read_lib = buttons_blend_read_lib;
+  st->blend_write = buttons_blend_write;
 
   /* regions: main window */
   art = MEM_callocN(sizeof(ARegionType), "spacetype buttons region");
@@ -970,8 +1008,7 @@ void ED_spacetype_buttons(void)
   /* regions: navigation bar */
   art = MEM_callocN(sizeof(ARegionType), "spacetype nav buttons region");
   art->regionid = RGN_TYPE_NAV_BAR;
-  art->prefsizex = AREAMINX - 3; /* XXX Works and looks best,
-                                  * should we update AREAMINX accordingly? */
+  art->prefsizex = AREAMINX;
   art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_FRAMES | ED_KEYMAP_NAVBAR;
   art->init = buttons_navigation_bar_region_init;
   art->draw = buttons_navigation_bar_region_draw;

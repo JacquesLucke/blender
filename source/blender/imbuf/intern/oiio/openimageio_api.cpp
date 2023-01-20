@@ -32,7 +32,7 @@ OIIO_NAMESPACE_USING
 using std::string;
 using std::unique_ptr;
 
-using uchar = unsigned char;
+using uchar = uchar;
 
 template<class T, class Q>
 static void fill_all_channels(T *pixels, int width, int height, int components, Q alpha)
@@ -73,7 +73,11 @@ static ImBuf *imb_oiio_load_image(
   ibuf = IMB_allocImBuf(width, height, is_alpha ? 32 : 24, flags | IB_rect);
 
   try {
-    if (!in->read_image(TypeDesc::UINT8,
+    if (!in->read_image(0,
+                        0,
+                        0,
+                        components,
+                        TypeDesc::UINT8,
                         (uchar *)ibuf->rect + (height - 1) * scanlinesize,
                         AutoStride,
                         -scanlinesize,
@@ -113,7 +117,11 @@ static ImBuf *imb_oiio_load_image_float(
   ibuf = IMB_allocImBuf(width, height, is_alpha ? 32 : 24, flags | IB_rectfloat);
 
   try {
-    if (!in->read_image(TypeDesc::FLOAT,
+    if (!in->read_image(0,
+                        0,
+                        0,
+                        components,
+                        TypeDesc::FLOAT,
                         (uchar *)ibuf->rect_float + (height - 1) * scanlinesize,
                         AutoStride,
                         -scanlinesize,
@@ -147,9 +155,9 @@ static ImBuf *imb_oiio_load_image_float(
 
 extern "C" {
 
-bool imb_is_a_photoshop(const unsigned char *mem, size_t size)
+bool imb_is_a_photoshop(const uchar *mem, size_t size)
 {
-  const unsigned char magic[4] = {'8', 'B', 'P', 'S'};
+  const uchar magic[4] = {'8', 'B', 'P', 'S'};
   if (size < sizeof(magic)) {
     return false;
   }
@@ -193,7 +201,7 @@ struct ImBuf *imb_load_photoshop(const char *filename, int flags, char colorspac
   }
 
   ImageSpec spec, config;
-  config.attribute("oiio:UnassociatedAlpha", (int)1);
+  config.attribute("oiio:UnassociatedAlpha", int(1));
 
   if (!in->open(filename, spec, config)) {
     std::cerr << __func__ << ": ImageInput::open() failed:" << std::endl

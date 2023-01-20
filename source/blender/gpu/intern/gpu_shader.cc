@@ -7,6 +7,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLI_math_matrix.h"
 #include "BLI_string_utils.h"
 
 #include "GPU_capabilities.h"
@@ -87,6 +88,22 @@ static void standard_defines(Vector<const char *> &sources)
   }
   else if (GPU_type_matches(GPU_DEVICE_ANY, GPU_OS_UNIX, GPU_DRIVER_ANY)) {
     sources.append("#define OS_UNIX\n");
+  }
+  /* API Definition */
+  eGPUBackendType backend = GPU_backend_get_type();
+  switch (backend) {
+    case GPU_BACKEND_OPENGL:
+      sources.append("#define GPU_OPENGL\n");
+      break;
+    case GPU_BACKEND_METAL:
+      sources.append("#define GPU_METAL\n");
+      break;
+    case GPU_BACKEND_VULKAN:
+      sources.append("#define GPU_VULKAN\n");
+      break;
+    default:
+      BLI_assert(false && "Invalid GPU Backend Type");
+      break;
   }
 
   if (GPU_crappy_amd_driver()) {
@@ -239,6 +256,19 @@ const GPUShaderCreateInfo *GPU_shader_create_info_get(const char *info_name)
   return gpu_shader_create_info_get(info_name);
 }
 
+bool GPU_shader_create_info_check_error(const GPUShaderCreateInfo *_info, char r_error[128])
+{
+  using namespace blender::gpu::shader;
+  const ShaderCreateInfo &info = *reinterpret_cast<const ShaderCreateInfo *>(_info);
+  std::string error = info.check_error();
+  if (error.length() == 0) {
+    return true;
+  }
+
+  BLI_strncpy(r_error, error.c_str(), 128);
+  return false;
+}
+
 GPUShader *GPU_shader_create_from_info_name(const char *info_name)
 {
   using namespace blender::gpu::shader;
@@ -260,28 +290,10 @@ GPUShader *GPU_shader_create_from_info(const GPUShaderCreateInfo *_info)
 
   GPU_debug_group_begin(GPU_DEBUG_SHADER_COMPILATION_GROUP);
 
-  /* At least a vertex shader and a fragment shader are required, or only a compute shader. */
-  if (info.compute_source_.is_empty()) {
-    if (info.vertex_source_.is_empty()) {
-      printf("Missing vertex shader in %s.\n", info.name_.c_str());
-    }
-    if (info.fragment_source_.is_empty()) {
-      printf("Missing fragment shader in %s.\n", info.name_.c_str());
-    }
-    BLI_assert(!info.vertex_source_.is_empty() && !info.fragment_source_.is_empty());
-  }
-  else {
-    if (!info.vertex_source_.is_empty()) {
-      printf("Compute shader has vertex_source_ shader attached in %s.\n", info.name_.c_str());
-    }
-    if (!info.geometry_source_.is_empty()) {
-      printf("Compute shader has geometry_source_ shader attached in %s.\n", info.name_.c_str());
-    }
-    if (!info.fragment_source_.is_empty()) {
-      printf("Compute shader has fragment_source_ shader attached in %s.\n", info.name_.c_str());
-    }
-    BLI_assert(info.vertex_source_.is_empty() && info.geometry_source_.is_empty() &&
-               info.fragment_source_.is_empty());
+  const std::string error = info.check_error();
+  if (!error.empty()) {
+    printf("%s\n", error.c_str());
+    BLI_assert(false);
   }
 
   Shader *shader = GPUBackend::get()->shader_alloc(info.name_.c_str());
@@ -289,7 +301,9 @@ GPUShader *GPU_shader_create_from_info(const GPUShaderCreateInfo *_info)
   std::string defines = shader->defines_declare(info);
   std::string resources = shader->resources_declare(info);
 
-  defines += "#define USE_GPU_SHADER_CREATE_INFO\n";
+  if (info.legacy_resource_location_ == false) {
+    defines += "#define USE_GPU_SHADER_CREATE_INFO\n";
+  }
 
   Vector<const char *> typedefs;
   if (!info.typedef_sources_.is_empty() || !info.typedef_source_generated.empty()) {
@@ -357,6 +371,7 @@ GPUShader *GPU_shader_create_from_info(const GPUShaderCreateInfo *_info)
     sources.append(resources.c_str());
     sources.append(layout.c_str());
     sources.append(interface.c_str());
+    sources.append(info.geometry_source_generated.c_str());
     sources.extend(code);
 
     shader->geometry_shader_from_glsl(sources);
@@ -374,8 +389,14 @@ GPUShader *GPU_shader_create_from_info(const GPUShaderCreateInfo *_info)
     sources.append(resources.c_str());
     sources.append(layout.c_str());
     sources.extend(code);
+    sources.extend(info.dependencies_generated);
+    sources.append(info.compute_source_generated.c_str());
 
     shader->compute_shader_from_glsl(sources);
+  }
+
+  if (info.tf_type_ != GPU_SHADER_TFB_NONE && info.tf_names_.size() > 0) {
+    shader->transform_feedback_names_set(info.tf_names_.as_span(), info.tf_type_);
   }
 
   if (!shader->finalize(&info)) {
@@ -513,6 +534,15 @@ void GPU_shader_unbind()
 #endif
 }
 
+GPUShader *GPU_shader_get_bound()
+{
+  Context *ctx = Context::get();
+  if (ctx) {
+    return wrap(ctx->shader);
+  }
+  return nullptr;
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -567,6 +597,12 @@ int GPU_shader_get_builtin_block(GPUShader *shader, int builtin)
   return interface->ubo_builtin((GPUUniformBlockBuiltin)builtin);
 }
 
+int GPU_shader_get_builtin_ssbo(GPUShader *shader, int builtin)
+{
+  ShaderInterface *interface = unwrap(shader)->interface;
+  return interface->ssbo_builtin((GPUStorageBufferBuiltin)builtin);
+}
+
 int GPU_shader_get_ssbo(GPUShader *shader, const char *name)
 {
   ShaderInterface *interface = unwrap(shader)->interface;
@@ -595,11 +631,34 @@ int GPU_shader_get_texture_binding(GPUShader *shader, const char *name)
   return tex ? tex->binding : -1;
 }
 
+uint GPU_shader_get_attribute_len(const GPUShader *shader)
+{
+  ShaderInterface *interface = unwrap(shader)->interface;
+  return interface->attr_len_;
+}
+
 int GPU_shader_get_attribute(GPUShader *shader, const char *name)
 {
   ShaderInterface *interface = unwrap(shader)->interface;
   const ShaderInput *attr = interface->attr_get(name);
   return attr ? attr->location : -1;
+}
+
+bool GPU_shader_get_attribute_info(const GPUShader *shader,
+                                   int attr_location,
+                                   char r_name[256],
+                                   int *r_type)
+{
+  ShaderInterface *interface = unwrap(shader)->interface;
+
+  const ShaderInput *attr = interface->attr_get(attr_location);
+  if (!attr) {
+    return false;
+  }
+
+  BLI_strncpy(r_name, interface->input_name_get(attr), 256);
+  *r_type = attr->location != -1 ? interface->attr_types_[attr->location] : -1;
+  return true;
 }
 
 /** \} */
@@ -694,10 +753,23 @@ void GPU_shader_uniform_4fv(GPUShader *sh, const char *name, const float data[4]
   GPU_shader_uniform_vector(sh, loc, 4, 1, data);
 }
 
+void GPU_shader_uniform_2iv(GPUShader *sh, const char *name, const int data[2])
+{
+  const int loc = GPU_shader_get_uniform(sh, name);
+  GPU_shader_uniform_vector_int(sh, loc, 2, 1, data);
+}
+
 void GPU_shader_uniform_mat4(GPUShader *sh, const char *name, const float data[4][4])
 {
   const int loc = GPU_shader_get_uniform(sh, name);
   GPU_shader_uniform_vector(sh, loc, 16, 1, (const float *)data);
+}
+
+void GPU_shader_uniform_mat3_as_mat4(GPUShader *sh, const char *name, const float data[3][3])
+{
+  float matrix[4][4];
+  copy_m4_m3(matrix, data);
+  GPU_shader_uniform_mat4(sh, name, matrix);
 }
 
 void GPU_shader_uniform_2fv_array(GPUShader *sh, const char *name, int len, const float (*val)[2])

@@ -26,13 +26,13 @@ namespace blender::io::usd {
 
 void USDCurvesReader::create_object(Main *bmain, const double /* motionSampleTime */)
 {
-  curve_ = BKE_curve_add(bmain, name_.c_str(), OB_CURVE);
+  curve_ = BKE_curve_add(bmain, name_.c_str(), OB_CURVES_LEGACY);
 
   curve_->flag |= CU_3D;
   curve_->actvert = CU_ACT_NONE;
   curve_->resolu = 2;
 
-  object_ = BKE_object_add_only_object(bmain, OB_CURVE, name_.c_str());
+  object_ = BKE_object_add_only_object(bmain, OB_CURVES_LEGACY, name_.c_str());
   object_->data = curve_;
 }
 
@@ -139,9 +139,9 @@ void USDCurvesReader::read_curve_sample(Curve *cu, const double motionSampleTime
     BPoint *bp = nu->bp;
 
     for (int j = 0; j < nu->pntsu; j++, bp++, idx++) {
-      bp->vec[0] = (float)usdPoints[idx][0];
-      bp->vec[1] = (float)usdPoints[idx][1];
-      bp->vec[2] = (float)usdPoints[idx][2];
+      bp->vec[0] = float(usdPoints[idx][0]);
+      bp->vec[1] = float(usdPoints[idx][1]);
+      bp->vec[2] = float(usdPoints[idx][2]);
       bp->vec[3] = weight;
       bp->f1 = SELECT;
       bp->weight = weight;

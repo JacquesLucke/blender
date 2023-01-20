@@ -26,6 +26,7 @@
 #include "BKE_brush.h"
 #include "BKE_context.h"
 #include "BKE_idprop.h"
+#include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_paint.h"
@@ -57,6 +58,7 @@ static void toolsystem_refresh_screen_from_active_tool(Main *bmain,
 struct bToolRef *WM_toolsystem_ref_from_context(struct bContext *C)
 {
   WorkSpace *workspace = CTX_wm_workspace(C);
+  const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   ScrArea *area = CTX_wm_area(C);
   if ((area == NULL) || ((1 << area->spacetype) & WM_TOOLSYSTEM_SPACE_MASK) == 0) {
@@ -64,7 +66,7 @@ struct bToolRef *WM_toolsystem_ref_from_context(struct bContext *C)
   }
   const bToolKey tkey = {
       .space_type = area->spacetype,
-      .mode = WM_toolsystem_mode_from_spacetype(view_layer, area, area->spacetype),
+      .mode = WM_toolsystem_mode_from_spacetype(scene, view_layer, area, area->spacetype),
   };
   bToolRef *tref = WM_toolsystem_ref_find(workspace, &tkey);
   /* We could return 'area->runtime.tool' in this case. */
@@ -197,7 +199,12 @@ static void toolsystem_ref_link(bContext *C, WorkSpace *workspace, bToolRef *tre
               }
               else {
                 brush = BKE_brush_add(bmain, items[i].name, paint->runtime.ob_mode);
+
                 BKE_brush_tool_set(brush, paint, slot_index);
+
+                if (paint_mode == PAINT_MODE_SCULPT) {
+                  BKE_brush_sculpt_reset(brush);
+                }
               }
               BKE_paint_brush_set(paint, brush);
             }
@@ -263,6 +270,7 @@ void WM_toolsystem_refresh_all(struct bContext *C, struct WorkSpace *workspace)
 void WM_toolsystem_reinit_all(struct bContext *C, wmWindow *win)
 {
   bScreen *screen = WM_window_get_active_screen(win);
+  const Scene *scene = WM_window_get_active_scene(win);
   ViewLayer *view_layer = WM_window_get_active_view_layer(win);
   LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
     if (((1 << area->spacetype) & WM_TOOLSYSTEM_SPACE_MASK) == 0) {
@@ -272,7 +280,7 @@ void WM_toolsystem_reinit_all(struct bContext *C, wmWindow *win)
     WorkSpace *workspace = WM_window_get_active_workspace(win);
     const bToolKey tkey = {
         .space_type = area->spacetype,
-        .mode = WM_toolsystem_mode_from_spacetype(view_layer, area, area->spacetype),
+        .mode = WM_toolsystem_mode_from_spacetype(scene, view_layer, area, area->spacetype),
     };
     bToolRef *tref = WM_toolsystem_ref_find(workspace, &tkey);
     if (tref) {
@@ -361,8 +369,9 @@ void WM_toolsystem_ref_sync_from_context(Main *bmain, WorkSpace *workspace, bToo
 
     Scene *scene = WM_window_get_active_scene(win);
     ToolSettings *ts = scene->toolsettings;
-    const ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-    const Object *ob = OBACT(view_layer);
+    ViewLayer *view_layer = WM_window_get_active_view_layer(win);
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    const Object *ob = BKE_view_layer_active_object_get(view_layer);
     if (ob == NULL) {
       /* pass */
     }
@@ -432,13 +441,17 @@ static bool toolsystem_key_ensure_check(const bToolKey *tkey)
   return false;
 }
 
-int WM_toolsystem_mode_from_spacetype(ViewLayer *view_layer, ScrArea *area, int space_type)
+int WM_toolsystem_mode_from_spacetype(const Scene *scene,
+                                      ViewLayer *view_layer,
+                                      ScrArea *area,
+                                      int space_type)
 {
   int mode = -1;
   switch (space_type) {
     case SPACE_VIEW3D: {
       /* 'area' may be NULL in this case. */
-      Object *obact = OBACT(view_layer);
+      BKE_view_layer_synced_ensure(scene, view_layer);
+      Object *obact = BKE_view_layer_active_object_get(view_layer);
       if (obact != NULL) {
         Object *obedit = OBEDIT_FROM_OBACT(obact);
         mode = CTX_data_mode_enum_ex(obedit, obact, obact->mode);
@@ -466,14 +479,17 @@ int WM_toolsystem_mode_from_spacetype(ViewLayer *view_layer, ScrArea *area, int 
   return mode;
 }
 
-bool WM_toolsystem_key_from_context(ViewLayer *view_layer, ScrArea *area, bToolKey *tkey)
+bool WM_toolsystem_key_from_context(const Scene *scene,
+                                    ViewLayer *view_layer,
+                                    ScrArea *area,
+                                    bToolKey *tkey)
 {
   int space_type = SPACE_EMPTY;
   int mode = -1;
 
   if (area != NULL) {
     space_type = area->spacetype;
-    mode = WM_toolsystem_mode_from_spacetype(view_layer, area, space_type);
+    mode = WM_toolsystem_mode_from_spacetype(scene, view_layer, area, space_type);
   }
 
   if (mode != -1) {
@@ -487,10 +503,19 @@ bool WM_toolsystem_key_from_context(ViewLayer *view_layer, ScrArea *area, bToolK
 void WM_toolsystem_refresh_active(bContext *C)
 {
   Main *bmain = CTX_data_main(C);
+
+  struct {
+    wmWindow *win;
+    ScrArea *area;
+    ARegion *region;
+    bool is_set;
+  } context_prev = {0};
+
   for (wmWindowManager *wm = bmain->wm.first; wm; wm = wm->id.next) {
     LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
       WorkSpace *workspace = WM_window_get_active_workspace(win);
       bScreen *screen = WM_window_get_active_screen(win);
+      const Scene *scene = WM_window_get_active_scene(win);
       ViewLayer *view_layer = WM_window_get_active_view_layer(win);
       /* Could skip loop for modes that don't depend on space type. */
       int space_type_mask_handled = 0;
@@ -502,15 +527,31 @@ void WM_toolsystem_refresh_active(bContext *C)
           space_type_mask_handled |= space_type_mask;
           const bToolKey tkey = {
               .space_type = area->spacetype,
-              .mode = WM_toolsystem_mode_from_spacetype(view_layer, area, area->spacetype),
+              .mode = WM_toolsystem_mode_from_spacetype(scene, view_layer, area, area->spacetype),
           };
           bToolRef *tref = WM_toolsystem_ref_find(workspace, &tkey);
           if (tref != area->runtime.tool) {
+            if (context_prev.is_set == false) {
+              context_prev.win = CTX_wm_window(C);
+              context_prev.area = CTX_wm_area(C);
+              context_prev.region = CTX_wm_region(C);
+              context_prev.is_set = true;
+            }
+
+            CTX_wm_window_set(C, win);
+            CTX_wm_area_set(C, area);
+
             toolsystem_reinit_ensure_toolref(C, workspace, &tkey, NULL);
           }
         }
       }
     }
+  }
+
+  if (context_prev.is_set) {
+    CTX_wm_window_set(C, context_prev.win);
+    CTX_wm_area_set(C, context_prev.area);
+    CTX_wm_region_set(C, context_prev.region);
   }
 
   BKE_workspace_id_tag_all_visible(bmain, LIB_TAG_DOIT);
@@ -528,11 +569,14 @@ void WM_toolsystem_refresh_active(bContext *C)
   }
 }
 
-void WM_toolsystem_refresh_screen_area(WorkSpace *workspace, ViewLayer *view_layer, ScrArea *area)
+void WM_toolsystem_refresh_screen_area(WorkSpace *workspace,
+                                       const Scene *scene,
+                                       ViewLayer *view_layer,
+                                       ScrArea *area)
 {
   area->runtime.tool = NULL;
   area->runtime.is_tool_set = true;
-  const int mode = WM_toolsystem_mode_from_spacetype(view_layer, area, area->spacetype);
+  const int mode = WM_toolsystem_mode_from_spacetype(scene, view_layer, area, area->spacetype);
   LISTBASE_FOREACH (bToolRef *, tref, &workspace->tools) {
     if (tref->space_type == area->spacetype) {
       if (tref->mode == mode) {
@@ -546,17 +590,18 @@ void WM_toolsystem_refresh_screen_area(WorkSpace *workspace, ViewLayer *view_lay
 void WM_toolsystem_refresh_screen_window(wmWindow *win)
 {
   WorkSpace *workspace = WM_window_get_active_workspace(win);
-  bool space_type_has_tools[SPACE_TYPE_LAST + 1] = {0};
+  bool space_type_has_tools[SPACE_TYPE_NUM] = {0};
   LISTBASE_FOREACH (bToolRef *, tref, &workspace->tools) {
     space_type_has_tools[tref->space_type] = true;
   }
   bScreen *screen = WM_window_get_active_screen(win);
+  const Scene *scene = WM_window_get_active_scene(win);
   ViewLayer *view_layer = WM_window_get_active_view_layer(win);
   LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
     area->runtime.tool = NULL;
     area->runtime.is_tool_set = true;
     if (space_type_has_tools[area->spacetype]) {
-      WM_toolsystem_refresh_screen_area(workspace, view_layer, area);
+      WM_toolsystem_refresh_screen_area(workspace, scene, view_layer, area);
     }
   }
 }
@@ -566,6 +611,7 @@ void WM_toolsystem_refresh_screen_all(Main *bmain)
   /* Update all ScrArea's tools */
   for (wmWindowManager *wm = bmain->wm.first; wm; wm = wm->id.next) {
     LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
+      WM_toolsystem_refresh_screen_window(win);
     }
   }
 }
@@ -579,10 +625,11 @@ static void toolsystem_refresh_screen_from_active_tool(Main *bmain,
     LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
       if (workspace == WM_window_get_active_workspace(win)) {
         bScreen *screen = WM_window_get_active_screen(win);
+        const Scene *scene = WM_window_get_active_scene(win);
         ViewLayer *view_layer = WM_window_get_active_view_layer(win);
         LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
           if (area->spacetype == tref->space_type) {
-            int mode = WM_toolsystem_mode_from_spacetype(view_layer, area, area->spacetype);
+            int mode = WM_toolsystem_mode_from_spacetype(scene, view_layer, area, area->spacetype);
             if (mode == tref->mode) {
               area->runtime.tool = tref;
               area->runtime.is_tool_set = true;
@@ -602,6 +649,17 @@ bToolRef *WM_toolsystem_ref_set_by_id_ex(
   if (ot == NULL) {
     return NULL;
   }
+
+  /* Some contexts use the current space type (image editor for e.g.),
+   * ensure this is set correctly or there is no area. */
+#ifndef NDEBUG
+  /* Exclude this check for some space types where the space type isn't used. */
+  if ((1 << tkey->space_type) & WM_TOOLSYSTEM_SPACE_MASK_MODE_FROM_SPACE) {
+    ScrArea *area = CTX_wm_area(C);
+    BLI_assert(area == NULL || area->spacetype == tkey->space_type);
+  }
+#endif
+
   PointerRNA op_props;
   WM_operator_properties_create_ptr(&op_props, ot);
   RNA_string_set(&op_props, "name", name);
@@ -611,7 +669,7 @@ bToolRef *WM_toolsystem_ref_set_by_id_ex(
   RNA_enum_set(&op_props, "space_type", tkey->space_type);
   RNA_boolean_set(&op_props, "cycle", cycle);
 
-  WM_operator_name_call_ptr(C, ot, WM_OP_EXEC_DEFAULT, &op_props);
+  WM_operator_name_call_ptr(C, ot, WM_OP_EXEC_DEFAULT, &op_props, NULL);
   WM_operator_properties_free(&op_props);
 
   bToolRef *tref = WM_toolsystem_ref_find(workspace, tkey);
@@ -626,10 +684,11 @@ bToolRef *WM_toolsystem_ref_set_by_id_ex(
 
 bToolRef *WM_toolsystem_ref_set_by_id(bContext *C, const char *name)
 {
+  const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   ScrArea *area = CTX_wm_area(C);
   bToolKey tkey;
-  if (WM_toolsystem_key_from_context(view_layer, area, &tkey)) {
+  if (WM_toolsystem_key_from_context(scene, view_layer, area, &tkey)) {
     WorkSpace *workspace = CTX_wm_workspace(C);
     return WM_toolsystem_ref_set_by_id_ex(C, workspace, &tkey, name, false);
   }
@@ -663,6 +722,8 @@ static const char *toolsystem_default_tool(const bToolKey *tkey)
           return "builtin_brush.Weight";
         case CTX_MODE_VERTEX_GPENCIL:
           return "builtin_brush.Draw";
+        case CTX_MODE_SCULPT_CURVES:
+          return "builtin_brush.density";
           /* end temporary hack. */
 
         case CTX_MODE_PARTICLE:
@@ -717,11 +778,12 @@ static bToolRef *toolsystem_reinit_ensure_toolref(bContext *C,
 
 static void wm_toolsystem_update_from_context_view3d_impl(bContext *C, WorkSpace *workspace)
 {
+  const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   int space_type = SPACE_VIEW3D;
   const bToolKey tkey = {
       .space_type = space_type,
-      .mode = WM_toolsystem_mode_from_spacetype(view_layer, NULL, space_type),
+      .mode = WM_toolsystem_mode_from_spacetype(scene, view_layer, NULL, space_type),
   };
   toolsystem_reinit_ensure_toolref(C, workspace, &tkey, NULL);
 }
@@ -757,14 +819,12 @@ void WM_toolsystem_update_from_context_view3d(bContext *C)
   }
 }
 
-void WM_toolsystem_update_from_context(bContext *C,
-                                       WorkSpace *workspace,
-                                       ViewLayer *view_layer,
-                                       ScrArea *area)
+void WM_toolsystem_update_from_context(
+    bContext *C, WorkSpace *workspace, const Scene *scene, ViewLayer *view_layer, ScrArea *area)
 {
   const bToolKey tkey = {
       .space_type = area->spacetype,
-      .mode = WM_toolsystem_mode_from_spacetype(view_layer, area, area->spacetype),
+      .mode = WM_toolsystem_mode_from_spacetype(scene, view_layer, area, area->spacetype),
   };
   if (toolsystem_key_ensure_check(&tkey)) {
     toolsystem_reinit_ensure_toolref(C, workspace, &tkey, NULL);
@@ -794,23 +854,45 @@ void WM_toolsystem_do_msg_notify_tag_refresh(bContext *C,
   }
 
   WorkSpace *workspace = WM_window_get_active_workspace(win);
+  const Scene *scene = WM_window_get_active_scene(win);
   ViewLayer *view_layer = WM_window_get_active_view_layer(win);
 
   const bToolKey tkey = {
       .space_type = area->spacetype,
-      .mode = WM_toolsystem_mode_from_spacetype(view_layer, area, area->spacetype),
+      .mode = WM_toolsystem_mode_from_spacetype(scene, view_layer, area, area->spacetype),
   };
   WM_toolsystem_refresh(C, workspace, &tkey);
-  WM_toolsystem_refresh_screen_area(workspace, view_layer, area);
+  WM_toolsystem_refresh_screen_area(workspace, scene, view_layer, area);
+}
+
+static IDProperty *idprops_ensure_named_group(IDProperty *group, const char *idname)
+{
+  IDProperty *prop = IDP_GetPropertyFromGroup(group, idname);
+  if ((prop == NULL) || (prop->type != IDP_GROUP)) {
+    IDPropertyTemplate val = {0};
+    prop = IDP_New(IDP_GROUP, &val, __func__);
+    STRNCPY(prop->name, idname);
+    IDP_ReplaceInGroup_ex(group, prop, NULL);
+  }
+  return prop;
+}
+
+IDProperty *WM_toolsystem_ref_properties_get_idprops(bToolRef *tref)
+{
+  IDProperty *group = tref->properties;
+  if (group == NULL) {
+    return NULL;
+  }
+  return IDP_GetPropertyFromGroup(group, tref->idname);
 }
 
 IDProperty *WM_toolsystem_ref_properties_ensure_idprops(bToolRef *tref)
 {
   if (tref->properties == NULL) {
     IDPropertyTemplate val = {0};
-    tref->properties = IDP_New(IDP_GROUP, &val, "wmOperatorProperties");
+    tref->properties = IDP_New(IDP_GROUP, &val, __func__);
   }
-  return tref->properties;
+  return idprops_ensure_named_group(tref->properties, tref->idname);
 }
 
 bool WM_toolsystem_ref_properties_get_ex(bToolRef *tref,
@@ -818,7 +900,7 @@ bool WM_toolsystem_ref_properties_get_ex(bToolRef *tref,
                                          StructRNA *type,
                                          PointerRNA *r_ptr)
 {
-  IDProperty *group = tref->properties;
+  IDProperty *group = WM_toolsystem_ref_properties_get_idprops(tref);
   IDProperty *prop = group ? IDP_GetPropertyFromGroup(group, idname) : NULL;
   RNA_pointer_create(NULL, type, prop, r_ptr);
   return (prop != NULL);
@@ -830,17 +912,7 @@ void WM_toolsystem_ref_properties_ensure_ex(bToolRef *tref,
                                             PointerRNA *r_ptr)
 {
   IDProperty *group = WM_toolsystem_ref_properties_ensure_idprops(tref);
-  IDProperty *prop = IDP_GetPropertyFromGroup(group, idname);
-  if (prop == NULL) {
-    IDPropertyTemplate val = {0};
-    prop = IDP_New(IDP_GROUP, &val, "wmGenericProperties");
-    STRNCPY(prop->name, idname);
-    IDP_ReplaceInGroup_ex(group, prop, NULL);
-  }
-  else {
-    BLI_assert(prop->type == IDP_GROUP);
-  }
-
+  IDProperty *prop = idprops_ensure_named_group(group, idname);
   RNA_pointer_create(NULL, type, prop, r_ptr);
 }
 
@@ -857,8 +929,9 @@ void WM_toolsystem_ref_properties_init_for_keymap(bToolRef *tref,
     IDPropertyTemplate val = {0};
     dst_ptr->data = IDP_New(IDP_GROUP, &val, "wmOpItemProp");
   }
-  if (tref->properties != NULL) {
-    IDProperty *prop = IDP_GetPropertyFromGroup(tref->properties, ot->idname);
+  IDProperty *group = WM_toolsystem_ref_properties_get_idprops(tref);
+  if (group != NULL) {
+    IDProperty *prop = IDP_GetPropertyFromGroup(group, ot->idname);
     if (prop) {
       /* Important key-map items properties don't get overwritten by the tools.
        * - When a key-map item doesn't set a property, the tool-systems is used.

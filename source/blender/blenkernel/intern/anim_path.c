@@ -55,7 +55,7 @@ float BKE_anim_path_get_length(const CurveCache *curve_cache)
 
 void BKE_anim_path_calc_data(Object *ob)
 {
-  if (ob == NULL || ob->type != OB_CURVE) {
+  if (ob == NULL || ob->type != OB_CURVES_LEGACY) {
     return;
   }
   if (ob->runtime.curve_cache == NULL) {
@@ -222,7 +222,7 @@ bool BKE_where_on_path(const Object *ob,
                        float *r_radius,
                        float *r_weight)
 {
-  if (ob == NULL || ob->type != OB_CURVE) {
+  if (ob == NULL || ob->type != OB_CURVES_LEGACY) {
     return false;
   }
   Curve *cu = ob->data;
@@ -295,10 +295,12 @@ bool BKE_where_on_path(const Object *ob,
 
   key_curve_tangent_weights(frac, w, KEY_BSPLINE);
 
-  interp_v3_v3v3v3v3(r_dir, p0->vec, p1->vec, p2->vec, p3->vec, w);
+  if (r_dir) {
+    interp_v3_v3v3v3v3(r_dir, p0->vec, p1->vec, p2->vec, p3->vec, w);
 
-  /* Make compatible with #vec_to_quat. */
-  negate_v3(r_dir);
+    /* Make compatible with #vec_to_quat. */
+    negate_v3(r_dir);
+  }
   //}
 
   const ListBase *nurbs = BKE_curve_editNurbs_get(cu);
@@ -318,18 +320,22 @@ bool BKE_where_on_path(const Object *ob,
     key_curve_position_weights(frac, w, KEY_BSPLINE);
   }
 
-  r_vec[0] = /* X */
-      w[0] * p0->vec[0] + w[1] * p1->vec[0] + w[2] * p2->vec[0] + w[3] * p3->vec[0];
-  r_vec[1] = /* Y */
-      w[0] * p0->vec[1] + w[1] * p1->vec[1] + w[2] * p2->vec[1] + w[3] * p3->vec[1];
-  r_vec[2] = /* Z */
-      w[0] * p0->vec[2] + w[1] * p1->vec[2] + w[2] * p2->vec[2] + w[3] * p3->vec[2];
+  if (r_vec) {
+    r_vec[0] = /* X */
+        w[0] * p0->vec[0] + w[1] * p1->vec[0] + w[2] * p2->vec[0] + w[3] * p3->vec[0];
+    r_vec[1] = /* Y */
+        w[0] * p0->vec[1] + w[1] * p1->vec[1] + w[2] * p2->vec[1] + w[3] * p3->vec[1];
+    r_vec[2] = /* Z */
+        w[0] * p0->vec[2] + w[1] * p1->vec[2] + w[2] * p2->vec[2] + w[3] * p3->vec[2];
+  }
 
   /* Clamp weights to 0-1 as we don't want to extrapolate other values than position. */
   clamp_v4(w, 0.0f, 1.0f);
 
-  /* Tilt, should not be needed since we have quat still used. */
-  r_vec[3] = w[0] * p0->tilt + w[1] * p1->tilt + w[2] * p2->tilt + w[3] * p3->tilt;
+  if (r_vec) {
+    /* Tilt, should not be needed since we have quat still used. */
+    r_vec[3] = w[0] * p0->tilt + w[1] * p1->tilt + w[2] * p2->tilt + w[3] * p3->tilt;
+  }
 
   if (r_quat) {
     float totfac, q1[4], q2[4];

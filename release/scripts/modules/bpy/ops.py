@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8-80 compliant>
-
 # for slightly faster access
 from _bpy import ops as _ops_module
 
@@ -93,7 +91,6 @@ class _BPyOpsSubModOp:
         return self._module.upper() + "_OT_" + self._func
 
     def idname_py(self):
-        # submod.foo -> SUBMOD_OT_foo
         return self._module + "." + self._func
 
     def __call__(self, *args, **kw):

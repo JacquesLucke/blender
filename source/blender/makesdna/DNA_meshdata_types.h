@@ -19,66 +19,62 @@ extern "C" {
  * \{ */
 
 /**
- * Mesh Vertices.
- *
- * Typically accessed from #Mesh.mvert
- */
-typedef struct MVert {
-  float co[3];
-  char flag, bweight;
-  char _pad[2];
-} MVert;
-
-/** #MVert.flag */
-enum {
-  /*  SELECT = (1 << 0), */
-  ME_HIDE = (1 << 4),
-  ME_VERT_FACEDOT = (1 << 5),
-};
-
-/**
  * Mesh Edges.
  *
- * Typically accessed from #Mesh.medge
+ * Typically accessed with #Mesh.edges()
  */
 typedef struct MEdge {
   /** Un-ordered vertex indices (cannot match). */
   unsigned int v1, v2;
-  char crease, bweight;
+  /** Deprecated edge crease, now located in #CD_CREASE, except for file read and write. */
+  char crease_legacy;
+  /**
+   * Deprecated bevel weight storage, now located in #CD_BWEIGHT, except for file read and write.
+   */
+  char bweight_legacy;
   short flag;
 } MEdge;
 
 /** #MEdge.flag */
 enum {
+  /** Deprecated selection status. Now stored in ".select_edge" attribute. */
   /*  SELECT = (1 << 0), */
   ME_EDGEDRAW = (1 << 1),
   ME_SEAM = (1 << 2),
-  /*  ME_HIDE = (1 << 4), */
-  ME_EDGERENDER = (1 << 5),
+/** Deprecated hide status. Now stored in ".hide_edge" attribute. */
+/*  ME_HIDE = (1 << 4), */
+#ifdef DNA_DEPRECATED_ALLOW
+  /** Deprecated loose edge status. Now stored in #Mesh::loose_edges() runtime cache. */
   ME_LOOSEEDGE = (1 << 7),
-  ME_EDGE_TMP_TAG = (1 << 8),
-  ME_SHARP = (1 << 9), /* only reason this flag remains a 'short' */
+  /** Deprecated sharp edge status. Now stored in "sharp_edge" attribute. */
+  ME_SHARP = (1 << 9),
+#endif
 };
 
 /**
- * Mesh Faces
+ * Mesh Faces.
  * This only stores the polygon size & flags, the vertex & edge indices are stored in the #MLoop.
  *
- * Typically accessed from #Mesh.mpoly.
+ * Typically accessed with #Mesh.polys().
  */
 typedef struct MPoly {
   /** Offset into loop array and number of loops in the face. */
   int loopstart;
   /** Keep signed since we need to subtract when getting the previous loop. */
   int totloop;
-  short mat_nr;
+  /** Deprecated material index. Now stored in the "material_index" attribute, but kept for IO. */
+  short mat_nr_legacy;
   char flag, _pad;
 } MPoly;
 
 /** #MPoly.flag */
 enum {
   ME_SMOOTH = (1 << 0),
+#ifdef DNA_DEPRECATED_ALLOW
+  /** Deprecated selection status. Now stored in ".select_poly" attribute. */
   ME_FACE_SEL = (1 << 1),
+#endif
+  /** Deprecated hide status. Now stored in ".hide_poly" attribute. */
   /* ME_HIDE = (1 << 4), */
 };
 
@@ -86,10 +82,10 @@ enum {
  * Mesh Face Corners.
  * "Loop" is an internal name for the corner of a polygon (#MPoly).
  *
- * Typically accessed from #Mesh.mloop.
+ * Typically accessed with #Mesh.loops().
  */
 typedef struct MLoop {
-  /** Vertex index into an #MVert array. */
+  /** Vertex index. */
   unsigned int v;
   /** Edge index into an #MEdge array. */
   unsigned int e;
@@ -130,7 +126,7 @@ enum {
 /**
  * #MLoopTri's are lightweight triangulation data,
  * for functionality that doesn't support ngons (#MPoly).
- * This is cache data created from (#MPoly, #MLoop & #MVert arrays).
+ * This is cache data created from (#MPoly, #MLoop & position arrays).
  * There is no attempt to maintain this data's validity over time,
  * any changes to the underlying mesh invalidate the #MLoopTri array,
  * which will need to be re-calculated.
@@ -144,7 +140,7 @@ enum {
  * - Physics/collision detection.
  *
  * Storing loop indices (instead of vertex indices) allows us to
- * directly access UV's, vertex-colors as well as vertices.
+ * directly access UVs, vertex-colors as well as vertices.
  * The index of the source polygon is stored as well,
  * giving access to materials and polygon normals.
  *
@@ -152,21 +148,21 @@ enum {
  *
  * Usage examples:
  * \code{.c}
- * // access original material.
- * short mat_nr = mpoly[lt->poly].mat_nr;
+ * // access polygon attribute value.
+ * T value = polygon_attribute[lt->poly];
  *
  * // access vertex locations.
  * float *vtri_co[3] = {
- *     mvert[mloop[lt->tri[0]].v].co,
- *     mvert[mloop[lt->tri[1]].v].co,
- *     mvert[mloop[lt->tri[2]].v].co,
+ *     positions[mloop[lt->tri[0]].v],
+ *     positions[mloop[lt->tri[1]].v],
+ *     positions[mloop[lt->tri[2]].v],
  * };
  *
  * // access UV coordinates (works for all loop data, vertex colors... etc).
  * float *uvtri_co[3] = {
- *     mloopuv[lt->tri[0]].uv,
- *     mloopuv[lt->tri[1]].uv,
- *     mloopuv[lt->tri[2]].uv,
+ *     mloopuv[lt->tri[0]],
+ *     mloopuv[lt->tri[1]],
+ *     mloopuv[lt->tri[2]],
  * };
  * \endcode
  *
@@ -318,21 +314,6 @@ typedef enum eMVertSkinFlag {
  * \{ */
 
 /**
- * UV coordinate for a polygon face & flag for selection & other options.
- */
-typedef struct MLoopUV {
-  float uv[2];
-  int flag;
-} MLoopUV;
-
-/** #MLoopUV.flag */
-enum {
-  /* MLOOPUV_DEPRECATED = (1 << 0), MLOOPUV_EDGESEL removed */
-  MLOOPUV_VERTSEL = (1 << 1),
-  MLOOPUV_PINNED = (1 << 2),
-};
-
-/**
  * \note While alpha is not currently in the 3D Viewport,
  * this may eventually be added back, keep this value set to 255.
  */
@@ -353,7 +334,7 @@ typedef struct MDisps {
 
   /**
    * Used for hiding parts of a multires mesh.
-   * Essentially the multires equivalent of #MVert.flag's ME_HIDE bit.
+   * Essentially the multires equivalent of the mesh ".hide_vert" boolean attribute.
    *
    * \note This is a bitmap, keep in sync with type used in BLI_bitmap.h
    */
@@ -384,7 +365,7 @@ typedef struct GridPaintMask {
  * Original space within a face (similar to UV coordinates),
  * however they are used to determine the original position in a face.
  *
- * Unlike UV's these are not user editable and always start out using a fixed 0-1 range.
+ * Unlike UVs these are not user editable and always start out using a fixed 0-1 range.
  * Currently only used for particle placement.
  */
 #
@@ -451,6 +432,53 @@ enum {
 /* -------------------------------------------------------------------- */
 /** \name Deprecated Structs
  * \{ */
+
+#ifdef DNA_DEPRECATED_ALLOW
+
+/**
+ * UV coordinate for a polygon face & flag for selection & other options.
+ * Deprecated, but kept to read old files. UV coordinates are now stored as #CD_PROP_FLOAT2 layers.
+ */
+typedef struct MLoopUV {
+  float uv[2];
+  int flag;
+} MLoopUV;
+
+/** #MLoopUV.flag */
+enum {
+  MLOOPUV_EDGESEL = (1 << 0),
+  MLOOPUV_VERTSEL = (1 << 1),
+  MLOOPUV_PINNED = (1 << 2),
+};
+
+#endif
+
+/**
+ * Deprecated mesh vertex data structure. Now stored with generic attributes.
+ */
+#ifdef DNA_DEPRECATED_ALLOW
+typedef struct MVert {
+  float co_legacy[3];
+  /**
+   * Deprecated flag for storing hide status and selection, which are now stored in separate
+   * generic attributes. Kept for file read and write.
+   */
+  char flag_legacy;
+  /**
+   * Deprecated bevel weight storage, now located in #CD_BWEIGHT, except for file read and write.
+   */
+  char bweight_legacy;
+  char _pad[2];
+} MVert;
+
+/** #MVert.flag */
+enum {
+  /** Deprecated selection status. Now stored in ".select_vert" attribute. */
+  /*  SELECT = (1 << 0), */
+  /** Deprecated hide status. Now stored in ".hide_vert" attribute. */
+  ME_HIDE = (1 << 4),
+};
+#endif
 
 /**
  * Used in Blender pre 2.63, See #MLoop, #MPoly for face data stored in the blend file.

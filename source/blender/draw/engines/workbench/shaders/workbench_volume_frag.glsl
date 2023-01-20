@@ -30,7 +30,7 @@ vec4 sample_tricubic(sampler3D ima, vec3 co)
   vec3 f = co - tc;
   vec3 f2 = f * f;
   vec3 f3 = f2 * f;
-  /* Bspline coefs (optimized) */
+  /* Bspline coefficients (optimized). */
   vec3 w3 = f3 / 6.0;
   vec3 w0 = -w3 + f2 * 0.5 - f * 0.5 + 1.0 / 6.0;
   vec3 w1 = f3 * 0.5 - f2 + 2.0 / 3.0;
@@ -94,7 +94,7 @@ vec4 flag_to_color(uint flag)
   if (bool(flag & uint(16))) {
     color.rgb += vec3(0.9, 0.3, 0.0); /* orange */
   }
-  if (color.rgb == vec3(0.0)) {
+  if (is_zero(color.rgb)) {
     color.rgb += vec3(0.5, 0.0, 0.0); /* medium red */
   }
   return color;
@@ -182,13 +182,15 @@ void eval_volume_step(inout vec3 Lscat, float extinction, float step_len, out fl
 }
 
 #define P(x) ((x + 0.5) * (1.0 / 16.0))
-const vec4 dither_mat[4] = vec4[4](vec4(P(0.0), P(8.0), P(2.0), P(10.0)),
-                                   vec4(P(12.0), P(4.0), P(14.0), P(6.0)),
-                                   vec4(P(3.0), P(11.0), P(1.0), P(9.0)),
-                                   vec4(P(15.0), P(7.0), P(13.0), P(5.0)));
 
 vec4 volume_integration(vec3 ray_ori, vec3 ray_dir, float ray_inc, float ray_max, float step_len)
 {
+  /* Note: Constant array declared inside function scope to reduce shader core thread memory
+   * pressure on Apple Silicon. */
+  const vec4 dither_mat[4] = vec4[4](vec4(P(0.0), P(8.0), P(2.0), P(10.0)),
+                                     vec4(P(12.0), P(4.0), P(14.0), P(6.0)),
+                                     vec4(P(3.0), P(11.0), P(1.0), P(9.0)),
+                                     vec4(P(15.0), P(7.0), P(13.0), P(5.0)));
   /* Start with full transmittance and no scattered light. */
   vec3 final_scattering = vec3(0.0);
   float final_transmittance = 1.0;
@@ -218,7 +220,15 @@ void main()
   /* Manual depth test. TODO: remove. */
   float depth = texelFetch(depthBuffer, ivec2(gl_FragCoord.xy), 0).r;
   if (gl_FragCoord.z >= depth) {
+    /* NOTE: In the Metal API, prior to Metal 2.3, Discard is not an explicit return and can
+     * produce undefined behavior. This is especially prominent with derivatives if control-flow
+     * divergence is present.
+     *
+     * Adding a return call eliminates undefined behavior and a later out-of-bounds read causing
+     * a crash on AMD platforms.
+     * This behavior can also affect OpenGL on certain devices. */
     discard;
+    return;
   }
 
   vec3 Lscat;
@@ -229,7 +239,7 @@ void main()
   fragColor = vec4(Lscat, Tr);
 #else
   vec2 screen_uv = gl_FragCoord.xy / vec2(textureSize(depthBuffer, 0).xy);
-  bool is_persp = ProjectionMatrix[3][3] == 0.0;
+  bool is_persp = drw_view.winmat[3][3] == 0.0;
 
   vec3 volume_center = ModelMatrix[3].xyz;
 
@@ -268,6 +278,7 @@ void main()
     /* Start is further away than the end.
      * That means no volume is intersected. */
     discard;
+    return;
   }
 
   fragColor = volume_integration(ls_ray_ori,

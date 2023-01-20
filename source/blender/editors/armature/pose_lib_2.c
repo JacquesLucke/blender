@@ -24,22 +24,24 @@
 #include "BKE_context.h"
 #include "BKE_lib_id.h"
 #include "BKE_object.h"
+#include "BKE_pose_backup.h"
 #include "BKE_report.h"
 
 #include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_prototypes.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
 
 #include "UI_interface.h"
 
-#include "ED_armature.h"
 #include "ED_asset.h"
 #include "ED_keyframing.h"
 #include "ED_screen.h"
+#include "ED_util.h"
 
 #include "armature_intern.h"
 
@@ -57,34 +59,46 @@ typedef struct PoseBlendData {
 
   struct {
     bool use_release_confirm;
-    int drag_start_xy[2];
     int init_event_type;
 
-    bool cursor_wrap_enabled;
   } release_confirm_info;
 
   /* For temp-loading the Action from the pose library. */
   AssetTempIDConsumer *temp_id_consumer;
 
-  /* Blend factor, interval [0, 1] for interpolating between current and given pose. */
+  /* Blend factor for interpolating between current and given pose.
+   * 1.0 means "100% pose asset". Negative values and values > 1.0 will be used as-is, and can
+   * cause interesting effects. */
   float blend_factor;
+  bool is_flipped;
   struct PoseBackup *pose_backup;
 
-  Object *ob;   /* Object to work on. */
-  bAction *act; /* Pose to blend into the current pose. */
-  bool free_action;
+  Object *ob;           /* Object to work on. */
+  bAction *act;         /* Pose to blend into the current pose. */
+  bAction *act_flipped; /* Flipped copy of `act`. */
 
   Scene *scene;  /* For auto-keying. */
   ScrArea *area; /* For drawing status text. */
+
+  struct tSlider *slider; /* Slider UI and event handling. */
 
   /** Info-text to print in header. */
   char headerstr[UI_MAX_DRAW_STR];
 } PoseBlendData;
 
+/** Return the bAction that should be blended.
+ * This is either pbd->act or pbd->act_flipped, depending on is_flipped.
+ */
+static bAction *poselib_action_to_blend(PoseBlendData *pbd)
+{
+  return pbd->is_flipped ? pbd->act_flipped : pbd->act;
+}
+
 /* Makes a copy of the current pose for restoration purposes - doesn't do constraints currently */
 static void poselib_backup_posecopy(PoseBlendData *pbd)
 {
-  pbd->pose_backup = ED_pose_backup_create_selected_bones(pbd->ob, pbd->act);
+  const bAction *action = poselib_action_to_blend(pbd);
+  pbd->pose_backup = BKE_pose_backup_create_selected_bones(pbd->ob, action);
 
   if (pbd->state == POSE_BLEND_INIT) {
     /* Ready for blending now. */
@@ -102,7 +116,8 @@ static void poselib_keytag_pose(bContext *C, Scene *scene, PoseBlendData *pbd)
   }
 
   AnimData *adt = BKE_animdata_from_id(&pbd->ob->id);
-  if (adt != NULL && adt->action != NULL && ID_IS_LINKED(&adt->action->id)) {
+  if (adt != NULL && adt->action != NULL &&
+      !BKE_id_is_editable(CTX_data_main(C), &adt->action->id)) {
     /* Changes to linked-in Actions are not allowed. */
     return;
   }
@@ -122,7 +137,7 @@ static void poselib_keytag_pose(bContext *C, Scene *scene, PoseBlendData *pbd)
       continue;
     }
 
-    if (ED_pose_backup_is_selection_relevant(pbd->pose_backup) &&
+    if (BKE_pose_backup_is_selection_relevant(pbd->pose_backup) &&
         !PBONE_SELECTED(armature, pchan->bone)) {
       continue;
     }
@@ -132,7 +147,7 @@ static void poselib_keytag_pose(bContext *C, Scene *scene, PoseBlendData *pbd)
   }
 
   /* Perform actual auto-keying. */
-  ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, (float)CFRA);
+  ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, (float)scene->r.cfra);
   BLI_freelistN(&dsources);
 
   /* send notifiers for this */
@@ -144,28 +159,12 @@ static void poselib_blend_apply(bContext *C, wmOperator *op)
 {
   PoseBlendData *pbd = (PoseBlendData *)op->customdata;
 
-  if (pbd->state == POSE_BLEND_BLENDING) {
-    BLI_snprintf(pbd->headerstr,
-                 sizeof(pbd->headerstr),
-                 TIP_("PoseLib blending: \"%s\" at %3.0f%%"),
-                 pbd->act->id.name + 2,
-                 pbd->blend_factor * 100);
-    ED_area_status_text(pbd->area, pbd->headerstr);
-
-    ED_workspace_status_text(
-        C, TIP_("Tab: show original pose; Horizontal mouse movement: change blend percentage"));
-  }
-  else {
-    ED_area_status_text(pbd->area, TIP_("PoseLib showing original pose"));
-    ED_workspace_status_text(C, TIP_("Tab: show blended pose"));
-  }
-
   if (!pbd->needs_redraw) {
     return;
   }
   pbd->needs_redraw = false;
 
-  ED_pose_backup_restore(pbd->pose_backup);
+  BKE_pose_backup_restore(pbd->pose_backup);
 
   /* The pose needs updating, whether it's for restoring the original pose or for showing the
    * result of the blend. */
@@ -179,29 +178,33 @@ static void poselib_blend_apply(bContext *C, wmOperator *op)
   /* Perform the actual blending. */
   struct Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
   AnimationEvalContext anim_eval_context = BKE_animsys_eval_context_construct(depsgraph, 0.0f);
-  BKE_pose_apply_action_blend(pbd->ob, pbd->act, &anim_eval_context, pbd->blend_factor);
+  bAction *to_blend = poselib_action_to_blend(pbd);
+  BKE_pose_apply_action_blend(pbd->ob, to_blend, &anim_eval_context, pbd->blend_factor);
 }
 
 /* ---------------------------- */
 
 static void poselib_blend_set_factor(PoseBlendData *pbd, const float new_factor)
 {
-  pbd->blend_factor = CLAMPIS(new_factor, 0.0f, 1.0f);
+  pbd->blend_factor = new_factor;
   pbd->needs_redraw = true;
 }
 
-static void poselib_slide_mouse_update_blendfactor(PoseBlendData *pbd, const wmEvent *event)
+static void poselib_set_flipped(PoseBlendData *pbd, const bool new_flipped)
 {
-  if (pbd->release_confirm_info.use_release_confirm) {
-    /* Release confirm calculates factor based on where the dragging was started from. */
-    const float range = 300 * U.pixelsize;
-    const float new_factor = (event->xy[0] - pbd->release_confirm_info.drag_start_xy[0]) / range;
-    poselib_blend_set_factor(pbd, new_factor);
+  if (pbd->is_flipped == new_flipped) {
+    return;
   }
-  else {
-    const float new_factor = (event->xy[0] - pbd->area->v1->vec.x) / ((float)pbd->area->winx);
-    poselib_blend_set_factor(pbd, new_factor);
-  }
+
+  /* The pose will toggle between flipped and normal. This means the pose
+   * backup has to change, as it only contains the bones for one side. */
+  BKE_pose_backup_restore(pbd->pose_backup);
+  BKE_pose_backup_free(pbd->pose_backup);
+
+  pbd->is_flipped = new_flipped;
+  pbd->needs_redraw = true;
+
+  poselib_backup_posecopy(pbd);
 }
 
 /* Return operator return value. */
@@ -209,8 +212,11 @@ static int poselib_blend_handle_event(bContext *UNUSED(C), wmOperator *op, const
 {
   PoseBlendData *pbd = op->customdata;
 
+  ED_slider_modal(pbd->slider, event);
+  const float factor = ED_slider_factor_get(pbd->slider);
+  poselib_blend_set_factor(pbd, factor);
+
   if (event->type == MOUSEMOVE) {
-    poselib_slide_mouse_update_blendfactor(pbd, event);
     return OPERATOR_RUNNING_MODAL;
   }
 
@@ -220,6 +226,9 @@ static int poselib_blend_handle_event(bContext *UNUSED(C), wmOperator *op, const
     pbd->state = POSE_BLEND_CONFIRM;
     return OPERATOR_RUNNING_MODAL;
   }
+
+  /* Ctrl manages the 'flipped' state. */
+  poselib_set_flipped(pbd, event->modifier & KM_CTRL);
 
   /* only accept 'press' event, and ignore 'release', so that we don't get double actions */
   if (ELEM(event->val, KM_PRESS, KM_NOTHING) == 0) {
@@ -248,23 +257,9 @@ static int poselib_blend_handle_event(bContext *UNUSED(C), wmOperator *op, const
       pbd->state = pbd->state == POSE_BLEND_BLENDING ? POSE_BLEND_ORIGINAL : POSE_BLEND_BLENDING;
       pbd->needs_redraw = true;
       break;
-
-      /* TODO(Sybren): use better UI for slider. */
   }
 
   return OPERATOR_RUNNING_MODAL;
-}
-
-static void poselib_blend_cursor_update(bContext *C, wmOperator *op)
-{
-  PoseBlendData *pbd = op->customdata;
-
-  /* Ensure cursor-grab (continuous grabbing) is enabled when using release-confirm. */
-  if (pbd->release_confirm_info.use_release_confirm &&
-      !pbd->release_confirm_info.cursor_wrap_enabled) {
-    WM_cursor_grab_enable(CTX_wm_window(C), WM_CURSOR_WRAP_XY, true, NULL);
-    pbd->release_confirm_info.cursor_wrap_enabled = true;
-  }
 }
 
 /* ---------------------------- */
@@ -285,16 +280,15 @@ static void poselib_tempload_exit(PoseBlendData *pbd)
 static bAction *poselib_blend_init_get_action(bContext *C, wmOperator *op)
 {
   bool asset_handle_valid;
-  const AssetLibraryReference *asset_library_ref = CTX_wm_asset_library_ref(C);
   const AssetHandle asset_handle = CTX_wm_asset_handle(C, &asset_handle_valid);
   /* Poll callback should check. */
-  BLI_assert((asset_library_ref != NULL) && asset_handle_valid);
+  BLI_assert(asset_handle_valid);
 
   PoseBlendData *pbd = op->customdata;
 
   pbd->temp_id_consumer = ED_asset_temp_id_consumer_create(&asset_handle);
   return (bAction *)ED_asset_temp_id_consumer_ensure_local_id(
-      pbd->temp_id_consumer, C, asset_library_ref, ID_AC, CTX_data_main(C), op->reports);
+      pbd->temp_id_consumer, ID_AC, CTX_data_main(C), op->reports);
 }
 
 static bAction *flip_pose(bContext *C, Object *ob, bAction *action)
@@ -329,18 +323,19 @@ static bool poselib_blend_init_data(bContext *C, wmOperator *op, const wmEvent *
   PoseBlendData *pbd;
   op->customdata = pbd = MEM_callocN(sizeof(PoseBlendData), "PoseLib Preview Data");
 
-  bAction *action = poselib_blend_init_get_action(C, op);
-  if (action == NULL) {
+  pbd->act = poselib_blend_init_get_action(C, op);
+  if (pbd->act == NULL) {
     return false;
   }
 
-  /* Maybe flip the Action. */
-  const bool apply_flipped = RNA_boolean_get(op->ptr, "flipped");
-  if (apply_flipped) {
-    action = flip_pose(C, ob, action);
-    pbd->free_action = true;
+  pbd->is_flipped = RNA_boolean_get(op->ptr, "flipped");
+  pbd->blend_factor = RNA_float_get(op->ptr, "blend_factor");
+
+  /* Only construct the flipped pose if there is a chance it's actually needed. */
+  const bool is_interactive = (event != NULL);
+  if (is_interactive || pbd->is_flipped) {
+    pbd->act_flipped = flip_pose(C, ob, pbd->act);
   }
-  pbd->act = action;
 
   /* Get the basic data. */
   pbd->ob = ob;
@@ -351,21 +346,31 @@ static bool poselib_blend_init_data(bContext *C, wmOperator *op, const wmEvent *
 
   pbd->state = POSE_BLEND_INIT;
   pbd->needs_redraw = true;
-  pbd->blend_factor = RNA_float_get(op->ptr, "blend_factor");
+
   /* Just to avoid a clang-analyzer warning (false positive), it's set properly below. */
   pbd->release_confirm_info.use_release_confirm = false;
 
   /* Release confirm data. Only available if there's an event to work with. */
-  if (event != NULL) {
+  if (is_interactive) {
     PropertyRNA *release_confirm_prop = RNA_struct_find_property(op->ptr, "release_confirm");
-    pbd->release_confirm_info.use_release_confirm = (release_confirm_prop != NULL) &&
-                                                    RNA_property_boolean_get(op->ptr,
-                                                                             release_confirm_prop);
+    if (release_confirm_prop && RNA_property_is_set(op->ptr, release_confirm_prop)) {
+      pbd->release_confirm_info.use_release_confirm = RNA_property_boolean_get(
+          op->ptr, release_confirm_prop);
+    }
+    else {
+      pbd->release_confirm_info.use_release_confirm = event->val != KM_RELEASE;
+    }
+
+    pbd->slider = ED_slider_create(C);
+    ED_slider_init(pbd->slider, event);
+    ED_slider_factor_set(pbd->slider, pbd->blend_factor);
+    ED_slider_allow_overshoot_set(pbd->slider, true);
+    ED_slider_allow_increments_set(pbd->slider, false);
+    ED_slider_is_bidirectional_set(pbd->slider, true);
   }
 
   if (pbd->release_confirm_info.use_release_confirm) {
-    BLI_assert(event != NULL);
-    copy_v2_v2_int(pbd->release_confirm_info.drag_start_xy, event->xy);
+    BLI_assert(is_interactive);
     pbd->release_confirm_info.init_event_type = WM_userdef_event_type_from_keymap_type(
         event->type);
   }
@@ -389,6 +394,10 @@ static void poselib_blend_cleanup(bContext *C, wmOperator *op)
   ED_area_status_text(pbd->area, NULL);
   ED_workspace_status_text(C, NULL);
 
+  if (pbd->slider) {
+    ED_slider_destroy(C, pbd->slider);
+  }
+
   /* This signals the depsgraph to unlock and reevaluate the pose on the next evaluation. */
   bPose *pose = pbd->ob->pose;
   pose->flag |= POSE_DO_UNLOCK;
@@ -400,6 +409,7 @@ static void poselib_blend_cleanup(bContext *C, wmOperator *op)
 
       /* Ensure the redo panel has the actually-used value, instead of the initial value. */
       RNA_float_set(op->ptr, "blend_factor", pbd->blend_factor);
+      RNA_boolean_set(op->ptr, "flipped", pbd->is_flipped);
       break;
     }
 
@@ -411,13 +421,8 @@ static void poselib_blend_cleanup(bContext *C, wmOperator *op)
       BKE_report(op->reports, RPT_ERROR, "Internal pose library error, canceling operator");
       ATTR_FALLTHROUGH;
     case POSE_BLEND_CANCEL:
-      ED_pose_backup_restore(pbd->pose_backup);
+      BKE_pose_backup_restore(pbd->pose_backup);
       break;
-  }
-
-  if (pbd->release_confirm_info.cursor_wrap_enabled) {
-    WM_cursor_grab_disable(win, pbd->release_confirm_info.drag_start_xy);
-    pbd->release_confirm_info.cursor_wrap_enabled = false;
   }
 
   DEG_id_tag_update(&pbd->ob->id, ID_RECALC_GEOMETRY);
@@ -433,18 +438,13 @@ static void poselib_blend_free(wmOperator *op)
     return;
   }
 
-  if (pbd->free_action) {
-    /* Run before #poselib_tempload_exit to avoid any problems from indirectly
-     * referenced ID pointers. */
-    BKE_id_free(NULL, pbd->act);
+  if (pbd->act_flipped) {
+    BKE_id_free(NULL, pbd->act_flipped);
   }
   poselib_tempload_exit(pbd);
 
-  /* Must have been dealt with before! */
-  BLI_assert(pbd->release_confirm_info.cursor_wrap_enabled == false);
-
   /* Free temp data for operator */
-  ED_pose_backup_free(pbd->pose_backup);
+  BKE_pose_backup_free(pbd->pose_backup);
   pbd->pose_backup = NULL;
 
   MEM_SAFE_FREE(op->customdata);
@@ -457,6 +457,9 @@ static int poselib_blend_exit(bContext *C, wmOperator *op)
 
   poselib_blend_cleanup(C, op);
   poselib_blend_free(op);
+
+  wmWindow *win = CTX_wm_window(C);
+  WM_cursor_modal_restore(win);
 
   if (exit_state == POSE_BLEND_CANCEL) {
     return OPERATOR_CANCELLED;
@@ -477,14 +480,32 @@ static int poselib_blend_modal(bContext *C, wmOperator *op, const wmEvent *event
 {
   const int operator_result = poselib_blend_handle_event(C, op, event);
 
-  poselib_blend_cursor_update(C, op);
-
   const PoseBlendData *pbd = op->customdata;
   if (ELEM(pbd->state, POSE_BLEND_CONFIRM, POSE_BLEND_CANCEL)) {
     return poselib_blend_exit(C, op);
   }
 
   if (pbd->needs_redraw) {
+    char status_string[UI_MAX_DRAW_STR];
+    char slider_string[UI_MAX_DRAW_STR];
+    char tab_string[50];
+
+    ED_slider_status_string_get(pbd->slider, slider_string, sizeof(slider_string));
+
+    if (pbd->state == POSE_BLEND_BLENDING) {
+      strcpy(tab_string, TIP_("[Tab] - Show original pose"));
+    }
+    else {
+      strcpy(tab_string, TIP_("[Tab] - Show blended pose"));
+    }
+
+    BLI_snprintf(status_string,
+                 sizeof(status_string),
+                 "%s | %s | [Ctrl] - Flip Pose",
+                 tab_string,
+                 slider_string);
+    ED_workspace_status_text(C, status_string);
+
     poselib_blend_apply(C, op);
   }
 
@@ -498,6 +519,9 @@ static int poselib_blend_invoke(bContext *C, wmOperator *op, const wmEvent *even
     poselib_blend_free(op);
     return OPERATOR_CANCELLED;
   }
+
+  wmWindow *win = CTX_wm_window(C);
+  WM_cursor_modal_set(win, WM_CURSOR_EW_SCROLL);
 
   /* Do initial apply to have something to look at. */
   poselib_blend_apply(C, op);
@@ -525,11 +549,9 @@ static bool poselib_asset_in_context(bContext *C)
 {
   bool asset_handle_valid;
   /* Check whether the context provides the asset data needed to add a pose. */
-  const AssetLibraryReference *asset_library_ref = CTX_wm_asset_library_ref(C);
-  AssetHandle asset_handle = CTX_wm_asset_handle(C, &asset_handle_valid);
+  const AssetHandle asset_handle = CTX_wm_asset_handle(C, &asset_handle_valid);
 
-  return (asset_library_ref != NULL) && asset_handle_valid &&
-         (ED_asset_handle_get_id_type(&asset_handle) == ID_AC);
+  return asset_handle_valid && (ED_asset_handle_get_id_type(&asset_handle) == ID_AC);
 }
 
 /* Poll callback for operators that require existing PoseLib data (with poses) to work. */
@@ -546,6 +568,8 @@ static bool poselib_blend_poll(bContext *C)
 
 void POSELIB_OT_apply_pose_asset(wmOperatorType *ot)
 {
+  PropertyRNA *prop;
+
   /* Identifiers: */
   ot->name = "Apply Pose Asset";
   ot->idname = "POSELIB_OT_apply_pose_asset";
@@ -562,17 +586,19 @@ void POSELIB_OT_apply_pose_asset(wmOperatorType *ot)
   RNA_def_float_factor(ot->srna,
                        "blend_factor",
                        1.0f,
-                       0.0f,
-                       1.0f,
+                       -FLT_MAX,
+                       FLT_MAX,
                        "Blend Factor",
-                       "Amount that the pose is applied on top of the existing poses",
-                       0.0f,
+                       "Amount that the pose is applied on top of the existing poses. A negative "
+                       "value will subtract the pose instead of adding it",
+                       -1.0f,
                        1.0f);
-  RNA_def_boolean(ot->srna,
-                  "flipped",
-                  false,
-                  "Apply Flipped",
-                  "When enabled, applies the pose flipped over the X-axis");
+  prop = RNA_def_boolean(ot->srna,
+                         "flipped",
+                         false,
+                         "Apply Flipped",
+                         "When enabled, applies the pose flipped over the X-axis");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 void POSELIB_OT_blend_pose_asset(wmOperatorType *ot)
@@ -592,28 +618,31 @@ void POSELIB_OT_blend_pose_asset(wmOperatorType *ot)
   ot->poll = poselib_blend_poll;
 
   /* Flags: */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING | OPTYPE_GRAB_CURSOR_X;
 
   /* Properties: */
   prop = RNA_def_float_factor(ot->srna,
                               "blend_factor",
                               0.0f,
-                              0.0f,
-                              1.0f,
+                              -FLT_MAX,
+                              FLT_MAX,
                               "Blend Factor",
-                              "Amount that the pose is applied on top of the existing poses",
-                              0.0f,
+                              "Amount that the pose is applied on top of the existing poses. A "
+                              "negative value will subtract the pose instead of adding it",
+                              -1.0f,
                               1.0f);
   /* Blending should always start at 0%, and not at whatever percentage was last used. This RNA
    * property just exists for symmetry with the Apply operator (and thus simplicity of the rest of
    * the code, which can assume this property exists). */
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
-  RNA_def_boolean(ot->srna,
-                  "flipped",
-                  false,
-                  "Apply Flipped",
-                  "When enabled, applies the pose flipped over the X-axis");
+  prop = RNA_def_boolean(ot->srna,
+                         "flipped",
+                         false,
+                         "Apply Flipped",
+                         "When enabled, applies the pose flipped over the X-axis");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
   prop = RNA_def_boolean(ot->srna,
                          "release_confirm",
                          false,

@@ -34,6 +34,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph_query.h"
 
@@ -53,9 +54,7 @@ static void initData(ModifierData *md)
   MEMCPY_STRUCT_AFTER(mcmd, DNA_struct_default_get(MeshCacheModifierData), modifier);
 }
 
-static bool dependsOnTime(struct Scene *UNUSED(scene),
-                          ModifierData *md,
-                          const int UNUSED(dag_eval_mode))
+static bool dependsOnTime(struct Scene *UNUSED(scene), ModifierData *md)
 {
   MeshCacheModifierData *mcmd = (MeshCacheModifierData *)md;
   return (mcmd->play_mode == MOD_MESHCACHE_PLAY_CFEA);
@@ -76,17 +75,17 @@ static void meshcache_do(MeshCacheModifierData *mcmd,
                          Object *ob,
                          Mesh *mesh,
                          float (*vertexCos_Real)[3],
-                         int numVerts)
+                         int verts_num)
 {
   const bool use_factor = mcmd->factor < 1.0f;
   int influence_group_index;
-  MDeformVert *dvert;
+  const MDeformVert *dvert;
   MOD_get_vgroup(ob, mesh, mcmd->defgrp_name, &dvert, &influence_group_index);
 
   float(*vertexCos_Store)[3] = (use_factor || influence_group_index != -1 ||
                                 (mcmd->deform_mode == MOD_MESHCACHE_DEFORM_INTEGRATE)) ?
                                    MEM_malloc_arrayN(
-                                       numVerts, sizeof(*vertexCos_Store), __func__) :
+                                       verts_num, sizeof(*vertexCos_Store), __func__) :
                                    NULL;
   float(*vertexCos)[3] = vertexCos_Store ? vertexCos_Store : vertexCos_Real;
 
@@ -150,11 +149,11 @@ static void meshcache_do(MeshCacheModifierData *mcmd,
   switch (mcmd->type) {
     case MOD_MESHCACHE_TYPE_MDD:
       ok = MOD_meshcache_read_mdd_times(
-          filepath, vertexCos, numVerts, mcmd->interp, time, fps, mcmd->time_mode, &err_str);
+          filepath, vertexCos, verts_num, mcmd->interp, time, fps, mcmd->time_mode, &err_str);
       break;
     case MOD_MESHCACHE_TYPE_PC2:
       ok = MOD_meshcache_read_pc2_times(
-          filepath, vertexCos, numVerts, mcmd->interp, time, fps, mcmd->time_mode, &err_str);
+          filepath, vertexCos, verts_num, mcmd->interp, time, fps, mcmd->time_mode, &err_str);
       break;
     default:
       ok = false;
@@ -170,42 +169,29 @@ static void meshcache_do(MeshCacheModifierData *mcmd,
     if (UNLIKELY(ob->type != OB_MESH)) {
       BKE_modifier_set_error(ob, &mcmd->modifier, "'Integrate' only valid for Mesh objects");
     }
-    else if (UNLIKELY(me->totvert != numVerts)) {
+    else if (UNLIKELY(me->totvert != verts_num)) {
       BKE_modifier_set_error(ob, &mcmd->modifier, "'Integrate' original mesh vertex mismatch");
     }
     else if (UNLIKELY(me->totpoly == 0)) {
       BKE_modifier_set_error(ob, &mcmd->modifier, "'Integrate' requires faces");
     }
     else {
-      /* the moons align! */
-      int i;
-
-      float(*vertexCos_Source)[3] = MEM_malloc_arrayN(
-          numVerts, sizeof(*vertexCos_Source), __func__);
-      float(*vertexCos_New)[3] = MEM_malloc_arrayN(numVerts, sizeof(*vertexCos_New), __func__);
-      MVert *mv = me->mvert;
-
-      for (i = 0; i < numVerts; i++, mv++) {
-        copy_v3_v3(vertexCos_Source[i], mv->co);
-      }
+      float(*vertexCos_New)[3] = MEM_malloc_arrayN(verts_num, sizeof(*vertexCos_New), __func__);
 
       BKE_mesh_calc_relative_deform(
-          me->mpoly,
+          BKE_mesh_polys(me),
           me->totpoly,
-          me->mloop,
+          BKE_mesh_loops(me),
           me->totvert,
-
-          (const float(*)[3])vertexCos_Source, /* From the original Mesh. */
-          (const float(*)[3])vertexCos_Real,   /* the input we've been given (shape keys!) */
-
-          (const float(*)[3])vertexCos, /* The result of this modifier. */
-          vertexCos_New                 /* The result of this function. */
+          BKE_mesh_vert_positions(me),       /* From the original Mesh. */
+          (const float(*)[3])vertexCos_Real, /* the input we've been given (shape keys!) */
+          (const float(*)[3])vertexCos,      /* The result of this modifier. */
+          vertexCos_New                      /* The result of this function. */
       );
 
       /* write the corrected locations back into the result */
-      memcpy(vertexCos, vertexCos_New, sizeof(*vertexCos) * numVerts);
+      memcpy(vertexCos, vertexCos_New, sizeof(*vertexCos) * verts_num);
 
-      MEM_freeN(vertexCos_Source);
       MEM_freeN(vertexCos_New);
     }
   }
@@ -243,7 +229,7 @@ static void meshcache_do(MeshCacheModifierData *mcmd,
 
     if (use_matrix) {
       int i;
-      for (i = 0; i < numVerts; i++) {
+      for (i = 0; i < verts_num; i++) {
         mul_m3_v3(mat, vertexCos[i]);
       }
     }
@@ -258,8 +244,8 @@ static void meshcache_do(MeshCacheModifierData *mcmd,
         const float global_offset = (mcmd->flag & MOD_MESHCACHE_INVERT_VERTEX_GROUP) ?
                                         mcmd->factor :
                                         0.0f;
-        if (mesh->dvert != NULL) {
-          for (int i = 0; i < numVerts; i++) {
+        if (BKE_mesh_deform_verts(mesh) != NULL) {
+          for (int i = 0; i < verts_num; i++) {
             /* For each vertex, compute its blending factor between the mesh cache (for `fac = 0`)
              * and the former position of the vertex (for `fac = 1`). */
             const MDeformVert *currentIndexDVert = dvert + i;
@@ -274,10 +260,10 @@ static void meshcache_do(MeshCacheModifierData *mcmd,
       }
       else if (use_factor) {
         /* Influence_group_index is -1. */
-        interp_vn_vn(*vertexCos_Real, *vertexCos_Store, mcmd->factor, numVerts * 3);
+        interp_vn_vn(*vertexCos_Real, *vertexCos_Store, mcmd->factor, verts_num * 3);
       }
       else {
-        memcpy(vertexCos_Real, vertexCos_Store, sizeof(*vertexCos_Store) * numVerts);
+        memcpy(vertexCos_Real, vertexCos_Store, sizeof(*vertexCos_Store) * verts_num);
       }
     }
 
@@ -289,7 +275,7 @@ static void deformVerts(ModifierData *md,
                         const ModifierEvalContext *ctx,
                         Mesh *mesh,
                         float (*vertexCos)[3],
-                        int numVerts)
+                        int verts_num)
 {
   MeshCacheModifierData *mcmd = (MeshCacheModifierData *)md;
   Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
@@ -298,9 +284,9 @@ static void deformVerts(ModifierData *md,
 
   if (ctx->object->type == OB_MESH && mcmd->defgrp_name[0] != '\0') {
     /* `mesh_src` is only needed for vertex groups. */
-    mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, mesh, NULL, numVerts, false, false);
+    mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, mesh, NULL, verts_num, false);
   }
-  meshcache_do(mcmd, scene, ctx->object, mesh_src, vertexCos, numVerts);
+  meshcache_do(mcmd, scene, ctx->object, mesh_src, vertexCos, verts_num);
 
   if (!ELEM(mesh_src, NULL, mesh)) {
     BKE_id_free(NULL, mesh_src);
@@ -312,7 +298,7 @@ static void deformVertsEM(ModifierData *md,
                           struct BMEditMesh *editData,
                           Mesh *mesh,
                           float (*vertexCos)[3],
-                          int numVerts)
+                          int verts_num)
 {
   MeshCacheModifierData *mcmd = (MeshCacheModifierData *)md;
   Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
@@ -321,13 +307,13 @@ static void deformVertsEM(ModifierData *md,
 
   if (ctx->object->type == OB_MESH && mcmd->defgrp_name[0] != '\0') {
     /* `mesh_src` is only needed for vertex groups. */
-    mesh_src = MOD_deform_mesh_eval_get(ctx->object, editData, mesh, NULL, numVerts, false, false);
+    mesh_src = MOD_deform_mesh_eval_get(ctx->object, editData, mesh, NULL, verts_num, false);
   }
   if (mesh_src != NULL) {
     BKE_mesh_wrapper_ensure_mdata(mesh_src);
   }
 
-  meshcache_do(mcmd, scene, ctx->object, mesh_src, vertexCos, numVerts);
+  meshcache_do(mcmd, scene, ctx->object, mesh_src, vertexCos, verts_num);
 
   if (!ELEM(mesh_src, NULL, mesh)) {
     BKE_id_free(NULL, mesh_src);
@@ -416,35 +402,35 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_MeshCache = {
-    /* name */ "MeshCache",
-    /* structName */ "MeshCacheModifierData",
-    /* structSize */ sizeof(MeshCacheModifierData),
-    /* srna */ &RNA_MeshCacheModifier,
-    /* type */ eModifierTypeType_OnlyDeform,
-    /* flags */ eModifierTypeFlag_AcceptsCVs | eModifierTypeFlag_AcceptsVertexCosOnly |
+    /*name*/ N_("MeshCache"),
+    /*structName*/ "MeshCacheModifierData",
+    /*structSize*/ sizeof(MeshCacheModifierData),
+    /*srna*/ &RNA_MeshCacheModifier,
+    /*type*/ eModifierTypeType_OnlyDeform,
+    /*flags*/ eModifierTypeFlag_AcceptsCVs | eModifierTypeFlag_AcceptsVertexCosOnly |
         eModifierTypeFlag_SupportsEditmode,
-    /* icon */ ICON_MOD_MESHDEFORM, /* TODO: Use correct icon. */
+    /*icon*/ ICON_MOD_MESHDEFORM, /* TODO: Use correct icon. */
 
-    /* copyData */ BKE_modifier_copydata_generic,
+    /*copyData*/ BKE_modifier_copydata_generic,
 
-    /* deformVerts */ deformVerts,
-    /* deformMatrices */ NULL,
-    /* deformVertsEM */ deformVertsEM,
-    /* deformMatricesEM */ NULL,
-    /* modifyMesh */ NULL,
-    /* modifyGeometrySet */ NULL,
+    /*deformVerts*/ deformVerts,
+    /*deformMatrices*/ NULL,
+    /*deformVertsEM*/ deformVertsEM,
+    /*deformMatricesEM*/ NULL,
+    /*modifyMesh*/ NULL,
+    /*modifyGeometrySet*/ NULL,
 
-    /* initData */ initData,
-    /* requiredDataMask */ NULL,
-    /* freeData */ NULL,
-    /* isDisabled */ isDisabled,
-    /* updateDepsgraph */ NULL,
-    /* dependsOnTime */ dependsOnTime,
-    /* dependsOnNormals */ NULL,
-    /* foreachIDLink */ NULL,
-    /* foreachTexLink */ NULL,
-    /* freeRuntimeData */ NULL,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ NULL,
-    /* blendRead */ NULL,
+    /*initData*/ initData,
+    /*requiredDataMask*/ NULL,
+    /*freeData*/ NULL,
+    /*isDisabled*/ isDisabled,
+    /*updateDepsgraph*/ NULL,
+    /*dependsOnTime*/ dependsOnTime,
+    /*dependsOnNormals*/ NULL,
+    /*foreachIDLink*/ NULL,
+    /*foreachTexLink*/ NULL,
+    /*freeRuntimeData*/ NULL,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ NULL,
+    /*blendRead*/ NULL,
 };

@@ -16,7 +16,6 @@ struct Brush;
 struct CurveMapping;
 struct Depsgraph;
 struct GHash;
-struct GPencilUpdateCache;
 struct ListBase;
 struct MDeformVert;
 struct Main;
@@ -34,7 +33,8 @@ struct bGPDlayer_Mask;
 struct bGPDstroke;
 struct bGPdata;
 
-#define GPENCIL_SIMPLIFY(scene) (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_ENABLE)
+#define GPENCIL_SIMPLIFY(scene) \
+  ((scene->r.mode & R_SIMPLIFY) && (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_ENABLE))
 #define GPENCIL_SIMPLIFY_ONPLAY(playing) \
   (((playing == true) && (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_ON_PLAY)) || \
    ((scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_ON_PLAY) == 0))
@@ -75,13 +75,13 @@ struct bGPdata;
 void BKE_gpencil_free_point_weights(struct MDeformVert *dvert);
 void BKE_gpencil_free_stroke_weights(struct bGPDstroke *gps);
 void BKE_gpencil_free_stroke_editcurve(struct bGPDstroke *gps);
-/* free stroke, doesn't unlink from any listbase */
+/** Free stroke, doesn't unlink from any #ListBase. */
 void BKE_gpencil_free_stroke(struct bGPDstroke *gps);
-/* Free strokes belonging to a gp-frame */
+/** Free strokes belonging to a gp-frame. */
 bool BKE_gpencil_free_strokes(struct bGPDframe *gpf);
-/* Free all of a gp-layer's frames */
+/** Free all of a gp-layer's frames. */
 void BKE_gpencil_free_frames(struct bGPDlayer *gpl);
-/* Free all of the gp-layers for a viewport (list should be &gpd->layers or so) */
+/** Free all of the gp-layers for a viewport (list should be `&gpd->layers` or so). */
 void BKE_gpencil_free_layers(struct ListBase *list);
 /** Free (or release) any data used by this grease pencil (does not free the gpencil itself). */
 void BKE_gpencil_free_data(struct bGPdata *gpd, bool free_all);
@@ -107,9 +107,9 @@ void BKE_gpencil_batch_cache_free(struct bGPdata *gpd);
  */
 void BKE_gpencil_stroke_sync_selection(struct bGPdata *gpd, struct bGPDstroke *gps);
 void BKE_gpencil_curve_sync_selection(struct bGPdata *gpd, struct bGPDstroke *gps);
-/* Assign unique stroke ID for selection. */
+/** Assign unique stroke ID for selection. */
 void BKE_gpencil_stroke_select_index_set(struct bGPdata *gpd, struct bGPDstroke *gps);
-/* Reset unique stroke ID for selection. */
+/** Reset unique stroke ID for selection. */
 void BKE_gpencil_stroke_select_index_reset(struct bGPDstroke *gps);
 
 /**

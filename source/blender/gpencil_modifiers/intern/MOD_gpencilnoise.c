@@ -7,11 +7,10 @@
 
 #include <stdio.h>
 
-#include "BLI_listbase.h"
-#include "BLI_utildefines.h"
-
 #include "BLI_hash.h"
+#include "BLI_listbase.h"
 #include "BLI_math_vector.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
@@ -122,6 +121,8 @@ static void deformStroke(GpencilModifierData *md,
   const int def_nr = BKE_object_defgroup_name_index(ob, mmd->vgname);
   const bool invert_group = (mmd->flag & GP_NOISE_INVERT_VGROUP) != 0;
   const bool use_curve = (mmd->flag & GP_NOISE_CUSTOM_CURVE) != 0 && mmd->curve_intensity;
+  const int cfra = (int)DEG_get_ctime(depsgraph);
+  const bool is_keyframe = (mmd->noise_mode == GP_NOISE_RANDOM_KEYFRAME);
 
   if (!is_stroke_affected_by_modifier(ob,
                                       mmd->layername,
@@ -148,7 +149,13 @@ static void deformStroke(GpencilModifierData *md,
   seed += BLI_hash_string(md->name);
 
   if (mmd->flag & GP_NOISE_USE_RANDOM) {
-    seed += ((int)DEG_get_ctime(depsgraph)) / mmd->step;
+    if (!is_keyframe) {
+      seed += cfra / mmd->step;
+    }
+    else {
+      /* If change every keyframe, use the last keyframe. */
+      seed += gpf->framenum;
+    }
   }
 
   /* Sanitize as it can create out of bound reads. */
@@ -252,15 +259,7 @@ static void bakeModifier(struct Main *UNUSED(bmain),
                          GpencilModifierData *md,
                          Object *ob)
 {
-  bGPdata *gpd = ob->data;
-
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
-      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        deformStroke(md, depsgraph, ob, gpl, gpf, gps);
-      }
-    }
-  }
+  generic_bake_deform_stroke(depsgraph, md, ob, false, deformStroke);
 }
 
 static void foreachIDLink(GpencilModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
@@ -310,7 +309,12 @@ static void random_panel_draw(const bContext *UNUSED(C), Panel *panel)
 
   uiLayoutSetActive(layout, RNA_boolean_get(ptr, "use_random"));
 
-  uiItemR(layout, ptr, "step", 0, NULL, ICON_NONE);
+  uiItemR(layout, ptr, "random_mode", 0, NULL, ICON_NONE);
+
+  const int mode = RNA_enum_get(ptr, "random_mode");
+  if (mode != GP_NOISE_RANDOM_KEYFRAME) {
+    uiItemR(layout, ptr, "step", 0, NULL, ICON_NONE);
+  }
 }
 
 static void mask_panel_draw(const bContext *UNUSED(C), Panel *panel)
@@ -335,25 +339,25 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Noise = {
-    /* name */ "Noise",
-    /* structName */ "NoiseGpencilModifierData",
-    /* structSize */ sizeof(NoiseGpencilModifierData),
-    /* type */ eGpencilModifierTypeType_Gpencil,
-    /* flags */ eGpencilModifierTypeFlag_SupportsEditmode,
+    /*name*/ N_("Noise"),
+    /*structName*/ "NoiseGpencilModifierData",
+    /*structSize*/ sizeof(NoiseGpencilModifierData),
+    /*type*/ eGpencilModifierTypeType_Gpencil,
+    /*flags*/ eGpencilModifierTypeFlag_SupportsEditmode,
 
-    /* copyData */ copyData,
+    /*copyData*/ copyData,
 
-    /* deformStroke */ deformStroke,
-    /* generateStrokes */ NULL,
-    /* bakeModifier */ bakeModifier,
-    /* remapTime */ NULL,
+    /*deformStroke*/ deformStroke,
+    /*generateStrokes*/ NULL,
+    /*bakeModifier*/ bakeModifier,
+    /*remapTime*/ NULL,
 
-    /* initData */ initData,
-    /* freeData */ freeData,
-    /* isDisabled */ NULL,
-    /* updateDepsgraph */ NULL,
-    /* dependsOnTime */ dependsOnTime,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ NULL,
-    /* panelRegister */ panelRegister,
+    /*initData*/ initData,
+    /*freeData*/ freeData,
+    /*isDisabled*/ NULL,
+    /*updateDepsgraph*/ NULL,
+    /*dependsOnTime*/ dependsOnTime,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ NULL,
+    /*panelRegister*/ panelRegister,
 };

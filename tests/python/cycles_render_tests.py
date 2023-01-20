@@ -32,6 +32,11 @@ BLACKLIST_OPTIX = [
     'T43865.blend',
 ]
 
+BLACKLIST_METAL = [
+    # MNEE only works on Metal with macOS >= 13
+    "underwater_caustics.blend",
+]
+
 BLACKLIST_GPU = [
     # Uninvestigated differences with GPU.
     'image_log.blend',
@@ -51,6 +56,8 @@ BLACKLIST_GPU = [
     # Inconsistent handling of overlapping objects.
     "T41143.blend",
     "visibility_particles.blend",
+    # No path guiding on GPU.
+    "guiding*.blend",
 ]
 
 
@@ -116,6 +123,8 @@ def main():
         blacklist += BLACKLIST_OSL
     if device == 'OPTIX':
         blacklist += BLACKLIST_OPTIX
+    if device == 'METAL':
+        blacklist += BLACKLIST_METAL
 
     from modules import render_report
     report = render_report.Report('Cycles', output_dir, idiff, device, blacklist)

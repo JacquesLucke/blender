@@ -29,6 +29,7 @@
  * because 'near' is disabled through BLI_windstuff. */
 #  include "BLI_winstuff.h"
 #  include <shlobj.h>
+#  include <shlwapi.h>
 #endif
 
 #include "UI_interface_icons.h"
@@ -112,10 +113,10 @@ static GHash *fsmenu_xdg_user_dirs_parse(const char *home)
     char filepath[FILE_MAX];
     const char *xdg_config_home = getenv("XDG_CONFIG_HOME");
     if (xdg_config_home != NULL) {
-      BLI_path_join(filepath, sizeof(filepath), xdg_config_home, "user-dirs.dirs", NULL);
+      BLI_path_join(filepath, sizeof(filepath), xdg_config_home, "user-dirs.dirs");
     }
     else {
-      BLI_path_join(filepath, sizeof(filepath), home, ".config", "user-dirs.dirs", NULL);
+      BLI_path_join(filepath, sizeof(filepath), home, ".config", "user-dirs.dirs");
     }
     fp = BLI_fopen(filepath, "r");
     if (!fp) {
@@ -146,7 +147,7 @@ static GHash *fsmenu_xdg_user_dirs_parse(const char *home)
            * Based on the 'user-dirs.dirs' man page,
            * there is no need to resolve arbitrary environment variables. */
           if (STRPREFIX(l_value, "$HOME" SEP_STR)) {
-            BLI_path_join(l_value_expanded, sizeof(l_value_expanded), home, l_value + 6, NULL);
+            BLI_path_join(l_value_expanded, sizeof(l_value_expanded), home, l_value + 6);
             l_value_final = l_value_expanded;
           }
 
@@ -185,7 +186,7 @@ static void fsmenu_xdg_insert_entry(GHash *xdg_map,
   char xdg_path_buf[FILE_MAXDIR];
   const char *xdg_path = xdg_map ? BLI_ghash_lookup(xdg_map, key) : NULL;
   if (xdg_path == NULL) {
-    BLI_path_join(xdg_path_buf, sizeof(xdg_path_buf), home, default_path, NULL);
+    BLI_path_join(xdg_path_buf, sizeof(xdg_path_buf), home, default_path);
     xdg_path = xdg_path_buf;
   }
   fsmenu_insert_entry(
@@ -253,10 +254,10 @@ void ED_fsmenu_entry_set_path(struct FSMenuEntry *fsentry, const char *path)
 
     fsentry->path = (path && path[0]) ? BLI_strdup(path) : NULL;
 
-    BLI_join_dirfile(tmp_name,
-                     sizeof(tmp_name),
-                     BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, NULL),
-                     BLENDER_BOOKMARK_FILE);
+    BLI_path_join(tmp_name,
+                  sizeof(tmp_name),
+                  BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, NULL),
+                  BLENDER_BOOKMARK_FILE);
     fsmenu_write_file(ED_fsmenu_get(), tmp_name);
   }
 }
@@ -317,10 +318,10 @@ void ED_fsmenu_entry_set_name(struct FSMenuEntry *fsentry, const char *name)
       BLI_strncpy(fsentry->name, name, sizeof(fsentry->name));
     }
 
-    BLI_join_dirfile(tmp_name,
-                     sizeof(tmp_name),
-                     BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, NULL),
-                     BLENDER_BOOKMARK_FILE);
+    BLI_path_join(tmp_name,
+                  sizeof(tmp_name),
+                  BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, NULL),
+                  BLENDER_BOOKMARK_FILE);
     fsmenu_write_file(ED_fsmenu_get(), tmp_name);
   }
 }
@@ -442,7 +443,7 @@ void fsmenu_insert_entry(struct FSMenu *fsmenu,
         if (STREQ(tfsm->path, fsm_iter->path)) {
           icon = tfsm->icon;
           if (tfsm->name[0] && (!name || !name[0])) {
-            name = tfsm->name;
+            name = DATA_(tfsm->name);
           }
           break;
         }
@@ -462,7 +463,12 @@ void fsmenu_insert_entry(struct FSMenu *fsmenu,
 
   ED_fsmenu_entry_set_icon(fsm_iter, icon);
 
-  fsmenu_entry_refresh_valid(fsm_iter);
+  if (flag & FS_INSERT_NO_VALIDATE) {
+    fsm_iter->valid = true;
+  }
+  else {
+    fsmenu_entry_refresh_valid(fsm_iter);
+  }
 
   if (fsm_prev) {
     if (flag & FS_INSERT_FIRST) {
@@ -513,51 +519,54 @@ void fsmenu_remove_entry(struct FSMenu *fsmenu, FSMenuCategory category, int idx
   }
 }
 
-void fsmenu_write_file(struct FSMenu *fsmenu, const char *filename)
+bool fsmenu_write_file(struct FSMenu *fsmenu, const char *filepath)
 {
   FSMenuEntry *fsm_iter = NULL;
   char fsm_name[FILE_MAX];
   int nwritten = 0;
 
-  FILE *fp = BLI_fopen(filename, "w");
+  FILE *fp = BLI_fopen(filepath, "w");
   if (!fp) {
-    return;
+    return false;
   }
 
-  fprintf(fp, "[Bookmarks]\n");
+  bool has_error = false;
+  has_error |= (fprintf(fp, "[Bookmarks]\n") < 0);
   for (fsm_iter = ED_fsmenu_get_category(fsmenu, FS_CATEGORY_BOOKMARKS); fsm_iter;
        fsm_iter = fsm_iter->next) {
     if (fsm_iter->path && fsm_iter->save) {
       fsmenu_entry_generate_name(fsm_iter, fsm_name, sizeof(fsm_name));
       if (fsm_iter->name[0] && !STREQ(fsm_iter->name, fsm_name)) {
-        fprintf(fp, "!%s\n", fsm_iter->name);
+        has_error |= (fprintf(fp, "!%s\n", fsm_iter->name) < 0);
       }
-      fprintf(fp, "%s\n", fsm_iter->path);
+      has_error |= (fprintf(fp, "%s\n", fsm_iter->path) < 0);
     }
   }
-  fprintf(fp, "[Recent]\n");
+  has_error = (fprintf(fp, "[Recent]\n") < 0);
   for (fsm_iter = ED_fsmenu_get_category(fsmenu, FS_CATEGORY_RECENT);
        fsm_iter && (nwritten < FSMENU_RECENT_MAX);
        fsm_iter = fsm_iter->next, nwritten++) {
     if (fsm_iter->path && fsm_iter->save) {
       fsmenu_entry_generate_name(fsm_iter, fsm_name, sizeof(fsm_name));
       if (fsm_iter->name[0] && !STREQ(fsm_iter->name, fsm_name)) {
-        fprintf(fp, "!%s\n", fsm_iter->name);
+        has_error |= (fprintf(fp, "!%s\n", fsm_iter->name) < 0);
       }
-      fprintf(fp, "%s\n", fsm_iter->path);
+      has_error |= (fprintf(fp, "%s\n", fsm_iter->path) < 0);
     }
   }
   fclose(fp);
+
+  return !has_error;
 }
 
-void fsmenu_read_bookmarks(struct FSMenu *fsmenu, const char *filename)
+void fsmenu_read_bookmarks(struct FSMenu *fsmenu, const char *filepath)
 {
   char line[FILE_MAXDIR];
   char name[FILE_MAXFILE];
   FSMenuCategory category = FS_CATEGORY_BOOKMARKS;
   FILE *fp;
 
-  fp = BLI_fopen(filename, "r");
+  fp = BLI_fopen(filepath, "r");
   if (!fp) {
     return;
   }
@@ -642,14 +651,29 @@ void fsmenu_read_system(struct FSMenu *fsmenu, int read_bookmarks)
         tmps[3] = '\0';
         name = NULL;
 
-        /* Flee from horrible win querying hover floppy drives! */
+        /* Skip over floppy disks A & B. */
         if (i > 1) {
-          /* Try to get a friendly drive description. */
-          SHFILEINFOW shFile = {0};
+          /* Friendly volume descriptions without using SHGetFileInfoW (T85689). */
           BLI_strncpy_wchar_from_utf8(wline, tmps, 4);
-          if (SHGetFileInfoW(wline, 0, &shFile, sizeof(SHFILEINFOW), SHGFI_DISPLAYNAME)) {
-            BLI_strncpy_wchar_as_utf8(line, shFile.szDisplayName, FILE_MAXDIR);
-            name = line;
+          IShellFolder *desktop;
+          if (SHGetDesktopFolder(&desktop) == S_OK) {
+            PIDLIST_RELATIVE volume;
+            if (desktop->lpVtbl->ParseDisplayName(
+                    desktop, NULL, NULL, wline, NULL, &volume, NULL) == S_OK) {
+              STRRET volume_name;
+              volume_name.uType = STRRET_WSTR;
+              if (desktop->lpVtbl->GetDisplayNameOf(
+                      desktop, volume, SHGDN_FORADDRESSBAR, &volume_name) == S_OK) {
+                wchar_t *volume_name_wchar;
+                if (StrRetToStrW(&volume_name, volume, &volume_name_wchar) == S_OK) {
+                  BLI_strncpy_wchar_as_utf8(line, volume_name_wchar, FILE_MAXDIR);
+                  name = line;
+                  CoTaskMemFree(volume_name_wchar);
+                }
+              }
+              CoTaskMemFree(volume);
+            }
+            desktop->lpVtbl->Release(desktop);
           }
         }
         if (name == NULL) {
@@ -673,7 +697,12 @@ void fsmenu_read_system(struct FSMenu *fsmenu, int read_bookmarks)
             break;
         }
 
-        fsmenu_insert_entry(fsmenu, FS_CATEGORY_SYSTEM, tmps, name, icon, FS_INSERT_SORTED);
+        fsmenu_insert_entry(fsmenu,
+                            FS_CATEGORY_SYSTEM,
+                            tmps,
+                            name,
+                            icon,
+                            FS_INSERT_SORTED | FS_INSERT_NO_VALIDATE);
       }
     }
 
@@ -864,7 +893,7 @@ void fsmenu_read_system(struct FSMenu *fsmenu, int read_bookmarks)
           continue;
         }
 
-        /* Exclude "all my files" as it makes no sense in blender fileselector */
+        /* Exclude "all my files" as it makes no sense in blender file-selector. */
         /* Exclude "airdrop" if wlan not active as it would show "" ) */
         if (!strstr(line, "myDocuments.cannedSearch") && (*line != '\0')) {
           fsmenu_insert_entry(
@@ -952,13 +981,13 @@ void fsmenu_read_system(struct FSMenu *fsmenu, int read_bookmarks)
       /* Check gvfs shares. */
       const char *const xdg_runtime_dir = BLI_getenv("XDG_RUNTIME_DIR");
       if (xdg_runtime_dir != NULL) {
-        struct direntry *dir;
+        struct direntry *dirs;
         char name[FILE_MAX];
-        BLI_join_dirfile(name, sizeof(name), xdg_runtime_dir, "gvfs/");
-        const uint dir_len = BLI_filelist_dir_contents(name, &dir);
-        for (uint i = 0; i < dir_len; i++) {
-          if (dir[i].type & S_IFDIR) {
-            const char *dirname = dir[i].relname;
+        BLI_path_join(name, sizeof(name), xdg_runtime_dir, "gvfs/");
+        const uint dirs_num = BLI_filelist_dir_contents(name, &dirs);
+        for (uint i = 0; i < dirs_num; i++) {
+          if (dirs[i].type & S_IFDIR) {
+            const char *dirname = dirs[i].relname;
             if (dirname[0] != '.') {
               /* Dir names contain a lot of unwanted text.
                * Assuming every entry ends with the share name */
@@ -976,7 +1005,7 @@ void fsmenu_read_system(struct FSMenu *fsmenu, int read_bookmarks)
             }
           }
         }
-        BLI_filelist_free(dir, dir_len);
+        BLI_filelist_free(dirs, dirs_num);
       }
 #  endif
 
@@ -1118,8 +1147,8 @@ static void fsmenu_bookmark_validate_job_startjob(
     void *fsmenuv,
     /* Cannot be const, this function implements wm_jobs_start_callback.
      * NOLINTNEXTLINE: readability-non-const-parameter. */
-    short *stop,
-    short *do_update,
+    bool *stop,
+    bool *do_update,
     float *UNUSED(progress))
 {
   FSMenu *fsmenu = fsmenuv;

@@ -14,6 +14,8 @@ struct Main;
 struct Text;
 struct TextLine;
 
+#include "BLI_compiler_attrs.h"
+
 /**
  * \note caller must handle `compiled` member.
  */
@@ -34,28 +36,30 @@ bool BKE_text_reload(struct Text *text);
  * \note text data-blocks have no real user but have 'fake user' enabled by default
  */
 struct Text *BKE_text_load_ex(struct Main *bmain,
-                              const char *file,
-                              const char *relpath,
-                              bool is_internal);
+                              const char *filepath,
+                              const char *relbase,
+                              bool is_internal) ATTR_NONNULL(1, 2, 3);
 /**
  * Load a text file.
  *
  * \note Text data-blocks have no user by default, only the 'real user' flag.
  */
-struct Text *BKE_text_load(struct Main *bmain, const char *file, const char *relpath);
-void BKE_text_clear(struct Text *text);
-void BKE_text_write(struct Text *text, const char *str);
+struct Text *BKE_text_load(struct Main *bmain, const char *filepath, const char *relbase)
+    ATTR_NONNULL(1, 2, 3);
+void BKE_text_clear(struct Text *text) ATTR_NONNULL(1);
+void BKE_text_write(struct Text *text, const char *str, int str_len) ATTR_NONNULL(1, 2);
 /**
  * \return codes:
- * -  0 if file on disk is the same or Text is in memory only.
- * -  1 if file has been modified on disk since last local edit.
- * -  2 if file on disk has been deleted.
+ * -  0 if filepath on disk is the same or Text is in memory only.
+ * -  1 if filepath has been modified on disk since last local edit.
+ * -  2 if filepath on disk has been deleted.
  * - -1 is returned if an error occurs.
  */
 int BKE_text_file_modified_check(struct Text *text);
 void BKE_text_file_modified_ignore(struct Text *text);
 
-char *txt_to_buf(struct Text *text, int *r_buf_strlen);
+char *txt_to_buf(struct Text *text, size_t *r_buf_strlen)
+    ATTR_NONNULL(1, 2) ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL;
 void txt_clean_text(struct Text *text);
 void txt_order_cursors(struct Text *text, bool reverse);
 int txt_find_string(struct Text *text, const char *findstr, int wrap, int match_case);
@@ -89,8 +93,9 @@ void txt_sel_all(struct Text *text);
 void txt_sel_clear(struct Text *text);
 void txt_sel_line(struct Text *text);
 void txt_sel_set(struct Text *text, int startl, int startc, int endl, int endc);
-char *txt_sel_to_buf(struct Text *text, int *r_buf_strlen);
-void txt_insert_buf(struct Text *text, const char *in_buffer);
+char *txt_sel_to_buf(struct Text *text, size_t *r_buf_strlen);
+void txt_insert_buf(struct Text *text, const char *in_buffer, int in_buffer_len)
+    ATTR_NONNULL(1, 2);
 void txt_split_curline(struct Text *text);
 void txt_backspace_char(struct Text *text);
 void txt_backspace_word(struct Text *text);
@@ -135,11 +140,12 @@ enum {
 /**
  * Create a buffer, the only requirement is #txt_from_buf_for_undo can decode it.
  */
-char *txt_to_buf_for_undo(struct Text *text, int *r_buf_len);
+char *txt_to_buf_for_undo(struct Text *text, size_t *r_buf_len)
+    ATTR_NONNULL(1, 2) ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL;
 /**
  * Decode a buffer from #txt_to_buf_for_undo.
  */
-void txt_from_buf_for_undo(struct Text *text, const char *buf, int buf_len);
+void txt_from_buf_for_undo(struct Text *text, const char *buf, size_t buf_len) ATTR_NONNULL(1, 2);
 
 #ifdef __cplusplus
 }

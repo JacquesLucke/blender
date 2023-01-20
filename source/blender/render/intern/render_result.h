@@ -18,10 +18,8 @@ struct ImBuf;
 struct ListBase;
 struct Render;
 struct RenderData;
-struct RenderEngine;
 struct RenderLayer;
 struct RenderResult;
-struct Scene;
 struct rcti;
 
 #ifdef __cplusplus
@@ -44,7 +42,7 @@ struct RenderResult *render_result_new(struct Render *re,
 void render_result_passes_allocated_ensure(struct RenderResult *rr);
 
 /**
- * From imbuf, if a handle was returned and
+ * From `imbuf`, if a handle was returned and
  * it's not a single-layer multi-view we convert this to render result.
  */
 struct RenderResult *render_result_new_from_exr(
@@ -131,15 +129,16 @@ void render_result_views_shallowcopy(struct RenderResult *dst, struct RenderResu
  * Free the views created temporarily.
  */
 void render_result_views_shallowdelete(struct RenderResult *rr);
-bool render_result_has_views(const struct RenderResult *rr);
 
 #define FOREACH_VIEW_LAYER_TO_RENDER_BEGIN(re_, iter_) \
   { \
     int nr_; \
     ViewLayer *iter_; \
-    for (nr_ = 0, iter_ = (re_)->view_layers.first; iter_ != NULL; iter_ = iter_->next, nr_++) { \
+    for (nr_ = 0, iter_ = static_cast<ViewLayer *>((re_)->scene->view_layers.first); \
+         iter_ != NULL; \
+         iter_ = iter_->next, nr_++) { \
       if (!G.background && (re_)->r.scemode & R_SINGLE_LAYER) { \
-        if (nr_ != re->active_view_layer) { \
+        if (!STREQ(iter_->name, re->single_view_layer)) { \
           continue; \
         } \
       } \

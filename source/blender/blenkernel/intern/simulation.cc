@@ -16,7 +16,7 @@
 #include "BLI_compiler_compat.h"
 #include "BLI_listbase.h"
 #include "BLI_math.h"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_rand.h"
 #include "BLI_span.hh"
 #include "BLI_string.h"
@@ -51,8 +51,7 @@ static void simulation_init_data(ID *id)
 
   MEMCPY_STRUCT_AFTER(simulation, DNA_struct_default_get(Simulation), id);
 
-  bNodeTree *ntree = ntreeAddTree(nullptr, "Geometry Nodetree", ntreeType_Geometry->idname);
-  simulation->nodetree = ntree;
+  ntreeAddTreeEmbedded(nullptr, id, "Geometry Nodetree", ntreeType_Geometry->idname);
 }
 
 static void simulation_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int flag)
@@ -68,6 +67,7 @@ static void simulation_copy_data(Main *bmain, ID *id_dst, const ID *id_src, cons
                    (ID *)simulation_src->nodetree,
                    (ID **)&simulation_dst->nodetree,
                    flag_private_id_data);
+    simulation_dst->nodetree->owner_id = &simulation_dst->id;
   }
 }
 
@@ -132,33 +132,33 @@ static void simulation_blend_read_expand(BlendExpander *expander, ID *id)
 }
 
 IDTypeInfo IDType_ID_SIM = {
-    /* id_code */ ID_SIM,
-    /* id_filter */ FILTER_ID_SIM,
-    /* main_listbase_index */ INDEX_ID_SIM,
-    /* struct_size */ sizeof(Simulation),
-    /* name */ "Simulation",
-    /* name_plural */ "simulations",
-    /* translation_context */ BLT_I18NCONTEXT_ID_SIMULATION,
-    /* flags */ IDTYPE_FLAGS_APPEND_IS_REUSABLE,
-    /* asset_type_info */ nullptr,
+    /*id_code*/ ID_SIM,
+    /*id_filter*/ FILTER_ID_SIM,
+    /*main_listbase_index*/ INDEX_ID_SIM,
+    /*struct_size*/ sizeof(Simulation),
+    /*name*/ "Simulation",
+    /*name_plural*/ "simulations",
+    /*translation_context*/ BLT_I18NCONTEXT_ID_SIMULATION,
+    /*flags*/ IDTYPE_FLAGS_APPEND_IS_REUSABLE,
+    /*asset_type_info*/ nullptr,
 
-    /* init_data */ simulation_init_data,
-    /* copy_data */ simulation_copy_data,
-    /* free_data */ simulation_free_data,
-    /* make_local */ nullptr,
-    /* foreach_id */ simulation_foreach_id,
-    /* foreach_cache */ nullptr,
-    /* foreach_path */ nullptr,
-    /* owner_get */ nullptr,
+    /*init_data*/ simulation_init_data,
+    /*copy_data*/ simulation_copy_data,
+    /*free_data*/ simulation_free_data,
+    /*make_local*/ nullptr,
+    /*foreach_id*/ simulation_foreach_id,
+    /*foreach_cache*/ nullptr,
+    /*foreach_path*/ nullptr,
+    /*owner_pointer_get*/ nullptr,
 
-    /* blend_write */ simulation_blend_write,
-    /* blend_read_data */ simulation_blend_read_data,
-    /* blend_read_lib */ simulation_blend_read_lib,
-    /* blend_read_expand */ simulation_blend_read_expand,
+    /*blend_write*/ simulation_blend_write,
+    /*blend_read_data*/ simulation_blend_read_data,
+    /*blend_read_lib*/ simulation_blend_read_lib,
+    /*blend_read_expand*/ simulation_blend_read_expand,
 
-    /* blend_read_undo_preserve */ nullptr,
+    /*blend_read_undo_preserve*/ nullptr,
 
-    /* lib_override_apply_post */ nullptr,
+    /*lib_override_apply_post*/ nullptr,
 };
 
 void *BKE_simulation_add(Main *bmain, const char *name)
@@ -167,8 +167,8 @@ void *BKE_simulation_add(Main *bmain, const char *name)
   return simulation;
 }
 
-void BKE_simulation_data_update(Depsgraph *UNUSED(depsgraph),
-                                Scene *UNUSED(scene),
-                                Simulation *UNUSED(simulation))
+void BKE_simulation_data_update(Depsgraph * /*depsgraph*/,
+                                Scene * /*scene*/,
+                                Simulation * /*simulation*/)
 {
 }

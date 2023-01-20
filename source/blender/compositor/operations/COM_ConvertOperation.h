@@ -98,7 +98,7 @@ class ConvertVectorToValueOperation : public ConvertBaseOperation {
 
 class ConvertRGBToYCCOperation : public ConvertBaseOperation {
  private:
-  /** YCbCr mode (Jpeg, ITU601, ITU709) */
+  /** YCbCr mode (JPEG, ITU601, ITU709) */
   int mode_;
 
  public:
@@ -116,7 +116,7 @@ class ConvertRGBToYCCOperation : public ConvertBaseOperation {
 
 class ConvertYCCToRGBOperation : public ConvertBaseOperation {
  private:
-  /** YCbCr mode (Jpeg, ITU601, ITU709) */
+  /** YCbCr mode (JPEG, ITU601, ITU709) */
   int mode_;
 
  public:
@@ -165,6 +165,26 @@ class ConvertRGBToHSVOperation : public ConvertBaseOperation {
 class ConvertHSVToRGBOperation : public ConvertBaseOperation {
  public:
   ConvertHSVToRGBOperation();
+
+  void execute_pixel_sampled(float output[4], float x, float y, PixelSampler sampler) override;
+
+ protected:
+  void update_memory_buffer_partial(BuffersIterator<float> &it) override;
+};
+
+class ConvertRGBToHSLOperation : public ConvertBaseOperation {
+ public:
+  ConvertRGBToHSLOperation();
+
+  void execute_pixel_sampled(float output[4], float x, float y, PixelSampler sampler) override;
+
+ protected:
+  void update_memory_buffer_partial(BuffersIterator<float> &it) override;
+};
+
+class ConvertHSLToRGBOperation : public ConvertBaseOperation {
+ public:
+  ConvertHSLToRGBOperation();
 
   void execute_pixel_sampled(float output[4], float x, float y, PixelSampler sampler) override;
 

@@ -560,8 +560,8 @@ TEST(map, PopExceptions)
 TEST(map, AddOrModifyExceptions)
 {
   Map<ExceptionThrower, ExceptionThrower> map;
-  auto create_fn = [](ExceptionThrower *UNUSED(v)) { throw std::runtime_error(""); };
-  auto modify_fn = [](ExceptionThrower *UNUSED(v)) {};
+  auto create_fn = [](ExceptionThrower * /*v*/) { throw std::runtime_error(""); };
+  auto modify_fn = [](ExceptionThrower * /*v*/) {};
   EXPECT_ANY_THROW({ map.add_or_modify(3, create_fn, modify_fn); });
 }
 
@@ -640,6 +640,24 @@ TEST(map, RemoveDuringIteration)
   EXPECT_EQ(map.lookup(3), 3);
 }
 
+TEST(map, RemoveIf)
+{
+  Map<int64_t, int64_t> map;
+  for (const int64_t i : IndexRange(100)) {
+    map.add(i * i, i);
+  }
+  map.remove_if([](auto item) { return item.key > 100; });
+  EXPECT_EQ(map.size(), 11);
+  for (const int64_t i : IndexRange(100)) {
+    if (i <= 10) {
+      EXPECT_EQ(map.lookup(i * i), i);
+    }
+    else {
+      EXPECT_FALSE(map.contains(i * i));
+    }
+  }
+}
+
 TEST(map, LookupKey)
 {
   Map<std::string, int> map;
@@ -651,6 +669,24 @@ TEST(map, LookupKey)
   EXPECT_EQ(map.lookup_key_ptr_as("d"), nullptr);
   EXPECT_EQ(map.lookup_key_ptr_as("b")->size(), 1);
   EXPECT_EQ(map.lookup_key_ptr("a"), map.lookup_key_ptr_as("a"));
+}
+
+TEST(map, VectorKey)
+{
+  Map<Vector<int>, int> map;
+  map.add({1, 2, 3}, 100);
+  map.add({3, 2, 1}, 200);
+
+  EXPECT_EQ(map.size(), 2);
+  EXPECT_EQ(map.lookup({1, 2, 3}), 100);
+  EXPECT_EQ(map.lookup({3, 2, 1}), 200);
+  EXPECT_FALSE(map.contains({1, 2}));
+
+  std::array<int, 3> array = {1, 2, 3};
+  EXPECT_EQ(map.lookup_as(array), 100);
+
+  map.remove_as(Vector<int>({1, 2, 3}).as_mutable_span());
+  EXPECT_EQ(map.size(), 1);
 }
 
 /**

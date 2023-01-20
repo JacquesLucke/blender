@@ -5,7 +5,7 @@
  * \ingroup draw
  */
 
-#include "extract_mesh.h"
+#include "extract_mesh.hh"
 
 namespace blender::draw {
 
@@ -15,11 +15,11 @@ namespace blender::draw {
 
 struct MeshExtract_Orco_Data {
   float (*vbo_data)[4];
-  float (*orco)[3];
+  const float (*orco)[3];
 };
 
 static void extract_orco_init(const MeshRenderData *mr,
-                              struct MeshBatchCache *UNUSED(cache),
+                              MeshBatchCache * /*cache*/,
                               void *buf,
                               void *tls_data)
 {
@@ -40,14 +40,14 @@ static void extract_orco_init(const MeshRenderData *mr,
 
   MeshExtract_Orco_Data *data = static_cast<MeshExtract_Orco_Data *>(tls_data);
   data->vbo_data = (float(*)[4])GPU_vertbuf_get_data(vbo);
-  data->orco = static_cast<float(*)[3]>(CustomData_get_layer(cd_vdata, CD_ORCO));
+  data->orco = static_cast<const float(*)[3]>(CustomData_get_layer(cd_vdata, CD_ORCO));
   /* Make sure `orco` layer was requested only if needed! */
   BLI_assert(data->orco);
 }
 
-static void extract_orco_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+static void extract_orco_iter_poly_bm(const MeshRenderData * /*mr*/,
                                       const BMFace *f,
-                                      const int UNUSED(f_index),
+                                      const int /*f_index*/,
                                       void *data)
 {
   MeshExtract_Orco_Data *orco_data = (MeshExtract_Orco_Data *)data;
@@ -63,7 +63,7 @@ static void extract_orco_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 
 static void extract_orco_iter_poly_mesh(const MeshRenderData *mr,
                                         const MPoly *mp,
-                                        const int UNUSED(mp_index),
+                                        const int /*mp_index*/,
                                         void *data)
 {
   const MLoop *mloop = mr->mloop;
@@ -94,6 +94,4 @@ constexpr MeshExtract create_extractor_orco()
 
 }  // namespace blender::draw
 
-extern "C" {
 const MeshExtract extract_orco = blender::draw::create_extractor_orco();
-}

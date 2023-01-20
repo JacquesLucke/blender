@@ -29,6 +29,7 @@ class DeviceQueue;
 class Progress;
 class CPUKernels;
 class CPUKernelThreadGlobals;
+class Scene;
 
 /* Device Types */
 
@@ -40,6 +41,7 @@ enum DeviceType {
   DEVICE_OPTIX,
   DEVICE_HIP,
   DEVICE_METAL,
+  DEVICE_ONEAPI,
   DEVICE_DUMMY,
 };
 
@@ -49,10 +51,19 @@ enum DeviceTypeMask {
   DEVICE_MASK_OPTIX = (1 << DEVICE_OPTIX),
   DEVICE_MASK_HIP = (1 << DEVICE_HIP),
   DEVICE_MASK_METAL = (1 << DEVICE_METAL),
+  DEVICE_MASK_ONEAPI = (1 << DEVICE_ONEAPI),
   DEVICE_MASK_ALL = ~0
 };
 
 #define DEVICE_MASK(type) (DeviceTypeMask)(1 << type)
+
+enum KernelOptimizationLevel {
+  KERNEL_OPTIMIZATION_LEVEL_OFF = 0,
+  KERNEL_OPTIMIZATION_LEVEL_INTERSECT = 1,
+  KERNEL_OPTIMIZATION_LEVEL_FULL = 2,
+
+  KERNEL_OPTIMIZATION_NUM_LEVELS
+};
 
 class DeviceInfo {
  public:
@@ -60,14 +71,18 @@ class DeviceInfo {
   string description;
   string id; /* used for user preferences, should stay fixed with changing hardware config */
   int num;
-  bool display_device;        /* GPU is used as a display device. */
-  bool has_nanovdb;           /* Support NanoVDB volumes. */
-  bool has_osl;               /* Support Open Shading Language. */
-  bool has_profiling;         /* Supports runtime collection of profiling info. */
-  bool has_peer_memory;       /* GPU has P2P access to memory of another GPU. */
-  bool has_gpu_queue;         /* Device supports GPU queue. */
-  bool use_metalrt;           /* Use MetalRT to accelerate ray queries (Metal only). */
-  DenoiserTypeMask denoisers; /* Supported denoiser types. */
+  bool display_device;  /* GPU is used as a display device. */
+  bool has_nanovdb;     /* Support NanoVDB volumes. */
+  bool has_light_tree;  /* Support light tree. */
+  bool has_osl;         /* Support Open Shading Language. */
+  bool has_guiding;     /* Support path guiding. */
+  bool has_profiling;   /* Supports runtime collection of profiling info. */
+  bool has_peer_memory; /* GPU has P2P access to memory of another GPU. */
+  bool has_gpu_queue;   /* Device supports GPU queue. */
+  bool use_metalrt;     /* Use MetalRT to accelerate ray queries (Metal only). */
+  KernelOptimizationLevel kernel_optimization_level; /* Optimization level applied to path tracing
+                                                        kernels (Metal only). */
+  DenoiserTypeMask denoisers;                        /* Supported denoiser types. */
   int cpu_threads;
   vector<DeviceInfo> multi_devices;
   string error_msg;
@@ -80,7 +95,9 @@ class DeviceInfo {
     cpu_threads = 0;
     display_device = false;
     has_nanovdb = false;
+    has_light_tree = true;
     has_osl = false;
+    has_guiding = false;
     has_profiling = false;
     has_peer_memory = false;
     has_gpu_queue = false;
@@ -155,6 +172,22 @@ class Device {
     return true;
   }
 
+  virtual bool load_osl_kernels()
+  {
+    return true;
+  }
+
+  /* Request cancellation of any long-running work. */
+  virtual void cancel()
+  {
+  }
+
+  /* Return true if device is ready for rendering, or report status if not. */
+  virtual bool is_ready(string & /*status*/) const
+  {
+    return true;
+  }
+
   /* GPU device only functions.
    * These may not be used on CPU or multi-devices. */
 
@@ -184,6 +217,11 @@ class Device {
     return 0;
   }
 
+  /* Called after kernel texture setup, and prior to integrator state setup. */
+  virtual void optimize_for_scene(Scene * /*scene*/)
+  {
+  }
+
   virtual bool is_resident(device_ptr /*key*/, Device *sub_device)
   {
     /* Memory is always resident if this is not a multi device, regardless of whether the pointer
@@ -209,18 +247,12 @@ class Device {
     return false;
   }
 
-  /* Buffer denoising. */
+  /* Guiding */
 
-  /* Returns true if task is fully handled. */
-  virtual bool denoise_buffer(const DeviceDenoiseTask & /*task*/)
+  /* Returns path guiding device handle. */
+  virtual void *get_guiding_device() const
   {
-    LOG(ERROR) << "Request buffer denoising from a device which does not support it.";
-    return false;
-  }
-
-  virtual DeviceQueue *get_denoise_queue()
-  {
-    LOG(ERROR) << "Request denoising queue from a device which does not support it.";
+    LOG(ERROR) << "Request guiding field from a device which does not support it.";
     return nullptr;
   }
 
@@ -273,6 +305,7 @@ class Device {
   static vector<DeviceInfo> cpu_devices;
   static vector<DeviceInfo> hip_devices;
   static vector<DeviceInfo> metal_devices;
+  static vector<DeviceInfo> oneapi_devices;
   static uint devices_initialized_mask;
 };
 

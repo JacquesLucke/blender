@@ -13,6 +13,8 @@
 #include "BLI_math.h"
 #include "BLI_rect.h"
 
+#include "ED_select_utils.h"
+
 #include "DNA_scene_types.h"
 
 #ifdef __cplusplus
@@ -46,9 +48,13 @@ typedef struct CoNo {
 
 /* paint_stroke.c */
 
-typedef bool (*StrokeGetLocation)(struct bContext *C, float location[3], const float mouse[2]);
+typedef bool (*StrokeGetLocation)(struct bContext *C,
+                                  float location[3],
+                                  const float mouse[2],
+                                  bool force_original);
 typedef bool (*StrokeTestStart)(struct bContext *C, struct wmOperator *op, const float mouse[2]);
 typedef void (*StrokeUpdateStep)(struct bContext *C,
+                                 struct wmOperator *op,
                                  struct PaintStroke *stroke,
                                  struct PointerRNA *itemptr);
 typedef void (*StrokeRedraw)(const struct bContext *C, struct PaintStroke *stroke, bool final);
@@ -62,7 +68,7 @@ struct PaintStroke *paint_stroke_new(struct bContext *C,
                                      StrokeRedraw redraw,
                                      StrokeDone done,
                                      int event_type);
-void paint_stroke_free(struct bContext *C, struct wmOperator *op);
+void paint_stroke_free(struct bContext *C, struct wmOperator *op, struct PaintStroke *stroke);
 
 /**
  * Returns zero if the stroke dots should not be spaced, non-zero otherwise.
@@ -84,17 +90,21 @@ bool paint_supports_jitter(enum ePaintMode mode);
  * Called in paint_ops.c, on each regeneration of key-maps.
  */
 struct wmKeyMap *paint_stroke_modal_keymap(struct wmKeyConfig *keyconf);
-int paint_stroke_modal(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
-int paint_stroke_exec(struct bContext *C, struct wmOperator *op);
-void paint_stroke_cancel(struct bContext *C, struct wmOperator *op);
+int paint_stroke_modal(struct bContext *C,
+                       struct wmOperator *op,
+                       const struct wmEvent *event,
+                       struct PaintStroke **stroke_p);
+int paint_stroke_exec(struct bContext *C, struct wmOperator *op, struct PaintStroke *stroke);
+void paint_stroke_cancel(struct bContext *C, struct wmOperator *op, struct PaintStroke *stroke);
 bool paint_stroke_flipped(struct PaintStroke *stroke);
 bool paint_stroke_inverted(struct PaintStroke *stroke);
 struct ViewContext *paint_stroke_view_context(struct PaintStroke *stroke);
 void *paint_stroke_mode_data(struct PaintStroke *stroke);
 float paint_stroke_distance_get(struct PaintStroke *stroke);
 void paint_stroke_set_mode_data(struct PaintStroke *stroke, void *mode_data);
+bool paint_stroke_started(struct PaintStroke *stroke);
+
 bool PAINT_brush_tool_poll(struct bContext *C);
-void paint_cursor_start(struct Paint *p, bool (*poll)(struct bContext *C));
 /**
  * Delete overlay cursor textures to preserve memory and invalidate all overlay flags.
  */
@@ -129,20 +139,12 @@ void PAINT_OT_weight_gradient(struct wmOperatorType *ot);
 void PAINT_OT_vertex_paint_toggle(struct wmOperatorType *ot);
 void PAINT_OT_vertex_paint(struct wmOperatorType *ot);
 
-unsigned int vpaint_get_current_col(struct Scene *scene, struct VPaint *vp, bool secondary);
-
-/* paint_vertex_color_utils.c */
+unsigned int vpaint_get_current_color(struct Scene *scene, struct VPaint *vp, bool secondary);
 
 /**
  * \note weight-paint has an equivalent function: #ED_wpaint_blend_tool
  */
 unsigned int ED_vpaint_blend_tool(int tool, uint col, uint paintcol, int alpha_i);
-/**
- * Apply callback to each vertex of the active vertex color layer.
- */
-bool ED_vpaint_color_transform(struct Object *ob,
-                               VPaintTransform_Callback vpaint_tx_fn,
-                               const void *user_data);
 
 /* paint_vertex_weight_utils.c */
 
@@ -190,6 +192,7 @@ void PAINT_OT_weight_sample(struct wmOperatorType *ot);
 void PAINT_OT_weight_sample_group(struct wmOperatorType *ot);
 
 /* paint_vertex_proj.c */
+
 struct VertProjHandle;
 struct VertProjHandle *ED_vpaint_proj_handle_create(struct Depsgraph *depsgraph,
                                                     struct Scene *scene,
@@ -203,6 +206,7 @@ void ED_vpaint_proj_handle_update(struct Depsgraph *depsgraph,
 void ED_vpaint_proj_handle_free(struct VertProjHandle *vp_handle);
 
 /* paint_image.c */
+
 typedef struct ImagePaintPartialRedraw {
   rcti dirty_region;
 } ImagePaintPartialRedraw;
@@ -265,6 +269,7 @@ void paint_brush_color_get(struct Scene *scene,
 bool paint_use_opacity_masking(struct Brush *brush);
 void paint_brush_init_tex(struct Brush *brush);
 void paint_brush_exit_tex(struct Brush *brush);
+bool image_paint_poll(struct bContext *C);
 
 void PAINT_OT_grab_clone(struct wmOperatorType *ot);
 void PAINT_OT_sample_color(struct wmOperatorType *ot);
@@ -277,6 +282,7 @@ void PAINT_OT_image_paint(struct wmOperatorType *ot);
 void PAINT_OT_add_simple_uvs(struct wmOperatorType *ot);
 
 /* paint_image_2d_curve_mask.cc */
+
 /**
  * \brief Caching structure for curve mask.
  *
@@ -371,10 +377,12 @@ void PAINT_OT_face_select_linked(struct wmOperatorType *ot);
 void PAINT_OT_face_select_linked_pick(struct wmOperatorType *ot);
 void PAINT_OT_face_select_all(struct wmOperatorType *ot);
 void PAINT_OT_face_select_hide(struct wmOperatorType *ot);
-void PAINT_OT_face_select_reveal(struct wmOperatorType *ot);
+
+void PAINT_OT_face_vert_reveal(struct wmOperatorType *ot);
 
 void PAINT_OT_vert_select_all(struct wmOperatorType *ot);
 void PAINT_OT_vert_select_ungrouped(struct wmOperatorType *ot);
+void PAINT_OT_vert_select_hide(struct wmOperatorType *ot);
 
 bool vert_paint_poll(struct bContext *C);
 bool mask_paint_poll(struct bContext *C);
@@ -465,10 +473,17 @@ void PAINT_OT_hide_show(struct wmOperatorType *ot);
 
 /* paint_mask.c */
 
+/* The gesture API doesn't write to this enum type,
+ * it writes to eSelectOp from ED_select_utils.h.
+ * We must thus map the modes here to the desired
+ * eSelectOp modes.
+ *
+ * Fixes T102349.
+ */
 typedef enum {
-  PAINT_MASK_FLOOD_VALUE,
-  PAINT_MASK_FLOOD_VALUE_INVERSE,
-  PAINT_MASK_INVERT,
+  PAINT_MASK_FLOOD_VALUE = SEL_OP_SUB,
+  PAINT_MASK_FLOOD_VALUE_INVERSE = SEL_OP_ADD,
+  PAINT_MASK_INVERT = SEL_OP_XOR,
 } PaintMaskFloodMode;
 
 void PAINT_OT_mask_flood_fill(struct wmOperatorType *ot);
@@ -477,6 +492,7 @@ void PAINT_OT_mask_box_gesture(struct wmOperatorType *ot);
 void PAINT_OT_mask_line_gesture(struct wmOperatorType *ot);
 
 /* paint_curve.c */
+
 void PAINTCURVE_OT_new(struct wmOperatorType *ot);
 void PAINTCURVE_OT_add_point(struct wmOperatorType *ot);
 void PAINTCURVE_OT_delete_point(struct wmOperatorType *ot);
@@ -500,6 +516,9 @@ enum eBlurKernelType;
  */
 BlurKernel *paint_new_blur_kernel(struct Brush *br, bool proj);
 void paint_delete_blur_kernel(BlurKernel *);
+
+/** Initialize viewport pivot from evaluated bounding box center of `ob`. */
+void paint_init_pivot(struct Object *ob, struct Scene *scene);
 
 /* paint curve defines */
 #define PAINT_CURVE_NUM_SEGMENTS 40

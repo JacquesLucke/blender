@@ -1,12 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8-80 compliant>
-
 # Originally written by Matt Ebb
 
 import bpy
 from bpy.types import Operator
-
 from bpy.app.translations import pgettext_tip as tip_
 
 
@@ -136,7 +133,7 @@ class PlayRenderedAnim(Operator):
                 "-speed", str(fps_final),
                 "-in_out", str(frame_start), str(frame_end),
                 "-frame", str(scene.frame_current),
-                "-time_units", "Frames"
+                "-time_units", "Frames",
             ]
             cmd.extend(opts)
         elif preset == 'FRAMECYCLER':

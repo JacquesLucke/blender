@@ -731,8 +731,9 @@ static void wm_xr_raycast(Scene *scene,
       sctx,
       depsgraph,
       NULL,
-      &(const struct SnapObjectParams){
-          .snap_select = (selectable_only ? SNAP_SELECTABLE : SNAP_ALL)},
+      &(const struct SnapObjectParams){.snap_target_select = (selectable_only ?
+                                                                  SCE_SNAP_TARGET_ONLY_SELECTABLE :
+                                                                  SCE_SNAP_TARGET_ALL)},
       origin,
       direction,
       ray_dist,
@@ -867,7 +868,7 @@ static void wm_xr_fly_compute_turn(eXrFlyMode mode,
                                    const float nav_inv[4][4],
                                    float r_delta[4][4])
 {
-  BLI_assert(mode == XR_FLY_TURNLEFT || mode == XR_FLY_TURNRIGHT);
+  BLI_assert(ELEM(mode, XR_FLY_TURNLEFT, XR_FLY_TURNRIGHT));
 
   float z_axis[3], m[3][3], prev[4][4], curr[4][4];
 
@@ -942,7 +943,7 @@ static int wm_xr_navigation_fly_modal(bContext *C, wmOperator *op, const wmEvent
   const double time_now = PIL_check_seconds_timer();
 
   mode = (eXrFlyMode)RNA_enum_get(op->ptr, "mode");
-  turn = (ELEM(mode, XR_FLY_TURNLEFT, XR_FLY_TURNRIGHT));
+  turn = ELEM(mode, XR_FLY_TURNLEFT, XR_FLY_TURNRIGHT);
 
   locz_lock = RNA_boolean_get(op->ptr, "lock_location_z");
   dir_lock = RNA_boolean_get(op->ptr, "lock_direction");

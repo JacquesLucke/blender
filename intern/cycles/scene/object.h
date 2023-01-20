@@ -44,6 +44,7 @@ class Object : public Node {
   NODE_SOCKET_API(uint, random_id)
   NODE_SOCKET_API(int, pass_id)
   NODE_SOCKET_API(float3, color)
+  NODE_SOCKET_API(float, alpha)
   NODE_SOCKET_API(ustring, asset_name)
   vector<ParamValue> attributes;
   NODE_SOCKET_API(uint, visibility)
@@ -54,6 +55,9 @@ class Object : public Node {
   NODE_SOCKET_API(float, shadow_terminator_shading_offset)
   NODE_SOCKET_API(float, shadow_terminator_geometry_offset)
 
+  NODE_SOCKET_API(bool, is_caustics_caster)
+  NODE_SOCKET_API(bool, is_caustics_receiver)
+
   NODE_SOCKET_API(float3, dupli_generated)
   NODE_SOCKET_API(float2, dupli_uv)
 
@@ -61,6 +65,8 @@ class Object : public Node {
   NODE_SOCKET_API(int, particle_index);
 
   NODE_SOCKET_API(float, ao_distance)
+
+  NODE_SOCKET_API(ustring, lightgroup)
 
   /* Set during device update. */
   bool intersects_volume;
@@ -165,7 +171,8 @@ class ObjectManager {
  protected:
   void device_update_object_transform(UpdateObjectTransformState *state,
                                       Object *ob,
-                                      bool update_all);
+                                      bool update_all,
+                                      const Scene *scene);
   void device_update_object_transform_task(UpdateObjectTransformState *state);
   bool device_update_object_transform_pop_work(UpdateObjectTransformState *state,
                                                int *start_index,

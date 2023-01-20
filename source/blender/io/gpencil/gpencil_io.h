@@ -35,6 +35,8 @@ typedef struct GpencilIOParams {
   /** Stroke sampling factor. */
   float stroke_sample;
   int32_t resolution;
+  /** Filename to be used in new objects. */
+  char filename[128];
 } GpencilIOParams;
 
 /* GpencilIOParams->flag. */
@@ -72,11 +74,11 @@ typedef enum eGpencilExportFrame {
 /**
  * Main export entry point function.
  */
-bool gpencil_io_export(const char *filename, struct GpencilIOParams *iparams);
+bool gpencil_io_export(const char *filepath, struct GpencilIOParams *iparams);
 /**
  * Main import entry point function.
  */
-bool gpencil_io_import(const char *filename, struct GpencilIOParams *iparams);
+bool gpencil_io_import(const char *filepath, struct GpencilIOParams *iparams);
 
 #ifdef __cplusplus
 }

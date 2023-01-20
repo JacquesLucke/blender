@@ -18,8 +18,7 @@
 struct ID;
 struct Scene;
 
-namespace blender {
-namespace deg {
+namespace blender::deg {
 
 struct Depsgraph;
 struct OperationNode;
@@ -65,7 +64,7 @@ enum class NodeType {
   ANIMATION,
   /* Transform Component (Parenting/Constraints) */
   TRANSFORM,
-  /* Geometry Component (#Mesh / #DispList) */
+  /* Geometry Component (#Mesh, #Curves, etc.) */
   GEOMETRY,
   /* Sequencer Component (Scene Only) */
   SEQUENCER,
@@ -131,6 +130,8 @@ enum class NodeType {
   SIMULATION,
   /* Node tree output component. */
   NTREE_OUTPUT,
+  /* Preprocessing for geometry node trees before they can be evaluated. */
+  NTREE_GEOMETRY_PREPROCESS,
 
   /* Total number of meaningful node types. */
   NUM_TYPES,
@@ -160,7 +161,7 @@ struct Node {
     /* Reset counters needed for the current graph evaluation, does not
      * touch averaging accumulators. */
     void reset_current();
-    /* Time spend on this node during current graph evaluation. */
+    /* Time spent on this node during current graph evaluation. */
     double current_time;
   };
   /* Relationships between nodes
@@ -217,5 +218,4 @@ struct Node {
 
 void deg_register_base_depsnodes();
 
-}  // namespace deg
-}  // namespace blender
+}  // namespace blender::deg

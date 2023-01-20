@@ -24,20 +24,13 @@ static void node_declare(NodeDeclarationBuilder &b)
 
 static int gpu_shader_particle_info(GPUMaterial *mat,
                                     bNode *node,
-                                    bNodeExecData *UNUSED(execdata),
+                                    bNodeExecData * /*execdata*/,
                                     GPUNodeStack *in,
                                     GPUNodeStack *out)
 {
-
-  return GPU_stack_link(mat,
-                        node,
-                        "particle_info",
-                        in,
-                        out,
-                        GPU_builtin(GPU_PARTICLE_SCALAR_PROPS),
-                        GPU_builtin(GPU_PARTICLE_LOCATION),
-                        GPU_builtin(GPU_PARTICLE_VELOCITY),
-                        GPU_builtin(GPU_PARTICLE_ANG_VELOCITY));
+  GPU_material_flag_set(mat, GPU_MATFLAG_OBJECT_INFO);
+  /* TODO(fclem) Pass particle data in obinfo. */
+  return GPU_stack_link(mat, node, "particle_info", in, out);
 }
 
 }  // namespace blender::nodes::node_shader_particle_info_cc
@@ -51,7 +44,7 @@ void register_node_type_sh_particle_info()
 
   sh_node_type_base(&ntype, SH_NODE_PARTICLE_INFO, "Particle Info", NODE_CLASS_INPUT);
   ntype.declare = file_ns::node_declare;
-  node_type_gpu(&ntype, file_ns::gpu_shader_particle_info);
+  ntype.gpu_fn = file_ns::gpu_shader_particle_info;
 
   nodeRegisterType(&ntype);
 }

@@ -59,6 +59,8 @@ static void world_free_data(ID *id)
 
   BKE_icon_id_delete((struct ID *)wrld);
   BKE_previewimg_free(&wrld->preview);
+
+  MEM_SAFE_FREE(wrld->lightgroup);
 }
 
 static void world_init_data(ID *id)
@@ -96,6 +98,7 @@ static void world_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int
       BKE_id_copy_ex(
           bmain, (ID *)wrld_src->nodetree, (ID **)&wrld_dst->nodetree, flag_private_id_data);
     }
+    wrld_dst->nodetree->owner_id = &wrld_dst->id;
   }
 
   BLI_listbase_clear(&wrld_dst->gpumaterial);
@@ -106,6 +109,10 @@ static void world_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int
   }
   else {
     wrld_dst->preview = NULL;
+  }
+
+  if (wrld_src->lightgroup) {
+    wrld_dst->lightgroup = (LightgroupMembership *)MEM_dupallocN(wrld_src->lightgroup);
   }
 }
 
@@ -142,6 +149,10 @@ static void world_blend_write(BlendWriter *writer, ID *id, const void *id_addres
   }
 
   BKE_previewimg_blend_write(writer, wrld->preview);
+
+  if (wrld->lightgroup) {
+    BLO_write_struct(writer, LightgroupMembership, wrld->lightgroup);
+  }
 }
 
 static void world_blend_read_data(BlendDataReader *reader, ID *id)
@@ -153,6 +164,8 @@ static void world_blend_read_data(BlendDataReader *reader, ID *id)
   BLO_read_data_address(reader, &wrld->preview);
   BKE_previewimg_blend_read(reader, wrld->preview);
   BLI_listbase_clear(&wrld->gpumaterial);
+
+  BLO_read_data_address(reader, &wrld->lightgroup);
 }
 
 static void world_blend_read_lib(BlendLibReader *reader, ID *id)
@@ -185,7 +198,7 @@ IDTypeInfo IDType_ID_WO = {
     .foreach_id = world_foreach_id,
     .foreach_cache = NULL,
     .foreach_path = NULL,
-    .owner_get = NULL,
+    .owner_pointer_get = NULL,
 
     .blend_write = world_blend_write,
     .blend_read_data = world_blend_read_data,

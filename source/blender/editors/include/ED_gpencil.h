@@ -83,7 +83,7 @@ typedef struct tGPspoint {
   float pressure;
   /** Pressure of tablet at this point for alpha factor. */
   float strength;
-  /** Time relative to stroke start (used when converting to path). */
+  /** Time relative to stroke start (used when converting to path & in build modifier). */
   float time;
   /** Factor of uv along the stroke. */
   float uv_fac;
@@ -239,7 +239,7 @@ void ED_annotation_draw_ex(
 
 /* ----------- Grease-Pencil AnimEdit API ------------------ */
 /**
- * Loops over the gp-frames for a gp-layer, and applies the given callback.
+ * Loops over the GP-frames for a GP-layer, and applies the given callback.
  */
 bool ED_gpencil_layer_frames_looper(struct bGPDlayer *gpl,
                                     struct Scene *scene,
@@ -279,6 +279,11 @@ void ED_gpencil_select_frames(struct bGPDlayer *gpl, short select_mode);
  * Select the frame in this layer that occurs on this frame (there should only be one at most).
  */
 void ED_gpencil_select_frame(struct bGPDlayer *gpl, int selx, short select_mode);
+
+/**
+ * Set the layer's channel as active
+ */
+void ED_gpencil_set_active_channel(struct bGPdata *gpd, struct bGPDlayer *gpl);
 
 /**
  * Delete selected frames.
@@ -398,12 +403,11 @@ void ED_gpencil_stroke_init_data(struct bGPDstroke *gps,
  */
 void ED_gpencil_create_blank(struct bContext *C, struct Object *ob, float mat[4][4]);
 /**
- * Add a 2D Suzanne (original model created by Matias Mendiola).
+ * Add a 2D Suzanne.
  */
 void ED_gpencil_create_monkey(struct bContext *C, struct Object *ob, float mat[4][4]);
 /**
- * Add a Simple stroke with colors
- * (original design created by Daniel M. Lara and Matias Mendiola).
+ * Add a Simple stroke with colors.
  */
 void ED_gpencil_create_stroke(struct bContext *C, struct Object *ob, float mat[4][4]);
 /**
@@ -471,7 +475,8 @@ void ED_gpencil_stroke_reproject(struct Depsgraph *depsgraph,
                                  struct bGPDframe *gpf,
                                  struct bGPDstroke *gps,
                                  eGP_ReprojectModes mode,
-                                 bool keep_original);
+                                 bool keep_original,
+                                 const float offset);
 
 /**
  * Turn brush cursor in on/off.
@@ -579,7 +584,7 @@ void ED_gpencil_init_random_settings(struct Brush *brush,
  */
 bool ED_gpencil_stroke_check_collision(const struct GP_SpaceConversion *gsc,
                                        struct bGPDstroke *gps,
-                                       const float mouse[2],
+                                       const float mval[2],
                                        int radius,
                                        const float diff_mat[4][4]);
 /**
@@ -587,13 +592,13 @@ bool ED_gpencil_stroke_check_collision(const struct GP_SpaceConversion *gsc,
  *
  * \param gps: Stroke to check.
  * \param gsc: Space conversion data.
- * \param mouse: Mouse position.
+ * \param mval: Region relative cursor position.
  * \param diff_mat: View matrix.
  * \return True if the point is inside.
  */
 bool ED_gpencil_stroke_point_is_inside(const struct bGPDstroke *gps,
                                        const struct GP_SpaceConversion *gsc,
-                                       const int mouse[2],
+                                       const int mval[2],
                                        const float diff_mat[4][4]);
 /**
  * Get the bigger 2D bound box points.
@@ -635,6 +640,15 @@ struct bGPDstroke *ED_gpencil_stroke_join_and_trim(struct bGPdata *gpd,
  * Close if the distance between extremes is below threshold.
  */
 void ED_gpencil_stroke_close_by_distance(struct bGPDstroke *gps, float threshold);
+
+/**
+ * Calculate the brush cursor size in world space.
+ */
+float ED_gpencil_cursor_radius(struct bContext *C, int x, int y);
+float ED_gpencil_radial_control_scale(struct bContext *C,
+                                      struct Brush *brush,
+                                      float initial_value,
+                                      const int mval[2]);
 
 #ifdef __cplusplus
 }

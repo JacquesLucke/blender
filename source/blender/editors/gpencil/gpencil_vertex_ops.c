@@ -131,7 +131,7 @@ static int gpencil_vertexpaint_brightness_contrast_exec(bContext *C, wmOperator 
     /*
      * The algorithm is by Werner D. Streidt
      * (http://visca.com/ffactory/archives/5-99/msg00021.html)
-     * Extracted of OpenCV demhist.c
+     * Extracted of OpenCV `demhist.c`.
      */
     if (contrast > 0) {
       gain = 1.0f - delta * 2.0f;
@@ -587,7 +587,7 @@ static int gpencil_vertexpaint_set_exec(bContext *C, wmOperator *op)
               srgb_to_linearrgb_v4(color, color);
               for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
                 if ((!any_selected) || (pt->flag & GP_SPOINT_SELECT)) {
-                  copy_v3_v3(pt->vert_color, color);
+                  copy_v4_v4(pt->vert_color, color);
                 }
               }
             }
@@ -959,7 +959,7 @@ static int gpencil_material_to_vertex_exec(bContext *C, wmOperator *op)
   /* Clean unused materials. */
   if (remove) {
     WM_operator_name_call(
-        C, "OBJECT_OT_material_slot_remove_unused", WM_OP_INVOKE_REGION_WIN, NULL);
+        C, "OBJECT_OT_material_slot_remove_unused", WM_OP_INVOKE_REGION_WIN, NULL, NULL);
   }
 
   return OPERATOR_FINISHED;

@@ -28,6 +28,7 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_prototypes.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -234,14 +235,35 @@ void WM_operatortype_last_properties_clear_all(void)
 {
   GHashIterator iter;
 
-  for (WM_operatortype_iter(&iter); (!BLI_ghashIterator_done(&iter));
-       (BLI_ghashIterator_step(&iter))) {
+  for (WM_operatortype_iter(&iter); !BLI_ghashIterator_done(&iter);
+       BLI_ghashIterator_step(&iter)) {
     wmOperatorType *ot = BLI_ghashIterator_getValue(&iter);
 
     if (ot->last_properties) {
       IDP_FreeProperty(ot->last_properties);
       ot->last_properties = NULL;
     }
+  }
+}
+
+void WM_operatortype_idname_visit_for_search(const bContext *UNUSED(C),
+                                             PointerRNA *UNUSED(ptr),
+                                             PropertyRNA *UNUSED(prop),
+                                             const char *UNUSED(edit_text),
+                                             StringPropertySearchVisitFunc visit_fn,
+                                             void *visit_user_data)
+{
+  GHashIterator gh_iter;
+  GHASH_ITER (gh_iter, global_ops_hash) {
+    wmOperatorType *ot = BLI_ghashIterator_getValue(&gh_iter);
+
+    char idname_py[OP_MAX_TYPENAME];
+    WM_operator_py_idname(idname_py, ot->idname);
+
+    StringPropertySearchVisitParams visit_params = {NULL};
+    visit_params.text = idname_py;
+    visit_params.info = ot->name;
+    visit_fn(visit_user_data, &visit_params);
   }
 }
 
@@ -389,8 +411,8 @@ static int wm_macro_modal(bContext *C, wmOperator *op, const wmEvent *event)
         /* If operator is blocking, grab cursor.
          * This may end up grabbing twice, but we don't care. */
         if (op->opm->type->flag & OPTYPE_BLOCKING) {
-          int bounds[4] = {-1, -1, -1, -1};
           int wrap = WM_CURSOR_WRAP_NONE;
+          const rcti *wrap_region = NULL;
 
           if ((op->opm->flag & OP_IS_MODAL_GRAB_CURSOR) ||
               (op->opm->type->flag & OPTYPE_GRAB_CURSOR_XY)) {
@@ -406,14 +428,11 @@ static int wm_macro_modal(bContext *C, wmOperator *op, const wmEvent *event)
           if (wrap) {
             ARegion *region = CTX_wm_region(C);
             if (region) {
-              bounds[0] = region->winrct.xmin;
-              bounds[1] = region->winrct.ymax;
-              bounds[2] = region->winrct.xmax;
-              bounds[3] = region->winrct.ymin;
+              wrap_region = &region->winrct;
             }
           }
 
-          WM_cursor_grab_enable(win, wrap, false, bounds);
+          WM_cursor_grab_enable(win, wrap, wrap_region, false);
         }
       }
     }

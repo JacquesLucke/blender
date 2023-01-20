@@ -26,11 +26,17 @@ function(add_blender_test testname)
     COMMAND "${TEST_BLENDER_EXE}" ${TEST_BLENDER_EXE_PARAMS} ${ARGN}
   )
 
-  # Don't fail tests on leaks since these often happen in external libraries
-  # that we can't fix.
-  set_tests_properties(${testname} PROPERTIES ENVIRONMENT
-    LSAN_OPTIONS=exitcode=0:$ENV{LSAN_OPTIONS}
-  )
+  # Don't fail tests on leaks since these often happen in external libraries that we can't fix.
+  set(_lsan_options "exitcode=0")
+  if(DEFINED ENV{LSAN_OPTIONS})
+    set(_lsan_options "${_lsan_options}:$ENV{LSAN_OPTIONS}")
+  endif()
+  set_tests_properties(${testname} PROPERTIES ENVIRONMENT "LSAN_OPTIONS=${_lsan_options}")
+  unset(_lsan_options)
+
+  if(PLATFORM_ENV_INSTALL)
+    set_tests_properties(${testname} PROPERTIES ENVIRONMENT "${PLATFORM_ENV_INSTALL}")
+  endif()
 endfunction()
 
 # Run Python script outside Blender.
@@ -41,11 +47,20 @@ function(add_python_test testname testscript)
 
   add_test(
     NAME ${testname}
-    COMMAND ${TEST_PYTHON_EXE} ${testscript} ${ARGN}
+    COMMAND ${TEST_PYTHON_EXE} ${TEST_PYTHON_EXE_EXTRA_ARGS} ${testscript} ${ARGN}
+    WORKING_DIRECTORY $<TARGET_FILE_DIR:blender>
   )
-  set_tests_properties(${testname} PROPERTIES ENVIRONMENT
-    LSAN_OPTIONS=exitcode=0:$ENV{LSAN_OPTIONS}
-  )
+
+  set(_lsan_options "exitcode=0")
+  if(DEFINED ENV{LSAN_OPTIONS})
+    set(_lsan_options "${_lsan_options}:$ENV{LSAN_OPTIONS}")
+  endif()
+  set_tests_properties(${testname} PROPERTIES ENVIRONMENT "LSAN_OPTIONS=${_lsan_options}")
+  unset(_lsan_options)
+
+  if(PLATFORM_ENV_INSTALL)
+    set_tests_properties(${testname} PROPERTIES ENVIRONMENT "${PLATFORM_ENV_INSTALL}")
+  endif()
 endfunction()
 
 # ------------------------------------------------------------------------------
@@ -73,7 +88,7 @@ add_blender_test(
 
 add_blender_test(
   script_bundled_modules
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_bundled_modules.py
+  --python ${CMAKE_CURRENT_LIST_DIR}/bl_bundled_modules.py -- --inside-blender
 )
 
 # test running operators doesn't segfault under various conditions
@@ -102,6 +117,11 @@ add_blender_test(
 )
 
 add_blender_test(
+  script_pyapi_bpy_driver_secure_eval
+  --python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_bpy_driver_secure_eval.py
+)
+
+add_blender_test(
   script_pyapi_idprop
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_idprop.py
 )
@@ -114,6 +134,11 @@ add_blender_test(
 add_blender_test(
   script_pyapi_prop_array
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_prop_array.py
+)
+
+add_blender_test(
+  script_pyapi_text
+  --python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_text.py
 )
 
 # ------------------------------------------------------------------------------
@@ -324,7 +349,7 @@ add_blender_test(
   --run={'FINISHED'}&bpy.ops.export_scene.obj\(filepath='${TEST_OUT_DIR}/io_tests/export_obj_cube.obj',use_selection=False\)
   --md5_source=${TEST_OUT_DIR}/io_tests/export_obj_cube.obj
   --md5_source=${TEST_OUT_DIR}/io_tests/export_obj_cube.mtl
-  --md5=95832f81160f07101dc566cb286a9f76 --md5_method=FILE
+  --md5=e80660437ad9bfe082849641c361a233 --md5_method=FILE
 )
 
 add_blender_test(
@@ -620,15 +645,37 @@ add_blender_test(
 )
 endif()
 
+# SVG Import
+if(True)
+  if(NOT OPENIMAGEIO_IDIFF)
+    message(WARNING "Disabling SVG tests because OIIO idiff does not exist")
+  else()
+    set(_svg_render_tests complex path)
+
+    foreach(render_test ${_svg_render_tests})
+      add_python_test(
+        io_curve_svg_${render_test}
+        ${CMAKE_CURRENT_LIST_DIR}/bl_io_curve_svg_test.py
+        -blender "${TEST_BLENDER_EXE}"
+        -testdir "${TEST_SRC_DIR}/io_tests/svg/${render_test}"
+        -idiff "${OPENIMAGEIO_IDIFF}"
+        -outdir "${TEST_OUT_DIR}/io_curve_svg"
+      )
+    endforeach()
+
+    unset(_svg_render_tests)
+  endif()
+endif()
+
 if(WITH_CYCLES OR WITH_OPENGL_RENDER_TESTS)
   if(NOT OPENIMAGEIO_IDIFF)
-    MESSAGE(STATUS "Disabling Cycles tests because OIIO idiff does not exist")
+    message(WARNING "Disabling render tests because OIIO idiff does not exist")
   elseif(NOT EXISTS "${TEST_SRC_DIR}/render/shader")
-    MESSAGE(STATUS "Disabling Cycles tests because tests folder does not exist at ${TEST_SRC_DIR}")
-  elseif(NOT WITH_COMPOSITOR)
-    MESSAGE(STATUS "Disabling Cycles tests because WITH_COMPOSITOR is disabled")
+    message(WARNING "Disabling render tests because tests folder does not exist at ${TEST_SRC_DIR}")
+  elseif(NOT WITH_COMPOSITOR_CPU)
+    message(WARNING "Disabling render tests because WITH_COMPOSITOR_CPU is disabled")
   elseif(NOT WITH_OPENCOLORIO)
-    MESSAGE(STATUS "Disabling Cycles tests because WITH_OPENCOLORIO is disabled")
+    message(WARNING "Disabling render tests because WITH_OPENCOLORIO is disabled")
   else()
     set(render_tests
       camera
@@ -667,6 +714,11 @@ if(WITH_CYCLES OR WITH_OPENGL_RENDER_TESTS)
       list(APPEND render_tests denoise)
     endif()
 
+    # Disabled until new OpenGL version with deterministic results.
+    #if(WITH_CYCLES_PATH_GUIDING)
+    #  list(APPEND render_tests guiding)
+    #endif()
+
     if(WITH_OPENGL_RENDER_TESTS)
       list(APPEND render_tests grease_pencil)
     endif()
@@ -675,6 +727,7 @@ if(WITH_CYCLES OR WITH_OPENGL_RENDER_TESTS)
 
     # Cycles
     if(WITH_CYCLES)
+      set(_cycles_blacklist "")
       if(NOT WITH_CYCLES_OSL)
         set(_cycles_blacklist OSL)
       endif()
@@ -695,6 +748,7 @@ if(WITH_CYCLES OR WITH_OPENGL_RENDER_TESTS)
           )
         endforeach()
       endforeach()
+      unset(_cycles_blacklist)
     endif()
 
     if(WITH_OPENGL_RENDER_TESTS)
@@ -725,44 +779,51 @@ if(WITH_CYCLES OR WITH_OPENGL_RENDER_TESTS)
   endif()
 endif()
 
-if(WITH_COMPOSITOR)
-  set(compositor_tests
-    color
-    converter
-    filter
-    input
-    output
-    vector
+if(WITH_COMPOSITOR_CPU)
+  if(NOT OPENIMAGEIO_IDIFF)
+    message(WARNING "Disabling Compositor CPU tests because OIIO idiff does not exist")
+  else()
+    set(compositor_tests
+      color
+      converter
+      filter
+      input
+      output
+      vector
 
-    multiple_node_setups
-  )
-
-  if(WITH_LIBMV)
-    list(APPEND compositor_tests distort matte)
-  endif()
-
-  foreach(comp_test ${compositor_tests})
-    add_python_test(
-      compositor_${comp_test}_test
-      ${CMAKE_CURRENT_LIST_DIR}/compositor_render_tests.py
-      -blender "${TEST_BLENDER_EXE}"
-      -testdir "${TEST_SRC_DIR}/compositor/${comp_test}"
-      -idiff "${OPENIMAGEIO_IDIFF}"
-      -outdir "${TEST_OUT_DIR}/compositor"
+      multiple_node_setups
     )
-  endforeach()
 
+    if(WITH_LIBMV)
+      list(APPEND compositor_tests distort matte)
+    endif()
+
+    foreach(comp_test ${compositor_tests})
+      add_python_test(
+        compositor_${comp_test}_test
+        ${CMAKE_CURRENT_LIST_DIR}/compositor_render_tests.py
+        -blender "${TEST_BLENDER_EXE}"
+        -testdir "${TEST_SRC_DIR}/compositor/${comp_test}"
+        -idiff "${OPENIMAGEIO_IDIFF}"
+        -outdir "${TEST_OUT_DIR}/compositor"
+      )
+    endforeach()
+  endif()
 endif()
 
 set(geo_node_tests
   attributes
   curve_primitives
   curves
+  curves/interpolate_curves
   geometry
+  instance
   mesh_primitives
   mesh
   mesh/extrude
+  mesh/split_edges
   points
+  texture
   utilities
   vector
 )
@@ -791,15 +852,15 @@ foreach(geo_node_test ${geo_node_tests})
       )
       endforeach()
   else()
-    MESSAGE(STATUS "Directory named ${TEST_SRC_DIR}/modeling/geometry_nodes/${geo_node_test}/ Not Found, disabling test.")
+    message(STATUS "Directory named ${TEST_SRC_DIR}/modeling/geometry_nodes/${geo_node_test}/ Not Found, disabling test.")
   endif()
 endforeach()
 
 if(WITH_OPENGL_DRAW_TESTS)
   if(NOT OPENIMAGEIO_IDIFF)
-    MESSAGE(STATUS "Disabling OpenGL draw tests because OIIO idiff does not exist")
+    message(STATUS "Disabling OpenGL draw tests because OIIO idiff does not exist")
   elseif(NOT EXISTS "${TEST_SRC_DIR}/opengl")
-    MESSAGE(STATUS "Disabling OpenGL draw tests because tests folder does not exist at ${TEST_SRC_DIR}")
+    message(STATUS "Disabling OpenGL draw tests because tests folder does not exist at ${TEST_SRC_DIR}")
   else()
     # Use all subdirectories of opengl folder.
     file(GLOB children RELATIVE ${TEST_SRC_DIR}/opengl ${TEST_SRC_DIR}/opengl/*)
@@ -871,7 +932,7 @@ endif()
 # SEQUENCER RENDER TESTS
 
 if(NOT OPENIMAGEIO_IDIFF)
-  MESSAGE(STATUS "Disabling sequencer render tests because OIIO idiff does not exist")
+  message(STATUS "Disabling sequencer render tests because OIIO idiff does not exist")
 else()
   set(render_tests
     transform

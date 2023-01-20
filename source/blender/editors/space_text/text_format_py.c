@@ -31,26 +31,40 @@
 static int txtfmt_py_find_builtinfunc(const char *string)
 {
   int i, len;
-  /* list is from...
+  /**
+   * The following items are derived from this list:
+   * \code{.py}
    * ", ".join(['"%s"' % kw
-   *            for kw in  __import__("keyword").kwlist
-   *            if kw not in {"False", "None", "True", "def", "class"}])
+   *            for kw in sorted(__import__("keyword").kwlist + __import__("keyword").softkwlist)
+   *            if kw not in {"False", "None", "True", "def", "class", "_"}])
+   * \endcode
    *
-   * ... and for this code:
-   * print("\n".join(['else if (STR_LITERAL_STARTSWITH(string, "%s", len)) i = len;' % kw
-   *                  for kw in  __import__("keyword").kwlist
-   *                  if kw not in {"False", "None", "True", "def", "class"}]))
+   * The code below can be re-generated using:
+   * \code{.py}
+   * import keyword
+   * ignore = {"False", "None", "True", "def", "class", "_"}
+   * keywords = sorted(set(keyword.kwlist + keyword.softkwlist) - ignore)
+   * longest = max(len(kw) for kw in keywords)
+   * first  = 'if        (STR_LITERAL_STARTSWITH(string, "%s",%s len)) { i = len;'
+   * middle = '} else if (STR_LITERAL_STARTSWITH(string, "%s",%s len)) { i = len;'
+   * last   = '} else                                         %s       { i = 0;'
+   * print("\n".join([(first if i==0 else middle) % (kw, ' '*(longest - len(kw)))
+   *                 for (i, kw) in enumerate(keywords)]) + "\n" +
+   *       last % (' '*(longest-2)) + "\n" +
+   *       "}")
+   * \endcode
    */
 
   /* Keep aligned args for readability. */
   /* clang-format off */
 
-  if        (STR_LITERAL_STARTSWITH(string, "assert",   len)) { i = len;
+  if        (STR_LITERAL_STARTSWITH(string, "and",      len)) { i = len;
+  } else if (STR_LITERAL_STARTSWITH(string, "assert",   len)) { i = len;
   } else if (STR_LITERAL_STARTSWITH(string, "async",    len)) { i = len;
-  } else if (STR_LITERAL_STARTSWITH(string, "await",    len)) { i = len;
-  } else if (STR_LITERAL_STARTSWITH(string, "and",      len)) { i = len;
   } else if (STR_LITERAL_STARTSWITH(string, "as",       len)) { i = len;
+  } else if (STR_LITERAL_STARTSWITH(string, "await",    len)) { i = len;
   } else if (STR_LITERAL_STARTSWITH(string, "break",    len)) { i = len;
+  } else if (STR_LITERAL_STARTSWITH(string, "case",     len)) { i = len;
   } else if (STR_LITERAL_STARTSWITH(string, "continue", len)) { i = len;
   } else if (STR_LITERAL_STARTSWITH(string, "del",      len)) { i = len;
   } else if (STR_LITERAL_STARTSWITH(string, "elif",     len)) { i = len;
@@ -65,6 +79,7 @@ static int txtfmt_py_find_builtinfunc(const char *string)
   } else if (STR_LITERAL_STARTSWITH(string, "in",       len)) { i = len;
   } else if (STR_LITERAL_STARTSWITH(string, "is",       len)) { i = len;
   } else if (STR_LITERAL_STARTSWITH(string, "lambda",   len)) { i = len;
+  } else if (STR_LITERAL_STARTSWITH(string, "match",    len)) { i = len;
   } else if (STR_LITERAL_STARTSWITH(string, "nonlocal", len)) { i = len;
   } else if (STR_LITERAL_STARTSWITH(string, "not",      len)) { i = len;
   } else if (STR_LITERAL_STARTSWITH(string, "or",       len)) { i = len;
@@ -211,7 +226,7 @@ static uint txtfmt_py_numeral_string_count_hexadecimal(const char *string)
 /* Zeros. */
 static bool txtfmt_py_numeral_char_is_zero(const char c)
 {
-  return (ELEM(c, '0', '_'));
+  return ELEM(c, '0', '_');
 }
 static uint txtfmt_py_numeral_string_count_zeros(const char *string)
 {
@@ -410,7 +425,7 @@ static void txtfmt_py_format_line(SpaceText *st, TextLine *line, const bool do_n
         }
         *fmt = FMT_TYPE_STRING;
       }
-      /* White-space (all ws. has been converted to spaces). */
+      /* White-space (all white-space has been converted to spaces). */
       else if (*str == ' ') {
         *fmt = FMT_TYPE_WHITESPACE;
       }
@@ -432,18 +447,19 @@ static void txtfmt_py_format_line(SpaceText *st, TextLine *line, const bool do_n
       else if ((*str != '@') && text_check_delim(*str)) {
         *fmt = FMT_TYPE_SYMBOL;
       }
-      /* Identifiers and other text (no previous ws. or delims. so text continues) */
+      /* Identifiers and other text (no previous white-space/delimiters so text continues). */
       else if (prev == FMT_TYPE_DEFAULT) {
         str += BLI_str_utf8_size_safe(str) - 1;
         *fmt = FMT_TYPE_DEFAULT;
       }
-      /* Not ws, a digit, punct, or continuing text. Must be new, check for special words */
+      /* Not white-space, a digit, punctuation, or continuing text.
+       * Must be new, check for special words. */
       else {
-        /* Keep aligned args for readability. */
+        /* Keep aligned arguments for readability. */
         /* clang-format off */
 
         /* Special vars(v) or built-in keywords(b) */
-        /* keep in sync with 'txtfmt_py_format_identifier()' */
+        /* keep in sync with `txtfmt_py_format_identifier()`. */
         if        ((i = txtfmt_py_find_specialvar(str))   != -1) { prev = FMT_TYPE_SPECIAL;
         } else if ((i = txtfmt_py_find_builtinfunc(str))  != -1) { prev = FMT_TYPE_KEYWORD;
         } else if ((i = txtfmt_py_find_decorator(str))    != -1) { prev = FMT_TYPE_DIRECTIVE;

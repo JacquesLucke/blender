@@ -28,13 +28,6 @@ const char *BLT_translate_do_iface(const char *msgctxt, const char *msgid);
 const char *BLT_translate_do_tooltip(const char *msgctxt, const char *msgid);
 const char *BLT_translate_do_new_dataname(const char *msgctxt, const char *msgid);
 
-/**
- * Note that "lang" here is the _output_ display language. We used to restrict
- * IME for keyboard _input_ language because our multilingual font was only used
- * when some output languages were selected. That font is used all the time now.
- */
-bool BLT_lang_is_ime_supported(void);
-
 /* The "translation-marker" macro. */
 #define N_(msgid) msgid
 #define CTX_N_(context, msgid) msgid
@@ -81,7 +74,7 @@ bool BLT_lang_is_ime_supported(void);
 #define BLT_I18NCONTEXT_UI_EVENTS "UI_Events_KeyMaps"
 
 /* Mark the msgid applies to several elements
- * (needed in some cases, as english adjectives have no plural mark :( ). */
+ * (needed in some cases, as English adjectives have no plural mark :( ). */
 #define BLT_I18NCONTEXT_PLURAL "Plural"
 
 /* ID-types contexts. */
@@ -92,7 +85,7 @@ bool BLT_lang_is_ime_supported(void);
 #define BLT_I18NCONTEXT_ID_CAMERA "Camera"
 #define BLT_I18NCONTEXT_ID_CACHEFILE "CacheFile"
 #define BLT_I18NCONTEXT_ID_COLLECTION "Collection"
-#define BLT_I18NCONTEXT_ID_CURVE "Curve"
+#define BLT_I18NCONTEXT_ID_CURVE_LEGACY "Curve"
 #define BLT_I18NCONTEXT_ID_FREESTYLELINESTYLE "FreestyleLineStyle"
 #define BLT_I18NCONTEXT_ID_GPENCIL "GPencil"
 #define BLT_I18NCONTEXT_ID_CURVES "Curves"
@@ -129,6 +122,9 @@ bool BLT_lang_is_ime_supported(void);
 #define BLT_I18NCONTEXT_ID_MOVIECLIP "MovieClip"
 #define BLT_I18NCONTEXT_ID_MASK "Mask"
 
+/* Editors-types contexts. */
+#define BLT_I18NCONTEXT_EDITOR_VIEW3D "View3D"
+
 /* Helper for bpy.app.i18n object... */
 typedef struct {
   const char *c_id;
@@ -154,7 +150,7 @@ typedef struct {
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_CAMERA, "id_camera"), \
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_CACHEFILE, "id_cachefile"), \
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_COLLECTION, "id_collection"), \
-        BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_CURVE, "id_curve"), \
+        BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_CURVE_LEGACY, "id_curve"), \
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_FREESTYLELINESTYLE, "id_fs_linestyle"), \
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_GPENCIL, "id_gpencil"), \
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_CURVES, "id_curves"), \
@@ -191,6 +187,7 @@ typedef struct {
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_WORLD, "id_world"), \
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_WORKSPACE, "id_workspace"), \
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_WINDOWMANAGER, "id_windowmanager"), \
+        BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_EDITOR_VIEW3D, "editor_view3d"), \
     { \
       NULL, NULL, NULL \
     } \

@@ -11,6 +11,10 @@
 #include <Python.h>
 #include <frameobject.h>
 
+#ifdef WITH_PYTHON_MODULE
+#  include "pylifecycle.h" /* For `Py_Version`. */
+#endif
+
 #include "MEM_guardedalloc.h"
 
 #include "CLG_log.h"
@@ -238,7 +242,7 @@ void BPY_context_set(bContext *C)
 extern PyObject *Manta_initPython(void);
 #endif
 
-#ifdef WITH_AUDASPACE
+#ifdef WITH_AUDASPACE_PY
 /* defined in AUD_C-API.cpp */
 extern PyObject *AUD_initPython(void);
 #endif
@@ -272,7 +276,7 @@ static struct _inittab bpy_internal_modules[] = {
 #ifdef WITH_FLUID
     {"manta", Manta_initPython},
 #endif
-#ifdef WITH_AUDASPACE
+#ifdef WITH_AUDASPACE_PY
     {"aud", AUD_initPython},
 #endif
 #ifdef WITH_CYCLES
@@ -311,6 +315,14 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
   {
     PyPreConfig preconfig;
     PyStatus status;
+
+    /* To narrow down reports where the systems Python is inexplicably used, see: T98131. */
+    CLOG_INFO(
+        BPY_LOG_INTERFACE,
+        2,
+        "Initializing %s support for the systems Python environment such as 'PYTHONPATH' and "
+        "the user-site directory.",
+        py_use_system_env ? "*with*" : "*without*");
 
     if (py_use_system_env) {
       PyPreConfig_InitPythonConfig(&preconfig);
@@ -504,6 +516,9 @@ void BPY_python_end(void)
   /* finalizing, no need to grab the state, except when we are a module */
   gilstate = PyGILState_Ensure();
 
+  /* Frees the python-driver name-space & cached data. */
+  BPY_driver_exit();
+
   /* Clear Python values in the context so freeing the context after Python exits doesn't crash. */
   bpy_context_end(BPY_context_get());
 
@@ -574,16 +589,22 @@ void BPY_python_use_system_env(void)
 void BPY_python_backtrace(FILE *fp)
 {
   fputs("\n# Python backtrace\n", fp);
-  PyThreadState *tstate = PyGILState_GetThisThreadState();
-  if (tstate != NULL && tstate->frame != NULL) {
-    PyFrameObject *frame = tstate->frame;
-    do {
-      const int line = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
-      const char *filename = PyUnicode_AsUTF8(frame->f_code->co_filename);
-      const char *funcname = PyUnicode_AsUTF8(frame->f_code->co_name);
-      fprintf(fp, "  File \"%s\", line %d in %s\n", filename, line, funcname);
-    } while ((frame = frame->f_back));
+
+  /* Can happen in rare cases. */
+  if (!_PyThreadState_UncheckedGet()) {
+    return;
   }
+  PyFrameObject *frame;
+  if (!(frame = PyEval_GetFrame())) {
+    return;
+  }
+  do {
+    PyCodeObject *code = PyFrame_GetCode(frame);
+    const int line = PyFrame_GetLineNumber(frame);
+    const char *filepath = PyUnicode_AsUTF8(code->co_filename);
+    const char *funcname = PyUnicode_AsUTF8(code->co_name);
+    fprintf(fp, "  File \"%s\", line %d in %s\n", filepath, line, funcname);
+  } while ((frame = PyFrame_GetBack(frame)));
 }
 
 void BPY_DECREF(void *pyob_ptr)
@@ -747,14 +768,14 @@ extern void main_python_exit(void);
 
 static struct PyModuleDef bpy_proxy_def = {
     PyModuleDef_HEAD_INIT,
-    "bpy",           /* m_name */
-    NULL,            /* m_doc */
-    0,               /* m_size */
-    NULL,            /* m_methods */
-    NULL,            /* m_reload */
-    NULL,            /* m_traverse */
-    NULL,            /* m_clear */
-    bpy_module_free, /* m_free */
+    /*m_name*/ "bpy",
+    /*m_doc*/ NULL,
+    /*m_size*/ 0,
+    /*m_methods*/ NULL,
+    /*m_slots*/ NULL,
+    /*m_traverse*/ NULL,
+    /*m_clear*/ NULL,
+    /*m_free*/ bpy_module_free,
 };
 
 typedef struct {
@@ -770,16 +791,16 @@ static void bpy_module_delay_init(PyObject *bpy_proxy)
   const char *argv[2];
 
   /* updating the module dict below will lose the reference to __file__ */
-  PyObject *filename_obj = PyModule_GetFilenameObject(bpy_proxy);
+  PyObject *filepath_obj = PyModule_GetFilenameObject(bpy_proxy);
 
-  const char *filename_rel = PyUnicode_AsUTF8(filename_obj); /* can be relative */
-  char filename_abs[1024];
+  const char *filepath_rel = PyUnicode_AsUTF8(filepath_obj); /* can be relative */
+  char filepath_abs[1024];
 
-  BLI_strncpy(filename_abs, filename_rel, sizeof(filename_abs));
-  BLI_path_abs_from_cwd(filename_abs, sizeof(filename_abs));
-  Py_DECREF(filename_obj);
+  BLI_strncpy(filepath_abs, filepath_rel, sizeof(filepath_abs));
+  BLI_path_abs_from_cwd(filepath_abs, sizeof(filepath_abs));
+  Py_DECREF(filepath_obj);
 
-  argv[0] = filename_abs;
+  argv[0] = filepath_abs;
   argv[1] = NULL;
 
   // printf("module found %s\n", argv[0]);
@@ -788,6 +809,50 @@ static void bpy_module_delay_init(PyObject *bpy_proxy)
 
   /* initialized in BPy_init_modules() */
   PyDict_Update(PyModule_GetDict(bpy_proxy), PyModule_GetDict(bpy_package_py));
+}
+
+/**
+ * Raise an error and return false if the Python version used to compile Blender
+ * isn't compatible with the interpreter loading the `bpy` module.
+ */
+static bool bpy_module_ensure_compatible_version(void)
+{
+  /* First check the Python version used matches the major version that Blender was built with.
+   * While this isn't essential, the error message in this case may be cryptic and misleading.
+   * NOTE: using `Py_LIMITED_API` would remove the need for this, in practice it's
+   * unlikely Blender will ever used the limited API though. */
+#  if PY_VERSION_HEX >= 0x030b0000 /* Python 3.11 & newer. */
+  const uint version_runtime = Py_Version;
+#  else
+  uint version_runtime;
+  {
+    uint version_runtime_major = 0, version_runtime_minor = 0;
+    const char *version_str = Py_GetVersion();
+    if (sscanf(version_str, "%u.%u.", &version_runtime_major, &version_runtime_minor) != 2) {
+      /* Should never happen, raise an error to ensure this check never fails silently. */
+      PyErr_Format(PyExc_ImportError, "Failed to extract the version from \"%s\"", version_str);
+      return false;
+    }
+    version_runtime = (version_runtime_major << 24) | (version_runtime_minor << 16);
+  }
+#  endif
+
+  uint version_compile_major = PY_VERSION_HEX >> 24;
+  uint version_compile_minor = ((PY_VERSION_HEX & 0x00ff0000) >> 16);
+  uint version_runtime_major = version_runtime >> 24;
+  uint version_runtime_minor = ((version_runtime & 0x00ff0000) >> 16);
+  if ((version_compile_major != version_runtime_major) ||
+      (version_compile_minor != version_runtime_minor)) {
+    PyErr_Format(PyExc_ImportError,
+                 "The version of \"bpy\" was compiled with: "
+                 "(%u.%u) is incompatible with: (%u.%u) used by the interpreter!",
+                 version_compile_major,
+                 version_compile_minor,
+                 version_runtime_major,
+                 version_runtime_minor);
+    return false;
+  }
+  return true;
 }
 
 static void dealloc_obj_dealloc(PyObject *self);
@@ -807,19 +872,23 @@ PyMODINIT_FUNC PyInit_bpy(void);
 
 PyMODINIT_FUNC PyInit_bpy(void)
 {
+  if (!bpy_module_ensure_compatible_version()) {
+    return NULL; /* The error has been set. */
+  }
+
   PyObject *bpy_proxy = PyModule_Create(&bpy_proxy_def);
 
   /* Problem:
-   * 1) this init function is expected to have a private member defined - 'md_def'
+   * 1) this init function is expected to have a private member defined - `md_def`
    *    but this is only set for C defined modules (not py packages)
    *    so we can't return 'bpy_package_py' as is.
    *
    * 2) there is a 'bpy' C module for python to load which is basically all of blender,
-   *    and there is scripts/bpy/__init__.py,
+   *    and there is `scripts/bpy/__init__.py`,
    *    we may end up having to rename this module so there is no naming conflict here eg:
    *    'from blender import bpy'
    *
-   * 3) we don't know the filename at this point, workaround by assigning a dummy value
+   * 3) we don't know the filepath at this point, workaround by assigning a dummy value
    *    which calls back when its freed so the real loading can take place.
    */
 

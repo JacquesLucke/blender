@@ -229,6 +229,16 @@ typedef enum eKeyMergeMode {
   KEYFRAME_PASTE_MERGE_OVER_RANGE_ALL,
 } eKeyMergeMode;
 
+/* Possible errors occurring while pasting keys. */
+typedef enum eKeyPasteError {
+  /* No errors occurred */
+  KEYFRAME_PASTE_OK,
+  /* Nothing was copied */
+  KEYFRAME_PASTE_NOTHING_TO_PASTE,
+  /* No F-curves was selected to paste into. */
+  KEYFRAME_PASTE_NOWHERE_TO_PASTE
+} eKeyPasteError;
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -378,10 +388,8 @@ bool keyframe_region_circle_test(const KeyframeEdit_CircleData *data_circle, con
 /* ************************************************ */
 /* Destructive Editing API (keyframes_general.c) */
 
-void delete_fcurve_key(struct FCurve *fcu, int index, bool do_recalc);
-bool delete_fcurve_keys(struct FCurve *fcu);
-void clear_fcurve_keys(struct FCurve *fcu);
-void duplicate_fcurve_keys(struct FCurve *fcu);
+bool duplicate_fcurve_keys(struct FCurve *fcu);
+float get_default_rna_value(struct FCurve *fcu, struct PropertyRNA *prop, struct PointerRNA *ptr);
 
 typedef struct FCurveSegment {
   struct FCurveSegment *next, *prev;
@@ -403,7 +411,9 @@ void blend_to_neighbor_fcurve_segment(struct FCurve *fcu,
                                       struct FCurveSegment *segment,
                                       float factor);
 void breakdown_fcurve_segment(struct FCurve *fcu, struct FCurveSegment *segment, float factor);
+void ease_fcurve_segment(struct FCurve *fcu, struct FCurveSegment *segment, float factor);
 bool decimate_fcurve(struct bAnimListElem *ale, float remove_ratio, float error_sq_max);
+void blend_to_default_fcurve(struct PointerRNA *id_ptr, struct FCurve *fcu, float factor);
 /**
  * Use a weighted moving-means method to reduce intensity of fluctuations.
  */
@@ -414,11 +424,11 @@ void sample_fcurve(struct FCurve *fcu);
 
 void ANIM_fcurves_copybuf_free(void);
 short copy_animedit_keys(struct bAnimContext *ac, ListBase *anim_data);
-short paste_animedit_keys(struct bAnimContext *ac,
-                          ListBase *anim_data,
-                          eKeyPasteOffset offset_mode,
-                          eKeyMergeMode merge_mode,
-                          bool flip);
+eKeyPasteError paste_animedit_keys(struct bAnimContext *ac,
+                                   ListBase *anim_data,
+                                   eKeyPasteOffset offset_mode,
+                                   eKeyMergeMode merge_mode,
+                                   bool flip);
 
 /* ************************************************ */
 

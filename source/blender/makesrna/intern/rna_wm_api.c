@@ -23,6 +23,7 @@
 #include "wm_cursors.h"
 #include "wm_event_types.h"
 
+#include "WM_api.h"
 #include "WM_types.h"
 
 #include "rna_internal.h" /* own include */
@@ -258,6 +259,7 @@ static wmKeyMapItem *rna_KeyMap_item_new(wmKeyMap *km,
                                          int alt,
                                          int oskey,
                                          int keymodifier,
+                                         int direction,
                                          bool repeat,
                                          bool head)
 {
@@ -275,7 +277,15 @@ static wmKeyMapItem *rna_KeyMap_item_new(wmKeyMap *km,
   WM_operator_bl_idname(idname_bl, idname);
 
   /* create keymap item */
-  kmi = WM_keymap_add_item(km, idname_bl, type, value, modifier, keymodifier);
+  kmi = WM_keymap_add_item(km,
+                           idname_bl,
+                           &(const KeyMapItem_Params){
+                               .type = type,
+                               .value = value,
+                               .modifier = modifier,
+                               .keymodifier = keymodifier,
+                               .direction = direction,
+                           });
 
   if (!repeat) {
     kmi->flag |= KMI_REPEAT_IGNORE;
@@ -324,6 +334,7 @@ static wmKeyMapItem *rna_KeyMap_item_new_modal(wmKeyMap *km,
                                                int alt,
                                                int oskey,
                                                int keymodifier,
+                                               int direction,
                                                bool repeat)
 {
   /* only modal maps */
@@ -336,15 +347,23 @@ static wmKeyMapItem *rna_KeyMap_item_new_modal(wmKeyMap *km,
   const int modifier = keymap_item_modifier_flag_from_args(any, shift, ctrl, alt, oskey);
   int propvalue = 0;
 
+  KeyMapItem_Params params = {
+      .type = type,
+      .value = value,
+      .modifier = modifier,
+      .keymodifier = keymodifier,
+      .direction = direction,
+  };
+
   /* not initialized yet, do delayed lookup */
   if (!km->modal_items) {
-    kmi = WM_modalkeymap_add_item_str(km, type, value, modifier, keymodifier, propvalue_str);
+    kmi = WM_modalkeymap_add_item_str(km, &params, propvalue_str);
   }
   else {
     if (RNA_enum_value_from_id(km->modal_items, propvalue_str, &propvalue) == 0) {
       BKE_report(reports, RPT_WARNING, "Property value not in enumeration");
     }
-    kmi = WM_modalkeymap_add_item(km, type, value, modifier, keymodifier, propvalue);
+    kmi = WM_modalkeymap_add_item(km, &params, propvalue);
   }
 
   if (!repeat) {
@@ -606,7 +625,7 @@ static wmEvent *rna_Window_event_add_simulate(wmWindow *win,
       return NULL;
     }
   }
-  if (ELEM(type, MOUSEMOVE, INBETWEEN_MOUSEMOVE)) {
+  if (ISMOUSE_MOTION(type)) {
     if (value != KM_NOTHING) {
       BKE_report(reports, RPT_ERROR, "Value: must be 'NOTHING' for motion");
       return NULL;
@@ -620,34 +639,37 @@ static wmEvent *rna_Window_event_add_simulate(wmWindow *win,
   }
   /* TODO: validate NDOF. */
 
-  char ascii = 0;
   if (unicode != NULL) {
     int len = BLI_str_utf8_size(unicode);
     if (len == -1 || unicode[len] != '\0') {
       BKE_report(reports, RPT_ERROR, "Only a single character supported");
       return NULL;
     }
-    if (len == 1 && isascii(unicode[0])) {
-      ascii = unicode[0];
-    }
   }
 
   wmEvent e = *win->eventstate;
   e.type = type;
   e.val = value;
-  e.is_repeat = false;
+  e.flag = 0;
   e.xy[0] = x;
   e.xy[1] = y;
 
-  e.shift = shift;
-  e.ctrl = ctrl;
-  e.alt = alt;
-  e.oskey = oskey;
+  e.modifier = 0;
+  if (shift) {
+    e.modifier |= KM_SHIFT;
+  }
+  if (ctrl) {
+    e.modifier |= KM_CTRL;
+  }
+  if (alt) {
+    e.modifier |= KM_ALT;
+  }
+  if (oskey) {
+    e.modifier |= KM_OSKEY;
+  }
 
-  e.ascii = '\0';
   e.utf8_buf[0] = '\0';
   if (unicode != NULL) {
-    e.ascii = ascii;
     STRNCPY(e.utf8_buf, unicode);
   }
 
@@ -720,7 +742,7 @@ void RNA_api_window(StructRNA *srna)
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   parm = RNA_def_enum(func, "type", rna_enum_event_type_items, 0, "Type", "");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-  parm = RNA_def_enum(func, "value", rna_enum_event_value_all_items, 0, "Value", "");
+  parm = RNA_def_enum(func, "value", rna_enum_event_value_items, 0, "Value", "");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
   parm = RNA_def_string(func, "unicode", NULL, 0, "", "");
   RNA_def_parameter_clear_flags(parm, PROP_NEVER_NULL, 0);
@@ -1125,7 +1147,7 @@ void RNA_api_keymapitems(StructRNA *srna)
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
   parm = RNA_def_enum(func, "type", rna_enum_event_type_items, 0, "Type", "");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-  parm = RNA_def_enum(func, "value", rna_enum_event_value_all_items, 0, "Value", "");
+  parm = RNA_def_enum(func, "value", rna_enum_event_value_items, 0, "Value", "");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
   RNA_def_boolean(func, "any", 0, "Any", "");
   RNA_def_int(func, "shift", KM_NOTHING, KM_ANY, KM_MOD_HELD, "Shift", "", KM_ANY, KM_MOD_HELD);
@@ -1133,6 +1155,7 @@ void RNA_api_keymapitems(StructRNA *srna)
   RNA_def_int(func, "alt", KM_NOTHING, KM_ANY, KM_MOD_HELD, "Alt", "", KM_ANY, KM_MOD_HELD);
   RNA_def_int(func, "oskey", KM_NOTHING, KM_ANY, KM_MOD_HELD, "OS Key", "", KM_ANY, KM_MOD_HELD);
   RNA_def_enum(func, "key_modifier", rna_enum_event_type_items, 0, "Key Modifier", "");
+  RNA_def_enum(func, "direction", rna_enum_event_direction_items, KM_ANY, "Direction", "");
   RNA_def_boolean(func, "repeat", false, "Repeat", "When set, accept key-repeat events");
   RNA_def_boolean(func,
                   "head",
@@ -1149,7 +1172,7 @@ void RNA_api_keymapitems(StructRNA *srna)
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
   parm = RNA_def_enum(func, "type", rna_enum_event_type_items, 0, "Type", "");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-  parm = RNA_def_enum(func, "value", rna_enum_event_value_all_items, 0, "Value", "");
+  parm = RNA_def_enum(func, "value", rna_enum_event_value_items, 0, "Value", "");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
   RNA_def_boolean(func, "any", 0, "Any", "");
   RNA_def_int(func, "shift", KM_NOTHING, KM_ANY, KM_MOD_HELD, "Shift", "", KM_ANY, KM_MOD_HELD);
@@ -1157,6 +1180,7 @@ void RNA_api_keymapitems(StructRNA *srna)
   RNA_def_int(func, "alt", KM_NOTHING, KM_ANY, KM_MOD_HELD, "Alt", "", KM_ANY, KM_MOD_HELD);
   RNA_def_int(func, "oskey", KM_NOTHING, KM_ANY, KM_MOD_HELD, "OS Key", "", KM_ANY, KM_MOD_HELD);
   RNA_def_enum(func, "key_modifier", rna_enum_event_type_items, 0, "Key Modifier", "");
+  RNA_def_enum(func, "direction", rna_enum_event_direction_items, KM_ANY, "Direction", "");
   RNA_def_boolean(func, "repeat", false, "Repeat", "When set, accept key-repeat events");
   parm = RNA_def_pointer(func, "item", "KeyMapItem", "Item", "Added key map item");
   RNA_def_function_return(func, parm);

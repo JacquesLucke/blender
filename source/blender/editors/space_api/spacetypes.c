@@ -29,6 +29,7 @@
 #include "ED_clip.h"
 #include "ED_curve.h"
 #include "ED_curves.h"
+#include "ED_curves_sculpt.h"
 #include "ED_fileselect.h"
 #include "ED_geometry.h"
 #include "ED_gizmo_library.h"
@@ -96,6 +97,7 @@ void ED_spacetypes_init(void)
   ED_operatortypes_mesh();
   ED_operatortypes_geometry();
   ED_operatortypes_sculpt();
+  ED_operatortypes_sculpt_curves();
   ED_operatortypes_uvedit();
   ED_operatortypes_paint();
   ED_operatortypes_physics();
@@ -161,6 +163,7 @@ void ED_spacemacros_init(void)
   ED_operatormacros_sequencer();
   ED_operatormacros_paint();
   ED_operatormacros_gpencil();
+  ED_operatormacros_nla();
 
   /* Register dropboxes (can use macros). */
   ED_dropboxes_ui();
@@ -183,6 +186,7 @@ void ED_spacetypes_keymap(wmKeyConfig *keyconf)
   ED_keymap_mesh(keyconf);
   ED_keymap_uvedit(keyconf);
   ED_keymap_curve(keyconf);
+  ED_keymap_curves(keyconf);
   ED_keymap_armature(keyconf);
   ED_keymap_physics(keyconf);
   ED_keymap_metaball(keyconf);

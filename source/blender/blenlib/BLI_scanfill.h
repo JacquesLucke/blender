@@ -51,7 +51,7 @@ typedef struct ScanFillVert {
   unsigned int keyindex;
   unsigned short poly_nr;
   /** number of edges using this vertex */
-  unsigned char edge_tot;
+  unsigned char edge_count;
   /** vert status */
   unsigned int f : 4;
   /** flag callers can use as they like */
@@ -82,7 +82,7 @@ struct ScanFillEdge *BLI_scanfill_edge_add(ScanFillContext *sf_ctx,
                                            struct ScanFillVert *v2);
 
 enum {
-  /* NOTE(campbell): using BLI_SCANFILL_CALC_REMOVE_DOUBLES
+  /* NOTE(@campbellbarton): using #BLI_SCANFILL_CALC_REMOVE_DOUBLES
    * Assumes ordered edges, otherwise we risk an eternal loop
    * removing double verts. */
   BLI_SCANFILL_CALC_REMOVE_DOUBLES = (1 << 1),

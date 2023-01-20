@@ -24,7 +24,6 @@ set(SRC
   intern/allocimbuf.c
   intern/anim_movie.c
   intern/bmp.c
-  intern/cache.c
   intern/colormanagement.c
   intern/colormanagement_inline.c
   intern/divers.c
@@ -36,7 +35,7 @@ set(SRC
   intern/jpeg.c
   intern/metadata.c
   intern/module.c
-  intern/moviecache.c
+  intern/moviecache.cc
   intern/png.c
   intern/readimage.c
   intern/rectop.c
@@ -57,6 +56,7 @@ set(SRC
   IMB_imbuf_types.h
   IMB_metadata.h
   IMB_moviecache.h
+  IMB_openexr.h
   IMB_thumbs.h
   intern/IMB_allocimbuf.h
   intern/IMB_anim.h
@@ -171,6 +171,19 @@ if(WITH_IMAGE_HDR)
     intern/radiance_hdr.c
   )
   add_definitions(-DWITH_HDR)
+endif()
+
+if(WITH_IMAGE_WEBP)
+  list(APPEND SRC
+    intern/webp.c
+  )
+  list(APPEND INC_SYS
+    ${WEBP_INCLUDE_DIRS}
+  )
+  list(APPEND LIB
+    ${WEBP_LIBRARIES}
+  )
+  add_definitions(-DWITH_WEBP)
 endif()
 
 list(APPEND INC

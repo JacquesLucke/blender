@@ -84,10 +84,10 @@ class Vector {
   T *capacity_end_;
 
   /** Used for allocations when the inline buffer is too small. */
-  Allocator allocator_;
+  BLI_NO_UNIQUE_ADDRESS Allocator allocator_;
 
   /** A placeholder buffer that will remain uninitialized until it is used. */
-  TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
+  BLI_NO_UNIQUE_ADDRESS TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
 
   /**
    * Store the size of the vector explicitly in debug builds. Otherwise you'd always have to call
@@ -96,8 +96,7 @@ class Vector {
    */
 #ifndef NDEBUG
   int64_t debug_size_;
-#  define UPDATE_VECTOR_SIZE(ptr) \
-    (ptr)->debug_size_ = static_cast<int64_t>((ptr)->end_ - (ptr)->begin_)
+#  define UPDATE_VECTOR_SIZE(ptr) (ptr)->debug_size_ = int64_t((ptr)->end_ - (ptr)->begin_)
 #else
 #  define UPDATE_VECTOR_SIZE(ptr) ((void)0)
 #endif
@@ -156,6 +155,12 @@ class Vector {
     this->reserve(size);
     uninitialized_convert_n<U, T>(values.data(), size, begin_);
     this->increase_size_by_unchecked(size);
+  }
+
+  template<typename U, BLI_ENABLE_IF((std::is_convertible_v<U, T>))>
+  explicit Vector(MutableSpan<U> values, Allocator allocator = {})
+      : Vector(values.as_span(), allocator)
+  {
   }
 
   /**
@@ -244,7 +249,7 @@ class Vector {
         /* Copy from inline buffer to newly allocated buffer. */
         const int64_t capacity = size;
         begin_ = static_cast<T *>(
-            allocator_.allocate(sizeof(T) * static_cast<size_t>(capacity), alignof(T), AT));
+            allocator_.allocate(sizeof(T) * size_t(capacity), alignof(T), AT));
         capacity_end_ = begin_ + capacity;
         uninitialized_relocate_n(other.begin_, size, begin_);
         end_ = begin_ + size;
@@ -387,6 +392,16 @@ class Vector {
   }
 
   /**
+   * Reset the size of the vector so that it contains new_size elements.
+   * All existing elements are destructed, and not copied if the data must be reallocated.
+   */
+  void reinitialize(const int64_t new_size)
+  {
+    this->clear();
+    this->resize(new_size);
+  }
+
+  /**
    * Afterwards the vector has 0 elements, but will still have
    * memory to be refilled again.
    */
@@ -401,7 +416,7 @@ class Vector {
    * Afterwards the vector has 0 elements and any allocated memory
    * will be freed.
    */
-  void clear_and_make_inline()
+  void clear_and_shrink()
   {
     destruct_n(begin_, this->size());
     if (!this->is_inline()) {
@@ -441,8 +456,16 @@ class Vector {
    */
   int64_t append_and_get_index(const T &value)
   {
+    return this->append_and_get_index_as(value);
+  }
+  int64_t append_and_get_index(T &&value)
+  {
+    return this->append_and_get_index_as(std::move(value));
+  }
+  template<typename... ForwardValue> int64_t append_and_get_index_as(ForwardValue &&...value)
+  {
     const int64_t index = this->size();
-    this->append(value);
+    this->append_as(std::forward<ForwardValue>(value)...);
     return index;
   }
 
@@ -639,18 +662,20 @@ class Vector {
   }
 
   /**
-   * Return a reference to the last element in the vector.
-   * This invokes undefined behavior when the vector is empty.
+   * Return a reference to the nth last element.
+   * This invokes undefined behavior when the vector is too short.
    */
-  const T &last() const
+  const T &last(const int64_t n = 0) const
   {
-    BLI_assert(this->size() > 0);
-    return *(end_ - 1);
+    BLI_assert(n >= 0);
+    BLI_assert(n < this->size());
+    return *(end_ - 1 - n);
   }
-  T &last()
+  T &last(const int64_t n = 0)
   {
-    BLI_assert(this->size() > 0);
-    return *(end_ - 1);
+    BLI_assert(n >= 0);
+    BLI_assert(n < this->size());
+    return *(end_ - 1 - n);
   }
 
   /**
@@ -673,7 +698,7 @@ class Vector {
    */
   int64_t size() const
   {
-    const int64_t current_size = static_cast<int64_t>(end_ - begin_);
+    const int64_t current_size = int64_t(end_ - begin_);
     BLI_assert(debug_size_ == current_size);
     return current_size;
   }
@@ -786,6 +811,17 @@ class Vector {
   }
 
   /**
+   * Remove all values for which the given predicate is true.
+   *
+   * This is similar to std::erase_if.
+   */
+  template<typename Predicate> void remove_if(Predicate &&predicate)
+  {
+    end_ = std::remove_if(this->begin(), this->end(), predicate);
+    UPDATE_VECTOR_SIZE(this);
+  }
+
+  /**
    * Do a linear search to find the value in the vector.
    * When found, return the first index, otherwise return -1.
    */
@@ -793,7 +829,7 @@ class Vector {
   {
     for (const T *current = begin_; current != end_; current++) {
       if (*current == value) {
-        return static_cast<int64_t>(current - begin_);
+        return int64_t(current - begin_);
       }
     }
     return -1;
@@ -872,11 +908,11 @@ class Vector {
 
   std::reverse_iterator<const T *> rbegin() const
   {
-    return std::reverse_iterator<T *>(this->end());
+    return std::reverse_iterator<const T *>(this->end());
   }
   std::reverse_iterator<const T *> rend() const
   {
-    return std::reverse_iterator<T *>(this->begin());
+    return std::reverse_iterator<const T *>(this->begin());
   }
 
   /**
@@ -885,7 +921,12 @@ class Vector {
    */
   int64_t capacity() const
   {
-    return static_cast<int64_t>(capacity_end_ - begin_);
+    return int64_t(capacity_end_ - begin_);
+  }
+
+  bool is_at_capacity() const
+  {
+    return end_ == capacity_end_;
   }
 
   /**
@@ -900,6 +941,16 @@ class Vector {
   IndexRange index_range() const
   {
     return IndexRange(this->size());
+  }
+
+  uint64_t hash() const
+  {
+    return this->as_span().hash();
+  }
+
+  static uint64_t hash_as(const Span<T> values)
+  {
+    return values.hash();
   }
 
   friend bool operator==(const Vector &a, const Vector &b)
@@ -955,7 +1006,7 @@ class Vector {
     const int64_t size = this->size();
 
     T *new_array = static_cast<T *>(
-        allocator_.allocate(static_cast<size_t>(new_capacity) * sizeof(T), alignof(T), AT));
+        allocator_.allocate(size_t(new_capacity) * sizeof(T), alignof(T), AT));
     try {
       uninitialized_relocate_n(begin_, size, new_array);
     }

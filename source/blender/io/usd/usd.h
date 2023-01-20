@@ -10,10 +10,16 @@ extern "C" {
 #endif
 
 struct CacheArchiveHandle;
-struct CacheFile;
 struct CacheReader;
 struct Object;
 struct bContext;
+
+/* Behavior when the name of an imported material
+ * conflicts with an existing material. */
+typedef enum eUSDMtlNameCollisionMode {
+  USD_MTL_NAME_COLLISION_MAKE_UNIQUE = 0,
+  USD_MTL_NAME_COLLISION_REFERENCE_EXISTING = 1,
+} eUSDMtlNameCollisionMode;
 
 struct USDExportParams {
   bool export_animation;
@@ -28,7 +34,7 @@ struct USDExportParams {
   bool generate_preview_surface;
   bool export_textures;
   bool overwrite_textures;
-  bool relative_texture_paths;
+  bool relative_paths;
 };
 
 struct USDImportParams {
@@ -45,7 +51,7 @@ struct USDImportParams {
   bool import_materials;
   bool import_meshes;
   bool import_volumes;
-  char *prim_path_mask;
+  char prim_path_mask[1024];
   bool import_subdiv;
   bool import_instance_proxies;
   bool create_collection;
@@ -57,6 +63,7 @@ struct USDImportParams {
   bool import_usd_preview;
   bool set_material_blend;
   float light_intensity_scale;
+  eUSDMtlNameCollisionMode mtl_name_collision_mode;
 };
 
 /* The USD_export takes a as_background_job parameter, and returns a boolean.
@@ -83,7 +90,7 @@ int USD_get_version(void);
 /* USD Import and Mesh Cache interface. */
 
 struct CacheArchiveHandle *USD_create_handle(struct Main *bmain,
-                                             const char *filename,
+                                             const char *filepath,
                                              struct ListBase *object_paths);
 
 void USD_free_handle(struct CacheArchiveHandle *handle);
@@ -94,14 +101,14 @@ void USD_get_transform(struct CacheReader *reader, float r_mat[4][4], float time
 struct Mesh *USD_read_mesh(struct CacheReader *reader,
                            struct Object *ob,
                            struct Mesh *existing_mesh,
-                           float time,
+                           double time,
                            const char **err_str,
                            int read_flag);
 
 bool USD_mesh_topology_changed(struct CacheReader *reader,
-                               struct Object *ob,
-                               struct Mesh *existing_mesh,
-                               float time,
+                               const struct Object *ob,
+                               const struct Mesh *existing_mesh,
+                               double time,
                                const char **err_str);
 
 struct CacheReader *CacheReader_open_usd_object(struct CacheArchiveHandle *handle,
@@ -111,7 +118,7 @@ struct CacheReader *CacheReader_open_usd_object(struct CacheArchiveHandle *handl
 
 void USD_CacheReader_incref(struct CacheReader *reader);
 void USD_CacheReader_free(struct CacheReader *reader);
-
+void USD_ensure_plugin_path_registered(void);
 #ifdef __cplusplus
 }
 #endif

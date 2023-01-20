@@ -16,6 +16,7 @@
 #include "BKE_image.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_node_runtime.hh"
 #include "BKE_screen.h"
 
 #include "ED_image.h"
@@ -61,7 +62,7 @@ bool space_node_view_flag(
   if (snode.edittree) {
     LISTBASE_FOREACH (const bNode *, node, &snode.edittree->nodes) {
       if ((node->flag & node_flag) == node_flag) {
-        BLI_rctf_union(&cur_new, &node->totr);
+        BLI_rctf_union(&cur_new, &node->runtime->totr);
         tot++;
 
         if (node->type == NODE_FRAME) {
@@ -177,8 +178,10 @@ void NODE_OT_view_selected(wmOperatorType *ot)
  * \{ */
 
 struct NodeViewMove {
-  int mvalo[2];
+  int2 mvalo;
   int xmin, ymin, xmax, ymax;
+  /** Original Offset for cancel. */
+  float xof_orig, yof_orig;
 };
 
 static int snode_bg_viewmove_modal(bContext *C, wmOperator *op, const wmEvent *event)
@@ -190,10 +193,10 @@ static int snode_bg_viewmove_modal(bContext *C, wmOperator *op, const wmEvent *e
   switch (event->type) {
     case MOUSEMOVE:
 
-      snode->xof -= (nvm->mvalo[0] - event->mval[0]);
-      snode->yof -= (nvm->mvalo[1] - event->mval[1]);
-      nvm->mvalo[0] = event->mval[0];
-      nvm->mvalo[1] = event->mval[1];
+      snode->xof -= (nvm->mvalo.x - event->mval[0]);
+      snode->yof -= (nvm->mvalo.y - event->mval[1]);
+      nvm->mvalo.x = event->mval[0];
+      nvm->mvalo.y = event->mval[1];
 
       /* prevent dragging image outside of the window and losing it! */
       CLAMP(snode->xof, nvm->xmin, nvm->xmax);
@@ -207,13 +210,24 @@ static int snode_bg_viewmove_modal(bContext *C, wmOperator *op, const wmEvent *e
 
     case LEFTMOUSE:
     case MIDDLEMOUSE:
-    case RIGHTMOUSE:
       if (event->val == KM_RELEASE) {
         MEM_freeN(nvm);
         op->customdata = nullptr;
         return OPERATOR_FINISHED;
       }
       break;
+    case EVT_ESCKEY:
+    case RIGHTMOUSE:
+      snode->xof = nvm->xof_orig;
+      snode->yof = nvm->yof_orig;
+      ED_region_tag_redraw(region);
+      WM_main_add_notifier(NC_NODE | ND_DISPLAY, nullptr);
+      WM_main_add_notifier(NC_SPACE | ND_SPACE_NODE_VIEW, nullptr);
+
+      MEM_freeN(nvm);
+      op->customdata = nullptr;
+
+      return OPERATOR_CANCELLED;
   }
 
   return OPERATOR_RUNNING_MODAL;
@@ -227,7 +241,7 @@ static int snode_bg_viewmove_invoke(bContext *C, wmOperator *op, const wmEvent *
   NodeViewMove *nvm;
   Image *ima;
   ImBuf *ibuf;
-  const float pad = 32.0f; /* better be bigger than scrollbars */
+  const float pad = 32.0f; /* Better be bigger than scroll-bars. */
 
   void *lock;
 
@@ -239,15 +253,18 @@ static int snode_bg_viewmove_invoke(bContext *C, wmOperator *op, const wmEvent *
     return OPERATOR_CANCELLED;
   }
 
-  nvm = MEM_cnew<NodeViewMove>("NodeViewMove struct");
+  nvm = MEM_cnew<NodeViewMove>(__func__);
   op->customdata = nvm;
-  nvm->mvalo[0] = event->mval[0];
-  nvm->mvalo[1] = event->mval[1];
+  nvm->mvalo.x = event->mval[0];
+  nvm->mvalo.y = event->mval[1];
 
   nvm->xmin = -(region->winx / 2) - (ibuf->x * (0.5f * snode->zoom)) + pad;
   nvm->xmax = (region->winx / 2) + (ibuf->x * (0.5f * snode->zoom)) - pad;
   nvm->ymin = -(region->winy / 2) - (ibuf->y * (0.5f * snode->zoom)) + pad;
   nvm->ymax = (region->winy / 2) + (ibuf->y * (0.5f * snode->zoom)) - pad;
+
+  nvm->xof_orig = snode->xof;
+  nvm->yof_orig = snode->yof;
 
   BKE_image_release_ibuf(ima, ibuf, lock);
 
@@ -257,7 +274,7 @@ static int snode_bg_viewmove_invoke(bContext *C, wmOperator *op, const wmEvent *
   return OPERATOR_RUNNING_MODAL;
 }
 
-static void snode_bg_viewmove_cancel(bContext *UNUSED(C), wmOperator *op)
+static void snode_bg_viewmove_cancel(bContext * /*C*/, wmOperator *op)
 {
   MEM_freeN(op->customdata);
   op->customdata = nullptr;
@@ -325,7 +342,7 @@ void NODE_OT_backimage_zoom(wmOperatorType *ot)
 /** \name Background Image Fit
  * \{ */
 
-static int backimage_fit_exec(bContext *C, wmOperator *UNUSED(op))
+static int backimage_fit_exec(bContext *C, wmOperator * /*op*/)
 {
   Main *bmain = CTX_data_main(C);
   SpaceNode *snode = CTX_wm_space_node(C);
@@ -431,7 +448,7 @@ static void sample_draw(const bContext *C, ARegion *region, void *arg_info)
 }  // namespace blender::ed::space_node
 
 bool ED_space_node_get_position(
-    Main *bmain, SpaceNode *snode, struct ARegion *region, const int mval[2], float fpos[2])
+    Main *bmain, SpaceNode *snode, ARegion *region, const int mval[2], float fpos[2])
 {
   if (!ED_node_is_compositor(snode) || (snode->flag & SNODE_BACKDRAW) == 0) {
     return false;
@@ -448,9 +465,9 @@ bool ED_space_node_get_position(
   /* map the mouse coords to the backdrop image space */
   float bufx = ibuf->x * snode->zoom;
   float bufy = ibuf->y * snode->zoom;
-  fpos[0] = (bufx > 0.0f ? ((float)mval[0] - 0.5f * region->winx - snode->xof) / bufx + 0.5f :
+  fpos[0] = (bufx > 0.0f ? (float(mval[0]) - 0.5f * region->winx - snode->xof) / bufx + 0.5f :
                            0.0f);
-  fpos[1] = (bufy > 0.0f ? ((float)mval[1] - 0.5f * region->winy - snode->yof) / bufy + 0.5f :
+  fpos[1] = (bufy > 0.0f ? (float(mval[1]) - 0.5f * region->winy - snode->yof) / bufy + 0.5f :
                            0.0f);
 
   BKE_image_release_ibuf(ima, ibuf, lock);
@@ -482,13 +499,13 @@ bool ED_space_node_color_sample(
   /* map the mouse coords to the backdrop image space */
   bufx = ibuf->x * snode->zoom;
   bufy = ibuf->y * snode->zoom;
-  fx = (bufx > 0.0f ? ((float)mval[0] - 0.5f * region->winx - snode->xof) / bufx + 0.5f : 0.0f);
-  fy = (bufy > 0.0f ? ((float)mval[1] - 0.5f * region->winy - snode->yof) / bufy + 0.5f : 0.0f);
+  fx = (bufx > 0.0f ? (float(mval[0]) - 0.5f * region->winx - snode->xof) / bufx + 0.5f : 0.0f);
+  fy = (bufy > 0.0f ? (float(mval[1]) - 0.5f * region->winy - snode->yof) / bufy + 0.5f : 0.0f);
 
   if (fx >= 0.0f && fy >= 0.0f && fx < 1.0f && fy < 1.0f) {
     const float *fp;
     uchar *cp;
-    int x = (int)(fx * ibuf->x), y = (int)(fy * ibuf->y);
+    int x = int(fx * ibuf->x), y = int(fy * ibuf->y);
 
     CLAMP(x, 0, ibuf->x - 1);
     CLAMP(y, 0, ibuf->y - 1);
@@ -539,15 +556,15 @@ static void sample_apply(bContext *C, wmOperator *op, const wmEvent *event)
   /* map the mouse coords to the backdrop image space */
   bufx = ibuf->x * snode->zoom;
   bufy = ibuf->y * snode->zoom;
-  fx = (bufx > 0.0f ? ((float)event->mval[0] - 0.5f * region->winx - snode->xof) / bufx + 0.5f :
+  fx = (bufx > 0.0f ? (float(event->mval[0]) - 0.5f * region->winx - snode->xof) / bufx + 0.5f :
                       0.0f);
-  fy = (bufy > 0.0f ? ((float)event->mval[1] - 0.5f * region->winy - snode->yof) / bufy + 0.5f :
+  fy = (bufy > 0.0f ? (float(event->mval[1]) - 0.5f * region->winy - snode->yof) / bufy + 0.5f :
                       0.0f);
 
   if (fx >= 0.0f && fy >= 0.0f && fx < 1.0f && fy < 1.0f) {
     const float *fp;
     uchar *cp;
-    int x = (int)(fx * ibuf->x), y = (int)(fy * ibuf->y);
+    int x = int(fx * ibuf->x), y = int(fy * ibuf->y);
 
     CLAMP(x, 0, ibuf->x - 1);
     CLAMP(y, 0, ibuf->y - 1);
@@ -568,10 +585,10 @@ static void sample_apply(bContext *C, wmOperator *op, const wmEvent *event)
       info->col[2] = cp[2];
       info->col[3] = cp[3];
 
-      info->colf[0] = (float)cp[0] / 255.0f;
-      info->colf[1] = (float)cp[1] / 255.0f;
-      info->colf[2] = (float)cp[2] / 255.0f;
-      info->colf[3] = (float)cp[3] / 255.0f;
+      info->colf[0] = float(cp[0]) / 255.0f;
+      info->colf[1] = float(cp[1]) / 255.0f;
+      info->colf[2] = float(cp[2]) / 255.0f;
+      info->colf[3] = float(cp[3]) / 255.0f;
 
       copy_v4_v4(info->linearcol, info->colf);
       IMB_colormanagement_colorspace_to_scene_linear_v4(
@@ -626,6 +643,12 @@ static int sample_invoke(bContext *C, wmOperator *op, const wmEvent *event)
   SpaceNode *snode = CTX_wm_space_node(C);
   ARegion *region = CTX_wm_region(C);
   ImageSampleInfo *info;
+
+  /* Don't handle events intended for nodes (which rely on click/drag distinction).
+   * which this operator would use since sampling is normally activated on press, see: T98191. */
+  if (node_or_socket_isect_event(*C, *event)) {
+    return OPERATOR_PASS_THROUGH;
+  }
 
   if (!ED_node_is_compositor(snode) || !(snode->flag & SNODE_BACKDRAW)) {
     return OPERATOR_CANCELLED;
@@ -682,92 +705,6 @@ void NODE_OT_backimage_sample(wmOperatorType *ot)
 
   /* flags */
   ot->flag = OPTYPE_BLOCKING;
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name View Geometry Nodes Legacy Operator
- *
- *  This operator should be removed when the 2.93 legacy nodes are removed.
- * \{ */
-
-static int space_node_view_geometry_nodes_legacy(bContext *C, SpaceNode *snode, wmOperator *op)
-{
-  ARegion *region = CTX_wm_region(C);
-
-  /* Only use the node editor's active node tree. Otherwise this will be too complicated. */
-  bNodeTree *node_tree = snode->nodetree;
-  if (node_tree == nullptr || node_tree->type != NTREE_GEOMETRY) {
-    return OPERATOR_CANCELLED;
-  }
-
-  bool found_legacy_node = false;
-  LISTBASE_FOREACH_BACKWARD (bNode *, node, &node_tree->nodes) {
-    StringRef idname{node->idname};
-    if (idname.find("Legacy") == StringRef::not_found) {
-      node->flag &= ~NODE_SELECT;
-    }
-    else {
-      found_legacy_node = true;
-      node->flag |= NODE_SELECT;
-    }
-  }
-
-  if (!found_legacy_node) {
-    WM_report(RPT_INFO, "Legacy node not found, may be in nested node group");
-  }
-
-  const int smooth_viewtx = WM_operator_smooth_viewtx_get(op);
-  if (space_node_view_flag(*C, *snode, *region, NODE_SELECT, smooth_viewtx)) {
-    return OPERATOR_FINISHED;
-  }
-  return OPERATOR_CANCELLED;
-}
-
-static int geometry_node_view_legacy_exec(bContext *C, wmOperator *op)
-{
-  /* Allow running this operator directly in a specific node editor. */
-  if (SpaceNode *snode = CTX_wm_space_node(C)) {
-    return space_node_view_geometry_nodes_legacy(C, snode, op);
-  }
-
-  /* Since the operator is meant to be called from a button in the modifier panel, the node tree
-   * must be found from the screen, using the largest node editor if there is more than one. */
-  if (ScrArea *area = BKE_screen_find_big_area(CTX_wm_screen(C), SPACE_NODE, 0)) {
-    if (SpaceNode *snode = static_cast<SpaceNode *>(area->spacedata.first)) {
-      ScrArea *old_area = CTX_wm_area(C);
-      ARegion *old_region = CTX_wm_region(C);
-
-      /* Override the context since it is used by the View2D panning code. */
-      CTX_wm_area_set(C, area);
-      CTX_wm_region_set(C, static_cast<ARegion *>(area->regionbase.last));
-      const int result = space_node_view_geometry_nodes_legacy(C, snode, op);
-      CTX_wm_area_set(C, old_area);
-      CTX_wm_region_set(C, old_region);
-      return result;
-    }
-  }
-
-  return OPERATOR_CANCELLED;
-}
-
-static bool geometry_node_view_legacy_poll(bContext *C)
-{
-  /* Allow direct execution in a node editor, but also affecting any visible node editor. */
-  return ED_operator_node_active(C) || BKE_screen_find_big_area(CTX_wm_screen(C), SPACE_NODE, 0);
-}
-
-void NODE_OT_geometry_node_view_legacy(wmOperatorType *ot)
-{
-  ot->name = "View Deprecated Geometry Nodes";
-  ot->idname = "NODE_OT_geometry_node_view_legacy";
-  ot->description = "Select and view legacy geometry nodes in the node editor";
-
-  ot->exec = geometry_node_view_legacy_exec;
-  ot->poll = geometry_node_view_legacy_poll;
-
-  ot->flag = OPTYPE_INTERNAL;
 }
 
 /** \} */

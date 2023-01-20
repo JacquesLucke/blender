@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
  * Copyright 2021 Blender Foundation. */
 /**
- * \file image_gpu_partial_update.cc
+ * \file
  * \ingroup bke
  *
  * To reduce the overhead of image processing this file contains a mechanism to detect areas of the
@@ -125,7 +125,6 @@ static PartialUpdateRegisterImpl *unwrap(struct PartialUpdateRegister *partial_u
   return static_cast<PartialUpdateRegisterImpl *>(static_cast<void *>(partial_update_register));
 }
 
-using TileNumber = int32_t;
 using ChangesetID = int64_t;
 constexpr ChangesetID UnknownChangesetID = -1;
 
@@ -198,8 +197,8 @@ struct TileChangeset {
     tile_width = image_buffer->x;
     tile_height = image_buffer->y;
 
-    int chunk_x_len = tile_width / CHUNK_SIZE;
-    int chunk_y_len = tile_height / CHUNK_SIZE;
+    int chunk_x_len = (tile_width + CHUNK_SIZE - 1) / CHUNK_SIZE;
+    int chunk_y_len = (tile_height + CHUNK_SIZE - 1) / CHUNK_SIZE;
     init_chunks(chunk_x_len, chunk_y_len);
     return true;
   }
@@ -413,7 +412,7 @@ struct PartialUpdateRegisterImpl {
   }
 
   /**
-   * /brief Check if data is available to construct the update tiles for the given
+   * \brief Check if data is available to construct the update tiles for the given
    * changeset_id.
    *
    * The update tiles can be created when changeset id is between

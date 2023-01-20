@@ -3,7 +3,7 @@
 
 #include "node_shader_util.hh"
 
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -13,7 +13,10 @@ namespace blender::nodes::node_shader_tex_brick_cc {
 static void sh_node_tex_brick_declare(NodeDeclarationBuilder &b)
 {
   b.is_function_node();
-  b.add_input<decl::Vector>(N_("Vector")).min(-10000.0f).max(10000.0f).implicit_field();
+  b.add_input<decl::Vector>(N_("Vector"))
+      .min(-10000.0f)
+      .max(10000.0f)
+      .implicit_field(implicit_field_inputs::position);
   b.add_input<decl::Color>(N_("Color1")).default_value({0.8f, 0.8f, 0.8f, 1.0f});
   b.add_input<decl::Color>(N_("Color2")).default_value({0.2f, 0.2f, 0.2f, 1.0f});
   b.add_input<decl::Color>(N_("Mortar")).default_value({0.0f, 0.0f, 0.0f, 1.0f}).no_muted_links();
@@ -43,7 +46,7 @@ static void sh_node_tex_brick_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Float>(N_("Fac"));
 }
 
-static void node_shader_buts_tex_brick(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_shader_buts_tex_brick(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiLayout *col;
 
@@ -63,7 +66,7 @@ static void node_shader_buts_tex_brick(uiLayout *layout, bContext *UNUSED(C), Po
       col, ptr, "squash_frequency", UI_ITEM_R_SPLIT_EMPTY_NAME, IFACE_("Frequency"), ICON_NONE);
 }
 
-static void node_shader_init_tex_brick(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_tex_brick(bNodeTree * /*ntree*/, bNode *node)
 {
   NodeTexBrick *tex = MEM_cnew<NodeTexBrick>(__func__);
   BKE_texture_mapping_default(&tex->base.tex_mapping, TEXMAP_TYPE_POINT);
@@ -85,7 +88,7 @@ static void node_shader_init_tex_brick(bNodeTree *UNUSED(ntree), bNode *node)
 
 static int node_shader_gpu_tex_brick(GPUMaterial *mat,
                                      bNode *node,
-                                     bNodeExecData *UNUSED(execdata),
+                                     bNodeExecData * /*execdata*/,
                                      GPUNodeStack *in,
                                      GPUNodeStack *out)
 {
@@ -105,7 +108,7 @@ static int node_shader_gpu_tex_brick(GPUMaterial *mat,
                         GPU_constant(&squash_freq));
 }
 
-class BrickFunction : public fn::MultiFunction {
+class BrickFunction : public mf::MultiFunction {
  private:
   const float offset_;
   const int offset_freq_;
@@ -119,26 +122,24 @@ class BrickFunction : public fn::MultiFunction {
                 const int squash_freq)
       : offset_(offset), offset_freq_(offset_freq), squash_(squash), squash_freq_(squash_freq)
   {
-    static fn::MFSignature signature = create_signature();
+    static const mf::Signature signature = []() {
+      mf::Signature signature;
+      mf::SignatureBuilder builder{"BrickTexture", signature};
+      builder.single_input<float3>("Vector");
+      builder.single_input<ColorGeometry4f>("Color1");
+      builder.single_input<ColorGeometry4f>("Color2");
+      builder.single_input<ColorGeometry4f>("Mortar");
+      builder.single_input<float>("Scale");
+      builder.single_input<float>("Mortar Size");
+      builder.single_input<float>("Mortar Smooth");
+      builder.single_input<float>("Bias");
+      builder.single_input<float>("Brick Width");
+      builder.single_input<float>("Row Height");
+      builder.single_output<ColorGeometry4f>("Color", mf::ParamFlag::SupportsUnusedOutput);
+      builder.single_output<float>("Fac", mf::ParamFlag::SupportsUnusedOutput);
+      return signature;
+    }();
     this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"BrickTexture"};
-    signature.single_input<float3>("Vector");
-    signature.single_input<ColorGeometry4f>("Color1");
-    signature.single_input<ColorGeometry4f>("Color2");
-    signature.single_input<ColorGeometry4f>("Mortar");
-    signature.single_input<float>("Scale");
-    signature.single_input<float>("Mortar Size");
-    signature.single_input<float>("Mortar Smooth");
-    signature.single_input<float>("Bias");
-    signature.single_input<float>("Brick Width");
-    signature.single_input<float>("Row Height");
-    signature.single_output<ColorGeometry4f>("Color");
-    signature.single_output<float>("Fac");
-    return signature.build();
   }
 
   /* Fast integer noise. */
@@ -147,7 +148,7 @@ class BrickFunction : public fn::MultiFunction {
     n = (n + 1013) & 0x7fffffff;
     n = (n >> 13) ^ n;
     const uint nn = (n * (n * n * 60493 + 19990303) + 1376312589) & 0x7fffffff;
-    return 0.5f * ((float)nn / 1073741824.0f);
+    return 0.5f * (float(nn) / 1073741824.0f);
   }
 
   static float smoothstepf(const float f)
@@ -169,14 +170,14 @@ class BrickFunction : public fn::MultiFunction {
   {
     float offset = 0.0f;
 
-    const int rownum = (int)floorf(p.y / row_height);
+    const int rownum = int(floorf(p.y / row_height));
 
     if (offset_frequency && squash_frequency) {
       brick_width *= (rownum % squash_frequency) ? 1.0f : squash_amount;
       offset = (rownum % offset_frequency) ? 0.0f : (brick_width * offset_amount);
     }
 
-    const int bricknum = (int)floorf((p.x + offset) / brick_width);
+    const int bricknum = int(floorf((p.x + offset) / brick_width));
 
     const float x = (p.x + offset) - brick_width * bricknum;
     const float y = p.y - row_height * rownum;
@@ -200,7 +201,7 @@ class BrickFunction : public fn::MultiFunction {
     return float2(tint, mortar);
   }
 
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
+  void call(IndexMask mask, mf::Params params, mf::Context /*context*/) const override
   {
     const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
     const VArray<ColorGeometry4f> &color1_values = params.readonly_single_input<ColorGeometry4f>(
@@ -259,9 +260,9 @@ class BrickFunction : public fn::MultiFunction {
   }
 };
 
-static void sh_node_brick_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_brick_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
-  bNode &node = builder.node();
+  const bNode &node = builder.node();
   NodeTexBrick *tex = (NodeTexBrick *)node.storage;
 
   builder.construct_and_set_matching_fn<BrickFunction>(
@@ -280,10 +281,10 @@ void register_node_type_sh_tex_brick()
   ntype.declare = file_ns::sh_node_tex_brick_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_tex_brick;
   node_type_size_preset(&ntype, NODE_SIZE_MIDDLE);
-  node_type_init(&ntype, file_ns::node_shader_init_tex_brick);
+  ntype.initfunc = file_ns::node_shader_init_tex_brick;
   node_type_storage(
       &ntype, "NodeTexBrick", node_free_standard_storage, node_copy_standard_storage);
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_tex_brick);
+  ntype.gpu_fn = file_ns::node_shader_gpu_tex_brick;
   ntype.build_multi_function = file_ns::sh_node_brick_build_multi_function;
 
   nodeRegisterType(&ntype);

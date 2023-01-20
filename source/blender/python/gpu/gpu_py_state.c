@@ -17,6 +17,7 @@
 #include "../generic/py_capi_utils.h"
 #include "../generic/python_utildefines.h"
 
+#include "gpu_py.h"
 #include "gpu_py_framebuffer.h"
 #include "gpu_py_state.h" /* own include */
 
@@ -72,7 +73,7 @@ PyDoc_STRVAR(
     "\n"
     "   Defines the fixed pipeline blending equation.\n"
     "\n"
-    "   :param mode: The type of blend mode.\n"
+    "   :arg mode: The type of blend mode.\n"
     "      * ``NONE`` No blending.\n"
     "      * ``ALPHA`` The original color channels are interpolated according to the alpha "
     "value.\n"
@@ -114,7 +115,7 @@ PyDoc_STRVAR(pygpu_state_clip_distances_set_doc,
              "\n"
              "   Sets the number of `gl_ClipDistance` planes used for clip geometry.\n"
              "\n"
-             "   :param distances_enabled: Number of clip distances enabled.\n"
+             "   :arg distances_enabled: Number of clip distances enabled.\n"
              "   :type distances_enabled: int\n");
 static PyObject *pygpu_state_clip_distances_set(PyObject *UNUSED(self), PyObject *value)
 {
@@ -136,7 +137,7 @@ PyDoc_STRVAR(pygpu_state_depth_test_set_doc,
              "\n"
              "   Defines the depth_test equation.\n"
              "\n"
-             "   :param mode: The depth test equation name.\n"
+             "   :arg mode: The depth test equation name.\n"
              "      Possible values are `NONE`, `ALWAYS`, `LESS`, `LESS_EQUAL`, `EQUAL`, "
              "`GREATER` and `GREATER_EQUAL`.\n"
              "   :type mode: str\n");
@@ -151,7 +152,7 @@ static PyObject *pygpu_state_depth_test_set(PyObject *UNUSED(self), PyObject *va
 }
 
 PyDoc_STRVAR(pygpu_state_depth_test_get_doc,
-             ".. function:: blend_depth_test_get()\n"
+             ".. function:: depth_test_get()\n"
              "\n"
              "    Current depth_test equation.\n"
              "\n");
@@ -166,7 +167,7 @@ PyDoc_STRVAR(pygpu_state_depth_mask_set_doc,
              "\n"
              "   Write to depth component.\n"
              "\n"
-             "   :param value: True for writing to the depth component.\n"
+             "   :arg value: True for writing to the depth component.\n"
              "   :type near: bool\n");
 static PyObject *pygpu_state_depth_mask_set(PyObject *UNUSED(self), PyObject *value)
 {
@@ -179,7 +180,7 @@ static PyObject *pygpu_state_depth_mask_set(PyObject *UNUSED(self), PyObject *va
 }
 
 PyDoc_STRVAR(pygpu_state_depth_mask_get_doc,
-             ".. function:: depth_mask_set_get()\n"
+             ".. function:: depth_mask_get()\n"
              "\n"
              "   Writing status in the depth component.\n");
 static PyObject *pygpu_state_depth_mask_get(PyObject *UNUSED(self))
@@ -193,9 +194,10 @@ PyDoc_STRVAR(pygpu_state_viewport_set_doc,
              "   Specifies the viewport of the active framebuffer.\n"
              "   Note: The viewport state is not saved upon framebuffer rebind.\n"
              "\n"
-             "   :param x, y: lower left corner of the viewport_set rectangle, in pixels.\n"
-             "   :param width, height: width and height of the viewport_set.\n"
-             "   :type x, y, xsize, ysize: int\n");
+             "   :arg x, y: lower left corner of the viewport_set rectangle, in pixels.\n"
+             "   :type x, y: int\n"
+             "   :arg xsize, ysize: width and height of the viewport_set.\n"
+             "   :type xsize, ysize: int\n");
 static PyObject *pygpu_state_viewport_set(PyObject *UNUSED(self), PyObject *args)
 {
   int x, y, xsize, ysize;
@@ -230,7 +232,7 @@ PyDoc_STRVAR(pygpu_state_line_width_set_doc,
              "\n"
              "   Specify the width of rasterized lines.\n"
              "\n"
-             "   :param size: New width.\n"
+             "   :arg size: New width.\n"
              "   :type mode: float\n");
 static PyObject *pygpu_state_line_width_set(PyObject *UNUSED(self), PyObject *value)
 {
@@ -258,7 +260,7 @@ PyDoc_STRVAR(pygpu_state_point_size_set_doc,
              "\n"
              "   Specify the diameter of rasterized points.\n"
              "\n"
-             "   :param size: New diameter.\n"
+             "   :arg size: New diameter.\n"
              "   :type mode: float\n");
 static PyObject *pygpu_state_point_size_set(PyObject *UNUSED(self), PyObject *value)
 {
@@ -276,7 +278,7 @@ PyDoc_STRVAR(pygpu_state_color_mask_set_doc,
              "\n"
              "   Enable or disable writing of frame buffer color components.\n"
              "\n"
-             "   :param r, g, b, a: components red, green, blue, and alpha.\n"
+             "   :arg r, g, b, a: components red, green, blue, and alpha.\n"
              "   :type r, g, b, a: bool\n");
 static PyObject *pygpu_state_color_mask_set(PyObject *UNUSED(self), PyObject *args)
 {
@@ -294,7 +296,7 @@ PyDoc_STRVAR(pygpu_state_face_culling_set_doc,
              "\n"
              "   Specify whether none, front-facing or back-facing facets can be culled.\n"
              "\n"
-             "   :param mode: `NONE`, `FRONT` or `BACK`.\n"
+             "   :arg mode: `NONE`, `FRONT` or `BACK`.\n"
              "   :type mode: str\n");
 static PyObject *pygpu_state_face_culling_set(PyObject *UNUSED(self), PyObject *value)
 {
@@ -312,7 +314,7 @@ PyDoc_STRVAR(pygpu_state_front_facing_set_doc,
              "\n"
              "   Specifies the orientation of front-facing polygons.\n"
              "\n"
-             "   :param invert: True for clockwise polygons as front-facing.\n"
+             "   :arg invert: True for clockwise polygons as front-facing.\n"
              "   :type mode: bool\n");
 static PyObject *pygpu_state_front_facing_set(PyObject *UNUSED(self), PyObject *value)
 {
@@ -326,12 +328,12 @@ static PyObject *pygpu_state_front_facing_set(PyObject *UNUSED(self), PyObject *
 }
 
 PyDoc_STRVAR(pygpu_state_program_point_size_set_doc,
-             ".. function:: use_program_point_size(enable)\n"
+             ".. function:: program_point_size_set(enable)\n"
              "\n"
              "   If enabled, the derived point size is taken from the (potentially clipped) "
              "shader builtin gl_PointSize.\n"
              "\n"
-             "   :param enable: True for shader builtin gl_PointSize.\n"
+             "   :arg enable: True for shader builtin gl_PointSize.\n"
              "   :type enable: bool\n");
 static PyObject *pygpu_state_program_point_size_set(PyObject *UNUSED(self), PyObject *value)
 {
@@ -347,7 +349,7 @@ static PyObject *pygpu_state_program_point_size_set(PyObject *UNUSED(self), PyOb
 PyDoc_STRVAR(pygpu_state_framebuffer_active_get_doc,
              ".. function:: framebuffer_active_get(enable)\n"
              "\n"
-             "   Return the active framefuffer in context.\n");
+             "   Return the active frame-buffer in context.\n");
 static PyObject *pygpu_state_framebuffer_active_get(PyObject *UNUSED(self))
 {
   GPUFrameBuffer *fb = GPU_framebuffer_active_get();
@@ -430,16 +432,21 @@ static struct PyMethodDef pygpu_state__tp_methods[] = {
 PyDoc_STRVAR(pygpu_state__tp_doc, "This module provides access to the gpu state.");
 static PyModuleDef pygpu_state_module_def = {
     PyModuleDef_HEAD_INIT,
-    .m_name = "gpu.state",
-    .m_doc = pygpu_state__tp_doc,
-    .m_methods = pygpu_state__tp_methods,
+    /*m_name*/ "gpu.state",
+    /*m_doc*/ pygpu_state__tp_doc,
+    /*m_size*/ 0,
+    /*m_methods*/ pygpu_state__tp_methods,
+    /*m_slots*/ NULL,
+    /*m_traverse*/ NULL,
+    /*m_clear*/ NULL,
+    /*m_free*/ NULL,
 };
 
 PyObject *bpygpu_state_init(void)
 {
   PyObject *submodule;
 
-  submodule = PyModule_Create(&pygpu_state_module_def);
+  submodule = bpygpu_create_module(&pygpu_state_module_def);
 
   return submodule;
 }

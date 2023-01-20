@@ -88,9 +88,14 @@ bool GHOST_ImeWin32::IsImeKeyEvent(char ascii, GHOST_TKey key)
     if (IsLanguage(IMELANG_JAPANESE) && (ascii >= ' ' && ascii <= '~')) {
       return true;
     }
-    else if (IsLanguage(IMELANG_CHINESE) && ascii && strchr("!\"$'(),.:;<>?[\\]^_`/", ascii) &&
-             !(key == GHOST_kKeyNumpadPeriod)) {
-      return true;
+    if (IsLanguage(IMELANG_CHINESE)) {
+      if (ascii && strchr("!\"$'(),.:;<>?[\\]^_`/", ascii) && !(key == GHOST_kKeyNumpadPeriod)) {
+        return true;
+      }
+      if (conversion_modes_ & IME_CMODE_FULLSHAPE && (ascii >= '0' && ascii <= '9')) {
+        /* When in Full Width mode the number keys are also converted. */
+        return true;
+      }
     }
   }
   return false;
@@ -265,7 +270,7 @@ void GHOST_ImeWin32::GetCaret(HIMC imm_context, LPARAM lparam, ImeComposition *c
   else if (IsLanguage(IMELANG_CHINESE)) {
     int clause_size = ImmGetCompositionStringW(imm_context, GCS_COMPCLAUSE, NULL, 0);
     if (clause_size) {
-      static std::vector<unsigned long> clauses;
+      static std::vector<ulong> clauses;
       clause_size = clause_size / sizeof(clauses[0]);
       clauses.resize(clause_size);
       ImmGetCompositionStringW(
@@ -507,4 +512,4 @@ void GHOST_ImeWin32::UpdateInfo(HWND window_handle)
   }
 }
 
-#endif  // WITH_INPUT_IME
+#endif /* WITH_INPUT_IME */

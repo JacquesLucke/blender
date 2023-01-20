@@ -11,6 +11,10 @@
 #include "util/math.h"
 #include "util/types.h"
 
+#ifndef __KERNEL_GPU__
+#  include "util/system.h"
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* Affine transformation, stored as 4x3 matrix. */
@@ -38,6 +42,12 @@ typedef struct DecomposedTransform {
   float4 x, y, z, w;
 } DecomposedTransform;
 
+CCL_NAMESPACE_END
+
+#include "util/transform_inverse.h"
+
+CCL_NAMESPACE_BEGIN
+
 /* Functions */
 
 #ifdef __KERNEL_METAL__
@@ -53,20 +63,19 @@ ccl_device_inline float3 transform_point(ccl_private const Transform *t, const f
 {
   /* TODO(sergey): Disabled for now, causes crashes in certain cases. */
 #if defined(__KERNEL_SSE__) && defined(__KERNEL_SSE2__)
-  ssef x, y, z, w, aa;
-  aa = a.m128;
+  const float4 aa(a.m128);
 
-  x = _mm_loadu_ps(&t->x.x);
-  y = _mm_loadu_ps(&t->y.x);
-  z = _mm_loadu_ps(&t->z.x);
-  w = _mm_set_ps(1.0f, 0.0f, 0.0f, 0.0f);
+  float4 x(_mm_loadu_ps(&t->x.x));
+  float4 y(_mm_loadu_ps(&t->y.x));
+  float4 z(_mm_loadu_ps(&t->z.x));
+  float4 w(_mm_set_ps(1.0f, 0.0f, 0.0f, 0.0f));
 
-  _MM_TRANSPOSE4_PS(x, y, z, w);
+  _MM_TRANSPOSE4_PS(x.m128, y.m128, z.m128, w.m128);
 
-  ssef tmp = shuffle<0>(aa) * x;
-  tmp = madd(shuffle<1>(aa), y, tmp);
+  float4 tmp = w;
   tmp = madd(shuffle<2>(aa), z, tmp);
-  tmp += w;
+  tmp = madd(shuffle<1>(aa), y, tmp);
+  tmp = madd(shuffle<0>(aa), x, tmp);
 
   return float3(tmp.m128);
 #elif defined(__KERNEL_METAL__)
@@ -84,18 +93,18 @@ ccl_device_inline float3 transform_point(ccl_private const Transform *t, const f
 ccl_device_inline float3 transform_direction(ccl_private const Transform *t, const float3 a)
 {
 #if defined(__KERNEL_SSE__) && defined(__KERNEL_SSE2__)
-  ssef x, y, z, w, aa;
-  aa = a.m128;
-  x = _mm_loadu_ps(&t->x.x);
-  y = _mm_loadu_ps(&t->y.x);
-  z = _mm_loadu_ps(&t->z.x);
-  w = _mm_setzero_ps();
+  const float4 aa(a.m128);
 
-  _MM_TRANSPOSE4_PS(x, y, z, w);
+  float4 x(_mm_loadu_ps(&t->x.x));
+  float4 y(_mm_loadu_ps(&t->y.x));
+  float4 z(_mm_loadu_ps(&t->z.x));
+  float4 w(_mm_setzero_ps());
 
-  ssef tmp = shuffle<0>(aa) * x;
+  _MM_TRANSPOSE4_PS(x.m128, y.m128, z.m128, w.m128);
+
+  float4 tmp = shuffle<2>(aa) * z;
   tmp = madd(shuffle<1>(aa), y, tmp);
-  tmp = madd(shuffle<2>(aa), z, tmp);
+  tmp = madd(shuffle<0>(aa), x, tmp);
 
   return float3(tmp.m128);
 #elif defined(__KERNEL_METAL__)
@@ -187,14 +196,7 @@ ccl_device_inline Transform make_transform_frame(float3 N)
   return make_transform(dx.x, dx.y, dx.z, 0.0f, dy.x, dy.y, dy.z, 0.0f, N.x, N.y, N.z, 0.0f);
 }
 
-#ifndef __KERNEL_GPU__
-
-ccl_device_inline Transform transform_zero()
-{
-  Transform zero = {zero_float4(), zero_float4(), zero_float4()};
-  return zero;
-}
-
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline Transform operator*(const Transform a, const Transform b)
 {
   float4 c_x = make_float4(b.x.x, b.y.x, b.z.x, 0.0f);
@@ -208,6 +210,15 @@ ccl_device_inline Transform operator*(const Transform a, const Transform b)
   t.z = make_float4(dot(a.z, c_x), dot(a.z, c_y), dot(a.z, c_z), dot(a.z, c_w));
 
   return t;
+}
+#endif
+
+#ifndef __KERNEL_GPU__
+
+ccl_device_inline Transform transform_zero()
+{
+  Transform zero = {zero_float4(), zero_float4(), zero_float4()};
+  return zero;
 }
 
 ccl_device_inline void print_transform(const char *label, const Transform &t)
@@ -285,6 +296,21 @@ ccl_device_inline bool operator!=(const Transform &A, const Transform &B)
   return !(A == B);
 }
 
+ccl_device_inline bool transform_equal_threshold(const Transform &A,
+                                                 const Transform &B,
+                                                 const float threshold)
+{
+  for (int x = 0; x < 3; x++) {
+    for (int y = 0; y < 4; y++) {
+      if (fabsf(A[x][y] - B[x][y]) > threshold) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 ccl_device_inline float3 transform_get_column(const Transform *t, int column)
 {
   return make_float3(t->x[column], t->y[column], t->z[column]);
@@ -297,7 +323,6 @@ ccl_device_inline void transform_set_column(Transform *t, int column, float3 val
   t->z[column] = value.z;
 }
 
-Transform transform_inverse(const Transform &a);
 Transform transform_transposed_inverse(const Transform &a);
 
 ccl_device_inline bool transform_uniform_scale(const Transform &tfm, float &scale)
@@ -377,39 +402,28 @@ ccl_device_inline float4 quat_interpolate(float4 q1, float4 q2, float t)
 #endif /* defined(__KERNEL_GPU_RAYTRACING__) */
 }
 
-ccl_device_inline Transform transform_quick_inverse(Transform M)
+#ifndef __KERNEL_GPU__
+void transform_inverse_cpu_sse41(const Transform &tfm, Transform &itfm);
+void transform_inverse_cpu_avx2(const Transform &tfm, Transform &itfm);
+#endif
+
+ccl_device_inline Transform transform_inverse(const Transform tfm)
 {
-  /* possible optimization: can we avoid doing this altogether and construct
-   * the inverse matrix directly from negated translation, transposed rotation,
-   * scale can be inverted but what about shearing? */
-  Transform R;
-  float det = M.x.x * (M.z.z * M.y.y - M.z.y * M.y.z) - M.y.x * (M.z.z * M.x.y - M.z.y * M.x.z) +
-              M.z.x * (M.y.z * M.x.y - M.y.y * M.x.z);
-  if (det == 0.0f) {
-    M.x.x += 1e-8f;
-    M.y.y += 1e-8f;
-    M.z.z += 1e-8f;
-    det = M.x.x * (M.z.z * M.y.y - M.z.y * M.y.z) - M.y.x * (M.z.z * M.x.y - M.z.y * M.x.z) +
-          M.z.x * (M.y.z * M.x.y - M.y.y * M.x.z);
+  /* Optimized transform implementations. */
+#ifndef __KERNEL_GPU__
+  if (system_cpu_support_avx2()) {
+    Transform itfm;
+    transform_inverse_cpu_avx2(tfm, itfm);
+    return itfm;
   }
-  det = (det != 0.0f) ? 1.0f / det : 0.0f;
+  else if (system_cpu_support_sse41()) {
+    Transform itfm;
+    transform_inverse_cpu_sse41(tfm, itfm);
+    return itfm;
+  }
+#endif
 
-  float3 Rx = det * make_float3(M.z.z * M.y.y - M.z.y * M.y.z,
-                                M.z.y * M.x.z - M.z.z * M.x.y,
-                                M.y.z * M.x.y - M.y.y * M.x.z);
-  float3 Ry = det * make_float3(M.z.x * M.y.z - M.z.z * M.y.x,
-                                M.z.z * M.x.x - M.z.x * M.x.z,
-                                M.y.x * M.x.z - M.y.z * M.x.x);
-  float3 Rz = det * make_float3(M.z.y * M.y.x - M.z.x * M.y.y,
-                                M.z.x * M.x.y - M.z.y * M.x.x,
-                                M.y.y * M.x.x - M.y.x * M.x.y);
-  float3 T = -make_float3(M.x.w, M.y.w, M.z.w);
-
-  R.x = make_float4(Rx.x, Rx.y, Rx.z, dot(Rx, T));
-  R.y = make_float4(Ry.x, Ry.y, Ry.z, dot(Ry, T));
-  R.z = make_float4(Rz.x, Rz.y, Rz.z, dot(Rz, T));
-
-  return R;
+  return transform_inverse_impl(tfm);
 }
 
 ccl_device_inline void transform_compose(ccl_private Transform *tfm,
@@ -478,13 +492,13 @@ ccl_device void transform_motion_array_interpolate(ccl_private Transform *tfm,
 
 ccl_device_inline bool transform_isfinite_safe(ccl_private Transform *tfm)
 {
-  return isfinite4_safe(tfm->x) && isfinite4_safe(tfm->y) && isfinite4_safe(tfm->z);
+  return isfinite_safe(tfm->x) && isfinite_safe(tfm->y) && isfinite_safe(tfm->z);
 }
 
 ccl_device_inline bool transform_decomposed_isfinite_safe(ccl_private DecomposedTransform *decomp)
 {
-  return isfinite4_safe(decomp->x) && isfinite4_safe(decomp->y) && isfinite4_safe(decomp->z) &&
-         isfinite4_safe(decomp->w);
+  return isfinite_safe(decomp->x) && isfinite_safe(decomp->y) && isfinite_safe(decomp->z) &&
+         isfinite_safe(decomp->w);
 }
 
 #ifndef __KERNEL_GPU__

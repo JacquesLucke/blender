@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 from bpy.types import Panel
 
 
@@ -89,7 +87,7 @@ class ConstraintButtonsPanel:
     @staticmethod
     def target_template(layout, con, subtargets=True):
         col = layout.column()
-        col.prop(con, "target")  # XXX limiting settings for only 'curves' or some type of object
+        col.prop(con, "target")  # XXX: limiting settings for only `curves` or some type of object.
 
         if con.target and subtargets:
             if con.target.type == 'ARMATURE':
@@ -1161,6 +1159,7 @@ class ConstraintButtonsSubPanel:
         template_func(con, "cache_file")
 
 # Child Of Constraint
+
 
 class OBJECT_PT_bChildOfConstraint(ObjectConstraintPanel, ConstraintButtonsPanel, Panel):
     def draw(self, context):

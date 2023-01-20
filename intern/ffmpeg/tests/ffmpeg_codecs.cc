@@ -3,13 +3,16 @@
 #include "testing/testing.h"
 
 extern "C" {
+#include "ffmpeg_compat.h"
+
 #include <libavcodec/avcodec.h>
+#include <libavutil/channel_layout.h>
 #include <libavutil/log.h>
 }
 
 namespace {
 
-bool test_vcodec(AVCodec *codec, AVPixelFormat pixelformat)
+bool test_vcodec(const AVCodec *codec, AVPixelFormat pixelformat)
 {
   av_log_set_level(AV_LOG_QUIET);
   bool result = false;
@@ -30,7 +33,7 @@ bool test_vcodec(AVCodec *codec, AVPixelFormat pixelformat)
   }
   return result;
 }
-bool test_acodec(AVCodec *codec, AVSampleFormat fmt)
+bool test_acodec(const AVCodec *codec, AVSampleFormat fmt)
 {
   av_log_set_level(AV_LOG_QUIET);
   bool result = false;
@@ -39,7 +42,11 @@ bool test_acodec(AVCodec *codec, AVSampleFormat fmt)
     if (ctx) {
       ctx->sample_fmt = fmt;
       ctx->sample_rate = 48000;
+#ifdef FFMPEG_USE_OLD_CHANNEL_VARS
       ctx->channel_layout = AV_CH_LAYOUT_MONO;
+#else
+      av_channel_layout_from_mask(&ctx->ch_layout, AV_CH_LAYOUT_MONO);
+#endif
       ctx->bit_rate = 128000;
       int open = avcodec_open2(ctx, codec, NULL);
       if (open >= 0) {
@@ -54,7 +61,7 @@ bool test_acodec(AVCodec *codec, AVSampleFormat fmt)
 bool test_codec_video_by_codecid(AVCodecID codec_id, AVPixelFormat pixelformat)
 {
   bool result = false;
-  AVCodec *codec = avcodec_find_encoder(codec_id);
+  const AVCodec *codec = avcodec_find_encoder(codec_id);
   if (codec)
     result = test_vcodec(codec, pixelformat);
   return result;
@@ -63,7 +70,7 @@ bool test_codec_video_by_codecid(AVCodecID codec_id, AVPixelFormat pixelformat)
 bool test_codec_video_by_name(const char *codecname, AVPixelFormat pixelformat)
 {
   bool result = false;
-  AVCodec *codec = avcodec_find_encoder_by_name(codecname);
+  const AVCodec *codec = avcodec_find_encoder_by_name(codecname);
   if (codec)
     result = test_vcodec(codec, pixelformat);
   return result;
@@ -72,7 +79,7 @@ bool test_codec_video_by_name(const char *codecname, AVPixelFormat pixelformat)
 bool test_codec_audio_by_codecid(AVCodecID codec_id, AVSampleFormat fmt)
 {
   bool result = false;
-  AVCodec *codec = avcodec_find_encoder(codec_id);
+  const AVCodec *codec = avcodec_find_encoder(codec_id);
   if (codec)
     result = test_acodec(codec, fmt);
   return result;
@@ -81,7 +88,7 @@ bool test_codec_audio_by_codecid(AVCodecID codec_id, AVSampleFormat fmt)
 bool test_codec_audio_by_name(const char *codecname, AVSampleFormat fmt)
 {
   bool result = false;
-  AVCodec *codec = avcodec_find_encoder_by_name(codecname);
+  const AVCodec *codec = avcodec_find_encoder_by_name(codecname);
   if (codec)
     result = test_acodec(codec, fmt);
   return result;
@@ -129,6 +136,7 @@ FFMPEG_TEST_VCODEC_ID(AV_CODEC_ID_DVVIDEO, AV_PIX_FMT_YUV420P)
 FFMPEG_TEST_VCODEC_ID(AV_CODEC_ID_MPEG1VIDEO, AV_PIX_FMT_YUV420P)
 FFMPEG_TEST_VCODEC_ID(AV_CODEC_ID_MPEG2VIDEO, AV_PIX_FMT_YUV420P)
 FFMPEG_TEST_VCODEC_ID(AV_CODEC_ID_FLV1, AV_PIX_FMT_YUV420P)
+FFMPEG_TEST_VCODEC_ID(AV_CODEC_ID_AV1, AV_PIX_FMT_YUV420P)
 
 /* Audio codecs */
 
@@ -148,6 +156,12 @@ FFMPEG_TEST_VCODEC_NAME(libx264, AV_PIX_FMT_YUV420P)
 FFMPEG_TEST_VCODEC_NAME(libvpx, AV_PIX_FMT_YUV420P)
 FFMPEG_TEST_VCODEC_NAME(libopenjpeg, AV_PIX_FMT_YUV420P)
 FFMPEG_TEST_VCODEC_NAME(libxvid, AV_PIX_FMT_YUV420P)
+/* aom's AV1 encoder is "libaom-av1". FFMPEG_TEST_VCODEC_NAME(libaom-av1, ...)
+ * will not work because the dash will not work with the test macro. */
+TEST(ffmpeg, libaom_av1_AV_PIX_FMT_YUV420P)
+{
+  EXPECT_TRUE(test_codec_video_by_name("libaom-av1", AV_PIX_FMT_YUV420P));
+}
 FFMPEG_TEST_ACODEC_NAME(libvorbis, AV_SAMPLE_FMT_FLTP)
 FFMPEG_TEST_ACODEC_NAME(libopus, AV_SAMPLE_FMT_FLT)
 FFMPEG_TEST_ACODEC_NAME(libmp3lame, AV_SAMPLE_FMT_FLTP)

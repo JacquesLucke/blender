@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8-80 compliant>
 from __future__ import annotations
 
 from bpy.types import (
@@ -70,8 +68,8 @@ class CONSTRAINT_OT_normalize_target_weights(Operator):
 
 class CONSTRAINT_OT_disable_keep_transform(Operator):
     """Set the influence of this constraint to zero while """ \
-    """trying to maintain the object's transformation. Other active """ \
-    """constraints can still influence the final transformation"""
+        """trying to maintain the object's transformation. Other active """ \
+        """constraints can still influence the final transformation"""
 
     bl_idname = "constraint.disable_keep_transform"
     bl_label = "Disable and Keep Transform"

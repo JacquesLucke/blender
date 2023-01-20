@@ -9,6 +9,8 @@
 
 #include "BLI_math.h"
 
+#include "BLT_translation.h"
+
 #include "DNA_key_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_object_types.h"
@@ -17,6 +19,7 @@
 #include "BKE_particle.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "MOD_modifiertypes.h"
 
@@ -26,14 +29,14 @@ static void deformVerts(ModifierData *UNUSED(md),
                         const ModifierEvalContext *ctx,
                         Mesh *UNUSED(mesh),
                         float (*vertexCos)[3],
-                        int numVerts)
+                        int verts_num)
 {
   Key *key = BKE_key_from_object(ctx->object);
 
   if (key && key->block.first) {
     int deformedVerts_tot;
     BKE_key_evaluate_object_ex(
-        ctx->object, &deformedVerts_tot, (float *)vertexCos, sizeof(*vertexCos) * numVerts);
+        ctx->object, &deformedVerts_tot, (float *)vertexCos, sizeof(*vertexCos) * verts_num, NULL);
   }
 }
 
@@ -42,15 +45,15 @@ static void deformMatrices(ModifierData *md,
                            Mesh *mesh,
                            float (*vertexCos)[3],
                            float (*defMats)[3][3],
-                           int numVerts)
+                           int verts_num)
 {
   Key *key = BKE_key_from_object(ctx->object);
   KeyBlock *kb = BKE_keyblock_from_object(ctx->object);
-  float scale[3][3];
 
   (void)vertexCos; /* unused */
 
-  if (kb && kb->totelem == numVerts && kb != key->refkey) {
+  if (kb && kb->totelem == verts_num && kb != key->refkey) {
+    float scale[3][3];
     int a;
 
     if (ctx->object->shapeflag & OB_SHAPE_LOCK) {
@@ -60,12 +63,12 @@ static void deformMatrices(ModifierData *md,
       scale_m3_fl(scale, kb->curval);
     }
 
-    for (a = 0; a < numVerts; a++) {
+    for (a = 0; a < verts_num; a++) {
       copy_m3_m3(defMats[a], scale);
     }
   }
 
-  deformVerts(md, ctx, mesh, vertexCos, numVerts);
+  deformVerts(md, ctx, mesh, vertexCos, verts_num);
 }
 
 static void deformVertsEM(ModifierData *md,
@@ -73,12 +76,12 @@ static void deformVertsEM(ModifierData *md,
                           struct BMEditMesh *UNUSED(editData),
                           Mesh *mesh,
                           float (*vertexCos)[3],
-                          int numVerts)
+                          int verts_num)
 {
   Key *key = BKE_key_from_object(ctx->object);
 
   if (key && key->type == KEY_RELATIVE) {
-    deformVerts(md, ctx, mesh, vertexCos, numVerts);
+    deformVerts(md, ctx, mesh, vertexCos, verts_num);
   }
 }
 
@@ -88,54 +91,53 @@ static void deformMatricesEM(ModifierData *UNUSED(md),
                              Mesh *UNUSED(mesh),
                              float (*vertexCos)[3],
                              float (*defMats)[3][3],
-                             int numVerts)
+                             int verts_num)
 {
   Key *key = BKE_key_from_object(ctx->object);
   KeyBlock *kb = BKE_keyblock_from_object(ctx->object);
-  float scale[3][3];
 
   (void)vertexCos; /* unused */
 
-  if (kb && kb->totelem == numVerts && kb != key->refkey) {
-    int a;
+  if (kb && kb->totelem == verts_num && kb != key->refkey) {
+    float scale[3][3];
     scale_m3_fl(scale, kb->curval);
 
-    for (a = 0; a < numVerts; a++) {
+    for (int a = 0; a < verts_num; a++) {
       copy_m3_m3(defMats[a], scale);
     }
   }
 }
 
 ModifierTypeInfo modifierType_ShapeKey = {
-    /* name */ "ShapeKey",
-    /* structName */ "ShapeKeyModifierData",
-    /* structSize */ sizeof(ShapeKeyModifierData),
-    /* srna */ &RNA_Modifier,
-    /* type */ eModifierTypeType_OnlyDeform,
-    /* flags */ eModifierTypeFlag_AcceptsCVs | eModifierTypeFlag_AcceptsVertexCosOnly |
+    /*name*/ N_("ShapeKey"),
+    /*structName*/ "ShapeKeyModifierData",
+    /*structSize*/ sizeof(ShapeKeyModifierData),
+    /*srna*/ &RNA_Modifier,
+    /*type*/ eModifierTypeType_OnlyDeform,
+    /*flags*/ eModifierTypeFlag_AcceptsCVs | eModifierTypeFlag_AcceptsVertexCosOnly |
         eModifierTypeFlag_SupportsEditmode,
-    /* icon */ ICON_DOT,
+    /*icon*/ ICON_DOT,
 
-    /* copyData */ NULL,
+    /*copyData*/ NULL,
 
-    /* deformVerts */ deformVerts,
-    /* deformMatrices */ deformMatrices,
-    /* deformVertsEM */ deformVertsEM,
-    /* deformMatricesEM */ deformMatricesEM,
-    /* modifyMesh */ NULL,
-    /* modifyGeometrySet */ NULL,
+    /*deformVerts*/ deformVerts,
+    /*deformMatrices*/ deformMatrices,
+    /*deformVertsEM*/ deformVertsEM,
+    /*deformMatricesEM*/ deformMatricesEM,
+    /*modifyMesh*/ NULL,
+    /*modifyGeometrySet*/ NULL,
 
-    /* initData */ NULL,
-    /* requiredDataMask */ NULL,
-    /* freeData */ NULL,
-    /* isDisabled */ NULL,
-    /* updateDepsgraph */ NULL,
-    /* dependsOnTime */ NULL,
-    /* dependsOnNormals */ NULL,
-    /* foreachIDLink */ NULL,
-    /* foreachTexLink */ NULL,
-    /* freeRuntimeData */ NULL,
-    /* panelRegister */ NULL,
-    /* blendWrite */ NULL,
-    /* blendRead */ NULL,
+    /*initData*/ NULL,
+    /*requiredDataMask*/ NULL,
+    /*freeData*/ NULL,
+    /*isDisabled*/ NULL,
+    /*updateDepsgraph*/ NULL,
+    /*dependsOnTime*/ NULL,
+    /*dependsOnNormals*/ NULL,
+    /*foreachIDLink*/ NULL,
+    /*foreachTexLink*/ NULL,
+    /*freeRuntimeData*/ NULL,
+    /*panelRegister*/ NULL,
+    /*blendWrite*/ NULL,
+    /*blendRead*/ NULL,
 };

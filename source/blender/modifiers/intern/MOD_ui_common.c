@@ -28,6 +28,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -63,7 +64,7 @@ static void modifier_reorder(bContext *C, Panel *panel, int new_index)
   WM_operator_properties_create_ptr(&props_ptr, ot);
   RNA_string_set(&props_ptr, "modifier", md->name);
   RNA_int_set(&props_ptr, "index", new_index);
-  WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &props_ptr);
+  WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &props_ptr, NULL);
   WM_operator_properties_free(&props_ptr);
 }
 
@@ -324,9 +325,35 @@ static void modifier_panel_header(const bContext *C, Panel *panel)
       buttons_number++;
     }
   } /* Tessellation point for curve-typed objects. */
-  else if (ELEM(ob->type, OB_CURVE, OB_SURF, OB_FONT)) {
+  else if (ELEM(ob->type, OB_CURVES_LEGACY, OB_SURF, OB_FONT)) {
+    /* Smooth modifier can work with tessellated curves only (works on mesh edges explicitly). */
+    if (md->type == eModifierType_Smooth) {
+      /* Add button (appearing to be OFF) and add tip why this can't be changed. */
+      sub = uiLayoutRow(row, true);
+      uiBlock *block = uiLayoutGetBlock(sub);
+      static int apply_on_spline_always_off_hack = 0;
+      uiBut *but = uiDefIconButBitI(block,
+                                    UI_BTYPE_TOGGLE,
+                                    eModifierMode_ApplyOnSpline,
+                                    0,
+                                    ICON_SURFACE_DATA,
+                                    0,
+                                    0,
+                                    UI_UNIT_X - 2,
+                                    UI_UNIT_Y,
+                                    &apply_on_spline_always_off_hack,
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                    TIP_("Apply on Spline"));
+      UI_but_disable(
+          but, TIP_("This modifier can only deform filled curve/surface, not the control points"));
+      buttons_number++;
+    }
     /* Some modifiers can work with pre-tessellated curves only. */
-    if (ELEM(md->type, eModifierType_Hook, eModifierType_Softbody, eModifierType_MeshDeform)) {
+    else if (ELEM(
+                 md->type, eModifierType_Hook, eModifierType_Softbody, eModifierType_MeshDeform)) {
       /* Add button (appearing to be ON) and add tip why this can't be changed. */
       sub = uiLayoutRow(row, true);
       uiBlock *block = uiLayoutGetBlock(sub);

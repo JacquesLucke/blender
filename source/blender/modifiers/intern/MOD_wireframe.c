@@ -24,6 +24,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "MOD_modifiertypes.h"
 #include "MOD_ui_common.h"
@@ -40,9 +41,7 @@ static void initData(ModifierData *md)
   MEMCPY_STRUCT_AFTER(wmd, DNA_struct_default_get(WireframeModifierData), modifier);
 }
 
-static void requiredDataMask(Object *UNUSED(ob),
-                             ModifierData *md,
-                             CustomData_MeshMasks *r_cddata_masks)
+static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_masks)
 {
   WireframeModifierData *wmd = (WireframeModifierData *)md;
 
@@ -68,6 +67,7 @@ static Mesh *WireframeModifier_do(WireframeModifierData *wmd, Object *ob, Mesh *
                             &(struct BMeshCreateParams){0},
                             &(struct BMeshFromMeshParams){
                                 .calc_face_normal = true,
+                                .calc_vert_normal = true,
                                 .add_key_index = false,
                                 .use_shapekey = false,
                                 .active_shapekey = 0,
@@ -94,8 +94,6 @@ static Mesh *WireframeModifier_do(WireframeModifierData *wmd, Object *ob, Mesh *
 
   result = BKE_mesh_from_bmesh_for_eval_nomain(bm, NULL, mesh);
   BM_mesh_free(bm);
-
-  BKE_mesh_normals_tag_dirty(result);
 
   return result;
 }
@@ -165,34 +163,34 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Wireframe = {
-    /* name */ "Wireframe",
-    /* structName */ "WireframeModifierData",
-    /* structSize */ sizeof(WireframeModifierData),
-    /* srna */ &RNA_WireframeModifier,
-    /* type */ eModifierTypeType_Constructive,
-    /* flags */ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_SupportsEditmode,
-    /* icon */ ICON_MOD_WIREFRAME,
+    /*name*/ N_("Wireframe"),
+    /*structName*/ "WireframeModifierData",
+    /*structSize*/ sizeof(WireframeModifierData),
+    /*srna*/ &RNA_WireframeModifier,
+    /*type*/ eModifierTypeType_Constructive,
+    /*flags*/ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_SupportsEditmode,
+    /*icon*/ ICON_MOD_WIREFRAME,
 
-    /* copyData */ BKE_modifier_copydata_generic,
+    /*copyData*/ BKE_modifier_copydata_generic,
 
-    /* deformVerts */ NULL,
-    /* deformMatrices */ NULL,
-    /* deformVertsEM */ NULL,
-    /* deformMatricesEM */ NULL,
-    /* modifyMesh */ modifyMesh,
-    /* modifyGeometrySet */ NULL,
+    /*deformVerts*/ NULL,
+    /*deformMatrices*/ NULL,
+    /*deformVertsEM*/ NULL,
+    /*deformMatricesEM*/ NULL,
+    /*modifyMesh*/ modifyMesh,
+    /*modifyGeometrySet*/ NULL,
 
-    /* initData */ initData,
-    /* requiredDataMask */ requiredDataMask,
-    /* freeData */ NULL,
-    /* isDisabled */ NULL,
-    /* updateDepgraph */ NULL,
-    /* dependsOnTime */ NULL,
-    /* dependsOnNormals */ dependsOnNormals,
-    /* foreachIDLink */ NULL,
-    /* foreachTexLink */ NULL,
-    /* freeRuntimeData */ NULL,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ NULL,
-    /* blendRead */ NULL,
+    /*initData*/ initData,
+    /*requiredDataMask*/ requiredDataMask,
+    /*freeData*/ NULL,
+    /*isDisabled*/ NULL,
+    /*updateDepgraph*/ NULL,
+    /*dependsOnTime*/ NULL,
+    /*dependsOnNormals*/ dependsOnNormals,
+    /*foreachIDLink*/ NULL,
+    /*foreachTexLink*/ NULL,
+    /*freeRuntimeData*/ NULL,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ NULL,
+    /*blendRead*/ NULL,
 };

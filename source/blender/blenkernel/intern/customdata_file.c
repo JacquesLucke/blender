@@ -268,11 +268,11 @@ static bool cdf_write_header(CDataFile *cdf)
   return true;
 }
 
-bool cdf_read_open(CDataFile *cdf, const char *filename)
+bool cdf_read_open(CDataFile *cdf, const char *filepath)
 {
   FILE *f;
 
-  f = BLI_fopen(filename, "rb");
+  f = BLI_fopen(filepath, "rb");
   if (!f) {
     return false;
   }
@@ -310,7 +310,7 @@ bool cdf_read_layer(CDataFile *cdf, CDataFileLayer *blay)
   return (BLI_fseek(cdf->readf, offset, SEEK_SET) == 0);
 }
 
-bool cdf_read_data(CDataFile *cdf, unsigned int size, void *data)
+bool cdf_read_data(CDataFile *cdf, uint size, void *data)
 {
   /* read data */
   if (!fread(data, size, 1, cdf->readf)) {
@@ -333,14 +333,14 @@ void cdf_read_close(CDataFile *cdf)
   }
 }
 
-bool cdf_write_open(CDataFile *cdf, const char *filename)
+bool cdf_write_open(CDataFile *cdf, const char *filepath)
 {
   CDataFileHeader *header;
   CDataFileImageHeader *image;
   CDataFileMeshHeader *mesh;
   FILE *f;
 
-  f = BLI_fopen(filename, "wb");
+  f = BLI_fopen(filepath, "wb");
   if (!f) {
     return false;
   }
@@ -384,7 +384,7 @@ bool cdf_write_layer(CDataFile *UNUSED(cdf), CDataFileLayer *UNUSED(blay))
   return true;
 }
 
-bool cdf_write_data(CDataFile *cdf, unsigned int size, void *data)
+bool cdf_write_data(CDataFile *cdf, uint size, void *data)
 {
   /* write data */
   if (!fwrite(data, size, 1, cdf->writef)) {
@@ -402,9 +402,9 @@ void cdf_write_close(CDataFile *cdf)
   }
 }
 
-void cdf_remove(const char *filename)
+void cdf_remove(const char *filepath)
 {
-  BLI_delete(filename, false, false);
+  BLI_delete(filepath, false, false);
 }
 
 /********************************** Layers ***********************************/

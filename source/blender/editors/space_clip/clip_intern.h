@@ -7,6 +7,15 @@
 
 #pragma once
 
+#include "BLI_utildefines.h"
+
+#include "DNA_space_types.h"
+#include "DNA_tracking_types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct ARegion;
 struct MovieClip;
 struct MovieTrackingMarker;
@@ -65,6 +74,7 @@ void clip_start_prefetch_job(const struct bContext *C);
 void clip_draw_graph(struct SpaceClip *sc, struct ARegion *region, struct Scene *scene);
 
 /* clip_graph_ops.c */
+
 void ED_clip_graph_center_current_frame(struct Scene *scene, struct ARegion *region);
 
 void CLIP_OT_graph_select(struct wmOperatorType *ot);
@@ -77,6 +87,7 @@ void CLIP_OT_graph_center_current_frame(struct wmOperatorType *ot);
 void CLIP_OT_graph_disable_markers(struct wmOperatorType *ot);
 
 /* clip_ops.c */
+
 void CLIP_OT_open(struct wmOperatorType *ot);
 void CLIP_OT_reload(struct wmOperatorType *ot);
 void CLIP_OT_view_pan(struct wmOperatorType *ot);
@@ -104,6 +115,7 @@ void CLIP_OT_cursor_set(struct wmOperatorType *ot);
 void CLIP_OT_lock_selection_toggle(struct wmOperatorType *ot);
 
 /* clip_toolbar.c */
+
 struct ARegion *ED_clip_has_properties_region(struct ScrArea *area);
 
 /* clip_utils.c */
@@ -183,8 +195,11 @@ bool clip_view_has_locked_selection(const struct bContext *C);
 void clip_draw_sfra_efra(struct View2D *v2d, struct Scene *scene);
 
 /* tracking_ops.c */
-struct MovieTrackingTrack *tracking_marker_check_slide(
-    struct bContext *C, const struct wmEvent *event, int *r_area, int *r_action, int *r_corner);
+
+/* Find track which can be slid in a proximity of the given event.
+ * Uses the same distance tolerance rule as the "Slide Marker" operator. */
+struct MovieTrackingTrack *tracking_find_slidable_track_in_proximity(struct bContext *C,
+                                                                     const float co[2]);
 
 void CLIP_OT_add_marker(struct wmOperatorType *ot);
 void CLIP_OT_add_marker_at_click(struct wmOperatorType *ot);
@@ -213,8 +228,6 @@ void CLIP_OT_set_axis(struct wmOperatorType *ot);
 void CLIP_OT_set_scale(struct wmOperatorType *ot);
 void CLIP_OT_set_solution_scale(struct wmOperatorType *ot);
 void CLIP_OT_apply_solution_scale(struct wmOperatorType *ot);
-
-void CLIP_OT_set_center_principal(struct wmOperatorType *ot);
 
 void CLIP_OT_slide_marker(struct wmOperatorType *ot);
 
@@ -245,10 +258,47 @@ void CLIP_OT_slide_plane_marker(struct wmOperatorType *ot);
 void CLIP_OT_keyframe_insert(struct wmOperatorType *ot);
 void CLIP_OT_keyframe_delete(struct wmOperatorType *ot);
 
+void CLIP_OT_new_image_from_plane_marker(struct wmOperatorType *ot);
+void CLIP_OT_update_image_from_plane_marker(struct wmOperatorType *ot);
+
 /* tracking_select.c */
+
 void CLIP_OT_select(struct wmOperatorType *ot);
 void CLIP_OT_select_all(struct wmOperatorType *ot);
 void CLIP_OT_select_box(struct wmOperatorType *ot);
 void CLIP_OT_select_lasso(struct wmOperatorType *ot);
 void CLIP_OT_select_circle(struct wmOperatorType *ot);
 void CLIP_OT_select_grouped(struct wmOperatorType *ot);
+
+/* -------------------------------------------------------------------- */
+/** \name Inlined utilities.
+ * \{ */
+
+/* Check whether the marker can is visible within the given context.
+ * The track must be visible, and no restrictions from the clip editor are to be in effect on the
+ * disabled marker visibility (unless the track is active). */
+BLI_INLINE bool ED_space_clip_marker_is_visible(const SpaceClip *space_clip,
+                                                const MovieTrackingObject *tracking_object,
+                                                const MovieTrackingTrack *track,
+                                                const MovieTrackingMarker *marker)
+{
+  if (track->flag & TRACK_HIDDEN) {
+    return false;
+  }
+
+  if ((marker->flag & MARKER_DISABLED) == 0) {
+    return true;
+  }
+
+  if ((space_clip->flag & SC_HIDE_DISABLED) == 0) {
+    return true;
+  }
+
+  return track == tracking_object->active_track;
+}
+
+/** \} */
+
+#ifdef __cplusplus
+}
+#endif

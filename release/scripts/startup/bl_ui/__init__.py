@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 # note, properties_animviz is a helper module only.
 
 # support reloading sub-modules
@@ -11,6 +9,8 @@ if "bpy" in locals():
     del reload
 
 _modules = [
+    "node_add_menu",
+    "node_add_menu_geometry",
     "properties_animviz",
     "properties_constraint",
     "properties_data_armature",
@@ -130,8 +130,8 @@ def register():
         return items
 
     WindowManager.addon_search = StringProperty(
-        name="Search",
-        description="Search within the selected filter",
+        name="Filter",
+        description="Filter by add-on name, author & category",
         options={'TEXTEDIT_UPDATE'},
     )
     WindowManager.addon_filter = EnumProperty(
@@ -140,17 +140,23 @@ def register():
         description="Filter add-ons by category",
     )
 
+    # These items are static but depend on the version cycle.
+    items = [
+        ('OFFICIAL', "Official", "Officially supported"),
+        ('COMMUNITY', "Community", "Maintained by community developers"),
+    ]
+    if bpy.app.version_cycle == "alpha":
+        items.append(('TESTING', "Testing", "Newly contributed scripts (excluded from release builds)"))
+
     WindowManager.addon_support = EnumProperty(
-        items=[
-            ('OFFICIAL', "Official", "Officially supported"),
-            ('COMMUNITY', "Community", "Maintained by community developers"),
-            ('TESTING', "Testing", "Newly contributed scripts (excluded from release builds)")
-        ],
+        items=items,
         name="Support",
         description="Display support level",
         default={'OFFICIAL', 'COMMUNITY'},
         options={'ENUM_FLAG'},
     )
+    del items
+
     # done...
 
 
@@ -239,4 +245,25 @@ class UI_MT_list_item_context_menu(bpy.types.Menu):
         # context menu items.
         pass
 
+
 bpy.utils.register_class(UI_MT_list_item_context_menu)
+
+
+class UI_MT_button_context_menu(bpy.types.Menu):
+    """
+    UI button context menu definition. Scripts can append/prepend this to
+    add own operators to the context menu. They must check context though, so
+    their items only draw in a valid context and for the correct buttons.
+    """
+
+    bl_label = "List Item"
+    bl_idname = "UI_MT_button_context_menu"
+
+    def draw(self, context):
+        # Draw menu entries created with the legacy `WM_MT_button_context` class.
+        # This is deprecated, and support will be removed in a future release.
+        if hasattr(bpy.types, "WM_MT_button_context"):
+            self.layout.menu_contents("WM_MT_button_context")
+
+
+bpy.utils.register_class(UI_MT_button_context_menu)

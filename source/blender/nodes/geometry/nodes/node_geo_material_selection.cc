@@ -20,61 +20,69 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Bool>(N_("Selection")).field_source();
 }
 
-static void select_mesh_by_material(const Mesh &mesh,
-                                    const Material *material,
-                                    const IndexMask mask,
-                                    const MutableSpan<bool> r_selection)
+static VArray<bool> select_mesh_faces_by_material(const Mesh &mesh,
+                                                  const Material *material,
+                                                  const IndexMask face_mask)
 {
-  BLI_assert(mesh.totpoly >= r_selection.size());
-  Vector<int> material_indices;
-  for (const int i : IndexRange(mesh.totcol)) {
-    if (mesh.mat[i] == material) {
-      material_indices.append(i);
+  Vector<int> slots;
+  for (const int slot_i : IndexRange(mesh.totcol)) {
+    if (mesh.mat[slot_i] == material) {
+      slots.append(slot_i);
     }
   }
-  threading::parallel_for(mask.index_range(), 1024, [&](IndexRange range) {
+  if (slots.is_empty()) {
+    return VArray<bool>::ForSingle(false, mesh.totpoly);
+  }
+
+  const AttributeAccessor attributes = mesh.attributes();
+  const VArray<int> material_indices = attributes.lookup_or_default<int>(
+      "material_index", ATTR_DOMAIN_FACE, 0);
+  if (material_indices.is_single()) {
+    const int slot_i = material_indices.get_internal_single();
+    return VArray<bool>::ForSingle(slots.contains(slot_i), mesh.totpoly);
+  }
+
+  const VArraySpan<int> material_indices_span(material_indices);
+
+  Array<bool> face_selection(face_mask.min_array_size());
+  threading::parallel_for(face_mask.index_range(), 1024, [&](IndexRange range) {
     for (const int i : range) {
-      const int face_index = mask[i];
-      r_selection[i] = material_indices.contains(mesh.mpoly[face_index].mat_nr);
+      const int face_index = face_mask[i];
+      const int slot_i = material_indices_span[face_index];
+      face_selection[face_index] = slots.contains(slot_i);
     }
   });
+
+  return VArray<bool>::ForContainer(std::move(face_selection));
 }
 
-class MaterialSelectionFieldInput final : public GeometryFieldInput {
+class MaterialSelectionFieldInput final : public bke::GeometryFieldInput {
   Material *material_;
 
  public:
   MaterialSelectionFieldInput(Material *material)
-      : GeometryFieldInput(CPPType::get<bool>(), "Material Selection node"), material_(material)
+      : bke::GeometryFieldInput(CPPType::get<bool>(), "Material Selection node"),
+        material_(material)
   {
     category_ = Category::Generated;
   }
 
-  GVArray get_varray_for_context(const GeometryComponent &component,
-                                 const AttributeDomain domain,
-                                 IndexMask mask) const final
+  GVArray get_varray_for_context(const bke::GeometryFieldContext &context,
+                                 const IndexMask mask) const final
   {
-    if (component.type() != GEO_COMPONENT_TYPE_MESH) {
+    if (context.type() != GEO_COMPONENT_TYPE_MESH) {
       return {};
     }
-    const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
-    const Mesh *mesh = mesh_component.get_for_read();
+    const Mesh *mesh = context.mesh();
     if (mesh == nullptr) {
       return {};
     }
 
-    if (domain == ATTR_DOMAIN_FACE) {
-      Array<bool> selection(mask.min_array_size());
-      select_mesh_by_material(*mesh, material_, mask, selection);
-      return VArray<bool>::ForContainer(std::move(selection));
-    }
+    const eAttrDomain domain = context.domain();
+    const IndexMask domain_mask = (domain == ATTR_DOMAIN_FACE) ? mask : IndexMask(mesh->totpoly);
 
-    Array<bool> selection(mesh->totpoly);
-    select_mesh_by_material(*mesh, material_, IndexMask(mesh->totpoly), selection);
-    return mesh_component.attribute_try_adapt_domain<bool>(
-        VArray<bool>::ForContainer(std::move(selection)), ATTR_DOMAIN_FACE, domain);
-
-    return nullptr;
+    VArray<bool> selection = select_mesh_faces_by_material(*mesh, material_, domain_mask);
+    return mesh->attributes().adapt_domain<bool>(std::move(selection), ATTR_DOMAIN_FACE, domain);
   }
 
   uint64_t hash() const override
@@ -89,6 +97,12 @@ class MaterialSelectionFieldInput final : public GeometryFieldInput {
       return material_ == other_material_selection->material_;
     }
     return false;
+  }
+
+  std::optional<eAttrDomain> preferred_domain(
+      const GeometryComponent & /*component*/) const override
+  {
+    return ATTR_DOMAIN_FACE;
   }
 };
 

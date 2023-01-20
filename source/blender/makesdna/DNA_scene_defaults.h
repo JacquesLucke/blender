@@ -337,7 +337,9 @@
     .snap_mode = SCE_SNAP_MODE_INCREMENT, \
     .snap_node_mode = SCE_SNAP_MODE_GRID, \
     .snap_uv_mode = SCE_SNAP_MODE_INCREMENT, \
+    .snap_flag = SCE_SNAP_TO_INCLUDE_EDITED | SCE_SNAP_TO_INCLUDE_NONEDITED, \
     .snap_transform_mode_flag = SCE_SNAP_TRANSFORM_MODE_TRANSLATE, \
+    .snap_face_nearest_steps = 1, \
  \
     .curve_paint_settings = _DNA_DEFAULTS_CurvePaintSettings, \
  \
@@ -360,6 +362,10 @@
     /* GP Stroke Placement */ \
     .gpencil_v3d_align = GP_PROJECT_VIEWSPACE, \
     .gpencil_v2d_align = GP_PROJECT_VIEWSPACE, \
+ \
+    /* UV painting */ \
+    .uv_sculpt_settings = 0, \
+    .uv_relax_method = UV_SCULPT_TOOL_RELAX_LAPLACIAN, \
   }
 
 /* clang-format off */

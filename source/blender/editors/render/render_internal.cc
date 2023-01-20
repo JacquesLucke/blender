@@ -31,6 +31,8 @@
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_image_format.h"
+#include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
@@ -67,7 +69,7 @@
 #include "render_intern.hh"
 
 /* Render Callbacks */
-static int render_break(void *rjv);
+static bool render_break(void *rjv);
 
 struct RenderJob {
   Main *main;
@@ -85,8 +87,8 @@ struct RenderJob {
   Image *image;
   ImageUser iuser;
   bool image_outdated;
-  short *stop;
-  short *do_update;
+  bool *stop;
+  bool *do_update;
   float *progress;
   ReportList *reports;
   int orig_layer;
@@ -101,7 +103,7 @@ struct RenderJob {
 /* called inside thread! */
 static bool image_buffer_calc_tile_rect(const RenderResult *rr,
                                         const ImBuf *ibuf,
-                                        volatile rcti *renrect,
+                                        rcti *renrect,
                                         rcti *r_ibuf_rect,
                                         int *r_offset_x,
                                         int *r_offset_y)
@@ -355,7 +357,14 @@ static int screen_render_exec(bContext *C, wmOperator *op)
                   scene->r.frame_step);
   }
   else {
-    RE_RenderFrame(re, mainp, scene, single_layer, camera_override, scene->r.cfra, is_write_still);
+    RE_RenderFrame(re,
+                   mainp,
+                   scene,
+                   single_layer,
+                   camera_override,
+                   scene->r.cfra,
+                   scene->r.subframe,
+                   is_write_still);
   }
 
   RE_SetReports(re, nullptr);
@@ -396,56 +405,57 @@ static void make_renderinfo_string(const RenderStats *rs,
 
   /* local view */
   if (rs->localview) {
-    spos += sprintf(spos, "%s | ", TIP_("3D Local View"));
+    spos += BLI_sprintf(spos, "%s | ", TIP_("3D Local View"));
   }
   else if (v3d_override) {
-    spos += sprintf(spos, "%s | ", TIP_("3D View"));
+    spos += BLI_sprintf(spos, "%s | ", TIP_("3D View"));
   }
 
   /* frame number */
-  spos += sprintf(spos, TIP_("Frame:%d "), (scene->r.cfra));
+  spos += BLI_sprintf(spos, TIP_("Frame:%d "), (scene->r.cfra));
 
   /* previous and elapsed time */
   BLI_timecode_string_from_time_simple(info_time_str, sizeof(info_time_str), rs->lastframetime);
 
   if (rs->infostr && rs->infostr[0]) {
     if (rs->lastframetime != 0.0) {
-      spos += sprintf(spos, TIP_("| Last:%s "), info_time_str);
+      spos += BLI_sprintf(spos, TIP_("| Last:%s "), info_time_str);
     }
     else {
-      spos += sprintf(spos, "| ");
+      spos += BLI_sprintf(spos, "| ");
     }
 
     BLI_timecode_string_from_time_simple(
         info_time_str, sizeof(info_time_str), PIL_check_seconds_timer() - rs->starttime);
   }
   else {
-    spos += sprintf(spos, "| ");
+    spos += BLI_sprintf(spos, "| ");
   }
 
-  spos += sprintf(spos, TIP_("Time:%s "), info_time_str);
+  spos += BLI_sprintf(spos, TIP_("Time:%s "), info_time_str);
 
   /* statistics */
   if (rs->statstr) {
     if (rs->statstr[0]) {
-      spos += sprintf(spos, "| %s ", rs->statstr);
+      spos += BLI_sprintf(spos, "| %s ", rs->statstr);
     }
   }
   else {
     if (rs->mem_peak == 0.0f) {
-      spos += sprintf(spos, TIP_("| Mem:%.2fM (Peak %.2fM) "), megs_used_memory, megs_peak_memory);
+      spos += BLI_sprintf(
+          spos, TIP_("| Mem:%.2fM (Peak %.2fM) "), megs_used_memory, megs_peak_memory);
     }
     else {
-      spos += sprintf(spos, TIP_("| Mem:%.2fM, Peak: %.2fM "), rs->mem_used, rs->mem_peak);
+      spos += BLI_sprintf(spos, TIP_("| Mem:%.2fM, Peak: %.2fM "), rs->mem_used, rs->mem_peak);
     }
   }
 
   /* extra info */
   if (rs->infostr && rs->infostr[0]) {
-    spos += sprintf(spos, "| %s ", rs->infostr);
+    spos += BLI_sprintf(spos, "| %s ", rs->infostr);
   }
   else if (error && error[0]) {
-    spos += sprintf(spos, "| %s ", error);
+    spos += BLI_sprintf(spos, "| %s ", error);
   }
 
   /* very weak... but 512 characters is quite safe */
@@ -549,7 +559,7 @@ static void render_image_update_pass_and_layer(RenderJob *rj, RenderResult *rr, 
   }
 }
 
-static void image_rect_update(void *rjv, RenderResult *rr, volatile rcti *renrect)
+static void image_rect_update(void *rjv, RenderResult *rr, rcti *renrect)
 {
   RenderJob *rj = static_cast<RenderJob *>(rjv);
   Image *ima = rj->image;
@@ -618,11 +628,17 @@ static void image_rect_update(void *rjv, RenderResult *rr, volatile rcti *renrec
 static void current_scene_update(void *rjv, Scene *scene)
 {
   RenderJob *rj = static_cast<RenderJob *>(rjv);
+
+  if (rj->current_scene != scene) {
+    /* Image must be updated when rendered scene changes. */
+    BKE_image_partial_update_mark_full_update(rj->image);
+  }
+
   rj->current_scene = scene;
   rj->iuser.scene = scene;
 }
 
-static void render_startjob(void *rjv, short *stop, short *do_update, float *progress)
+static void render_startjob(void *rjv, bool *stop, bool *do_update, float *progress)
 {
   RenderJob *rj = static_cast<RenderJob *>(rjv);
 
@@ -649,6 +665,7 @@ static void render_startjob(void *rjv, short *stop, short *do_update, float *pro
                    rj->single_layer,
                    rj->camera_override,
                    rj->scene->r.cfra,
+                   rj->scene->r.subframe,
                    rj->write_still);
   }
 
@@ -775,29 +792,29 @@ static void render_endjob(void *rjv)
 }
 
 /* called by render, check job 'stop' value or the global */
-static int render_breakjob(void *rjv)
+static bool render_breakjob(void *rjv)
 {
   RenderJob *rj = static_cast<RenderJob *>(rjv);
 
   if (G.is_break) {
-    return 1;
+    return true;
   }
   if (rj->stop && *(rj->stop)) {
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 
 /**
  * For exec() when there is no render job
  * NOTE: this won't check for the escape key being pressed, but doing so isn't thread-safe.
  */
-static int render_break(void *UNUSED(rjv))
+static bool render_break(void * /*rjv*/)
 {
   if (G.is_break) {
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 
 /* runs in thread, no cursor setting here works. careful with notifiers too (malloc conflicts) */
@@ -812,7 +829,7 @@ static void render_drawlock(void *rjv, bool lock)
   }
 }
 
-/* catch esc */
+/** Catch escape key to cancel. */
 static int screen_render_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
   Scene *scene = (Scene *)op->customdata;
@@ -841,7 +858,7 @@ static void screen_render_cancel(bContext *C, wmOperator *op)
 
 static void clean_viewport_memory_base(Base *base)
 {
-  if ((base->flag & BASE_VISIBLE_DEPSGRAPH) == 0) {
+  if ((base->flag & BASE_ENABLED_AND_MAYBE_VISIBLE_IN_VIEWPORT) == 0) {
     return;
   }
 
@@ -870,9 +887,10 @@ static void clean_viewport_memory(Main *bmain, Scene *scene)
        wm = static_cast<wmWindowManager *>(wm->id.next)) {
     LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
       ViewLayer *view_layer = WM_window_get_active_view_layer(win);
+      BKE_view_layer_synced_ensure(scene, view_layer);
 
-      for (base = static_cast<Base *>(view_layer->object_bases.first); base; base = base->next) {
-        clean_viewport_memory_base(base);
+      LISTBASE_FOREACH (Base *, b, BKE_view_layer_object_bases_get(view_layer)) {
+        clean_viewport_memory_base(b);
       }
     }
   }
@@ -1131,7 +1149,8 @@ void RENDER_OT_render(wmOperatorType *ot)
 Scene *ED_render_job_get_scene(const bContext *C)
 {
   wmWindowManager *wm = CTX_wm_manager(C);
-  RenderJob *rj = (RenderJob *)WM_jobs_customdata_from_type(wm, WM_JOB_TYPE_RENDER);
+  RenderJob *rj = (RenderJob *)WM_jobs_customdata_from_type(
+      wm, CTX_data_scene(C), WM_JOB_TYPE_RENDER);
 
   if (rj) {
     return rj->scene;
@@ -1143,7 +1162,8 @@ Scene *ED_render_job_get_scene(const bContext *C)
 Scene *ED_render_job_get_current_scene(const bContext *C)
 {
   wmWindowManager *wm = CTX_wm_manager(C);
-  RenderJob *rj = (RenderJob *)WM_jobs_customdata_from_type(wm, WM_JOB_TYPE_RENDER);
+  RenderJob *rj = (RenderJob *)WM_jobs_customdata_from_type(
+      wm, CTX_data_scene(C), WM_JOB_TYPE_RENDER);
   if (rj) {
     return rj->current_scene;
   }
@@ -1188,5 +1208,6 @@ void RENDER_OT_shutter_curve_preset(wmOperatorType *ot)
   ot->exec = render_shutter_curve_preset_exec;
 
   prop = RNA_def_enum(ot->srna, "shape", prop_shape_items, CURVE_PRESET_SMOOTH, "Mode", "");
-  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_CURVE); /* Abusing id_curve :/ */
+  RNA_def_property_translation_context(prop,
+                                       BLT_I18NCONTEXT_ID_CURVE_LEGACY); /* Abusing id_curve :/ */
 }

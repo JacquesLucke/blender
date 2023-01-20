@@ -8,8 +8,10 @@
 #include <stdio.h>
 
 #include "BLI_listbase.h"
-#include "BLI_math.h"
+#include "BLI_math_vector.h"
 #include "BLI_utildefines.h"
+
+#include "BLT_translation.h"
 
 #include "DNA_defaults.h"
 #include "DNA_gpencil_modifier_types.h"
@@ -149,15 +151,7 @@ static void bakeModifier(struct Main *UNUSED(bmain),
                          GpencilModifierData *md,
                          Object *ob)
 {
-  bGPdata *gpd = ob->data;
-
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
-      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        deformStroke(md, depsgraph, ob, gpl, gpf, gps);
-      }
-    }
-  }
+  generic_bake_deform_stroke(depsgraph, md, ob, false, deformStroke);
 }
 
 static void foreachIDLink(GpencilModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
@@ -212,25 +206,25 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Thick = {
-    /* name */ "Thickness",
-    /* structName */ "ThickGpencilModifierData",
-    /* structSize */ sizeof(ThickGpencilModifierData),
-    /* type */ eGpencilModifierTypeType_Gpencil,
-    /* flags */ eGpencilModifierTypeFlag_SupportsEditmode,
+    /*name*/ N_("Thickness"),
+    /*structName*/ "ThickGpencilModifierData",
+    /*structSize*/ sizeof(ThickGpencilModifierData),
+    /*type*/ eGpencilModifierTypeType_Gpencil,
+    /*flags*/ eGpencilModifierTypeFlag_SupportsEditmode,
 
-    /* copyData */ copyData,
+    /*copyData*/ copyData,
 
-    /* deformStroke */ deformStroke,
-    /* generateStrokes */ NULL,
-    /* bakeModifier */ bakeModifier,
-    /* remapTime */ NULL,
+    /*deformStroke*/ deformStroke,
+    /*generateStrokes*/ NULL,
+    /*bakeModifier*/ bakeModifier,
+    /*remapTime*/ NULL,
 
-    /* initData */ initData,
-    /* freeData */ freeData,
-    /* isDisabled */ NULL,
-    /* updateDepsgraph */ NULL,
-    /* dependsOnTime */ NULL,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ NULL,
-    /* panelRegister */ panelRegister,
+    /*initData*/ initData,
+    /*freeData*/ freeData,
+    /*isDisabled*/ NULL,
+    /*updateDepsgraph*/ NULL,
+    /*dependsOnTime*/ NULL,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ NULL,
+    /*panelRegister*/ panelRegister,
 };

@@ -9,16 +9,6 @@
 
 #pragma BLENDER_REQUIRE(effect_dof_lib.glsl)
 
-uniform float bokehSides;
-uniform float bokehRotation;
-uniform vec2 bokehAnisotropyInv;
-
-in vec4 uvcoordsvar;
-
-layout(location = 0) out vec2 outGatherLut;
-layout(location = 1) out float outScatterLut;
-layout(location = 2) out float outResolveLut;
-
 float polygon_sides_length(float sides_count)
 {
   return 2.0 * sin(M_PI / sides_count);
@@ -35,7 +25,7 @@ float circle_to_polygon_radius(float sides_count, float theta)
          cos(theta - side_angle * floor((sides_count * theta + M_PI) / M_2PI));
 }
 
-/* Remap input angle to have homogenous spacing of points along a polygon edge.
+/* Remap input angle to have homogeneous spacing of points along a polygon edge.
  * Expect theta to be in [0..2pi] range. */
 float circle_to_polygon_angle(float sides_count, float theta)
 {

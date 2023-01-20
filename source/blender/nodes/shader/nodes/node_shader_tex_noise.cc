@@ -15,7 +15,7 @@ NODE_STORAGE_FUNCS(NodeTexNoise)
 static void sh_node_tex_noise_declare(NodeDeclarationBuilder &b)
 {
   b.is_function_node();
-  b.add_input<decl::Vector>(N_("Vector")).implicit_field();
+  b.add_input<decl::Vector>(N_("Vector")).implicit_field(implicit_field_inputs::position);
   b.add_input<decl::Float>(N_("W")).min(-1000.0f).max(1000.0f).make_available([](bNode &node) {
     /* Default to 1 instead of 4, because it is much faster. */
     node_storage(node).dimensions = 1;
@@ -32,12 +32,12 @@ static void sh_node_tex_noise_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Color>(N_("Color")).no_muted_links();
 }
 
-static void node_shader_buts_tex_noise(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_shader_buts_tex_noise(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "noise_dimensions", UI_ITEM_R_SPLIT_EMPTY_NAME, "", ICON_NONE);
 }
 
-static void node_shader_init_tex_noise(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_tex_noise(bNodeTree * /*ntree*/, bNode *node)
 {
   NodeTexNoise *tex = MEM_cnew<NodeTexNoise>(__func__);
   BKE_texture_mapping_default(&tex->base.tex_mapping, TEXMAP_TYPE_POINT);
@@ -59,7 +59,7 @@ static const char *gpu_shader_get_name(const int dimensions)
 
 static int node_shader_gpu_tex_noise(GPUMaterial *mat,
                                      bNode *node,
-                                     bNodeExecData *UNUSED(execdata),
+                                     bNodeExecData * /*execdata*/,
                                      GPUNodeStack *in,
                                      GPUNodeStack *out)
 {
@@ -81,7 +81,7 @@ static void node_shader_update_tex_noise(bNodeTree *ntree, bNode *node)
   nodeSetSocketAvailability(ntree, sockW, storage.dimensions == 1 || storage.dimensions == 4);
 }
 
-class NoiseFunction : public fn::MultiFunction {
+class NoiseFunction : public mf::MultiFunction {
  private:
   int dimensions_;
 
@@ -89,7 +89,7 @@ class NoiseFunction : public fn::MultiFunction {
   NoiseFunction(int dimensions) : dimensions_(dimensions)
   {
     BLI_assert(dimensions >= 1 && dimensions <= 4);
-    static std::array<fn::MFSignature, 4> signatures{
+    static std::array<mf::Signature, 4> signatures{
         create_signature(1),
         create_signature(2),
         create_signature(3),
@@ -98,29 +98,30 @@ class NoiseFunction : public fn::MultiFunction {
     this->set_signature(&signatures[dimensions - 1]);
   }
 
-  static fn::MFSignature create_signature(int dimensions)
+  static mf::Signature create_signature(int dimensions)
   {
-    fn::MFSignatureBuilder signature{"Noise"};
+    mf::Signature signature;
+    mf::SignatureBuilder builder{"Noise", signature};
 
     if (ELEM(dimensions, 2, 3, 4)) {
-      signature.single_input<float3>("Vector");
+      builder.single_input<float3>("Vector");
     }
     if (ELEM(dimensions, 1, 4)) {
-      signature.single_input<float>("W");
+      builder.single_input<float>("W");
     }
 
-    signature.single_input<float>("Scale");
-    signature.single_input<float>("Detail");
-    signature.single_input<float>("Roughness");
-    signature.single_input<float>("Distortion");
+    builder.single_input<float>("Scale");
+    builder.single_input<float>("Detail");
+    builder.single_input<float>("Roughness");
+    builder.single_input<float>("Distortion");
 
-    signature.single_output<float>("Fac");
-    signature.single_output<ColorGeometry4f>("Color");
+    builder.single_output<float>("Fac", mf::ParamFlag::SupportsUnusedOutput);
+    builder.single_output<ColorGeometry4f>("Color", mf::ParamFlag::SupportsUnusedOutput);
 
-    return signature.build();
+    return signature;
   }
 
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
+  void call(IndexMask mask, mf::Params params, mf::Context /*context*/) const override
   {
     int param = ELEM(dimensions_, 2, 3, 4) + ELEM(dimensions_, 1, 4);
     const VArray<float> &scale = params.readonly_single_input<float>(param++, "Scale");
@@ -232,7 +233,7 @@ class NoiseFunction : public fn::MultiFunction {
   }
 };
 
-static void sh_node_noise_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_noise_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
   const NodeTexNoise &storage = node_storage(builder.node());
   builder.construct_and_set_matching_fn<NoiseFunction>(storage.dimensions);
@@ -249,11 +250,11 @@ void register_node_type_sh_tex_noise()
   sh_fn_node_type_base(&ntype, SH_NODE_TEX_NOISE, "Noise Texture", NODE_CLASS_TEXTURE);
   ntype.declare = file_ns::sh_node_tex_noise_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_tex_noise;
-  node_type_init(&ntype, file_ns::node_shader_init_tex_noise);
+  ntype.initfunc = file_ns::node_shader_init_tex_noise;
   node_type_storage(
       &ntype, "NodeTexNoise", node_free_standard_storage, node_copy_standard_storage);
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_tex_noise);
-  node_type_update(&ntype, file_ns::node_shader_update_tex_noise);
+  ntype.gpu_fn = file_ns::node_shader_gpu_tex_noise;
+  ntype.updatefunc = file_ns::node_shader_update_tex_noise;
   ntype.build_multi_function = file_ns::sh_node_noise_build_multi_function;
 
   nodeRegisterType(&ntype);

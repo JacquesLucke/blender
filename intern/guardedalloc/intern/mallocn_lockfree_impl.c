@@ -30,8 +30,6 @@ typedef struct MemHeadAligned {
   size_t len;
 } MemHeadAligned;
 
-static unsigned int totblock = 0;
-static size_t mem_in_use = 0, peak_mem = 0;
 static bool malloc_debug_memset = false;
 
 static void (*error_callback)(const char *) = NULL;
@@ -44,18 +42,7 @@ enum {
 #define PTR_FROM_MEMHEAD(memhead) (memhead + 1)
 #define MEMHEAD_ALIGNED_FROM_PTR(ptr) (((MemHeadAligned *)ptr) - 1)
 #define MEMHEAD_IS_ALIGNED(memhead) ((memhead)->len & (size_t)MEMHEAD_ALIGN_FLAG)
-
-/* Uncomment this to have proper peak counter. */
-#define USE_ATOMIC_MAX
-
-MEM_INLINE void update_maximum(size_t *maximum_value, size_t value)
-{
-#ifdef USE_ATOMIC_MAX
-  atomic_fetch_and_update_max_z(maximum_value, value);
-#else
-  *maximum_value = value > *maximum_value ? value : *maximum_value;
-#endif
-}
+#define MEMHEAD_LEN(memhead) ((memhead)->len & ~((size_t)(MEMHEAD_ALIGN_FLAG)))
 
 #ifdef __GNUC__
 __attribute__((format(printf, 1, 2)))
@@ -78,8 +65,8 @@ print_error(const char *str, ...)
 
 size_t MEM_lockfree_allocN_len(const void *vmemh)
 {
-  if (vmemh) {
-    return MEMHEAD_FROM_PTR(vmemh)->len & ~((size_t)(MEMHEAD_ALIGN_FLAG));
+  if (LIKELY(vmemh)) {
+    return MEMHEAD_LEN(MEMHEAD_FROM_PTR(vmemh));
   }
 
   return 0;
@@ -87,14 +74,11 @@ size_t MEM_lockfree_allocN_len(const void *vmemh)
 
 void MEM_lockfree_freeN(void *vmemh)
 {
-  if (leak_detector_has_run) {
+  if (UNLIKELY(leak_detector_has_run)) {
     print_error("%s\n", free_after_leak_detection_message);
   }
 
-  MemHead *memh = MEMHEAD_FROM_PTR(vmemh);
-  size_t len = MEM_lockfree_allocN_len(vmemh);
-
-  if (vmemh == NULL) {
+  if (UNLIKELY(vmemh == NULL)) {
     print_error("Attempt to free NULL pointer\n");
 #ifdef WITH_ASSERT_ABORT
     abort();
@@ -102,8 +86,10 @@ void MEM_lockfree_freeN(void *vmemh)
     return;
   }
 
-  atomic_sub_and_fetch_u(&totblock, 1);
-  atomic_sub_and_fetch_z(&mem_in_use, len);
+  MemHead *memh = MEMHEAD_FROM_PTR(vmemh);
+  size_t len = MEMHEAD_LEN(memh);
+
+  memory_usage_block_free(len);
 
   if (UNLIKELY(malloc_debug_memset && len)) {
     memset(memh + 1, 255, len);
@@ -223,16 +209,14 @@ void *MEM_lockfree_callocN(size_t len, const char *str)
 
   if (LIKELY(memh)) {
     memh->len = len;
-    atomic_add_and_fetch_u(&totblock, 1);
-    atomic_add_and_fetch_z(&mem_in_use, len);
-    update_maximum(&peak_mem, mem_in_use);
+    memory_usage_block_alloc(len);
 
     return PTR_FROM_MEMHEAD(memh);
   }
   print_error("Calloc returns null: len=" SIZET_FORMAT " in %s, total %u\n",
               SIZET_ARG(len),
               str,
-              (unsigned int)mem_in_use);
+              (uint)memory_usage_current());
   return NULL;
 }
 
@@ -246,7 +230,7 @@ void *MEM_lockfree_calloc_arrayN(size_t len, size_t size, const char *str)
         SIZET_ARG(len),
         SIZET_ARG(size),
         str,
-        (unsigned int)mem_in_use);
+        (unsigned int)memory_usage_current());
     abort();
     return NULL;
   }
@@ -268,16 +252,14 @@ void *MEM_lockfree_mallocN(size_t len, const char *str)
     }
 
     memh->len = len;
-    atomic_add_and_fetch_u(&totblock, 1);
-    atomic_add_and_fetch_z(&mem_in_use, len);
-    update_maximum(&peak_mem, mem_in_use);
+    memory_usage_block_alloc(len);
 
     return PTR_FROM_MEMHEAD(memh);
   }
   print_error("Malloc returns null: len=" SIZET_FORMAT " in %s, total %u\n",
               SIZET_ARG(len),
               str,
-              (unsigned int)mem_in_use);
+              (uint)memory_usage_current());
   return NULL;
 }
 
@@ -291,7 +273,7 @@ void *MEM_lockfree_malloc_arrayN(size_t len, size_t size, const char *str)
         SIZET_ARG(len),
         SIZET_ARG(size),
         str,
-        (unsigned int)mem_in_use);
+        (uint)memory_usage_current());
     abort();
     return NULL;
   }
@@ -339,16 +321,14 @@ void *MEM_lockfree_mallocN_aligned(size_t len, size_t alignment, const char *str
 
     memh->len = len | (size_t)MEMHEAD_ALIGN_FLAG;
     memh->alignment = (short)alignment;
-    atomic_add_and_fetch_u(&totblock, 1);
-    atomic_add_and_fetch_z(&mem_in_use, len);
-    update_maximum(&peak_mem, mem_in_use);
+    memory_usage_block_alloc(len);
 
     return PTR_FROM_MEMHEAD(memh);
   }
   print_error("Malloc returns null: len=" SIZET_FORMAT " in %s, total %u\n",
               SIZET_ARG(len),
               str,
-              (unsigned int)mem_in_use);
+              (uint)memory_usage_current());
   return NULL;
 }
 
@@ -368,8 +348,8 @@ void MEM_lockfree_callbackmemlist(void (*func)(void *))
 
 void MEM_lockfree_printmemlist_stats(void)
 {
-  printf("\ntotal memory len: %.3f MB\n", (double)mem_in_use / (double)(1024 * 1024));
-  printf("peak memory len: %.3f MB\n", (double)peak_mem / (double)(1024 * 1024));
+  printf("\ntotal memory len: %.3f MB\n", (double)memory_usage_current() / (double)(1024 * 1024));
+  printf("peak memory len: %.3f MB\n", (double)memory_usage_peak() / (double)(1024 * 1024));
   printf(
       "\nFor more detailed per-block statistics run Blender with memory debugging command line "
       "argument.\n");
@@ -397,23 +377,23 @@ void MEM_lockfree_set_memory_debug(void)
 
 size_t MEM_lockfree_get_memory_in_use(void)
 {
-  return mem_in_use;
+  return memory_usage_current();
 }
 
-unsigned int MEM_lockfree_get_memory_blocks_in_use(void)
+uint MEM_lockfree_get_memory_blocks_in_use(void)
 {
-  return totblock;
+  return (uint)memory_usage_block_num();
 }
 
 /* dummy */
 void MEM_lockfree_reset_peak_memory(void)
 {
-  peak_mem = mem_in_use;
+  memory_usage_peak_reset();
 }
 
 size_t MEM_lockfree_get_peak_memory(void)
 {
-  return peak_mem;
+  return memory_usage_peak();
 }
 
 #ifndef NDEBUG
@@ -424,5 +404,9 @@ const char *MEM_lockfree_name_ptr(void *vmemh)
   }
 
   return "MEM_lockfree_name_ptr(NULL)";
+}
+
+void MEM_lockfree_name_ptr_set(void *UNUSED(vmemh), const char *UNUSED(str))
+{
 }
 #endif /* NDEBUG */

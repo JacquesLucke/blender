@@ -166,19 +166,19 @@ void workbench_shadow_cache_init(WORKBENCH_Data *data)
   }
 }
 
-static BoundBox *workbench_shadow_object_shadow_bbox_get(WORKBENCH_PrivateData *wpd,
-                                                         Object *ob,
-                                                         WORKBENCH_ObjectData *oed)
+static const BoundBox *workbench_shadow_object_shadow_bbox_get(WORKBENCH_PrivateData *wpd,
+                                                               Object *ob,
+                                                               WORKBENCH_ObjectData *oed)
 {
   if (oed->shadow_bbox_dirty || wpd->shadow_changed) {
     float tmp_mat[4][4];
-    mul_m4_m4m4(tmp_mat, wpd->shadow_inv, ob->obmat);
+    mul_m4_m4m4(tmp_mat, wpd->shadow_inv, ob->object_to_world);
 
     /* Get AABB in shadow space. */
     INIT_MINMAX(oed->shadow_min, oed->shadow_max);
 
     /* From object space to shadow space */
-    BoundBox *bbox = BKE_object_boundbox_get(ob);
+    const BoundBox *bbox = BKE_object_boundbox_get(ob);
     for (int i = 0; i < 8; i++) {
       float corner[3];
       mul_v3_m4v3(corner, tmp_mat, bbox->vec[i]);
@@ -203,7 +203,7 @@ static bool workbench_shadow_object_cast_visible_shadow(WORKBENCH_PrivateData *w
                                                         Object *ob,
                                                         WORKBENCH_ObjectData *oed)
 {
-  BoundBox *shadow_bbox = workbench_shadow_object_shadow_bbox_get(wpd, ob, oed);
+  const BoundBox *shadow_bbox = workbench_shadow_object_shadow_bbox_get(wpd, ob, oed);
   const DRWView *default_view = DRW_view_default_get();
   return DRW_culling_box_test(default_view, shadow_bbox);
 }
@@ -212,7 +212,7 @@ static float workbench_shadow_object_shadow_distance(WORKBENCH_PrivateData *wpd,
                                                      Object *ob,
                                                      WORKBENCH_ObjectData *oed)
 {
-  BoundBox *shadow_bbox = workbench_shadow_object_shadow_bbox_get(wpd, ob, oed);
+  const BoundBox *shadow_bbox = workbench_shadow_object_shadow_bbox_get(wpd, ob, oed);
 
   const int corners[4] = {0, 3, 4, 7};
   float dist = 1e4f, dist_isect;
@@ -307,7 +307,8 @@ void workbench_shadow_cache_populate(WORKBENCH_Data *data, Object *ob, const boo
       NULL);
 
   if (workbench_shadow_object_cast_visible_shadow(wpd, ob, engine_object_data)) {
-    mul_v3_mat3_m4v3(engine_object_data->shadow_dir, ob->imat, wpd->shadow_direction_ws);
+    mul_v3_mat3_m4v3(
+        engine_object_data->shadow_dir, ob->world_to_object, wpd->shadow_direction_ws);
 
     DRWShadingGroup *grp;
     bool use_shadow_pass_technique = !workbench_shadow_camera_in_object_shadow(

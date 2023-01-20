@@ -134,6 +134,7 @@ void ED_region_visibility_change_update(struct bContext *C,
                                         struct ScrArea *area,
                                         struct ARegion *region);
 /* screen_ops.c */
+
 /**
  * \note Assumes that \a region itself is not a split version from previous region.
  */
@@ -216,7 +217,8 @@ void ED_area_tag_refresh(ScrArea *area);
 void ED_area_do_refresh(struct bContext *C, ScrArea *area);
 struct AZone *ED_area_azones_update(ScrArea *area, const int mouse_xy[2]);
 /**
- * Use NULL to disable it.
+ * Show the given text in the area's header, instead of its regular contents.
+ * Use NULL to disable this and show the regular header contents again.
  */
 void ED_area_status_text(ScrArea *area, const char *str);
 /**
@@ -249,6 +251,12 @@ ScrArea *ED_area_offscreen_create(struct wmWindow *win, eSpace_Type space_type);
 void ED_area_offscreen_free(struct wmWindowManager *wm,
                             struct wmWindow *win,
                             struct ScrArea *area);
+
+/**
+ * Search all screens, even non-active or overlapping (multiple windows), return the most-likely
+ * area of interest. xy is relative to active window, like all similar functions.
+ */
+ScrArea *ED_area_find_under_cursor(const struct bContext *C, int spacetype, const int xy[2]);
 
 ScrArea *ED_screen_areas_iter_first(const struct wmWindow *win, const bScreen *screen);
 ScrArea *ED_screen_areas_iter_next(const bScreen *screen, const ScrArea *area);
@@ -287,7 +295,7 @@ void ED_screen_refresh(struct wmWindowManager *wm, struct wmWindow *win);
 void ED_screen_ensure_updated(struct wmWindowManager *wm,
                               struct wmWindow *win,
                               struct bScreen *screen);
-void ED_screen_do_listen(struct bContext *C, struct wmNotifier *note);
+void ED_screen_do_listen(struct bContext *C, const struct wmNotifier *note);
 /**
  * \brief Change the active screen.
  *
@@ -346,8 +354,8 @@ struct ScrArea *ED_screen_state_toggle(struct bContext *C,
                                        struct ScrArea *area,
                                        short state);
 /**
- * Wrapper to open a temporary space either as fullscreen space, or as separate window, as defined
- * by \a display_type.
+ * Wrapper to open a temporary space either as full-screen space, or as separate window,
+ * as defined by \a display_type.
  *
  * \param title: Title to set for the window, if a window is spawned.
  * \param x, y: Position of the window, if a window is spawned.
@@ -461,6 +469,8 @@ bool ED_workspace_layout_cycle(struct WorkSpace *workspace, short direction, str
     ATTR_NONNULL();
 
 void ED_workspace_status_text(struct bContext *C, const char *str);
+
+void ED_workspace_do_listen(struct bContext *C, const struct wmNotifier *note);
 
 /* anim */
 /**
@@ -588,8 +598,7 @@ bool ED_operator_object_active_local_editable_posemode_exclusive(struct bContext
 bool ED_operator_posemode_context(struct bContext *C);
 bool ED_operator_posemode(struct bContext *C);
 bool ED_operator_posemode_local(struct bContext *C);
-bool ED_operator_mask(struct bContext *C);
-bool ED_operator_camera(struct bContext *C);
+bool ED_operator_camera_poll(struct bContext *C);
 
 /* screen_user_menu.c */
 
@@ -644,6 +653,7 @@ void ED_region_generic_tools_region_message_subscribe(
 int ED_region_generic_tools_region_snap_size(const struct ARegion *region, int size, int axis);
 
 /* area_query.c */
+
 bool ED_region_overlap_isect_x(const ARegion *region, int event_x);
 bool ED_region_overlap_isect_y(const ARegion *region, int event_y);
 bool ED_region_overlap_isect_xy(const ARegion *region, const int event_xy[2]);
@@ -658,7 +668,7 @@ bool ED_region_panel_category_gutter_calc_rect(const ARegion *region, rcti *r_re
 bool ED_region_panel_category_gutter_isect_xy(const ARegion *region, const int event_xy[2]);
 
 /**
- * \note: This may return true for multiple overlapping regions.
+ * \note This may return true for multiple overlapping regions.
  * If it matters, check overlapped regions first (#ARegion.overlap).
  */
 bool ED_region_contains_xy(const struct ARegion *region, const int event_xy[2]);

@@ -22,21 +22,14 @@ static void node_shader_buts_vertex_color(uiLayout *layout, bContext *C, Pointer
   if (obptr.data && RNA_enum_get(&obptr, "type") == OB_MESH) {
     PointerRNA dataptr = RNA_pointer_get(&obptr, "data");
 
-    if (U.experimental.use_sculpt_vertex_colors &&
-        !RNA_collection_is_empty(&dataptr, "sculpt_vertex_colors")) {
-      uiItemPointerR(
-          layout, ptr, "layer_name", &dataptr, "sculpt_vertex_colors", "", ICON_GROUP_VCOL);
-    }
-    else {
-      uiItemPointerR(layout, ptr, "layer_name", &dataptr, "vertex_colors", "", ICON_GROUP_VCOL);
-    }
+    uiItemPointerR(layout, ptr, "layer_name", &dataptr, "color_attributes", "", ICON_GROUP_VCOL);
   }
   else {
     uiItemL(layout, TIP_("No mesh in active object"), ICON_ERROR);
   }
 }
 
-static void node_shader_init_vertex_color(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_vertex_color(bNodeTree * /*ntree*/, bNode *node)
 {
   NodeShaderVertexColor *vertexColor = MEM_cnew<NodeShaderVertexColor>("NodeShaderVertexColor");
   node->storage = vertexColor;
@@ -44,16 +37,24 @@ static void node_shader_init_vertex_color(bNodeTree *UNUSED(ntree), bNode *node)
 
 static int node_shader_gpu_vertex_color(GPUMaterial *mat,
                                         bNode *node,
-                                        bNodeExecData *UNUSED(execdata),
+                                        bNodeExecData * /*execdata*/,
                                         GPUNodeStack *in,
                                         GPUNodeStack *out)
 {
   NodeShaderVertexColor *vertexColor = (NodeShaderVertexColor *)node->storage;
-  if (U.experimental.use_sculpt_vertex_colors) {
-    GPUNodeLink *vertexColorLink = GPU_attribute(mat, CD_PROP_COLOR, vertexColor->layer_name);
-    return GPU_stack_link(mat, node, "node_vertex_color", in, out, vertexColorLink);
+  /* NOTE: Using #CD_AUTO_FROM_NAME is necessary because there are multiple color attribute types,
+   * and the type may change during evaluation anyway. This will also make EEVEE and Cycles
+   * consistent. See T93179. */
+
+  GPUNodeLink *vertexColorLink;
+
+  if (vertexColor->layer_name[0]) {
+    vertexColorLink = GPU_attribute(mat, CD_AUTO_FROM_NAME, vertexColor->layer_name);
   }
-  GPUNodeLink *vertexColorLink = GPU_attribute(mat, CD_MCOL, vertexColor->layer_name);
+  else { /* Fall back on active render color attribute. */
+    vertexColorLink = GPU_attribute_default_color(mat);
+  }
+
   return GPU_stack_link(mat, node, "node_vertex_color", in, out, vertexColorLink);
 }
 
@@ -65,13 +66,13 @@ void register_node_type_sh_vertex_color()
 
   static bNodeType ntype;
 
-  sh_node_type_base(&ntype, SH_NODE_VERTEX_COLOR, "Vertex Color", NODE_CLASS_INPUT);
+  sh_node_type_base(&ntype, SH_NODE_VERTEX_COLOR, "Color Attribute", NODE_CLASS_INPUT);
   ntype.declare = file_ns::node_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_vertex_color;
-  node_type_init(&ntype, file_ns::node_shader_init_vertex_color);
+  ntype.initfunc = file_ns::node_shader_init_vertex_color;
   node_type_storage(
       &ntype, "NodeShaderVertexColor", node_free_standard_storage, node_copy_standard_storage);
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_vertex_color);
+  ntype.gpu_fn = file_ns::node_shader_gpu_vertex_color;
 
   nodeRegisterType(&ntype);
 }

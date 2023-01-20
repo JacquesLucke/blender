@@ -33,7 +33,7 @@
 
 #include "ED_transverts.h" /* own include */
 
-/* copied from editobject.c, now uses (almost) proper depgraph */
+/* copied from editobject.c, now uses (almost) proper depsgraph. */
 void ED_transverts_update_obedit(TransVertStore *tvs, Object *obedit)
 {
   const int mode = tvs->mode;
@@ -45,7 +45,7 @@ void ED_transverts_update_obedit(TransVertStore *tvs, Object *obedit)
     BMEditMesh *em = BKE_editmesh_from_object(obedit);
     BM_mesh_normals_update(em->bm);
   }
-  else if (ELEM(obedit->type, OB_CURVE, OB_SURF)) {
+  else if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
     Curve *cu = obedit->data;
     ListBase *nurbs = BKE_curve_editNurbs_get(cu);
     Nurb *nu = nurbs->first;
@@ -181,7 +181,8 @@ static void set_mapped_co(void *vuserdata, int index, const float co[3], const f
 
 bool ED_transverts_check_obedit(const Object *obedit)
 {
-  return (ELEM(obedit->type, OB_ARMATURE, OB_LATTICE, OB_MESH, OB_SURF, OB_CURVE, OB_MBALL));
+  return (
+      ELEM(obedit->type, OB_ARMATURE, OB_LATTICE, OB_MESH, OB_SURF, OB_CURVES_LEGACY, OB_MBALL));
 }
 
 void ED_transverts_create_from_obedit(TransVertStore *tvs, const Object *obedit, const int mode)
@@ -202,7 +203,7 @@ void ED_transverts_create_from_obedit(TransVertStore *tvs, const Object *obedit,
     BMesh *bm = em->bm;
     BMIter iter;
     void *userdata[2] = {em, NULL};
-    /*int proptrans = 0; */ /*UNUSED*/
+    // int proptrans = 0; /*UNUSED*/
 
     /* abuses vertex index all over, set, just set dirty here,
      * perhaps this could use its own array instead? - campbell */
@@ -317,8 +318,8 @@ void ED_transverts_create_from_obedit(TransVertStore *tvs, const Object *obedit,
       if (ebo->layer & arm->layer) {
         const bool tipsel = (ebo->flag & BONE_TIPSEL) != 0;
         const bool rootsel = (ebo->flag & BONE_ROOTSEL) != 0;
-        const bool rootok = (!(ebo->parent && (ebo->flag & BONE_CONNECTED) &&
-                               (ebo->parent->flag & BONE_TIPSEL)));
+        const bool rootok = !(ebo->parent && (ebo->flag & BONE_CONNECTED) &&
+                              (ebo->parent->flag & BONE_TIPSEL));
 
         if ((tipsel && rootsel) || (rootsel)) {
           /* Don't add the tip (unless mode & TM_ALL_JOINTS, for getting all joints),
@@ -351,7 +352,7 @@ void ED_transverts_create_from_obedit(TransVertStore *tvs, const Object *obedit,
       }
     }
   }
-  else if (ELEM(obedit->type, OB_CURVE, OB_SURF)) {
+  else if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
     Curve *cu = obedit->data;
     int totmalloc = 0;
     ListBase *nurbs = BKE_curve_editNurbs_get(cu);

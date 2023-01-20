@@ -34,7 +34,7 @@ void BPY_pyconstraint_exec(struct bPythonConstraint *con,
 //  void BPY_pyconstraint_settings(void *arg1, void *arg2);
 void BPY_pyconstraint_target(struct bPythonConstraint *con, struct bConstraintTarget *ct);
 void BPY_pyconstraint_update(struct Object *owner, struct bConstraint *con);
-int BPY_is_pyconstraint(struct Text *text);
+bool BPY_is_pyconstraint(struct Text *text);
 //  void BPY_free_pyconstraint_links(struct Text *text);
 
 /* global interpreter lock */
@@ -50,7 +50,7 @@ BPy_ThreadStatePtr BPY_thread_save(void);
  */
 void BPY_thread_restore(BPy_ThreadStatePtr tstate);
 
-/* our own wrappers to Py_BEGIN_ALLOW_THREADS/Py_END_ALLOW_THREADS */
+/** Our own wrappers to #Py_BEGIN_ALLOW_THREADS / #Py_END_ALLOW_THREADS */
 #define BPy_BEGIN_ALLOW_THREADS \
   { \
     BPy_ThreadStatePtr _bpy_saved_tstate = BPY_thread_save(); \
@@ -67,13 +67,17 @@ void BPY_text_free_code(struct Text *text);
 void BPY_modules_update(void);
 void BPY_modules_load_user(struct bContext *C);
 
-void BPY_app_handlers_reset(short do_all);
+void BPY_app_handlers_reset(bool do_all);
 
 /**
- * Update function, it gets rid of py-drivers global dictionary, forcing
- * BPY_driver_exec to recreate it. This function is used to force
- * reloading the Blender text module "pydrivers.py", if available, so
- * updates in it reach py-driver evaluation.
+ * Run on exit to free any cached data.
+ */
+void BPY_driver_exit(void);
+
+/**
+ * Update function, it gets rid of python-drivers global dictionary: `bpy.app.driver_namespace`,
+ * forcing #BPY_driver_exec to recreate it. Use this when loading a new `.blend` file
+ * so any variables setup by the previous blend file are cleared.
  */
 void BPY_driver_reset(void);
 
@@ -86,7 +90,12 @@ float BPY_driver_exec(struct PathResolvedRNA *anim_rna,
                       struct ChannelDriver *driver_orig,
                       const struct AnimationEvalContext *anim_eval_context);
 
-void BPY_DECREF(void *pyob_ptr); /* Py_DECREF() */
+/**
+ * Acquire the global-interpreter-lock (GIL) and wrap `Py_DECREF`.
+ * as there are some cases when this needs to be called outside the Python API code.
+ */
+void BPY_DECREF(void *pyob_ptr);
+
 void BPY_DECREF_RNA_INVALIDATE(void *pyob_ptr);
 int BPY_context_member_get(struct bContext *C,
                            const char *member,
@@ -97,11 +106,6 @@ void BPY_context_set(struct bContext *C);
  */
 void BPY_context_update(struct bContext *C);
 
-#define BPY_context_dict_clear_members(C, ...) \
-  BPY_context_dict_clear_members_array(&((C)->data.py_context), \
-                                       (C)->data.py_context_orig, \
-                                       ((const char *[]){__VA_ARGS__}), \
-                                       VA_NARGS_COUNT(__VA_ARGS__))
 /**
  * Use for `CTX_*_set(..)` functions need to set values which are later read back as expected.
  * In this case we don't want the Python context to override the values as it causes problems
@@ -109,8 +113,6 @@ void BPY_context_update(struct bContext *C);
  *
  * \param dict_p: A pointer to #bContext.data.py_context so we can assign a new value.
  * \param dict_orig: The value of #bContext.data.py_context_orig to check if we need to copy.
- *
- * \note Typically accessed via #BPY_context_dict_clear_members macro.
  */
 void BPY_context_dict_clear_members_array(void **dict_p,
                                           void *dict_orig,
@@ -125,6 +127,7 @@ void BPY_id_release(struct ID *id);
 bool BPY_string_is_keyword(const char *str);
 
 /* bpy_rna_callback.c */
+
 void BPY_callback_screen_free(struct ARegionType *art);
 void BPY_callback_wm_free(struct wmWindowManager *wm);
 

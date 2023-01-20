@@ -9,10 +9,6 @@
 
 #include <Python.h>
 
-#include "BLI_math.h"
-
-#include "MEM_guardedalloc.h"
-
 #include "../generic/py_capi_utils.h"
 #include "../generic/python_utildefines.h"
 
@@ -67,15 +63,15 @@ PyDoc_STRVAR(
     "\n"
     "   Add a new attribute to the format.\n"
     "\n"
-    "   :param id: Name the attribute. Often `position`, `normal`, ...\n"
+    "   :arg id: Name the attribute. Often `position`, `normal`, ...\n"
     "   :type id: str\n"
-    "   :param comp_type: The data type that will be used store the value in memory.\n"
+    "   :arg comp_type: The data type that will be used store the value in memory.\n"
     "      Possible values are `I8`, `U8`, `I16`, `U16`, `I32`, `U32`, `F32` and `I10`.\n"
     "   :type comp_type: str\n"
-    "   :param len: How many individual values the attribute consists of\n"
+    "   :arg len: How many individual values the attribute consists of\n"
     "      (e.g. 2 for uv coordinates).\n"
     "   :type len: int\n"
-    "   :param fetch_mode: How values from memory will be converted when used in the shader.\n"
+    "   :arg fetch_mode: How values from memory will be converted when used in the shader.\n"
     "      This is mainly useful for memory optimizations when you want to store values with\n"
     "      reduced precision. E.g. you can store a float in only 1 byte but it will be\n"
     "      converted to a normal 4 byte float when used.\n"
@@ -94,7 +90,16 @@ static PyObject *pygpu_vertformat_attr_add(BPyGPUVertFormat *self, PyObject *arg
   }
 
   static const char *_keywords[] = {"id", "comp_type", "len", "fetch_mode", NULL};
-  static _PyArg_Parser _parser = {"$sO&IO&:attr_add", _keywords, 0};
+  static _PyArg_Parser _parser = {
+      "$"  /* Keyword only arguments. */
+      "s"  /* `id` */
+      "O&" /* `comp_type` */
+      "I"  /* `len` */
+      "O&" /* `fetch_mode` */
+      ":attr_add",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(args,
                                         kwds,
                                         &_parser,

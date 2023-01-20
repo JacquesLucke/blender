@@ -72,12 +72,11 @@ static void load_post_callback(struct Main * /*main*/,
 }
 
 static bCallbackFuncStore load_post_callback_funcstore = {
-    nullptr,            /* next */
-    nullptr,            /* prev */
-    load_post_callback, /* func */
-    nullptr,            /* arg */
-    0                   /* alloc */
-};
+    /*next*/ nullptr,
+    /*prev*/ nullptr,
+    /*func*/ load_post_callback,
+    /*arg*/ nullptr,
+    /*alloc*/ 0};
 
 //=======================================================
 //   Initialization
@@ -131,9 +130,9 @@ static void init_view(Render *re)
   int ymax = re->disprect.ymax;
 
   float thickness = 1.0f;
-  switch (re->r.line_thickness_mode) {
+  switch (re->scene->r.line_thickness_mode) {
     case R_LINE_THICKNESS_ABSOLUTE:
-      thickness = re->r.unit_line_thickness * (re->r.size / 100.0f);
+      thickness = re->scene->r.unit_line_thickness * (re->r.size / 100.0f);
       break;
     case R_LINE_THICKNESS_RELATIVE:
       thickness = height / 480.0f;
@@ -485,7 +484,7 @@ void FRS_composite_result(Render *re, ViewLayer *view_layer, Render *freestyle_r
     return;
   }
 
-  rl = render_get_active_layer(freestyle_render, freestyle_render->result);
+  rl = render_get_single_layer(freestyle_render, freestyle_render->result);
   if (!rl) {
     if (G.debug & G_DEBUG_FREESTYLE) {
       cout << "No source render layer to composite" << endl;
@@ -596,7 +595,7 @@ void FRS_init_stroke_renderer(Render *re)
   controller->ResetRenderCount();
 }
 
-void FRS_begin_stroke_rendering(Render *UNUSED(re))
+void FRS_begin_stroke_rendering(Render * /*re*/)
 {
 }
 

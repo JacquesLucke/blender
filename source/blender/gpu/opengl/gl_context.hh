@@ -16,8 +16,6 @@
 
 #include "gl_state.hh"
 
-#include "glew-mx.h"
-
 #include <mutex>
 
 namespace blender {
@@ -42,9 +40,10 @@ class GLContext : public Context {
   /** Capabilities. */
 
   static GLint max_cubemap_size;
-  static GLint max_texture_3d_size;
   static GLint max_ubo_size;
   static GLint max_ubo_binds;
+  static GLint max_ssbo_size;
+  static GLint max_ssbo_binds;
 
   /** Extensions. */
 
@@ -61,9 +60,11 @@ class GLContext : public Context {
   static bool multi_bind_support;
   static bool multi_draw_indirect_support;
   static bool shader_draw_parameters_support;
+  static bool stencil_texturing_support;
   static bool texture_cube_map_array_support;
   static bool texture_filter_anisotropic_support;
   static bool texture_gather_support;
+  static bool texture_storage_support;
   static bool vertex_attrib_binding_support;
 
   /** Workarounds. */
@@ -102,6 +103,8 @@ class GLContext : public Context {
 
   void activate() override;
   void deactivate() override;
+  void begin_frame() override;
+  void end_frame() override;
 
   void flush() override;
   void finish() override;

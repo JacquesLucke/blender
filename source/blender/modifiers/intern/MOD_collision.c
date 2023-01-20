@@ -36,6 +36,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "MOD_modifiertypes.h"
 #include "MOD_ui_common.h"
@@ -79,9 +80,7 @@ static void freeData(ModifierData *md)
   }
 }
 
-static bool dependsOnTime(struct Scene *UNUSED(scene),
-                          ModifierData *UNUSED(md),
-                          const int UNUSED(dag_eval_mode))
+static bool dependsOnTime(struct Scene *UNUSED(scene), ModifierData *UNUSED(md))
 {
   return true;
 }
@@ -90,11 +89,10 @@ static void deformVerts(ModifierData *md,
                         const ModifierEvalContext *ctx,
                         Mesh *mesh,
                         float (*vertexCos)[3],
-                        int numVerts)
+                        int verts_num)
 {
   CollisionModifierData *collmd = (CollisionModifierData *)md;
   Mesh *mesh_src;
-  MVert *tempVert = NULL;
   Object *ob = ctx->object;
 
   /* If collision is disabled, free the stale data and exit. */
@@ -108,7 +106,7 @@ static void deformVerts(ModifierData *md,
   }
 
   if (mesh == NULL) {
-    mesh_src = MOD_deform_mesh_eval_get(ob, NULL, NULL, NULL, numVerts, false, false);
+    mesh_src = MOD_deform_mesh_eval_get(ob, NULL, NULL, NULL, verts_num, false);
   }
   else {
     /* Not possible to use get_mesh() in this case as we'll modify its vertices
@@ -121,7 +119,6 @@ static void deformVerts(ModifierData *md,
     uint mvert_num = 0;
 
     BKE_mesh_vert_coords_apply(mesh_src, vertexCos);
-    BKE_mesh_calc_normals(mesh_src);
 
     current_time = DEG_get_ctime(ctx->depsgraph);
 
@@ -147,11 +144,11 @@ static void deformVerts(ModifierData *md,
 
     if (collmd->time_xnew == -1000) { /* first time */
 
-      collmd->x = MEM_dupallocN(mesh_src->mvert); /* frame start position */
+      collmd->x = MEM_dupallocN(BKE_mesh_vert_positions(mesh_src)); /* frame start position */
 
       for (uint i = 0; i < mvert_num; i++) {
         /* we save global positions */
-        mul_m4_v3(ob->obmat, collmd->x[i].co);
+        mul_m4_v3(ob->object_to_world, collmd->x[i]);
       }
 
       collmd->xnew = MEM_dupallocN(collmd->x);         /* Frame end position. */
@@ -162,7 +159,7 @@ static void deformVerts(ModifierData *md,
       collmd->mvert_num = mvert_num;
 
       {
-        const MLoop *mloop = mesh_src->mloop;
+        const MLoop *mloop = BKE_mesh_loops(mesh_src);
         const MLoopTri *looptri = BKE_mesh_runtime_looptri_ensure(mesh_src);
         collmd->tri_num = BKE_mesh_runtime_looptri_len(mesh_src);
         MVertTri *tri = MEM_mallocN(sizeof(*tri) * collmd->tri_num, __func__);
@@ -179,25 +176,25 @@ static void deformVerts(ModifierData *md,
     }
     else if (mvert_num == collmd->mvert_num) {
       /* put positions to old positions */
-      tempVert = collmd->x;
+      float(*temp)[3] = collmd->x;
       collmd->x = collmd->xnew;
-      collmd->xnew = tempVert;
+      collmd->xnew = temp;
       collmd->time_x = collmd->time_xnew;
 
-      memcpy(collmd->xnew, mesh_src->mvert, mvert_num * sizeof(MVert));
+      memcpy(collmd->xnew, BKE_mesh_vert_positions(mesh_src), mvert_num * sizeof(float[3]));
 
       bool is_static = true;
 
       for (uint i = 0; i < mvert_num; i++) {
         /* we save global positions */
-        mul_m4_v3(ob->obmat, collmd->xnew[i].co);
+        mul_m4_v3(ob->object_to_world, collmd->xnew[i]);
 
         /* detect motion */
-        is_static = is_static && equals_v3v3(collmd->x[i].co, collmd->xnew[i].co);
+        is_static = is_static && equals_v3v3(collmd->x[i], collmd->xnew[i]);
       }
 
-      memcpy(collmd->current_xnew, collmd->x, mvert_num * sizeof(MVert));
-      memcpy(collmd->current_x, collmd->x, mvert_num * sizeof(MVert));
+      memcpy(collmd->current_xnew, collmd->x, mvert_num * sizeof(float[3]));
+      memcpy(collmd->current_x, collmd->x, mvert_num * sizeof(float[3]));
 
       /* check if GUI setting has changed for bvh */
       if (collmd->bvhtree) {
@@ -238,7 +235,7 @@ static void deformVerts(ModifierData *md,
 
 static void updateDepsgraph(ModifierData *UNUSED(md), const ModifierUpdateDepsgraphContext *ctx)
 {
-  DEG_add_modifier_to_transform_relation(ctx->node, "Collision Modifier");
+  DEG_add_depends_on_transform_relation(ctx->node, "Collision Modifier");
 }
 
 static void panel_draw(const bContext *UNUSED(C), Panel *panel)
@@ -267,9 +264,9 @@ static void blendRead(BlendDataReader *UNUSED(reader), ModifierData *md)
       collmd->xnew = newdataadr(fd, collmd->xnew);
       collmd->mfaces = newdataadr(fd, collmd->mfaces);
 
-      collmd->current_x = MEM_calloc_arrayN(collmd->numverts, sizeof(MVert), "current_x");
-      collmd->current_xnew = MEM_calloc_arrayN(collmd->numverts, sizeof(MVert), "current_xnew");
-      collmd->current_v = MEM_calloc_arrayN(collmd->numverts, sizeof(MVert), "current_v");
+      collmd->current_x = MEM_calloc_arrayN(collmd->mvert_num, sizeof(float[3]), "current_x");
+      collmd->current_xnew = MEM_calloc_arrayN(collmd->mvert_num, sizeof(float[3]), "current_xnew");
+      collmd->current_v = MEM_calloc_arrayN(collmd->mvert_num, sizeof(float[3]), "current_v");
 #endif
 
   collmd->x = NULL;
@@ -286,34 +283,34 @@ static void blendRead(BlendDataReader *UNUSED(reader), ModifierData *md)
 }
 
 ModifierTypeInfo modifierType_Collision = {
-    /* name */ "Collision",
-    /* structName */ "CollisionModifierData",
-    /* structSize */ sizeof(CollisionModifierData),
-    /* srna */ &RNA_CollisionModifier,
-    /* type */ eModifierTypeType_OnlyDeform,
-    /* flags */ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_Single,
-    /* icon */ ICON_MOD_PHYSICS,
+    /*name*/ N_("Collision"),
+    /*structName*/ "CollisionModifierData",
+    /*structSize*/ sizeof(CollisionModifierData),
+    /*srna*/ &RNA_CollisionModifier,
+    /*type*/ eModifierTypeType_OnlyDeform,
+    /*flags*/ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_Single,
+    /*icon*/ ICON_MOD_PHYSICS,
 
-    /* copyData */ NULL,
+    /*copyData*/ NULL,
 
-    /* deformVerts */ deformVerts,
-    /* deformMatrices */ NULL,
-    /* deformVertsEM */ NULL,
-    /* deformMatricesEM */ NULL,
-    /* modifyMesh */ NULL,
-    /* modifyGeometrySet */ NULL,
+    /*deformVerts*/ deformVerts,
+    /*deformMatrices*/ NULL,
+    /*deformVertsEM*/ NULL,
+    /*deformMatricesEM*/ NULL,
+    /*modifyMesh*/ NULL,
+    /*modifyGeometrySet*/ NULL,
 
-    /* initData */ initData,
-    /* requiredDataMask */ NULL,
-    /* freeData */ freeData,
-    /* isDisabled */ NULL,
-    /* updateDepsgraph */ updateDepsgraph,
-    /* dependsOnTime */ dependsOnTime,
-    /* dependsOnNormals */ NULL,
-    /* foreachIDLink */ NULL,
-    /* foreachTexLink */ NULL,
-    /* freeRuntimeData */ NULL,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ NULL,
-    /* blendRead */ blendRead,
+    /*initData*/ initData,
+    /*requiredDataMask*/ NULL,
+    /*freeData*/ freeData,
+    /*isDisabled*/ NULL,
+    /*updateDepsgraph*/ updateDepsgraph,
+    /*dependsOnTime*/ dependsOnTime,
+    /*dependsOnNormals*/ NULL,
+    /*foreachIDLink*/ NULL,
+    /*foreachTexLink*/ NULL,
+    /*freeRuntimeData*/ NULL,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ NULL,
+    /*blendRead*/ blendRead,
 };

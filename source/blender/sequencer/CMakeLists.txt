@@ -21,6 +21,8 @@ set(INC
 
   # dna_type_offsets.h
   ${CMAKE_CURRENT_BINARY_DIR}/../makesdna/intern
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
 set(INC_SYS
@@ -30,6 +32,7 @@ set(INC_SYS
 set(SRC
   SEQ_add.h
   SEQ_animation.h
+  SEQ_channels.h
   SEQ_clipboard.h
   SEQ_edit.h
   SEQ_effects.h
@@ -47,6 +50,7 @@ set(SRC
   SEQ_utils.h
 
   intern/animation.c
+  intern/channels.c
   intern/clipboard.c
   intern/disk_cache.c
   intern/disk_cache.h
@@ -86,18 +90,21 @@ set(LIB
 )
 
 if(WITH_AUDASPACE)
-  add_definitions(-DWITH_AUDASPACE)
-
   list(APPEND INC_SYS
     ${AUDASPACE_C_INCLUDE_DIRS}
   )
-  list(APPEND LIB
-    ${AUDASPACE_C_LIBRARIES}
-    ${AUDASPACE_PY_LIBRARIES}
-  )
+  if(WITH_SYSTEM_AUDASPACE)
+    list(APPEND LIB
+      ${AUDASPACE_C_LIBRARIES}
+      ${AUDASPACE_PY_LIBRARIES}
+    )
+  endif()
+  add_definitions(-DWITH_AUDASPACE)
 endif()
 
 blender_add_lib(bf_sequencer "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 
 # Needed so we can use dna_type_offsets.h.
 add_dependencies(bf_sequencer bf_dna)
+# RNA_prototypes.h
+add_dependencies(bf_sequencer bf_rna)

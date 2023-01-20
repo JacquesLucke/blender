@@ -29,6 +29,8 @@
 #include "BKE_armature.h"
 #include "BKE_constraint.h"
 
+#include "RNA_prototypes.h"
+
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
 
@@ -320,7 +322,11 @@ void DepsgraphRelationBuilder::build_rig(Object *object)
   RootPChanMap root_map;
   bool pose_depends_on_local_transform = false;
   LISTBASE_FOREACH (bPoseChannel *, pchan, &object->pose->chanbase) {
+    const BuilderStack::ScopedEntry stack_entry = stack_.trace(*pchan);
+
     LISTBASE_FOREACH (bConstraint *, con, &pchan->constraints) {
+      const BuilderStack::ScopedEntry stack_entry = stack_.trace(*con);
+
       switch (con->type) {
         case CONSTRAINT_TYPE_KINEMATIC:
           build_ik_pose(object, pchan, con, &root_map);
@@ -354,6 +360,8 @@ void DepsgraphRelationBuilder::build_rig(Object *object)
   }
   /* Links between operations for each bone. */
   LISTBASE_FOREACH (bPoseChannel *, pchan, &object->pose->chanbase) {
+    const BuilderStack::ScopedEntry stack_entry = stack_.trace(*pchan);
+
     build_idproperties(pchan->prop);
     OperationKey bone_local_key(
         &object->id, NodeType::BONE, pchan->name, OperationCode::BONE_LOCAL);

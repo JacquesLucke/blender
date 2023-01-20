@@ -16,9 +16,11 @@
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 
-#include "BLI_blenlib.h"
-#include "BLI_math.h"
+#include "BLI_listbase.h"
+#include "BLI_math_vector.h"
 #include "BLI_utildefines.h"
+
+#include "BLT_translation.h"
 
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
@@ -107,7 +109,7 @@ static void duplicateStroke(Object *ob,
   float opacity_factor;
 
   /* Apply object scale to offset distance. */
-  offset *= mat4_to_scale(ob->obmat);
+  offset *= mat4_to_scale(ob->object_to_world);
 
   BKE_gpencil_stroke_normal(gps, stroke_normal);
   if (len_v3(stroke_normal) < FLT_EPSILON) {
@@ -175,53 +177,6 @@ static void duplicateStroke(Object *ob,
   MEM_freeN(t2_array);
 }
 
-static void bakeModifier(Main *UNUSED(bmain),
-                         Depsgraph *UNUSED(depsgraph),
-                         GpencilModifierData *md,
-                         Object *ob)
-{
-  bGPdata *gpd = ob->data;
-
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
-      ListBase duplicates = {0};
-      MultiplyGpencilModifierData *mmd = (MultiplyGpencilModifierData *)md;
-      bGPDstroke *gps;
-      for (gps = gpf->strokes.first; gps; gps = gps->next) {
-        if (!is_stroke_affected_by_modifier(ob,
-                                            mmd->layername,
-                                            mmd->material,
-                                            mmd->pass_index,
-                                            mmd->layer_pass,
-                                            1,
-                                            gpl,
-                                            gps,
-                                            mmd->flag & GP_MIRROR_INVERT_LAYER,
-                                            mmd->flag & GP_MIRROR_INVERT_PASS,
-                                            mmd->flag & GP_MIRROR_INVERT_LAYERPASS,
-                                            mmd->flag & GP_MIRROR_INVERT_MATERIAL)) {
-          continue;
-        }
-        if (mmd->duplications > 0) {
-          duplicateStroke(ob,
-                          gps,
-                          mmd->duplications,
-                          mmd->distance,
-                          mmd->offset,
-                          &duplicates,
-                          mmd->flags & GP_MULTIPLY_ENABLE_FADING,
-                          mmd->fading_center,
-                          mmd->fading_thickness,
-                          mmd->fading_opacity);
-        }
-      }
-      if (!BLI_listbase_is_empty(&duplicates)) {
-        BLI_movelisttolist(&gpf->strokes, &duplicates);
-      }
-    }
-  }
-}
-
 /* -------------------------------- */
 static void generate_geometry(GpencilModifierData *md, Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 {
@@ -258,6 +213,20 @@ static void generate_geometry(GpencilModifierData *md, Object *ob, bGPDlayer *gp
   }
   if (!BLI_listbase_is_empty(&duplicates)) {
     BLI_movelisttolist(&gpf->strokes, &duplicates);
+  }
+}
+
+static void bakeModifier(Main *UNUSED(bmain),
+                         Depsgraph *UNUSED(depsgraph),
+                         GpencilModifierData *md,
+                         Object *ob)
+{
+  bGPdata *gpd = ob->data;
+
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
+      generate_geometry(md, ob, gpl, gpf);
+    }
   }
 }
 
@@ -344,25 +313,25 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Multiply = {
-    /* name */ "MultipleStrokes",
-    /* structName */ "MultiplyGpencilModifierData",
-    /* structSize */ sizeof(MultiplyGpencilModifierData),
-    /* type */ eGpencilModifierTypeType_Gpencil,
-    /* flags */ 0,
+    /*name*/ N_("MultipleStrokes"),
+    /*structName*/ "MultiplyGpencilModifierData",
+    /*structSize*/ sizeof(MultiplyGpencilModifierData),
+    /*type*/ eGpencilModifierTypeType_Gpencil,
+    /*flags*/ 0,
 
-    /* copyData */ copyData,
+    /*copyData*/ copyData,
 
-    /* deformStroke */ NULL,
-    /* generateStrokes */ generateStrokes,
-    /* bakeModifier */ bakeModifier,
-    /* remapTime */ NULL,
+    /*deformStroke*/ NULL,
+    /*generateStrokes*/ generateStrokes,
+    /*bakeModifier*/ bakeModifier,
+    /*remapTime*/ NULL,
 
-    /* initData */ initData,
-    /* freeData */ NULL,
-    /* isDisabled */ NULL,
-    /* updateDepsgraph */ NULL,
-    /* dependsOnTime */ NULL,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ NULL,
-    /* panelRegister */ panelRegister,
+    /*initData*/ initData,
+    /*freeData*/ NULL,
+    /*isDisabled*/ NULL,
+    /*updateDepsgraph*/ NULL,
+    /*dependsOnTime*/ NULL,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ NULL,
+    /*panelRegister*/ panelRegister,
 };

@@ -6,12 +6,8 @@
 #include "testing/testing.h"
 
 #ifdef __GNUC__
-#  if (__GNUC__ * 100 + __GNUC_MINOR__) >= 406 /* gcc4.6+ only */
-#    pragma GCC diagnostic error "-Wsign-compare"
-#  endif
-#  if (__GNUC__ * 100 + __GNUC_MINOR__) >= 408
-#    pragma GCC diagnostic error "-Wsign-conversion"
-#  endif
+#  pragma GCC diagnostic error "-Wsign-compare"
+#  pragma GCC diagnostic error "-Wsign-conversion"
 #endif
 
 /* -------------------------------------------------------------------- */
@@ -140,6 +136,40 @@ TEST(atomic, atomic_cas_uint64)
     EXPECT_EQ(atomic_cas_uint64(&value, 0xdeadbeefefefefef, 0xfedcba0987654321),
               0x1234567890abcdef);
     EXPECT_EQ(value, 0x1234567890abcdef);
+  }
+}
+
+TEST(atomic, atomic_load_uint64)
+{
+  /* Make sure alias is implemented. */
+  {
+    uint64_t value = 2;
+    EXPECT_EQ(atomic_load_uint64(&value), 2);
+  }
+
+  /* Make sure alias is using proper bitness. */
+  {
+    const uint64_t uint64_t_max = std::numeric_limits<uint64_t>::max();
+    uint64_t value = uint64_t_max;
+    EXPECT_EQ(atomic_load_uint64(&value), uint64_t_max);
+  }
+}
+
+TEST(atomic, atomic_store_uint64)
+{
+  /* Make sure alias is implemented. */
+  {
+    uint64_t value = 0;
+    atomic_store_uint64(&value, 2);
+    EXPECT_EQ(value, 2);
+  }
+
+  /* Make sure alias is using proper bitness. */
+  {
+    const uint64_t uint64_t_max = std::numeric_limits<uint64_t>::max();
+    uint64_t value = 0;
+    atomic_store_uint64(&value, uint64_t_max);
+    EXPECT_EQ(value, uint64_t_max);
   }
 }
 
@@ -277,6 +307,40 @@ TEST(atomic, atomic_cas_int64)
   }
 }
 
+TEST(atomic, atomic_load_int64)
+{
+  /* Make sure alias is implemented. */
+  {
+    int64_t value = 2;
+    EXPECT_EQ(atomic_load_int64(&value), 2);
+  }
+
+  /* Make sure alias is using proper bitness. */
+  {
+    const int64_t int64_t_max = std::numeric_limits<int64_t>::max();
+    int64_t value = int64_t_max;
+    EXPECT_EQ(atomic_load_int64(&value), int64_t_max);
+  }
+}
+
+TEST(atomic, atomic_store_int64)
+{
+  /* Make sure alias is implemented. */
+  {
+    int64_t value = 0;
+    atomic_store_int64(&value, 2);
+    EXPECT_EQ(value, 2);
+  }
+
+  /* Make sure alias is using proper bitness. */
+  {
+    const int64_t int64_t_max = std::numeric_limits<int64_t>::max();
+    int64_t value = 0;
+    atomic_store_int64(&value, int64_t_max);
+    EXPECT_EQ(value, int64_t_max);
+  }
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -358,6 +422,40 @@ TEST(atomic, atomic_cas_uint32)
   }
 }
 
+TEST(atomic, atomic_load_uint32)
+{
+  /* Make sure alias is implemented. */
+  {
+    uint32_t value = 2;
+    EXPECT_EQ(atomic_load_uint32(&value), 2);
+  }
+
+  /* Make sure alias is using proper bitness. */
+  {
+    const uint32_t uint32_t_max = std::numeric_limits<uint32_t>::max();
+    uint32_t value = uint32_t_max;
+    EXPECT_EQ(atomic_load_uint32(&value), uint32_t_max);
+  }
+}
+
+TEST(atomic, atomic_store_uint32)
+{
+  /* Make sure alias is implemented. */
+  {
+    uint32_t value = 0;
+    atomic_store_uint32(&value, 2);
+    EXPECT_EQ(value, 2);
+  }
+
+  /* Make sure alias is using proper bitness. */
+  {
+    const uint32_t uint32_t_max = std::numeric_limits<uint32_t>::max();
+    uint32_t value = 0;
+    atomic_store_uint32(&value, uint32_t_max);
+    EXPECT_EQ(value, uint32_t_max);
+  }
+}
+
 TEST(atomic, atomic_fetch_and_add_uint32)
 {
   {
@@ -423,6 +521,7 @@ TEST(atomic, atomic_fetch_and_and_uint32)
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
 /** \name 32 bit signed int atomics
  * \{ */
 
@@ -504,6 +603,40 @@ TEST(atomic, atomic_cas_int32)
   }
 }
 
+TEST(atomic, atomic_load_int32)
+{
+  /* Make sure alias is implemented. */
+  {
+    int32_t value = 2;
+    EXPECT_EQ(atomic_load_int32(&value), 2);
+  }
+
+  /* Make sure alias is using proper bitness. */
+  {
+    const int32_t int32_t_max = std::numeric_limits<int32_t>::max();
+    int32_t value = int32_t_max;
+    EXPECT_EQ(atomic_load_int32(&value), int32_t_max);
+  }
+}
+
+TEST(atomic, atomic_store_int32)
+{
+  /* Make sure alias is implemented. */
+  {
+    int32_t value = 0;
+    atomic_store_int32(&value, 2);
+    EXPECT_EQ(value, 2);
+  }
+
+  /* Make sure alias is using proper bitness. */
+  {
+    const int32_t int32_t_max = std::numeric_limits<int32_t>::max();
+    int32_t value = 0;
+    atomic_store_int32(&value, int32_t_max);
+    EXPECT_EQ(value, int32_t_max);
+  }
+}
+
 TEST(atomic, atomic_fetch_and_add_int32)
 {
   {
@@ -559,6 +692,7 @@ TEST(atomic, atomic_fetch_and_and_int32)
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
 /** \name 16 bit signed int atomics
  * \{ */
 
@@ -592,6 +726,9 @@ TEST(atomic, atomic_fetch_and_and_int16)
   }
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name 8 bit unsigned int atomics
  * \{ */
 
@@ -638,6 +775,7 @@ TEST(atomic, atomic_fetch_and_and_int8)
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
 /** \name char aliases
  * \{ */
 
@@ -661,6 +799,7 @@ TEST(atomic, atomic_fetch_and_and_char)
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
 /** \name size_t aliases
  * \{ */
 
@@ -754,6 +893,40 @@ TEST(atomic, atomic_cas_z)
   }
 }
 
+TEST(atomic, atomic_load_z)
+{
+  /* Make sure alias is implemented. */
+  {
+    size_t value = 2;
+    EXPECT_EQ(atomic_load_z(&value), 2);
+  }
+
+  /* Make sure alias is using proper bitness. */
+  {
+    const size_t size_t_max = std::numeric_limits<size_t>::max();
+    size_t value = size_t_max;
+    EXPECT_EQ(atomic_load_z(&value), size_t_max);
+  }
+}
+
+TEST(atomic, atomic_store_z)
+{
+  /* Make sure alias is implemented. */
+  {
+    size_t value = 0;
+    atomic_store_z(&value, 2);
+    EXPECT_EQ(value, 2);
+  }
+
+  /* Make sure alias is using proper bitness. */
+  {
+    const size_t size_t_max = std::numeric_limits<size_t>::max();
+    size_t value = 0;
+    atomic_store_z(&value, size_t_max);
+    EXPECT_EQ(value, size_t_max);
+  }
+}
+
 TEST(atomic, atomic_fetch_and_update_max_z)
 {
   const size_t size_t_max = std::numeric_limits<size_t>::max();
@@ -772,6 +945,7 @@ TEST(atomic, atomic_fetch_and_update_max_z)
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
 /** \name unsigned int aliases
  * \{ */
 
@@ -867,6 +1041,7 @@ TEST(atomic, atomic_cas_u)
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
 /** \name pointer aliases
  * \{ */
 
@@ -881,10 +1056,30 @@ TEST(atomic, atomic_cas_ptr)
   }
 }
 
+TEST(atomic, atomic_load_ptr)
+{
+  {
+    void *value = INT_AS_PTR(0x7f);
+    void *dest = atomic_load_ptr(&value);
+    EXPECT_EQ(dest, INT_AS_PTR(0x7f));
+  }
+}
+
+TEST(atomic, atomic_store_ptr)
+{
+  {
+    void *value = INT_AS_PTR(0x7f);
+    void *dest = nullptr;
+    atomic_store_ptr(&dest, value);
+    EXPECT_EQ(dest, INT_AS_PTR(0x7f));
+  }
+}
+
 #undef INT_AS_PTR
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
 /** \name floating point atomics
  * \{ */
 

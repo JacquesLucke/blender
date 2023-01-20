@@ -136,7 +136,7 @@ bool is_quad_convex_v2(const float v1[2], const float v2[2], const float v3[2], 
 bool is_poly_convex_v2(const float verts[][2], unsigned int nr);
 /**
  * Check if either of the diagonals along this quad create flipped triangles
- * (normals pointing away from eachother).
+ * (normals pointing away from each other).
  * - (1 << 0): (v1-v3) is flipped.
  * - (1 << 1): (v2-v4) is flipped.
  */
@@ -202,7 +202,7 @@ float dist_to_line_v3(const float p[3], const float l1[3], const float l2[3]);
  * \return the lowest squared distance to either of the planes.
  * where `(return < 0.0)` is outside.
  *
- * <pre>
+ * \code{.unparsed}
  *            v1
  *            +
  *           /
@@ -211,7 +211,7 @@ float dist_to_line_v3(const float p[3], const float l1[3], const float l2[3]);
  *        +----+
  *        v2   v3
  *           x - also outside
- * </pre>
+ * \endcode
  */
 float dist_signed_squared_to_corner_v3v3v3(const float p[3],
                                            const float v1[3],
@@ -303,6 +303,9 @@ float dist_squared_to_projected_aabb_simple(const float projmat[4][4],
                                             const float bbmin[3],
                                             const float bbmax[3]);
 
+/** Returns the distance between two 2D line segments. */
+float dist_seg_seg_v2(const float a1[3], const float a2[3], const float b1[3], const float b2[3]);
+
 float closest_to_ray_v3(float r_close[3],
                         const float p[3],
                         const float ray_orig[3],
@@ -319,18 +322,40 @@ double closest_to_line_v2_db(double r_close[2],
 float closest_to_line_v3(float r_close[3], const float p[3], const float l1[3], const float l2[3]);
 /**
  * Point closest to v1 on line v2-v3 in 2D.
+ *
+ * \return A value in [0, 1] that corresponds to the position of #r_close on the line segment.
  */
-void closest_to_line_segment_v2(float r_close[2],
-                                const float p[2],
-                                const float l1[2],
-                                const float l2[2]);
+float closest_to_line_segment_v2(float r_close[2],
+                                 const float p[2],
+                                 const float l1[2],
+                                 const float l2[2]);
+
+/**
+ * Finds the points where two line segments are closest to each other.
+ *
+ * `lambda_*` is a value between 0 and 1 for each segment that indicates where `r_closest_*` is on
+ * the corresponding segment.
+ *
+ * \return Squared distance between both segments.
+ */
+float closest_seg_seg_v2(float r_closest_a[2],
+                         float r_closest_b[2],
+                         float *r_lambda_a,
+                         float *r_lambda_b,
+                         const float a1[2],
+                         const float a2[2],
+                         const float b1[2],
+                         const float b2[2]);
+
 /**
  * Point closest to v1 on line v2-v3 in 3D.
+ *
+ * \return A value in [0, 1] that corresponds to the position of #r_close on the line segment.
  */
-void closest_to_line_segment_v3(float r_close[3],
-                                const float p[3],
-                                const float l1[3],
-                                const float l2[3]);
+float closest_to_line_segment_v3(float r_close[3],
+                                 const float p[3],
+                                 const float l1[3],
+                                 const float l2[3]);
 void closest_to_plane_normalized_v3(float r_close[3], const float plane[4], const float pt[3]);
 /**
  * Find the closest point on a plane.
@@ -883,7 +908,7 @@ bool clip_segment_v3_plane(
 bool clip_segment_v3_plane_n(const float p1[3],
                              const float p2[3],
                              const float plane_array[][4],
-                             int plane_tot,
+                             int plane_num,
                              float r_p1[3],
                              float r_p2[3]);
 
@@ -1139,8 +1164,8 @@ void box_minmax_bounds_m4(float min[3], float max[3], float boundbox[2][3], floa
 /** \name Mapping
  * \{ */
 
-void map_to_tube(float *r_u, float *r_v, float x, float y, float z);
-void map_to_sphere(float *r_u, float *r_v, float x, float y, float z);
+bool map_to_tube(float *r_u, float *r_v, float x, float y, float z);
+bool map_to_sphere(float *r_u, float *r_v, float x, float y, float z);
 void map_to_plane_v2_v3v3(float r_co[2], const float co[3], const float no[3]);
 void map_to_plane_axis_angle_v2_v3v3fl(float r_co[2],
                                        const float co[3],
@@ -1245,8 +1270,8 @@ MINLINE void mul_sh_fl(float r[9], float f);
 MINLINE void add_sh_shsh(float r[9], const float a[9], const float b[9]);
 MINLINE float dot_shsh(const float a[9], const float b[9]);
 
-MINLINE float eval_shv3(float r[9], const float v[3]);
-MINLINE float diffuse_shv3(const float r[9], const float v[3]);
+MINLINE float eval_shv3(float sh[9], const float v[3]);
+MINLINE float diffuse_shv3(const float sh[9], const float v[3]);
 MINLINE void vec_fac_to_sh(float r[9], const float v[3], float f);
 MINLINE void madd_sh_shfl(float r[9], const float sh[9], float f);
 

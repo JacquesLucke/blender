@@ -57,7 +57,7 @@ static void metadata_panel_context_draw(const bContext *C, Panel *panel)
   SpaceClip *space_clip = CTX_wm_space_clip(C);
   /* NOTE: This might not be exactly the same image buffer as shown in the
    * clip editor itself, since that might be coming from proxy, or being
-   * postprocessed (stabilized or undistored).
+   * postprocessed (stabilized or undistorted).
    * Ideally we need to query metadata from an original image or movie without
    * reading actual pixels to speed up the process. */
   ImBuf *ibuf = ED_space_clip_get_buffer(space_clip);
@@ -303,7 +303,7 @@ static void marker_block_handler(bContext *C, void *arg_cb, int event)
       cb->marker->pattern_corners[a][1] *= scale_y;
     }
 
-    BKE_tracking_marker_clamp(cb->marker, CLAMP_PAT_DIM);
+    BKE_tracking_marker_clamp_search_size(cb->marker);
 
     ok = true;
   }
@@ -319,7 +319,7 @@ static void marker_block_handler(bContext *C, void *arg_cb, int event)
     sub_v2_v2v2(cb->marker->search_min, delta, side);
     add_v2_v2v2(cb->marker->search_max, delta, side);
 
-    BKE_tracking_marker_clamp(cb->marker, CLAMP_SEARCH_POS);
+    BKE_tracking_marker_clamp_search_position(cb->marker);
 
     ok = true;
   }
@@ -340,7 +340,7 @@ static void marker_block_handler(bContext *C, void *arg_cb, int event)
     cb->marker->search_max[0] += dim[0];
     cb->marker->search_max[1] += dim[1];
 
-    BKE_tracking_marker_clamp(cb->marker, CLAMP_SEARCH_DIM);
+    BKE_tracking_marker_clamp_search_size(cb->marker);
 
     ok = true;
   }

@@ -41,6 +41,8 @@
 #include "UI_resources.h"
 #include "UI_view2d.h"
 
+#include "BLO_read_write.h"
+
 #include "GPU_framebuffer.h"
 #include "file_indexer.h"
 #include "file_intern.h" /* own include */
@@ -426,7 +428,7 @@ static void file_reset_filelist_showing_main_data(ScrArea *area, SpaceFile *sfil
 static void file_listener(const wmSpaceTypeListenerParams *listener_params)
 {
   ScrArea *area = listener_params->area;
-  wmNotifier *wmn = listener_params->notifier;
+  const wmNotifier *wmn = listener_params->notifier;
   SpaceFile *sfile = (SpaceFile *)area->spacedata.first;
 
   /* context changes */
@@ -514,7 +516,7 @@ static void file_main_region_init(wmWindowManager *wm, ARegion *region)
 static void file_main_region_listener(const wmRegionListenerParams *listener_params)
 {
   ARegion *region = listener_params->region;
-  wmNotifier *wmn = listener_params->notifier;
+  const wmNotifier *wmn = listener_params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -695,6 +697,7 @@ static void file_operatortypes(void)
   WM_operatortype_append(FILE_OT_smoothscroll);
   WM_operatortype_append(FILE_OT_filepath_drop);
   WM_operatortype_append(FILE_OT_start_filter);
+  WM_operatortype_append(FILE_OT_edit_directory_path);
   WM_operatortype_append(FILE_OT_view_selected);
 }
 
@@ -819,7 +822,7 @@ static void file_execution_region_draw(const bContext *C, ARegion *region)
 static void file_ui_region_listener(const wmRegionListenerParams *listener_params)
 {
   ARegion *region = listener_params->region;
-  wmNotifier *wmn = listener_params->notifier;
+  const wmNotifier *wmn = listener_params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -844,7 +847,7 @@ static bool filepath_drop_poll(bContext *C, wmDrag *drag, const wmEvent *UNUSED(
   return false;
 }
 
-static void filepath_drop_copy(wmDrag *drag, wmDropBox *drop)
+static void filepath_drop_copy(bContext *UNUSED(C), wmDrag *drag, wmDropBox *drop)
 {
   RNA_string_set(drop->ptr, "filepath", drag->path);
 }
@@ -947,7 +950,7 @@ static int /*eContextResult*/ file_context(const bContext *C,
     for (int file_index = 0; file_index < num_files_filtered; file_index++) {
       if (filelist_entry_is_selected(sfile->files, file_index)) {
         FileDirEntry *entry = filelist_file(sfile->files, file_index);
-        if (entry->asset_data) {
+        if (entry->asset) {
           CTX_data_list_add(result, &screen->id, &RNA_FileSelectEntry, entry);
         }
       }
@@ -985,13 +988,59 @@ static void file_id_remap(ScrArea *area, SpaceLink *sl, const struct IDRemapper 
   file_reset_filelist_showing_main_data(area, sfile);
 }
 
+static void file_blend_read_data(BlendDataReader *reader, SpaceLink *sl)
+{
+  SpaceFile *sfile = (SpaceFile *)sl;
+
+  /* this sort of info is probably irrelevant for reloading...
+   * plus, it isn't saved to files yet!
+   */
+  sfile->folders_prev = sfile->folders_next = NULL;
+  BLI_listbase_clear(&sfile->folder_histories);
+  sfile->files = NULL;
+  sfile->layout = NULL;
+  sfile->op = NULL;
+  sfile->previews_timer = NULL;
+  sfile->tags = 0;
+  sfile->runtime = NULL;
+  BLO_read_data_address(reader, &sfile->params);
+  BLO_read_data_address(reader, &sfile->asset_params);
+  if (sfile->params) {
+    sfile->params->rename_id = NULL;
+  }
+  if (sfile->asset_params) {
+    sfile->asset_params->base_params.rename_id = NULL;
+  }
+}
+
+static void file_blend_read_lib(BlendLibReader *UNUSED(reader),
+                                ID *UNUSED(parent_id),
+                                SpaceLink *sl)
+{
+  SpaceFile *sfile = (SpaceFile *)sl;
+  sfile->tags |= FILE_TAG_REBUILD_MAIN_FILES;
+}
+
+static void file_blend_write(BlendWriter *writer, SpaceLink *sl)
+{
+  SpaceFile *sfile = (SpaceFile *)sl;
+
+  BLO_write_struct(writer, SpaceFile, sl);
+  if (sfile->params) {
+    BLO_write_struct(writer, FileSelectParams, sfile->params);
+  }
+  if (sfile->asset_params) {
+    BLO_write_struct(writer, FileAssetSelectParams, sfile->asset_params);
+  }
+}
+
 void ED_spacetype_file(void)
 {
   SpaceType *st = MEM_callocN(sizeof(SpaceType), "spacetype file");
   ARegionType *art;
 
   st->spaceid = SPACE_FILE;
-  strncpy(st->name, "File", BKE_ST_MAXNAME);
+  STRNCPY(st->name, "File");
 
   st->create = file_create;
   st->free = file_free;
@@ -1008,6 +1057,9 @@ void ED_spacetype_file(void)
   st->space_subtype_set = file_space_subtype_set;
   st->context = file_context;
   st->id_remap = file_id_remap;
+  st->blend_read_data = file_blend_read_data;
+  st->blend_read_lib = file_blend_read_lib;
+  st->blend_write = file_blend_write;
 
   /* regions: main window */
   art = MEM_callocN(sizeof(ARegionType), "spacetype file region");
@@ -1105,7 +1157,7 @@ void ED_file_read_bookmarks(void)
 
   if (cfgdir) {
     char name[FILE_MAX];
-    BLI_join_dirfile(name, sizeof(name), cfgdir, BLENDER_BOOKMARK_FILE);
+    BLI_path_join(name, sizeof(name), cfgdir, BLENDER_BOOKMARK_FILE);
     fsmenu_read_bookmarks(ED_fsmenu_get(), name);
   }
 }

@@ -7,7 +7,7 @@
  */
 
 #include "BLI_float4x4.hh"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_vector.hh"
 
 #include "DNA_space_types.h" /* for FILE_MAX */
@@ -40,7 +40,7 @@ class GpencilIO {
 
   bool invert_axis_[2];
   float4x4 diff_mat_;
-  char filename_[FILE_MAX];
+  char filepath_[FILE_MAX];
 
   /* Used for sorting objects. */
   struct ObjectZ {
@@ -58,8 +58,8 @@ class GpencilIO {
   struct Scene *scene_;
   struct RegionView3D *rv3d_;
 
-  int16_t winx_, winy_;
-  int16_t render_x_, render_y_;
+  int winx_, winy_;
+  int render_x_, render_y_;
   float camera_ratio_;
   rctf camera_rect_;
 
@@ -70,7 +70,7 @@ class GpencilIO {
   float stroke_color_[4], fill_color_[4];
 
   /* Geometry functions. */
-  /** Convert to screenspace. */
+  /** Convert to screen-space. */
   bool gpencil_3D_point_to_screen_space(const float3 co, float2 &r_co);
   /** Convert to render space. */
   float2 gpencil_3D_point_to_render_space(const float3 co);
@@ -94,9 +94,9 @@ class GpencilIO {
   void selected_objects_boundbox_get(rctf *boundbox);
   /**
    * Set file input_text full path.
-   * \param filename: Path of the file provided by save dialog.
+   * \param filepath: Path of the file provided by save dialog.
    */
-  void filename_set(const char *filename);
+  void filepath_set(const char *filepath);
 
  private:
   float avg_opacity_;

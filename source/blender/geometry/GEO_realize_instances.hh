@@ -19,6 +19,8 @@ struct RealizeInstancesOptions {
    * instances. Otherwise, instance attributes are ignored.
    */
   bool realize_instance_attributes = true;
+
+  bke::AnonymousAttributePropagationInfo propagation_info;
 };
 
 /**
@@ -32,7 +34,5 @@ struct RealizeInstancesOptions {
  * of instances and of the instanced geometry data.
  */
 GeometrySet realize_instances(GeometrySet geometry_set, const RealizeInstancesOptions &options);
-
-GeometrySet realize_instances_legacy(GeometrySet geometry_set);
 
 }  // namespace blender::geometry

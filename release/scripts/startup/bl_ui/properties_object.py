@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 from bl_ui.properties_animviz import (
     MotionPathButtonsPanel,
     MotionPathButtonsPanel_display,
@@ -193,7 +191,7 @@ class OBJECT_PT_display(ObjectButtonsPanel, Panel):
 
         obj = context.object
         obj_type = obj.type
-        is_geometry = (obj_type in {'MESH', 'CURVE', 'SURFACE', 'META', 'FONT', 'VOLUME', 'HAIR', 'POINTCLOUD'})
+        is_geometry = (obj_type in {'MESH', 'CURVE', 'SURFACE', 'META', 'FONT', 'VOLUME', 'CURVES', 'POINTCLOUD'})
         has_bounds = (is_geometry or obj_type in {'LATTICE', 'ARMATURE'})
         is_wire = (obj_type in {'CAMERA', 'EMPTY'})
         is_empty_image = (obj_type == 'EMPTY' and obj.empty_display_type == 'IMAGE')
@@ -246,7 +244,7 @@ class OBJECT_PT_instancing(ObjectButtonsPanel, Panel):
     def poll(cls, context):
         ob = context.object
         # FONT objects need (vertex) instancing for the 'Object Font' feature
-        return (ob.type in {'MESH', 'EMPTY', 'POINTCLOUD', 'FONT'})
+        return (ob.type in {'MESH', 'EMPTY', 'FONT'})
 
     def draw(self, context):
         layout = self.layout
@@ -318,6 +316,12 @@ class OBJECT_PT_lineart(ObjectButtonsPanel, Panel):
         subrow = row.row()
         subrow.active = lineart.use_crease_override
         subrow.prop(lineart, "crease_threshold", slider=True, text="")
+
+        row = layout.row(heading="Intersection Priority")
+        row.prop(lineart, "use_intersection_priority_override", text="")
+        subrow = row.row()
+        subrow.active = lineart.use_intersection_priority_override
+        subrow.prop(lineart, "intersection_priority", text="")
 
 
 class OBJECT_PT_motion_paths(MotionPathButtonsPanel, Panel):

@@ -53,7 +53,7 @@ typedef enum eScreenAxis {
 /* area.c */
 
 /**
- * we swap spaces for fullscreen to keep all allocated data area vertices were set
+ * We swap spaces for full-screen to keep all allocated data area vertices were set.
  */
 void ED_area_data_copy(ScrArea *area_dst, ScrArea *area_src, bool do_free);
 void ED_area_data_swap(ScrArea *area_dst, ScrArea *area_src);
@@ -120,6 +120,7 @@ void screen_area_spacelink_add(struct Scene *scene, ScrArea *area, eSpace_Type s
 struct AZone *ED_area_actionzone_find_xy(ScrArea *area, const int xy[2]);
 
 /* screen_geometry.c */
+
 int screen_geom_area_height(const ScrArea *area);
 int screen_geom_area_width(const ScrArea *area);
 ScrVert *screen_geom_vertex_add_ex(ScrAreaMap *area_map, short x, short y);
@@ -174,8 +175,10 @@ int ed_screen_context(const struct bContext *C,
 extern const char *screen_context_dir[]; /* doc access */
 
 /* screendump.c */
+
 void SCREEN_OT_screenshot(struct wmOperatorType *ot);
 void SCREEN_OT_screenshot_area(struct wmOperatorType *ot);
 
 /* workspace_layout_edit.c */
+
 bool workspace_layout_set_poll(const struct WorkSpaceLayout *layout);

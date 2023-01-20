@@ -9,12 +9,31 @@ if(UNIX AND NOT APPLE)
   add_definitions(-D_GLIBCXX_PERMIT_BACKWARD_HASH)
 endif()
 if(WIN32)
-  add_definitions(-DNOMINMAX -DWIN32_LEAN_AND_MEAN)
+  add_definitions(-DNOMINMAX -DWIN32_LEAN_AND_MEAN -DBOOST_DEBUG_PYTHON)
 endif()
-add_definitions(-DPXR_STATIC)
+add_definitions(-DBOOST_ALL_NO_LIB)
 
 # USD headers use deprecated TBB headers, silence warning.
 add_definitions(-DTBB_SUPPRESS_DEPRECATED_MESSAGES=1)
+
+# Check if USD has the imaging headers available, if they are
+# add a USD_HAS_IMAGING define so code can dynamically detect this.
+# Cleanup of this variable is done at the end of the file since
+# test code further down uses it to add imaging tests.
+find_file(
+  USD_IMAGING_HEADERS
+  NAMES
+    capsuleAdapter.h
+  PATHS
+    ${USD_INCLUDE_DIRS}
+  PATH_SUFFIXES
+    pxr/usdImaging/usdImaging/
+  NO_DEFAULT_PATH
+)
+
+if(USD_IMAGING_HEADERS)
+  add_definitions(-DUSD_HAS_IMAGING)
+endif()
 
 set(INC
   .
@@ -25,6 +44,7 @@ set(INC
   ../../bmesh
   ../../depsgraph
   ../../editors/include
+  ../../imbuf
   ../../makesdna
   ../../makesrna
   ../../windowmanager
@@ -36,6 +56,7 @@ set(INC_SYS
   ${USD_INCLUDE_DIRS}
   ${BOOST_INCLUDE_DIR}
   ${TBB_INCLUDE_DIR}
+  ${PYTHON_INCLUDE_DIR}
 )
 
 set(SRC
@@ -51,6 +72,7 @@ set(SRC
   intern/usd_writer_mesh.cc
   intern/usd_writer_metaball.cc
   intern/usd_writer_transform.cc
+  intern/usd_writer_volume.cc
 
   intern/usd_reader_camera.cc
   intern/usd_reader_curve.cc
@@ -77,6 +99,7 @@ set(SRC
   intern/usd_writer_mesh.h
   intern/usd_writer_metaball.h
   intern/usd_writer_transform.h
+  intern/usd_writer_volume.h
 
   intern/usd_reader_camera.h
   intern/usd_reader_curve.h
@@ -94,26 +117,37 @@ set(SRC
 set(LIB
   bf_blenkernel
   bf_blenlib
+  bf_imbuf
   bf_io_common
 )
 
 list(APPEND LIB
   ${BOOST_LIBRARIES}
+  ${BOOST_PYTHON_LIBRARIES}
+  ${PYTHON_LIBRARIES}
 )
 
-list(APPEND LIB
-)
+if(WITH_OPENVDB)
+  add_definitions(-DWITH_OPENVDB ${OPENVDB_DEFINITIONS})
+  list(APPEND INC_SYS
+    ${OPENVDB_INCLUDE_DIRS}
+  )
+  list(APPEND LIB
+    ${OPENVDB_LIBRARIES}
+  )
+endif()
 
 blender_add_lib(bf_usd "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 
 if(WIN32)
-  set_property(TARGET bf_usd APPEND_STRING PROPERTY LINK_FLAGS_DEBUG " /WHOLEARCHIVE:${USD_DEBUG_LIB}")
-  set_property(TARGET bf_usd APPEND_STRING PROPERTY LINK_FLAGS_RELEASE " /WHOLEARCHIVE:${USD_RELEASE_LIB}")
-  set_property(TARGET bf_usd APPEND_STRING PROPERTY LINK_FLAGS_RELWITHDEBINFO " /WHOLEARCHIVE:${USD_RELEASE_LIB}")
-  set_property(TARGET bf_usd APPEND_STRING PROPERTY LINK_FLAGS_MINSIZEREL " /WHOLEARCHIVE:${USD_RELEASE_LIB}")
+  set_property(TARGET bf_usd APPEND_STRING PROPERTY INTERFACE_LINK_OPTIONS "$<$<CONFIG:Debug>:/WHOLEARCHIVE:${USD_DEBUG_LIB}>")
+  set_property(TARGET bf_usd APPEND_STRING PROPERTY INTERFACE_LINK_OPTIONS "$<$<CONFIG:Release>:/WHOLEARCHIVE:${USD_RELEASE_LIB}>")
+  set_property(TARGET bf_usd APPEND_STRING PROPERTY INTERFACE_LINK_OPTIONS "$<$<CONFIG:RelWithDebInfo>:/WHOLEARCHIVE:${USD_RELEASE_LIB}>")
+  set_property(TARGET bf_usd APPEND_STRING PROPERTY INTERFACE_LINK_OPTIONS "$<$<CONFIG:MinSizeRel>:/WHOLEARCHIVE:${USD_RELEASE_LIB}>")
 endif()
 
-# Source: https://github.com/PixarAnimationStudios/USD/blob/master/BUILDING.md#linking-whole-archives
+# Source:
+# https://github.com/PixarAnimationStudios/USD/blob/master/BUILDING.md#linking-whole-archives
 if(WIN32)
   target_link_libraries(bf_usd INTERFACE ${USD_LIBRARIES})
 elseif(APPLE)
@@ -129,7 +163,13 @@ target_link_libraries(bf_usd INTERFACE ${TBB_LIBRARIES})
 if(WITH_GTESTS)
   set(TEST_SRC
     tests/usd_stage_creation_test.cc
+    tests/usd_tests_common.cc
+    tests/usd_tests_common.h
   )
+  if(USD_IMAGING_HEADERS)
+    list(APPEND TEST_SRC tests/usd_imaging_test.cc)
+  endif()
+
   set(TEST_INC
   )
   set(TEST_LIB
@@ -137,3 +177,7 @@ if(WITH_GTESTS)
   include(GTestTesting)
   blender_add_test_lib(bf_io_usd_tests "${TEST_SRC}" "${INC};${TEST_INC}" "${INC_SYS}" "${LIB};${TEST_LIB}")
 endif()
+
+# In CMAKE version 3.21 and up, we can instead use the `NO_CACHE` option for
+# `find_file` so we don't need to clear it from the cache here.
+unset(USD_IMAGING_HEADERS CACHE)

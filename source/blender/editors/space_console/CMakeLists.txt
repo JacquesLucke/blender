@@ -5,12 +5,18 @@ set(INC
   ../../blenfont
   ../../blenkernel
   ../../blenlib
+  ../../blenloader
   ../../gpu
   ../../makesdna
   ../../makesrna
   ../../windowmanager
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
+
+  # dna_type_offsets.h
+  ${CMAKE_CURRENT_BINARY_DIR}/../../makesdna/intern
+)
+
+set(INC_SYS
 )
 
 set(SRC
@@ -32,3 +38,6 @@ endif()
 
 
 blender_add_lib(bf_editor_space_console "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+# dna_type_offsets.h
+add_dependencies(bf_editor_space_console bf_dna)

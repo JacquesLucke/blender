@@ -24,20 +24,23 @@ struct Scene;
 struct SpaceImage;
 struct View2D;
 struct bContext;
+struct Paint;
 struct wmOperator;
 struct wmWindowManager;
 
 /* image_draw.c */
+
 float ED_space_image_zoom_level(const struct View2D *v2d, int grid_dimension);
 void ED_space_image_grid_steps(struct SpaceImage *sima,
-                               float grid_steps[SI_GRID_STEPS_LEN],
+                               float grid_steps_x[SI_GRID_STEPS_LEN],
+                               float grid_steps_y[SI_GRID_STEPS_LEN],
                                int grid_dimension);
 /**
  * Calculate the increment snapping value for UV/image editor based on the zoom factor
  * The code in here (except the offset part) is used in `grid_frag.glsl` (see `grid_res`) for
  * drawing the grid overlay for the UV/Image editor.
  */
-float ED_space_image_increment_snap_value(int grid_dimesnions,
+float ED_space_image_increment_snap_value(int grid_dimensions,
                                           const float grid_steps[SI_GRID_STEPS_LEN],
                                           float zoom_factor);
 
@@ -48,6 +51,7 @@ void ED_space_image_set(struct Main *bmain,
                         struct SpaceImage *sima,
                         struct Image *ima,
                         bool automatic);
+void ED_space_image_sync(struct Main *bmain, Image *image, bool ignore_render_viewer);
 void ED_space_image_auto_set(const struct bContext *C, struct SpaceImage *sima);
 struct Mask *ED_space_image_get_mask(const struct SpaceImage *sima);
 void ED_space_image_set_mask(struct bContext *C, struct SpaceImage *sima, struct Mask *mask);
@@ -62,8 +66,11 @@ bool ED_space_image_get_position(struct SpaceImage *sima,
 /**
  * Returns color in linear space, matching #ED_space_node_color_sample().
  */
-bool ED_space_image_color_sample(
-    struct SpaceImage *sima, struct ARegion *region, int mval[2], float r_col[3], bool *r_is_data);
+bool ED_space_image_color_sample(struct SpaceImage *sima,
+                                 struct ARegion *region,
+                                 const int mval[2],
+                                 float r_col[3],
+                                 bool *r_is_data);
 struct ImBuf *ED_space_image_acquire_buffer(struct SpaceImage *sima, void **r_lock, int tile);
 /**
  * Get the #SpaceImage flag that is valid for the given ibuf.
@@ -132,8 +139,39 @@ bool ED_space_image_paint_curve(const struct bContext *C);
  * Matches clip function.
  */
 bool ED_space_image_check_show_maskedit(struct SpaceImage *sima, struct Object *obedit);
+
+/* Returns true when the following conditions are met:
+ * - Current space is Image Editor.
+ * - The image editor is not a UV Editor.
+ * - It is set to Mask mode.
+ *
+ * It is not required to have mask opened for editing. */
 bool ED_space_image_maskedit_poll(struct bContext *C);
+
+/* Returns true when the following conditions are met:
+ * - Current space is Image Editor.
+ * - The image editor is not a UV Editor.
+ * - It is set to Mask mode.
+ * - Mask has visible and editable splines.
+ *
+ * It is not required to have mask opened for editing. */
+bool ED_space_image_maskedit_visible_splines_poll(struct bContext *C);
+
+/* Returns true when the following conditions are met:
+ * - Current space is Image Editor.
+ * - The image editor is not an UV Editor.
+ * - It is set to Mask mode.
+ * - The space has mask opened. */
 bool ED_space_image_maskedit_mask_poll(struct bContext *C);
+
+/* Returns true when the following conditions are met:
+ * - Current space is Image Editor.
+ * - The image editor is not an UV Editor.
+ * - It is set to Mask mode.
+ * - The space has mask opened.
+ * - Mask has visible and editable splines. */
+bool ED_space_image_maskedit_mask_visible_splines_poll(struct bContext *C);
+
 bool ED_space_image_cursor_poll(struct bContext *C);
 
 /**
@@ -162,6 +200,7 @@ int ED_image_save_all_modified_info(const struct Main *bmain, struct ReportList 
 bool ED_image_save_all_modified(const struct bContext *C, struct ReportList *reports);
 
 /* image_sequence.c */
+
 typedef struct ImageFrameRange {
   struct ImageFrameRange *next, *prev;
 
@@ -171,6 +210,7 @@ typedef struct ImageFrameRange {
   int length;
   int offset;
   /* UDIM tiles. */
+  bool udims_detected;
   ListBase udim_tiles;
 
   /* Temporary data. */
@@ -183,6 +223,9 @@ typedef struct ImageFrameRange {
 ListBase ED_image_filesel_detect_sequences(struct Main *bmain,
                                            struct wmOperator *op,
                                            bool detect_udim);
+
+bool ED_image_tools_paint_poll(struct bContext *C);
+void ED_paint_cursor_start(struct Paint *p, bool (*poll)(struct bContext *C));
 
 #ifdef __cplusplus
 }

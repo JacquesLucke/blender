@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "BKE_spline.hh"
+#include "BKE_curves.hh"
 
 #include "BKE_curve_to_mesh.hh"
 
@@ -20,22 +20,29 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Bool>(N_("Fill Caps"))
       .description(
           N_("If the profile spline is cyclic, fill the ends of the generated mesh with N-gons"));
-  b.add_output<decl::Geometry>(N_("Mesh"));
+  b.add_output<decl::Geometry>(N_("Mesh")).propagate_all();
 }
 
 static void geometry_set_curve_to_mesh(GeometrySet &geometry_set,
                                        const GeometrySet &profile_set,
-                                       const bool fill_caps)
+                                       const bool fill_caps,
+                                       const AnonymousAttributePropagationInfo &propagation_info)
 {
-  const CurveEval *curve = geometry_set.get_curve_for_read();
-  const CurveEval *profile_curve = profile_set.get_curve_for_read();
+  const Curves &curves = *geometry_set.get_curves_for_read();
+  const Curves *profile_curves = profile_set.get_curves_for_read();
 
-  if (profile_curve == nullptr) {
-    Mesh *mesh = bke::curve_to_wire_mesh(*curve);
+  GeometryComponentEditData::remember_deformed_curve_positions_if_necessary(geometry_set);
+
+  if (profile_curves == nullptr) {
+    Mesh *mesh = bke::curve_to_wire_mesh(bke::CurvesGeometry::wrap(curves.geometry),
+                                         propagation_info);
     geometry_set.replace_mesh(mesh);
   }
   else {
-    Mesh *mesh = bke::curve_to_mesh_sweep(*curve, *profile_curve, fill_caps);
+    Mesh *mesh = bke::curve_to_mesh_sweep(bke::CurvesGeometry::wrap(curves.geometry),
+                                          bke::CurvesGeometry::wrap(profile_curves->geometry),
+                                          fill_caps,
+                                          propagation_info);
     geometry_set.replace_mesh(mesh);
   }
 }
@@ -46,13 +53,12 @@ static void node_geo_exec(GeoNodeExecParams params)
   GeometrySet profile_set = params.extract_input<GeometrySet>("Profile Curve");
   const bool fill_caps = params.extract_input<bool>("Fill Caps");
 
-  bool has_curve = false;
   curve_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-    if (geometry_set.has_curve()) {
-      has_curve = true;
-      geometry_set_curve_to_mesh(geometry_set, profile_set, fill_caps);
+    if (geometry_set.has_curves()) {
+      geometry_set_curve_to_mesh(
+          geometry_set, profile_set, fill_caps, params.get_output_propagation_info("Mesh"));
     }
-    geometry_set.keep_only({GEO_COMPONENT_TYPE_MESH, GEO_COMPONENT_TYPE_INSTANCES});
+    geometry_set.keep_only_during_modify({GEO_COMPONENT_TYPE_MESH});
   });
 
   params.set_output("Mesh", std::move(curve_set));

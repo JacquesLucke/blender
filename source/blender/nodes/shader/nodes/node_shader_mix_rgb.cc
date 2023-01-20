@@ -32,9 +32,11 @@ static const char *gpu_shader_get_name(int mode)
     case MA_RAMP_SCREEN:
       return "mix_screen";
     case MA_RAMP_DIV:
-      return "mix_div";
+      return "mix_div_fallback";
     case MA_RAMP_DIFF:
       return "mix_diff";
+    case MA_RAMP_EXCLUSION:
+      return "mix_exclusion";
     case MA_RAMP_DARK:
       return "mix_dark";
     case MA_RAMP_LIGHT:
@@ -64,27 +66,32 @@ static const char *gpu_shader_get_name(int mode)
 
 static int gpu_shader_mix_rgb(GPUMaterial *mat,
                               bNode *node,
-                              bNodeExecData *UNUSED(execdata),
+                              bNodeExecData * /*execdata*/,
                               GPUNodeStack *in,
                               GPUNodeStack *out)
 {
   const char *name = gpu_shader_get_name(node->custom1);
 
-  if (name != nullptr) {
-    int ret = GPU_stack_link(mat, node, name, in, out);
-    if (ret && node->custom2 & SHD_MIXRGB_CLAMP) {
-      const float min[3] = {0.0f, 0.0f, 0.0f};
-      const float max[3] = {1.0f, 1.0f, 1.0f};
-      GPU_link(
-          mat, "clamp_color", out[0].link, GPU_constant(min), GPU_constant(max), &out[0].link);
-    }
-    return ret;
+  if (name == nullptr) {
+    return 0;
   }
 
-  return 0;
+  const float min = 0.0f;
+  const float max = 1.0f;
+  const GPUNodeLink *factor_link = in[0].link ? in[0].link : GPU_uniform(in[0].vec);
+  GPU_link(mat, "clamp_value", factor_link, GPU_constant(&min), GPU_constant(&max), &in[0].link);
+
+  int ret = GPU_stack_link(mat, node, name, in, out);
+
+  if (ret && node->custom2 & SHD_MIXRGB_CLAMP) {
+    const float min[3] = {0.0f, 0.0f, 0.0f};
+    const float max[3] = {1.0f, 1.0f, 1.0f};
+    GPU_link(mat, "clamp_color", out[0].link, GPU_constant(min), GPU_constant(max), &out[0].link);
+  }
+  return ret;
 }
 
-class MixRGBFunction : public blender::fn::MultiFunction {
+class MixRGBFunction : public mf::MultiFunction {
  private:
   bool clamp_;
   int type_;
@@ -92,31 +99,27 @@ class MixRGBFunction : public blender::fn::MultiFunction {
  public:
   MixRGBFunction(bool clamp, int type) : clamp_(clamp), type_(type)
   {
-    static blender::fn::MFSignature signature = create_signature();
+    static const mf::Signature signature = []() {
+      mf::Signature signature;
+      mf::SignatureBuilder builder{"MixRGB", signature};
+      builder.single_input<float>("Fac");
+      builder.single_input<ColorGeometry4f>("Color1");
+      builder.single_input<ColorGeometry4f>("Color2");
+      builder.single_output<ColorGeometry4f>("Color");
+      return signature;
+    }();
     this->set_signature(&signature);
   }
 
-  static blender::fn::MFSignature create_signature()
+  void call(IndexMask mask, mf::Params params, mf::Context /*context*/) const override
   {
-    blender::fn::MFSignatureBuilder signature{"MixRGB"};
-    signature.single_input<float>("Fac");
-    signature.single_input<blender::ColorGeometry4f>("Color1");
-    signature.single_input<blender::ColorGeometry4f>("Color2");
-    signature.single_output<blender::ColorGeometry4f>("Color");
-    return signature.build();
-  }
-
-  void call(blender::IndexMask mask,
-            blender::fn::MFParams params,
-            blender::fn::MFContext UNUSED(context)) const override
-  {
-    const blender::VArray<float> &fac = params.readonly_single_input<float>(0, "Fac");
-    const blender::VArray<blender::ColorGeometry4f> &col1 =
-        params.readonly_single_input<blender::ColorGeometry4f>(1, "Color1");
-    const blender::VArray<blender::ColorGeometry4f> &col2 =
-        params.readonly_single_input<blender::ColorGeometry4f>(2, "Color2");
-    blender::MutableSpan<blender::ColorGeometry4f> results =
-        params.uninitialized_single_output<blender::ColorGeometry4f>(3, "Color");
+    const VArray<float> &fac = params.readonly_single_input<float>(0, "Fac");
+    const VArray<ColorGeometry4f> &col1 = params.readonly_single_input<ColorGeometry4f>(1,
+                                                                                        "Color1");
+    const VArray<ColorGeometry4f> &col2 = params.readonly_single_input<ColorGeometry4f>(2,
+                                                                                        "Color2");
+    MutableSpan<ColorGeometry4f> results = params.uninitialized_single_output<ColorGeometry4f>(
+        3, "Color");
 
     for (int64_t i : mask) {
       results[i] = col1[i];
@@ -131,9 +134,9 @@ class MixRGBFunction : public blender::fn::MultiFunction {
   }
 };
 
-static void sh_node_mix_rgb_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_mix_rgb_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
-  bNode &node = builder.node();
+  const bNode &node = builder.node();
   bool clamp = node.custom2 & SHD_MIXRGB_CLAMP;
   int mix_type = node.custom1;
   builder.construct_and_set_matching_fn<MixRGBFunction>(clamp, mix_type);
@@ -147,11 +150,11 @@ void register_node_type_sh_mix_rgb()
 
   static bNodeType ntype;
 
-  sh_fn_node_type_base(&ntype, SH_NODE_MIX_RGB, "Mix", NODE_CLASS_OP_COLOR);
+  sh_fn_node_type_base(&ntype, SH_NODE_MIX_RGB_LEGACY, "Mix (Legacy)", NODE_CLASS_OP_COLOR);
   ntype.declare = file_ns::sh_node_mix_rgb_declare;
   ntype.labelfunc = node_blend_label;
-  node_type_gpu(&ntype, file_ns::gpu_shader_mix_rgb);
+  ntype.gpu_fn = file_ns::gpu_shader_mix_rgb;
   ntype.build_multi_function = file_ns::sh_node_mix_rgb_build_multi_function;
-
+  ntype.gather_link_search_ops = nullptr;
   nodeRegisterType(&ntype);
 }

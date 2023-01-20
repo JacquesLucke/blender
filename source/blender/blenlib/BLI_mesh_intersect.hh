@@ -5,8 +5,8 @@
 /** \file
  * \ingroup bli
  *
- *  Mesh intersection library functions.
- *  Uses exact arithmetic, so need GMP.
+ * Mesh intersection library functions.
+ * Uses exact arithmetic, so need GMP.
  */
 
 #ifdef WITH_GMP
@@ -17,8 +17,8 @@
 #  include "BLI_index_range.hh"
 #  include "BLI_map.hh"
 #  include "BLI_math_mpq.hh"
-#  include "BLI_math_vec_mpq_types.hh"
-#  include "BLI_math_vec_types.hh"
+#  include "BLI_math_vector_mpq_types.hh"
+#  include "BLI_math_vector_types.hh"
 #  include "BLI_span.hh"
 #  include "BLI_utility_mixins.hh"
 #  include "BLI_vector.hh"
@@ -354,12 +354,12 @@ struct BoundingBox {
 
   void combine(const double3 &p)
   {
-    min.x = min_ff(min.x, static_cast<float>(p.x));
-    min.y = min_ff(min.y, static_cast<float>(p.y));
-    min.z = min_ff(min.z, static_cast<float>(p.z));
-    max.x = max_ff(max.x, static_cast<float>(p.x));
-    max.y = max_ff(max.y, static_cast<float>(p.y));
-    max.z = max_ff(max.z, static_cast<float>(p.z));
+    min.x = min_ff(min.x, float(p.x));
+    min.y = min_ff(min.y, float(p.y));
+    min.z = min_ff(min.z, float(p.z));
+    max.x = max_ff(max.x, float(p.x));
+    max.y = max_ff(max.y, float(p.y));
+    max.z = max_ff(max.z, float(p.z));
   }
 
   void combine(const BoundingBox &bb)

@@ -15,6 +15,8 @@ set(INC
   ../windowmanager
   ../../../intern/atomic
   ../../../intern/guardedalloc
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
 set(INC_SYS
@@ -24,6 +26,8 @@ set(SRC
   intern/builder/deg_builder.cc
   intern/builder/deg_builder_cache.cc
   intern/builder/deg_builder_cycle.cc
+  intern/builder/deg_builder_key.cc
+  intern/builder/deg_builder_key.h
   intern/builder/deg_builder_map.cc
   intern/builder/deg_builder_nodes.cc
   intern/builder/deg_builder_nodes_rig.cc
@@ -32,12 +36,12 @@ set(SRC
   intern/builder/deg_builder_pchanmap.cc
   intern/builder/deg_builder_relations.cc
   intern/builder/deg_builder_relations_drivers.cc
-  intern/builder/deg_builder_relations_keys.cc
   intern/builder/deg_builder_relations_rig.cc
   intern/builder/deg_builder_relations_scene.cc
   intern/builder/deg_builder_relations_view_layer.cc
   intern/builder/deg_builder_remove_noop.cc
   intern/builder/deg_builder_rna.cc
+  intern/builder/deg_builder_stack.cc
   intern/builder/deg_builder_transitive.cc
   intern/builder/pipeline.cc
   intern/builder/pipeline_all_objects.cc
@@ -64,6 +68,8 @@ set(SRC
   intern/eval/deg_eval_runtime_backup_sound.cc
   intern/eval/deg_eval_runtime_backup_volume.cc
   intern/eval/deg_eval_stats.cc
+  intern/eval/deg_eval_visibility.cc
+  intern/eval/deg_eval_visibility.h
   intern/node/deg_node.cc
   intern/node/deg_node_component.cc
   intern/node/deg_node_factory.cc
@@ -101,6 +107,7 @@ set(SRC
   intern/builder/deg_builder_relations_impl.h
   intern/builder/deg_builder_remove_noop.h
   intern/builder/deg_builder_rna.h
+  intern/builder/deg_builder_stack.h
   intern/builder/deg_builder_transitive.h
   intern/builder/pipeline.h
   intern/builder/pipeline_all_objects.h
@@ -154,6 +161,9 @@ if(WITH_PYTHON)
 endif()
 
 blender_add_lib(bf_depsgraph "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+# RNA_prototypes.h
+add_dependencies(bf_depsgraph bf_rna)
 
 if(WITH_GTESTS)
   set(TEST_SRC

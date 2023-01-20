@@ -87,6 +87,16 @@ struct wmJob {
    * Executed in main thread.
    */
   void (*endjob)(void *);
+  /**
+   * Called when job is stopped normally, i.e. by simply completing the startjob function.
+   * Executed in main thread.
+   */
+  void (*completed)(void *);
+  /**
+   * Called when job is stopped abnormally, i.e. when stop=true but ready=false.
+   * Executed in main thread.
+   */
+  void (*canceled)(void *);
 
   /** Running jobs each have own timer */
   double timestep;
@@ -94,12 +104,14 @@ struct wmJob {
   /** Only start job after specified time delay */
   double start_delay_time;
   /** The notifier event timers should send */
-  unsigned int note, endnote;
+  uint note, endnote;
 
   /* internal */
   const void *owner;
-  int flag;
-  short suspended, running, ready, do_update, stop, job_type;
+  eWM_JobFlag flag;
+  bool suspended, running, ready;
+  eWM_JobType job_type;
+  bool do_update, stop;
   float progress;
 
   /** For display in header, identification */
@@ -142,9 +154,9 @@ static void wm_job_main_thread_yield(wmJob *wm_job)
 /**
  * Finds if type or owner, compare for it, otherwise any matching job.
  */
-static wmJob *wm_job_find(const wmWindowManager *wm, const void *owner, const int job_type)
+static wmJob *wm_job_find(const wmWindowManager *wm, const void *owner, const eWM_JobType job_type)
 {
-  if (owner && job_type) {
+  if (owner && (job_type != WM_JOB_TYPE_ANY)) {
     LISTBASE_FOREACH (wmJob *, wm_job, &wm->jobs) {
       if (wm_job->owner == owner && wm_job->job_type == job_type) {
         return wm_job;
@@ -158,7 +170,7 @@ static wmJob *wm_job_find(const wmWindowManager *wm, const void *owner, const in
       }
     }
   }
-  else if (job_type) {
+  else if (job_type != WM_JOB_TYPE_ANY) {
     LISTBASE_FOREACH (wmJob *, wm_job, &wm->jobs) {
       if (wm_job->job_type == job_type) {
         return wm_job;
@@ -175,8 +187,8 @@ wmJob *WM_jobs_get(wmWindowManager *wm,
                    wmWindow *win,
                    const void *owner,
                    const char *name,
-                   int flag,
-                   int job_type)
+                   const eWM_JobFlag flag,
+                   const eWM_JobType job_type)
 {
   wmJob *wm_job = wm_job_find(wm, owner, job_type);
 
@@ -280,20 +292,9 @@ const char *WM_jobs_name(const wmWindowManager *wm, const void *owner)
   return NULL;
 }
 
-void *WM_jobs_customdata(wmWindowManager *wm, const void *owner)
+void *WM_jobs_customdata_from_type(wmWindowManager *wm, const void *owner, int job_type)
 {
-  wmJob *wm_job = wm_job_find(wm, owner, WM_JOB_TYPE_ANY);
-
-  if (wm_job) {
-    return WM_jobs_customdata_get(wm_job);
-  }
-
-  return NULL;
-}
-
-void *WM_jobs_customdata_from_type(wmWindowManager *wm, int job_type)
-{
-  wmJob *wm_job = wm_job_find(wm, NULL, job_type);
+  wmJob *wm_job = wm_job_find(wm, owner, job_type);
 
   if (wm_job) {
     return WM_jobs_customdata_get(wm_job);
@@ -337,7 +338,7 @@ void WM_jobs_customdata_set(wmJob *wm_job, void *customdata, void (*free)(void *
   }
 }
 
-void WM_jobs_timer(wmJob *wm_job, double timestep, unsigned int note, unsigned int endnote)
+void WM_jobs_timer(wmJob *wm_job, double timestep, uint note, uint endnote)
 {
   wm_job->timestep = timestep;
   wm_job->note = note;
@@ -355,10 +356,23 @@ void WM_jobs_callbacks(wmJob *wm_job,
                        void (*update)(void *),
                        void (*endjob)(void *))
 {
+  WM_jobs_callbacks_ex(wm_job, startjob, initjob, update, endjob, NULL, NULL);
+}
+
+void WM_jobs_callbacks_ex(wmJob *wm_job,
+                          wm_jobs_start_callback startjob,
+                          void (*initjob)(void *),
+                          void (*update)(void *),
+                          void (*endjob)(void *),
+                          void (*completed)(void *),
+                          void (*canceled)(void *))
+{
   wm_job->startjob = startjob;
   wm_job->initjob = initjob;
   wm_job->update = update;
   wm_job->endjob = endjob;
+  wm_job->completed = completed;
+  wm_job->canceled = canceled;
 }
 
 static void *do_job_thread(void *job_v)
@@ -476,6 +490,24 @@ void WM_jobs_start(wmWindowManager *wm, wmJob *wm_job)
   }
 }
 
+static void wm_job_end(wmJob *wm_job)
+{
+  BLI_assert_msg(BLI_thread_is_main(), "wm_job_end should only be called from the main thread");
+  if (wm_job->endjob) {
+    wm_job->endjob(wm_job->run_customdata);
+  }
+
+  /* Do the final callback based on whether the job was run to completion or not.
+   * Not all jobs have the same way of signaling cancellation (i.e. rendering stops when
+   * `G.is_break == true`, but doesn't set any wm_job properties to cancel the WM job). */
+  const bool was_canceled = wm_job->stop || G.is_break;
+  void (*final_callback)(void *) = (wm_job->ready && !was_canceled) ? wm_job->completed :
+                                                                      wm_job->canceled;
+  if (final_callback) {
+    final_callback(wm_job->run_customdata);
+  }
+}
+
 static void wm_job_free(wmWindowManager *wm, wmJob *wm_job)
 {
   BLI_remlink(&wm->jobs, wm_job);
@@ -496,10 +528,7 @@ static void wm_jobs_kill_job(wmWindowManager *wm, wmJob *wm_job)
     WM_job_main_thread_lock_release(wm_job);
     BLI_threadpool_end(&wm_job->threads);
     WM_job_main_thread_lock_acquire(wm_job);
-
-    if (wm_job->endjob) {
-      wm_job->endjob(wm_job->run_customdata);
-    }
+    wm_job_end(wm_job);
   }
 
   if (wm_job->wt) {
@@ -566,7 +595,7 @@ void WM_jobs_stop(wmWindowManager *wm, const void *owner, void *startjob)
 
 void WM_jobs_kill(wmWindowManager *wm,
                   void *owner,
-                  void (*startjob)(void *, short int *, short int *, float *))
+                  void (*startjob)(void *, bool *, bool *, float *))
 {
   LISTBASE_FOREACH_MUTABLE (wmJob *, wm_job, &wm->jobs) {
     if (wm_job->owner == owner || wm_job->startjob == startjob) {
@@ -611,9 +640,7 @@ void wm_jobs_timer(wmWindowManager *wm, wmTimer *wt)
         }
 
         if (wm_job->ready) {
-          if (wm_job->endjob) {
-            wm_job->endjob(wm_job->run_customdata);
-          }
+          wm_job_end(wm_job);
 
           /* free own data */
           wm_job->run_free(wm_job->run_customdata);
@@ -679,5 +706,15 @@ bool WM_jobs_has_running(const wmWindowManager *wm)
     }
   }
 
+  return false;
+}
+
+bool WM_jobs_has_running_type(const struct wmWindowManager *wm, int job_type)
+{
+  LISTBASE_FOREACH (wmJob *, wm_job, &wm->jobs) {
+    if (wm_job->running && wm_job->job_type == job_type) {
+      return true;
+    }
+  }
   return false;
 }

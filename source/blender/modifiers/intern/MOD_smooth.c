@@ -32,6 +32,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "MOD_modifiertypes.h"
 #include "MOD_ui_common.h"
@@ -62,9 +63,7 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
   return false;
 }
 
-static void requiredDataMask(Object *UNUSED(ob),
-                             ModifierData *md,
-                             CustomData_MeshMasks *r_cddata_masks)
+static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_masks)
 {
   SmoothModifierData *smd = (SmoothModifierData *)md;
 
@@ -75,21 +74,21 @@ static void requiredDataMask(Object *UNUSED(ob),
 }
 
 static void smoothModifier_do(
-    SmoothModifierData *smd, Object *ob, Mesh *mesh, float (*vertexCos)[3], int numVerts)
+    SmoothModifierData *smd, Object *ob, Mesh *mesh, float (*vertexCos)[3], int verts_num)
 {
   if (mesh == NULL) {
     return;
   }
 
   float(*accumulated_vecs)[3] = MEM_calloc_arrayN(
-      (size_t)numVerts, sizeof(*accumulated_vecs), __func__);
+      (size_t)verts_num, sizeof(*accumulated_vecs), __func__);
   if (!accumulated_vecs) {
     return;
   }
 
-  uint *num_accumulated_vecs = MEM_calloc_arrayN(
-      (size_t)numVerts, sizeof(*num_accumulated_vecs), __func__);
-  if (!num_accumulated_vecs) {
+  uint *accumulated_vecs_count = MEM_calloc_arrayN(
+      (size_t)verts_num, sizeof(*accumulated_vecs_count), __func__);
+  if (!accumulated_vecs_count) {
     MEM_freeN(accumulated_vecs);
     return;
   }
@@ -98,40 +97,40 @@ static void smoothModifier_do(
   const float fac_orig = 1.0f - fac_new;
   const bool invert_vgroup = (smd->flag & MOD_SMOOTH_INVERT_VGROUP) != 0;
 
-  MEdge *medges = mesh->medge;
-  const int num_edges = mesh->totedge;
+  const MEdge *medges = BKE_mesh_edges(mesh);
+  const int edges_num = mesh->totedge;
 
-  MDeformVert *dvert;
+  const MDeformVert *dvert;
   int defgrp_index;
   MOD_get_vgroup(ob, mesh, smd->defgrp_name, &dvert, &defgrp_index);
 
   for (int j = 0; j < smd->repeat; j++) {
     if (j != 0) {
-      memset(accumulated_vecs, 0, sizeof(*accumulated_vecs) * (size_t)numVerts);
-      memset(num_accumulated_vecs, 0, sizeof(*num_accumulated_vecs) * (size_t)numVerts);
+      memset(accumulated_vecs, 0, sizeof(*accumulated_vecs) * (size_t)verts_num);
+      memset(accumulated_vecs_count, 0, sizeof(*accumulated_vecs_count) * (size_t)verts_num);
     }
 
-    for (int i = 0; i < num_edges; i++) {
+    for (int i = 0; i < edges_num; i++) {
       float fvec[3];
       const uint idx1 = medges[i].v1;
       const uint idx2 = medges[i].v2;
 
       mid_v3_v3v3(fvec, vertexCos[idx1], vertexCos[idx2]);
 
-      num_accumulated_vecs[idx1]++;
+      accumulated_vecs_count[idx1]++;
       add_v3_v3(accumulated_vecs[idx1], fvec);
 
-      num_accumulated_vecs[idx2]++;
+      accumulated_vecs_count[idx2]++;
       add_v3_v3(accumulated_vecs[idx2], fvec);
     }
 
     const short flag = smd->flag;
     if (dvert) {
-      MDeformVert *dv = dvert;
-      for (int i = 0; i < numVerts; i++, dv++) {
+      const MDeformVert *dv = dvert;
+      for (int i = 0; i < verts_num; i++, dv++) {
         float *vco_orig = vertexCos[i];
-        if (num_accumulated_vecs[i] > 0) {
-          mul_v3_fl(accumulated_vecs[i], 1.0f / (float)num_accumulated_vecs[i]);
+        if (accumulated_vecs_count[i] > 0) {
+          mul_v3_fl(accumulated_vecs[i], 1.0f / (float)accumulated_vecs_count[i]);
         }
         float *vco_new = accumulated_vecs[i];
 
@@ -155,10 +154,10 @@ static void smoothModifier_do(
       }
     }
     else { /* no vertex group */
-      for (int i = 0; i < numVerts; i++) {
+      for (int i = 0; i < verts_num; i++) {
         float *vco_orig = vertexCos[i];
-        if (num_accumulated_vecs[i] > 0) {
-          mul_v3_fl(accumulated_vecs[i], 1.0f / (float)num_accumulated_vecs[i]);
+        if (accumulated_vecs_count[i] > 0) {
+          mul_v3_fl(accumulated_vecs[i], 1.0f / (float)accumulated_vecs_count[i]);
         }
         float *vco_new = accumulated_vecs[i];
 
@@ -176,22 +175,22 @@ static void smoothModifier_do(
   }
 
   MEM_freeN(accumulated_vecs);
-  MEM_freeN(num_accumulated_vecs);
+  MEM_freeN(accumulated_vecs_count);
 }
 
 static void deformVerts(ModifierData *md,
                         const ModifierEvalContext *ctx,
                         Mesh *mesh,
                         float (*vertexCos)[3],
-                        int numVerts)
+                        int verts_num)
 {
   SmoothModifierData *smd = (SmoothModifierData *)md;
   Mesh *mesh_src = NULL;
 
   /* mesh_src is needed for vgroups, and taking edges into account. */
-  mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, mesh, NULL, numVerts, false, false);
+  mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, mesh, NULL, verts_num, false);
 
-  smoothModifier_do(smd, ctx->object, mesh_src, vertexCos, numVerts);
+  smoothModifier_do(smd, ctx->object, mesh_src, vertexCos, verts_num);
 
   if (!ELEM(mesh_src, NULL, mesh)) {
     BKE_id_free(NULL, mesh_src);
@@ -203,18 +202,18 @@ static void deformVertsEM(ModifierData *md,
                           struct BMEditMesh *editData,
                           Mesh *mesh,
                           float (*vertexCos)[3],
-                          int numVerts)
+                          int verts_num)
 {
   SmoothModifierData *smd = (SmoothModifierData *)md;
   Mesh *mesh_src = NULL;
 
   /* mesh_src is needed for vgroups, and taking edges into account. */
-  mesh_src = MOD_deform_mesh_eval_get(ctx->object, editData, mesh, NULL, numVerts, false, false);
+  mesh_src = MOD_deform_mesh_eval_get(ctx->object, editData, mesh, NULL, verts_num, false);
 
-  /* TODO(campbell): use edit-mode data only (remove this line). */
+  /* TODO(@campbellbarton): use edit-mode data only (remove this line). */
   BKE_mesh_wrapper_ensure_mdata(mesh_src);
 
-  smoothModifier_do(smd, ctx->object, mesh_src, vertexCos, numVerts);
+  smoothModifier_do(smd, ctx->object, mesh_src, vertexCos, verts_num);
 
   if (!ELEM(mesh_src, NULL, mesh)) {
     BKE_id_free(NULL, mesh_src);
@@ -252,35 +251,35 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Smooth = {
-    /* name */ "Smooth",
-    /* structName */ "SmoothModifierData",
-    /* structSize */ sizeof(SmoothModifierData),
-    /* srna */ &RNA_SmoothModifier,
-    /* type */ eModifierTypeType_OnlyDeform,
-    /* flags */ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_AcceptsCVs |
+    /*name*/ N_("Smooth"),
+    /*structName*/ "SmoothModifierData",
+    /*structSize*/ sizeof(SmoothModifierData),
+    /*srna*/ &RNA_SmoothModifier,
+    /*type*/ eModifierTypeType_OnlyDeform,
+    /*flags*/ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_AcceptsCVs |
         eModifierTypeFlag_SupportsEditmode,
-    /* icon */ ICON_MOD_SMOOTH,
+    /*icon*/ ICON_MOD_SMOOTH,
 
-    /* copyData */ BKE_modifier_copydata_generic,
+    /*copyData*/ BKE_modifier_copydata_generic,
 
-    /* deformVerts */ deformVerts,
-    /* deformMatrices */ NULL,
-    /* deformVertsEM */ deformVertsEM,
-    /* deformMatricesEM */ NULL,
-    /* modifyMesh */ NULL,
-    /* modifyGeometrySet */ NULL,
+    /*deformVerts*/ deformVerts,
+    /*deformMatrices*/ NULL,
+    /*deformVertsEM*/ deformVertsEM,
+    /*deformMatricesEM*/ NULL,
+    /*modifyMesh*/ NULL,
+    /*modifyGeometrySet*/ NULL,
 
-    /* initData */ initData,
-    /* requiredDataMask */ requiredDataMask,
-    /* freeData */ NULL,
-    /* isDisabled */ isDisabled,
-    /* updateDepsgraph */ NULL,
-    /* dependsOnTime */ NULL,
-    /* dependsOnNormals */ NULL,
-    /* foreachIDLink */ NULL,
-    /* foreachTexLink */ NULL,
-    /* freeRuntimeData */ NULL,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ NULL,
-    /* blendRead */ NULL,
+    /*initData*/ initData,
+    /*requiredDataMask*/ requiredDataMask,
+    /*freeData*/ NULL,
+    /*isDisabled*/ isDisabled,
+    /*updateDepsgraph*/ NULL,
+    /*dependsOnTime*/ NULL,
+    /*dependsOnNormals*/ NULL,
+    /*foreachIDLink*/ NULL,
+    /*foreachTexLink*/ NULL,
+    /*freeRuntimeData*/ NULL,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ NULL,
+    /*blendRead*/ NULL,
 };

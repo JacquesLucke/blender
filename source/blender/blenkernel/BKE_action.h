@@ -92,6 +92,11 @@ bool action_has_motion(const struct bAction *act);
  */
 bool BKE_action_is_cyclic(const struct bAction *act);
 
+/**
+ * Remove all fcurves from the action.
+ */
+void BKE_action_fcurves_clear(struct bAction *act);
+
 /* Action Groups API ----------------- */
 
 /**
@@ -371,6 +376,7 @@ void BKE_pose_blend_read_lib(struct BlendLibReader *reader, struct Object *ob, s
 void BKE_pose_blend_read_expand(struct BlendExpander *expander, struct bPose *pose);
 
 /* action_mirror.c */
+
 void BKE_action_flip_with_pose(struct bAction *act, struct Object *ob_arm);
 
 #ifdef __cplusplus

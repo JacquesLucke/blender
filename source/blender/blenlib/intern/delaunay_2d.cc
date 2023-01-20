@@ -14,7 +14,7 @@
 #include "BLI_linklist.h"
 #include "BLI_math_boolean.hh"
 #include "BLI_math_mpq.hh"
-#include "BLI_math_vec_mpq_types.hh"
+#include "BLI_math_vector_mpq_types.hh"
 #include "BLI_set.hh"
 #include "BLI_task.hh"
 #include "BLI_vector.hh"
@@ -45,7 +45,7 @@ template<> double math_abs<double>(const double v)
   return fabs(v);
 }
 
-template<typename T> double math_to_double(const T UNUSED(v))
+template<typename T> double math_to_double(const T /*v*/)
 {
   BLI_assert(false); /* Need implementation for other type. */
   return 0.0;
@@ -245,7 +245,7 @@ template<typename Arith_t> struct CDTArrangement {
 
   /** Hint to how much space to reserve in the Vectors of the arrangement,
    * based on these counts of input elements. */
-  void reserve(int num_verts, int num_edges, int num_faces);
+  void reserve(int verts_num, int edges_num, int faces_num);
 
   /**
    * Add a new vertex to the arrangement, with the given 2D coordinate.
@@ -318,7 +318,7 @@ template<typename T> class CDT_state {
  public:
   CDTArrangement<T> cdt;
   /** How many verts were in input (will be first in vert_array). */
-  int input_vert_tot;
+  int input_vert_num;
   /** Used for visiting things without having to initialized their visit fields. */
   int visit_count;
   /**
@@ -332,7 +332,7 @@ template<typename T> class CDT_state {
   bool need_ids;
 
   explicit CDT_state(
-      int num_input_verts, int num_input_edges, int num_input_faces, T epsilon, bool need_ids);
+      int input_verts_num, int input_edges_num, int input_faces_num, T epsilon, bool need_ids);
 };
 
 template<typename T> CDTArrangement<T>::~CDTArrangement()
@@ -423,7 +423,7 @@ template<typename T> std::ostream &operator<<(std::ostream &os, const CDT_state<
       os << " merge to " << vertname(cdt_state.cdt.verts[v->merge_to_index]) << "\n";
     }
     const SymEdge<T> *se = v->symedge;
-    int cnt = 0;
+    int count = 0;
     constexpr int print_count_limit = 25;
     if (se) {
       os << "  edges out:\n";
@@ -440,8 +440,8 @@ template<typename T> std::ostream &operator<<(std::ostream &os, const CDT_state<
         os << "    " << vertname(vother) << "(e=" << trunc_ptr(se->edge)
            << ", se=" << trunc_ptr(se) << ")\n";
         se = se->rot;
-        cnt++;
-      } while (se != v->symedge && cnt < print_count_limit);
+        count++;
+      } while (se != v->symedge && count < print_count_limit);
       os << "\n";
     }
   }
@@ -520,10 +520,10 @@ template<typename T> void cdt_draw(const std::string &label, const CDTArrangemen
   double height = maxy - miny;
   double aspect = height / width;
   int view_width = max_draw_width;
-  int view_height = static_cast<int>(view_width * aspect);
+  int view_height = int(view_width * aspect);
   if (view_height > max_draw_height) {
     view_height = max_draw_height;
-    view_width = static_cast<int>(view_height / aspect);
+    view_width = int(view_height / aspect);
   }
   double scale = view_width / width;
 
@@ -859,20 +859,20 @@ template<typename T> CDTFace<T> *CDTArrangement<T>::add_face()
   return f;
 }
 
-template<typename T> void CDTArrangement<T>::reserve(int num_verts, int num_edges, int num_faces)
+template<typename T> void CDTArrangement<T>::reserve(int verts_num, int edges_num, int faces_num)
 {
   /* These reserves are just guesses; OK if they aren't exactly right since vectors will resize. */
-  this->verts.reserve(2 * num_verts);
-  this->edges.reserve(3 * num_verts + 2 * num_edges + 3 * 2 * num_faces);
-  this->faces.reserve(2 * num_verts + 2 * num_edges + 2 * num_faces);
+  this->verts.reserve(2 * verts_num);
+  this->edges.reserve(3 * verts_num + 2 * edges_num + 3 * 2 * faces_num);
+  this->faces.reserve(2 * verts_num + 2 * edges_num + 2 * faces_num);
 }
 
 template<typename T>
 CDT_state<T>::CDT_state(
-    int num_input_verts, int num_input_edges, int num_input_faces, T epsilon, bool need_ids)
+    int input_verts_num, int input_edges_num, int input_faces_num, T epsilon, bool need_ids)
 {
-  this->input_vert_tot = num_input_verts;
-  this->cdt.reserve(num_input_verts, num_input_edges, num_input_faces);
+  this->input_vert_num = input_verts_num;
+  this->cdt.reserve(input_verts_num, input_edges_num, input_faces_num);
   this->cdt.outer_face = this->cdt.add_face();
   this->epsilon = epsilon;
   this->need_ids = need_ids;
@@ -919,7 +919,7 @@ template<typename T> inline bool is_deleted_edge(const CDTEdge<T> *e)
 
 template<typename T> inline bool is_original_vert(const CDTVert<T> *v, CDT_state<T> *cdt)
 {
-  return (v->index < cdt->input_vert_tot);
+  return (v->index < cdt->input_vert_num);
 }
 
 /**
@@ -2188,21 +2188,22 @@ static int power_of_10_greater_equal_to(int x)
 }
 
 /**
-   Incrementally each edge of each input face as an edge constraint.
+ * Incrementally each edge of each input face as an edge constraint.
  * The code will ensure that the #CDTEdge's created will have ids that tie them
  * back to the original face edge (using a numbering system for those edges
  * that starts with cdt->face_edge_offset, and continues with the edges in
  * order around each face in turn. And then the next face starts at
  * cdt->face_edge_offset beyond the start for the previous face.
+ * Return the number of faces added, which may be less than input.face.size()
+ * in the case that some faces have less than 3 sides.
  */
 template<typename T>
-void add_face_constraints(CDT_state<T> *cdt_state,
-                          const CDT_input<T> &input,
-                          CDT_output_type output_type)
+int add_face_constraints(CDT_state<T> *cdt_state,
+                         const CDT_input<T> &input,
+                         CDT_output_type output_type)
 {
   int nv = input.vert.size();
   int nf = input.face.size();
-  int fstart = 0;
   SymEdge<T> *face_symedge0 = nullptr;
   CDTArrangement<T> *cdt = &cdt_state->cdt;
   int maxflen = 0;
@@ -2217,11 +2218,11 @@ void add_face_constraints(CDT_state<T> *cdt_state,
    * together the are >= INT_MAX, then the Delaunay calculation will take unreasonably long anyway.
    */
   BLI_assert(INT_MAX / cdt_state->face_edge_offset > nf);
+  int faces_added = 0;
   for (int f = 0; f < nf; f++) {
     int flen = input.face[f].size();
     if (flen <= 2) {
       /* Ignore faces with fewer than 3 vertices. */
-      fstart += flen;
       continue;
     }
     int fedge_start = (f + 1) * cdt_state->face_edge_offset;
@@ -2233,6 +2234,7 @@ void add_face_constraints(CDT_state<T> *cdt_state,
         /* Ignore face edges with invalid vertices. */
         continue;
       }
+      ++faces_added;
       CDTVert<T> *v1 = cdt->get_vert_resolve_merge(iv1);
       CDTVert<T> *v2 = cdt->get_vert_resolve_merge(iv2);
       LinkNode *edge_list;
@@ -2266,8 +2268,8 @@ void add_face_constraints(CDT_state<T> *cdt_state,
         add_face_ids(cdt_state, face_symedge0, f, fedge_start, fedge_end);
       }
     }
-    fstart += flen;
   }
+  return faces_added;
 }
 
 /* Delete_edge but try not to mess up outer face.
@@ -2557,9 +2559,9 @@ template<typename T> void detect_holes(CDT_state<T> *cdt_state)
             continue; /* Don't count hits on edges between faces in same region. */
           }
           auto isect = isect_seg_seg(ray_end.exact,
-                                              mid.exact,
-                                              e->symedges[0].vert->co.exact,
-                                              e->symedges[1].vert->co.exact);
+                                     mid.exact,
+                                     e->symedges[0].vert->co.exact,
+                                     e->symedges[1].vert->co.exact);
           switch (isect.kind) {
             case isect_result<vec2<T>>::LINE_LINE_CROSS: {
               hits++;
@@ -2635,6 +2637,7 @@ void prepare_cdt_for_output(CDT_state<T> *cdt_state, const CDT_output_type outpu
     remove_faces_in_holes(cdt_state);
   }
   else if (output_type == CDT_CONSTRAINTS_VALID_BMESH_WITH_HOLES) {
+    remove_outer_edges_until_constraints(cdt_state);
     remove_non_constraint_edges_leave_valid_bmesh(cdt_state);
     remove_faces_in_holes(cdt_state);
   }
@@ -2642,10 +2645,11 @@ void prepare_cdt_for_output(CDT_state<T> *cdt_state, const CDT_output_type outpu
 
 template<typename T>
 CDT_result<T> get_cdt_output(CDT_state<T> *cdt_state,
-                             const CDT_input<T> UNUSED(input),
+                             const CDT_input<T> /*input*/,
                              CDT_output_type output_type)
 {
-  prepare_cdt_for_output(cdt_state, output_type);
+  CDT_output_type oty = output_type;
+  prepare_cdt_for_output(cdt_state, oty);
   CDT_result<T> result;
   CDTArrangement<T> *cdt = &cdt_state->cdt;
   result.face_edge_offset = cdt_state->face_edge_offset;
@@ -2675,7 +2679,7 @@ CDT_result<T> get_cdt_output(CDT_state<T> *cdt_state,
       CDTVert<T> *v = cdt->verts[i];
       if (v->merge_to_index != -1) {
         if (cdt_state->need_ids) {
-          if (i < cdt_state->input_vert_tot) {
+          if (i < cdt_state->input_vert_num) {
             add_to_input_ids(cdt->verts[v->merge_to_index]->input_ids, i);
           }
         }
@@ -2693,7 +2697,7 @@ CDT_result<T> get_cdt_output(CDT_state<T> *cdt_state,
     if (v->merge_to_index == -1) {
       result.vert[i_out] = v->co.exact;
       if (cdt_state->need_ids) {
-        if (i < cdt_state->input_vert_tot) {
+        if (i < cdt_state->input_vert_num) {
           result.vert_orig[i_out].append(i);
         }
         for (int vert : v->input_ids) {
@@ -2762,7 +2766,7 @@ CDT_result<T> get_cdt_output(CDT_state<T> *cdt_state,
  */
 template<typename T> void add_input_verts(CDT_state<T> *cdt_state, const CDT_input<T> &input)
 {
-  for (int i = 0; i < cdt_state->input_vert_tot; ++i) {
+  for (int i = 0; i < cdt_state->input_vert_num; ++i) {
     cdt_state->cdt.add_vert(input.vert[i]);
   }
 }
@@ -2777,7 +2781,11 @@ CDT_result<T> delaunay_calc(const CDT_input<T> &input, CDT_output_type output_ty
   add_input_verts(&cdt_state, input);
   initial_triangulation(&cdt_state.cdt);
   add_edge_constraints(&cdt_state, input);
-  add_face_constraints(&cdt_state, input, output_type);
+  int actual_nf = add_face_constraints(&cdt_state, input, output_type);
+  if (actual_nf == 0 && !ELEM(output_type, CDT_FULL, CDT_INSIDE, CDT_CONSTRAINTS)) {
+    /* Can't look for faces or holes if there were no valid input faces. */
+    output_type = CDT_INSIDE;
+  }
   return get_cdt_output(&cdt_state, input, output_type);
 }
 
@@ -2800,7 +2808,7 @@ blender::meshintersect::CDT_result<mpq_class> delaunay_2d_calc(const CDT_input<m
 /* C interface. */
 
 /**
-   This function uses the double version of #CDT::delaunay_calc.
+ * This function uses the double version of #CDT::delaunay_calc.
  * Almost all of the work here is to convert between C++ #Arrays<Vector<int>>
  * and a C version that linearizes all the elements and uses a "start"
  * and "len" array to say where the individual vectors start and how
@@ -2814,8 +2822,8 @@ extern "C" ::CDT_result *BLI_delaunay_2d_cdt_calc(const ::CDT_input *input,
   in.edge = blender::Array<std::pair<int, int>>(input->edges_len);
   in.face = blender::Array<blender::Vector<int>>(input->faces_len);
   for (int v = 0; v < input->verts_len; ++v) {
-    double x = static_cast<double>(input->vert_coords[v][0]);
-    double y = static_cast<double>(input->vert_coords[v][1]);
+    double x = double(input->vert_coords[v][0]);
+    double y = double(input->vert_coords[v][1]);
     in.vert[v] = blender::meshintersect::vec2<double>(x, y);
   }
   for (int e = 0; e < input->edges_len; ++e) {
@@ -2828,7 +2836,7 @@ extern "C" ::CDT_result *BLI_delaunay_2d_cdt_calc(const ::CDT_input *input,
       in.face[f][j] = input->faces[fstart + j];
     }
   }
-  in.epsilon = static_cast<double>(input->epsilon);
+  in.epsilon = double(input->epsilon);
   in.need_ids = input->need_ids;
 
   blender::meshintersect::CDT_result<double> res = blender::meshintersect::delaunay_2d_calc(
@@ -2895,8 +2903,8 @@ extern "C" ::CDT_result *BLI_delaunay_2d_cdt_calc(const ::CDT_input *input,
 
   int v_orig_index = 0;
   for (int v = 0; v < nv; ++v) {
-    output->vert_coords[v][0] = static_cast<float>(res.vert[v][0]);
-    output->vert_coords[v][1] = static_cast<float>(res.vert[v][1]);
+    output->vert_coords[v][0] = float(res.vert[v][0]);
+    output->vert_coords[v][1] = float(res.vert[v][1]);
     if (input->need_ids) {
       int this_start = v_orig_index;
       output->verts_orig_start_table[v] = this_start;

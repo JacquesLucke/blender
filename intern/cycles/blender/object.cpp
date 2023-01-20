@@ -16,11 +16,14 @@
 #include "scene/shader.h"
 #include "scene/shader_graph.h"
 #include "scene/shader_nodes.h"
+#include "scene/volume.h"
 
 #include "util/foreach.h"
 #include "util/hash.h"
 #include "util/log.h"
 #include "util/task.h"
+
+#include "BKE_duplilist.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -65,13 +68,6 @@ bool BlenderSync::object_is_geometry(BObjectInfo &b_ob_info)
     return true;
   }
 
-  /* Other object types that are not meshes but evaluate to meshes are presented to render engines
-   * as separate instance objects. Metaballs and surface objects have not been affected by that
-   * change yet. */
-  if (type == BL::Object::type_SURFACE || type == BL::Object::type_META) {
-    return true;
-  }
-
   return b_ob_data.is_a(&RNA_Mesh);
 }
 
@@ -98,6 +94,13 @@ bool BlenderSync::object_is_light(BL::Object &b_ob)
   BL::ID b_ob_data = b_ob.data();
 
   return (b_ob_data && b_ob_data.is_a(&RNA_Light));
+}
+
+bool BlenderSync::object_is_camera(BL::Object &b_ob)
+{
+  BL::ID b_ob_data = b_ob.data();
+
+  return (b_ob_data && b_ob_data.is_a(&RNA_Camera));
 }
 
 void BlenderSync::sync_object_motion_init(BL::Object &b_parent, BL::Object &b_ob, Object *object)
@@ -298,6 +301,12 @@ Object *BlenderSync::sync_object(BL::Depsgraph &b_depsgraph,
   }
   object->set_ao_distance(ao_distance);
 
+  bool is_caustics_caster = get_boolean(cobject, "is_caustics_caster");
+  object->set_is_caustics_caster(is_caustics_caster);
+
+  bool is_caustics_receiver = get_boolean(cobject, "is_caustics_receiver");
+  object->set_is_caustics_receiver(is_caustics_receiver);
+
   /* sync the asset name for Cryptomatte */
   BL::Object parent = b_ob.parent();
   ustring parent_name;
@@ -319,7 +328,9 @@ Object *BlenderSync::sync_object(BL::Depsgraph &b_depsgraph,
       (object->get_geometry() && object->get_geometry()->is_modified())) {
     object->name = b_ob.name().c_str();
     object->set_pass_id(b_ob.pass_index());
-    object->set_color(get_float3(b_ob.color()));
+    const BL::Array<float, 4> object_color = b_ob.color();
+    object->set_color(get_float3(object_color));
+    object->set_alpha(object_color[3]);
     object->set_tfm(tfm);
 
     /* dupli texture coordinates and random_id */
@@ -335,6 +346,9 @@ Object *BlenderSync::sync_object(BL::Depsgraph &b_depsgraph,
       object->set_random_id(hash_uint2(hash_string(object->name.c_str()), 0));
     }
 
+    /* lightgroup */
+    object->set_lightgroup(ustring(b_ob.lightgroup()));
+
     object->tag_update(scene);
   }
 
@@ -348,79 +362,26 @@ Object *BlenderSync::sync_object(BL::Depsgraph &b_depsgraph,
   return object;
 }
 
-/* This function mirrors drw_uniform_property_lookup in draw_instance_data.cpp */
-static bool lookup_property(BL::ID b_id, const string &name, float4 *r_value)
-{
-  PointerRNA ptr;
-  PropertyRNA *prop;
+extern "C" DupliObject *rna_hack_DepsgraphObjectInstance_dupli_object_get(PointerRNA *ptr);
 
-  if (!RNA_path_resolve(&b_id.ptr, name.c_str(), &ptr, &prop)) {
-    return false;
-  }
-
-  if (prop == NULL) {
-    return false;
-  }
-
-  PropertyType type = RNA_property_type(prop);
-  int arraylen = RNA_property_array_length(&ptr, prop);
-
-  if (arraylen == 0) {
-    float value;
-
-    if (type == PROP_FLOAT)
-      value = RNA_property_float_get(&ptr, prop);
-    else if (type == PROP_INT)
-      value = static_cast<float>(RNA_property_int_get(&ptr, prop));
-    else
-      return false;
-
-    *r_value = make_float4(value, value, value, 1.0f);
-    return true;
-  }
-  else if (type == PROP_FLOAT && arraylen <= 4) {
-    *r_value = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
-    RNA_property_float_get_array(&ptr, prop, &r_value->x);
-    return true;
-  }
-
-  return false;
-}
-
-/* This function mirrors drw_uniform_attribute_lookup in draw_instance_data.cpp */
 static float4 lookup_instance_property(BL::DepsgraphObjectInstance &b_instance,
                                        const string &name,
                                        bool use_instancer)
 {
-  string idprop_name = string_printf("[\"%s\"]", name.c_str());
-  float4 value;
+  ::Object *ob = (::Object *)b_instance.object().ptr.data;
+  ::DupliObject *dupli = nullptr;
+  ::Object *dupli_parent = nullptr;
 
   /* If requesting instance data, check the parent particle system and object. */
   if (use_instancer && b_instance.is_instance()) {
-    BL::ParticleSystem b_psys = b_instance.particle_system();
-
-    if (b_psys) {
-      if (lookup_property(b_psys.settings(), idprop_name, &value) ||
-          lookup_property(b_psys.settings(), name, &value)) {
-        return value;
-      }
-    }
-    if (lookup_property(b_instance.parent(), idprop_name, &value) ||
-        lookup_property(b_instance.parent(), name, &value)) {
-      return value;
-    }
+    dupli = rna_hack_DepsgraphObjectInstance_dupli_object_get(&b_instance.ptr);
+    dupli_parent = (::Object *)b_instance.parent().ptr.data;
   }
 
-  /* Check the object and mesh. */
-  BL::Object b_ob = b_instance.object();
-  BL::ID b_data = b_ob.data();
+  float4 value;
+  BKE_object_dupli_find_rgba_attribute(ob, dupli, dupli_parent, name.c_str(), &value.x);
 
-  if (lookup_property(b_ob, idprop_name, &value) || lookup_property(b_ob, name, &value) ||
-      lookup_property(b_data, idprop_name, &value) || lookup_property(b_data, name, &value)) {
-    return value;
-  }
-
-  return make_float4(0.0f);
+  return value;
 }
 
 bool BlenderSync::sync_object_attributes(BL::DepsgraphObjectInstance &b_instance, Object *object)
@@ -446,7 +407,8 @@ bool BlenderSync::sync_object_attributes(BL::DepsgraphObjectInstance &b_instance
     std::string real_name;
     BlenderAttributeType type = blender_attribute_name_split_type(name, &real_name);
 
-    if (type != BL::ShaderNodeAttribute::attribute_type_GEOMETRY) {
+    if (type == BL::ShaderNodeAttribute::attribute_type_OBJECT ||
+        type == BL::ShaderNodeAttribute::attribute_type_INSTANCER) {
       bool use_instancer = (type == BL::ShaderNodeAttribute::attribute_type_INSTANCER);
       float4 value = lookup_instance_property(b_instance, real_name, use_instancer);
 
@@ -619,10 +581,8 @@ void BlenderSync::sync_objects(BL::Depsgraph &b_depsgraph,
       bool has_subdivision_modifier = false;
       BL::MeshSequenceCacheModifier b_mesh_cache(PointerRNA_NULL);
 
-      /* Experimental as Blender does not have good support for procedurals at the moment, also
-       * only available in preview renders since currently do not have a good cache policy, the
-       * data being loaded at once for all the frames. */
-      if (experimental && b_v3d) {
+      /* Experimental as Blender does not have good support for procedurals at the moment. */
+      if (experimental) {
         b_mesh_cache = object_mesh_cache_find(b_ob, &has_subdivision_modifier);
         use_procedural = b_mesh_cache && b_mesh_cache.cache_file().use_render_procedural();
       }
@@ -707,13 +667,13 @@ void BlenderSync::sync_motion(BL::RenderSettings &b_render,
   float frame_center_delta = 0.0f;
 
   if (scene->need_motion() != Scene::MOTION_PASS &&
-      scene->camera->get_motion_position() != Camera::MOTION_POSITION_CENTER) {
+      scene->camera->get_motion_position() != MOTION_POSITION_CENTER) {
     float shuttertime = scene->camera->get_shuttertime();
-    if (scene->camera->get_motion_position() == Camera::MOTION_POSITION_END) {
+    if (scene->camera->get_motion_position() == MOTION_POSITION_END) {
       frame_center_delta = -shuttertime * 0.5f;
     }
     else {
-      assert(scene->camera->get_motion_position() == Camera::MOTION_POSITION_START);
+      assert(scene->camera->get_motion_position() == MOTION_POSITION_START);
       frame_center_delta = shuttertime * 0.5f;
     }
 
@@ -753,7 +713,7 @@ void BlenderSync::sync_motion(BL::RenderSettings &b_render,
       continue;
     }
 
-    VLOG(1) << "Synchronizing motion for the relative time " << relative_time << ".";
+    VLOG_WORK << "Synchronizing motion for the relative time " << relative_time << ".";
 
     /* fixed shutter time to get previous and next frame for motion pass */
     float shuttertime = scene->motion_shutter_time();

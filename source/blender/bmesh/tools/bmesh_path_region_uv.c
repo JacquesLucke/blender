@@ -7,7 +7,7 @@
  * (path isn't ordered).
  *
  * \note This uses the same behavior as bmesh_path_region.c
- * however walking UV's causes enough differences that it's
+ * however walking UVs causes enough differences that it's
  * impractical to share the code.
  */
 
@@ -109,9 +109,10 @@ static bool bm_loop_region_test_chain(BMLoop *l, int *const depths[2], const int
 static LinkNode *mesh_calc_path_region_elem(BMesh *bm,
                                             BMElem *ele_src,
                                             BMElem *ele_dst,
-                                            const uint cd_loop_uv_offset,
+                                            const int cd_loop_uv_offset,
                                             const char path_htype)
 {
+  BLI_assert(cd_loop_uv_offset >= 0);
   int ele_loops_len[2];
   BMLoop **ele_loops[2];
 
@@ -232,7 +233,7 @@ static LinkNode *mesh_calc_path_region_elem(BMesh *bm,
             continue;
           }
 
-          /* Flush the depth to connected loops (only needed for UV's). */
+          /* Flush the depth to connected loops (only needed for UVs). */
           if (depths[side][BM_elem_index_get(l_iter)] == -1) {
             depths[side][BM_elem_index_get(l_iter)] = depths[side][l_a_index];
           }
@@ -397,7 +398,7 @@ static LinkNode *mesh_calc_path_region_elem(BMesh *bm,
 LinkNode *BM_mesh_calc_path_uv_region_vert(BMesh *bm,
                                            BMElem *ele_src,
                                            BMElem *ele_dst,
-                                           const uint cd_loop_uv_offset,
+                                           const int cd_loop_uv_offset,
                                            bool (*filter_fn)(BMLoop *, void *user_data),
                                            void *user_data)
 {
@@ -426,7 +427,7 @@ LinkNode *BM_mesh_calc_path_uv_region_vert(BMesh *bm,
 LinkNode *BM_mesh_calc_path_uv_region_edge(BMesh *bm,
                                            BMElem *ele_src,
                                            BMElem *ele_dst,
-                                           const uint cd_loop_uv_offset,
+                                           const int cd_loop_uv_offset,
                                            bool (*filter_fn)(BMLoop *, void *user_data),
                                            void *user_data)
 {
@@ -455,7 +456,7 @@ LinkNode *BM_mesh_calc_path_uv_region_edge(BMesh *bm,
 LinkNode *BM_mesh_calc_path_uv_region_face(BMesh *bm,
                                            BMElem *ele_src,
                                            BMElem *ele_dst,
-                                           const uint cd_loop_uv_offset,
+                                           const int cd_loop_uv_offset,
                                            bool (*filter_fn)(BMFace *, void *user_data),
                                            void *user_data)
 {

@@ -7,6 +7,7 @@
  */
 
 #include "BLI_compiler_attrs.h"
+#include "BLI_sys_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,6 +20,7 @@ struct BlendWriter;
 struct ID;
 struct IDProperty;
 struct IDPropertyUIData;
+struct Library;
 
 typedef union IDPropertyTemplate {
   int i;
@@ -26,18 +28,17 @@ typedef union IDPropertyTemplate {
   double d;
   struct {
     const char *str;
+    /** String length (including the null byte): `strlen(str) + 1`. */
     int len;
+    /** #eIDPropertySubType */
     char subtype;
   } string;
   struct ID *id;
   struct {
     int len;
+    /** #eIDPropertyType */
     char type;
   } array;
-  struct {
-    int matvec_size;
-    const float *example;
-  } matrix_or_vector;
 } IDPropertyTemplate;
 
 /* ----------- Property Array Type ---------- */
@@ -96,7 +97,7 @@ void IDP_AssignID(struct IDProperty *prop, struct ID *id, int flag);
  * Sync values from one group to another when values name and types match,
  * copy the values, else ignore.
  *
- * \note Use for syncing proxies.
+ * \note Was used for syncing proxies.
  */
 void IDP_SyncGroupValues(struct IDProperty *dest, const struct IDProperty *src) ATTR_NONNULL();
 void IDP_SyncGroupTypes(struct IDProperty *dest, const struct IDProperty *src, bool do_arraylen)
@@ -169,7 +170,7 @@ struct IDProperty *IDP_GetPropertyTypeFromGroup(const struct IDProperty *prop,
 
 /*-------- Main Functions --------*/
 /**
- * Get the Group property that contains the id properties for ID id.
+ * Get the Group property that contains the id properties for ID `id`.
  *
  * \param create_if_needed: Set to create the group property and attach it to id if it doesn't
  * exist; otherwise the function will return NULL if there's no Group property attached to the ID.
@@ -241,6 +242,7 @@ void IDP_ClearProperty(struct IDProperty *prop);
 void IDP_Reset(struct IDProperty *prop, const struct IDProperty *reference);
 
 #define IDP_Int(prop) ((prop)->data.val)
+#define IDP_Bool(prop) ((prop)->data.val)
 #define IDP_Array(prop) ((prop)->data.pointer)
 /* C11 const correctness for casts */
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
@@ -318,7 +320,7 @@ void IDP_BlendReadData_impl(struct BlendDataReader *reader,
                             struct IDProperty **prop,
                             const char *caller_func_id);
 #define IDP_BlendDataRead(reader, prop) IDP_BlendReadData_impl(reader, prop, __func__)
-void IDP_BlendReadLib(struct BlendLibReader *reader, struct IDProperty *prop);
+void IDP_BlendReadLib(struct BlendLibReader *reader, struct Library *lib, struct IDProperty *prop);
 void IDP_BlendReadExpand(struct BlendExpander *expander, struct IDProperty *prop);
 
 typedef enum eIDPropertyUIDataType {
@@ -326,12 +328,14 @@ typedef enum eIDPropertyUIDataType {
   IDP_UI_DATA_TYPE_UNSUPPORTED = -1,
   /** IDP_INT or IDP_ARRAY with subtype IDP_INT. */
   IDP_UI_DATA_TYPE_INT = 0,
-  /** IDP_FLOAT and IDP_DOUBLE or IDP_ARRAY properties with a float or double subtypes. */
+  /** IDP_FLOAT and IDP_DOUBLE or IDP_ARRAY properties with a float or double sub-types. */
   IDP_UI_DATA_TYPE_FLOAT = 1,
   /** IDP_STRING properties. */
   IDP_UI_DATA_TYPE_STRING = 2,
   /** IDP_ID. */
   IDP_UI_DATA_TYPE_ID = 3,
+  /** IDP_BOOLEAN or IDP_ARRAY with subtype IDP_BOOLEAN. */
+  IDP_UI_DATA_TYPE_BOOLEAN = 4,
 } eIDPropertyUIDataType;
 
 bool IDP_ui_data_supported(const struct IDProperty *prop);

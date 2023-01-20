@@ -10,8 +10,10 @@ set(INC
   ../../makesdna
   ../../makesrna
   ../../windowmanager
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
+)
+
+set(INC_SYS
 )
 
 set(SRC

@@ -35,12 +35,14 @@
 #  include "BKE_context.h"
 
 #  include "BKE_global.h"
-#  include "BKE_image.h"
+#  include "BKE_image_format.h"
 #  include "BKE_lib_id.h"
 #  include "BKE_main.h"
 #  include "BKE_report.h"
 #  include "BKE_scene.h"
 #  include "BKE_sound.h"
+
+#  include "GPU_context.h"
 
 #  ifdef WITH_FFMPEG
 #    include "IMB_imbuf.h"
@@ -262,7 +264,7 @@ static int *parse_int_relative_clamp_n(
   int i = 0;
   while (true) {
     const char *str_end = strchr(str, sep);
-    if ((*str == sep) || (*str == '\0')) {
+    if (ELEM(*str, sep, '\0')) {
       static const char *msg = "incorrect comma use";
       *r_err_msg = msg;
       goto fail;
@@ -576,8 +578,10 @@ static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), vo
   BLI_args_print_arg_doc(ba, "--debug-depsgraph-pretty");
   BLI_args_print_arg_doc(ba, "--debug-depsgraph-uuid");
   BLI_args_print_arg_doc(ba, "--debug-ghost");
+  BLI_args_print_arg_doc(ba, "--debug-wintab");
   BLI_args_print_arg_doc(ba, "--debug-gpu");
   BLI_args_print_arg_doc(ba, "--debug-gpu-force-workarounds");
+  BLI_args_print_arg_doc(ba, "--debug-gpu-disable-ssbo");
   BLI_args_print_arg_doc(ba, "--debug-wm");
 #  ifdef WITH_XR_OPENXR
   BLI_args_print_arg_doc(ba, "--debug-xr");
@@ -654,12 +658,18 @@ static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), vo
   printf("\t...works as expected.\n\n");
 
   printf("Environment Variables:\n");
-  printf("  $BLENDER_USER_CONFIG      Directory for user configuration files.\n");
-  printf("  $BLENDER_USER_SCRIPTS     Directory for user scripts.\n");
-  printf("  $BLENDER_SYSTEM_SCRIPTS   Directory for system wide scripts.\n");
-  printf("  $BLENDER_USER_DATAFILES   Directory for user data files (icons, translations, ..).\n");
-  printf("  $BLENDER_SYSTEM_DATAFILES Directory for system wide data files.\n");
-  printf("  $BLENDER_SYSTEM_PYTHON    Directory for system Python libraries.\n");
+  printf("  $BLENDER_USER_RESOURCES  Top level directory for user files.\n");
+  printf("                           (other 'BLENDER_USER_*' variables override when set).\n");
+  printf("  $BLENDER_USER_CONFIG     Directory for user configuration files.\n");
+  printf("  $BLENDER_USER_SCRIPTS    Directory for user scripts.\n");
+  printf("  $BLENDER_USER_DATAFILES  Directory for user data files (icons, translations, ..).\n");
+  printf("\n");
+  printf("  $BLENDER_SYSTEM_RESOURCES  Top level directory for system files.\n");
+  printf("                             (other 'BLENDER_SYSTEM_*' variables override when set).\n");
+  printf("  $BLENDER_SYSTEM_SCRIPTS    Directory for system wide scripts.\n");
+  printf("  $BLENDER_SYSTEM_DATAFILES  Directory for system wide data files.\n");
+  printf("  $BLENDER_SYSTEM_PYTHON     Directory for system Python libraries.\n");
+
 #  ifdef WITH_OCIO
   printf("  $OCIO                     Path to override the OpenColorIO config file.\n");
 #  endif
@@ -828,7 +838,7 @@ static int arg_handle_log_show_timestamp_set(int UNUSED(argc),
 }
 
 static const char arg_handle_log_file_set_doc[] =
-    "<filename>\n"
+    "<filepath>\n"
     "\tSet a file to output the log to.";
 static int arg_handle_log_file_set(int argc, const char **argv, void *UNUSED(data))
 {
@@ -943,6 +953,12 @@ static const char arg_handle_debug_mode_generic_set_doc_wm[] =
     "\n\t"
     "Enable debug messages for the window manager, shows all operators in search, shows "
     "keymap errors.";
+static const char arg_handle_debug_mode_generic_set_doc_ghost[] =
+    "\n\t"
+    "Enable debug messages for Ghost (Linux only).";
+static const char arg_handle_debug_mode_generic_set_doc_wintab[] =
+    "\n\t"
+    "Enable debug messages for Wintab.";
 #  ifdef WITH_XR_OPENXR
 static const char arg_handle_debug_mode_generic_set_doc_xr[] =
     "\n\t"
@@ -983,6 +999,9 @@ static const char arg_handle_debug_mode_generic_set_doc_depsgraph_uuid[] =
 static const char arg_handle_debug_mode_generic_set_doc_gpu_force_workarounds[] =
     "\n\t"
     "Enable workarounds for typical GPU issues and disable all GPU extensions.";
+static const char arg_handle_debug_mode_generic_set_doc_gpu_disable_ssbo[] =
+    "\n\t"
+    "Disable usage of shader storage buffer objects.";
 
 static int arg_handle_debug_mode_generic_set(int UNUSED(argc),
                                              const char **UNUSED(argv),
@@ -1092,6 +1111,48 @@ static int arg_handle_debug_gpu_set(int UNUSED(argc),
   CLG_type_filter_include(gpu_filter, strlen(gpu_filter));
   G.debug |= G_DEBUG_GPU;
   return 0;
+}
+
+static const char arg_handle_gpu_backend_set_doc[] =
+    "\n"
+    "\tForce to use a specific GPU backend. Valid options: "
+#  ifdef WITH_VULKAN_BACKEND
+    "'vulkan',  "
+#  endif
+#  ifdef WITH_METAL_BACKEND
+    "'metal',  "
+#  endif
+    "'opengl'.";
+static int arg_handle_gpu_backend_set(int argc, const char **argv, void *UNUSED(data))
+{
+  if (argc == 0) {
+    printf("\nError: GPU backend must follow '--gpu-backend'.\n");
+    return 0;
+  }
+
+  eGPUBackendType gpu_backend = GPU_BACKEND_NONE;
+
+  if (STREQ(argv[1], "opengl")) {
+    gpu_backend = GPU_BACKEND_OPENGL;
+  }
+#  ifdef WITH_VULKAN_BACKEND
+  else if (STREQ(argv[1], "vulkan")) {
+    gpu_backend = GPU_BACKEND_VULKAN;
+  }
+#  endif
+#  ifdef WITH_METAL_BACKEND
+  else if (STREQ(argv[1], "metal")) {
+    gpu_backend = GPU_BACKEND_METAL;
+  }
+#  endif
+  else {
+    printf("\nError: Unrecognized GPU backend for '--gpu-backend'.\n");
+    return 0;
+  }
+
+  GPU_backend_type_selection_set_override(gpu_backend);
+
+  return 1;
 }
 
 static const char arg_handle_debug_fpe_set_doc[] =
@@ -1432,7 +1493,7 @@ static const char arg_handle_image_type_set_doc[] =
     "\t'TGA' 'RAWTGA' 'JPEG' 'IRIS' 'IRIZ' 'AVIRAW' 'AVIJPEG' 'PNG' 'BMP'\n"
     "\n"
     "\tFormats that can be compiled into Blender, not available on all systems:\n"
-    "\t'HDR' 'TIFF' 'OPEN_EXR' 'OPEN_EXR_MULTILAYER' 'MPEG' 'CINEON' 'DPX' 'DDS' 'JP2'";
+    "\t'HDR' 'TIFF' 'OPEN_EXR' 'OPEN_EXR_MULTILAYER' 'MPEG' 'CINEON' 'DPX' 'DDS' 'JP2' 'WEBP'";
 static int arg_handle_image_type_set(int argc, const char **argv, void *data)
 {
   bContext *C = data;
@@ -1644,7 +1705,7 @@ static int arg_handle_scene_set(int argc, const char **argv, void *data)
       CTX_data_scene_set(C, scene);
 
       /* Set the scene of the first window, see: T55991,
-       * otherwise scrips that run later won't get this scene back from the context. */
+       * otherwise scripts that run later won't get this scene back from the context. */
       wmWindow *win = CTX_wm_window(C);
       if (win == NULL) {
         win = CTX_wm_manager(C)->windows.first;
@@ -1752,7 +1813,7 @@ static int arg_handle_frame_skip_set(int argc, const char **argv, void *data)
 }
 
 static const char arg_handle_python_file_run_doc[] =
-    "<filename>\n"
+    "<filepath>\n"
     "\tRun the given Python script file.";
 static int arg_handle_python_file_run(int argc, const char **argv, void *data)
 {
@@ -1762,12 +1823,12 @@ static int arg_handle_python_file_run(int argc, const char **argv, void *data)
   /* workaround for scripts not getting a bpy.context.scene, causes internal errors elsewhere */
   if (argc > 1) {
     /* Make the path absolute because its needed for relative linked blends to be found */
-    char filename[FILE_MAX];
-    BLI_strncpy(filename, argv[1], sizeof(filename));
-    BLI_path_abs_from_cwd(filename, sizeof(filename));
+    char filepath[FILE_MAX];
+    BLI_strncpy(filepath, argv[1], sizeof(filepath));
+    BLI_path_abs_from_cwd(filepath, sizeof(filepath));
 
     bool ok;
-    BPY_CTX_SETUP(ok = BPY_run_filepath(C, filename, NULL));
+    BPY_CTX_SETUP(ok = BPY_run_filepath(C, filepath, NULL));
     if (!ok && app_state.exit_code_on_error.python) {
       printf("\nError: script failed, file: '%s', exiting.\n", argv[1]);
       BPY_python_end();
@@ -1894,7 +1955,7 @@ static int arg_handle_python_exit_code_set(int argc, const char **argv, void *UN
       return 1;
     }
 
-    app_state.exit_code_on_error.python = (unsigned char)exit_code;
+    app_state.exit_code_on_error.python = (uchar)exit_code;
     return 1;
   }
   printf("\nError: you must specify an exit code number '%s'.\n", arg_id);
@@ -1952,22 +2013,22 @@ static int arg_handle_load_file(int UNUSED(argc), const char **argv, void *data)
   bool success;
 
   /* Make the path absolute because its needed for relative linked blends to be found */
-  char filename[FILE_MAX];
+  char filepath[FILE_MAX];
 
   /* NOTE: we could skip these, but so far we always tried to load these files. */
   if (argv[0][0] == '-') {
     fprintf(stderr, "unknown argument, loading as file: %s\n", argv[0]);
   }
 
-  BLI_strncpy(filename, argv[0], sizeof(filename));
-  BLI_path_slash_native(filename);
-  BLI_path_abs_from_cwd(filename, sizeof(filename));
-  BLI_path_normalize(NULL, filename);
+  BLI_strncpy(filepath, argv[0], sizeof(filepath));
+  BLI_path_slash_native(filepath);
+  BLI_path_abs_from_cwd(filepath, sizeof(filepath));
+  BLI_path_normalize(NULL, filepath);
 
   /* load the file */
   BKE_reports_init(&reports, RPT_PRINT);
-  WM_file_autoexec_init(filename);
-  success = WM_file_read(C, filename, &reports);
+  WM_file_autoexec_init(filepath);
+  success = WM_file_read(C, filepath, &reports);
   BKE_reports_clear(&reports);
 
   if (success) {
@@ -1988,16 +2049,16 @@ static int arg_handle_load_file(int UNUSED(argc), const char **argv, void *data)
       return -1;
     }
 
-    if (BLO_has_bfile_extension(filename)) {
+    if (BLO_has_bfile_extension(filepath)) {
       /* Just pretend a file was loaded, so the user can press Save and it'll
-       * save at the filename from the CLI. */
-      STRNCPY(G_MAIN->filepath, filename);
-      printf("... opened default scene instead; saving will write to: %s\n", filename);
+       * save at the filepath from the CLI. */
+      STRNCPY(G_MAIN->filepath, filepath);
+      printf("... opened default scene instead; saving will write to: %s\n", filepath);
     }
     else {
       printf(
           "Error: argument has no '.blend' file extension, not using as new file, exiting! %s\n",
-          filename);
+          filepath);
       G.is_break = true;
       WM_exit(C);
     }
@@ -2056,6 +2117,10 @@ void main_args_setup(bContext *C, bArgs *ba)
   BLI_args_add(ba, NULL, "--log-show-backtrace", CB(arg_handle_log_show_backtrace_set), ba);
   BLI_args_add(ba, NULL, "--log-show-timestamp", CB(arg_handle_log_show_timestamp_set), ba);
   BLI_args_add(ba, NULL, "--log-file", CB(arg_handle_log_file_set), ba);
+
+  /* GPU backend selection should be part of ARG_PASS_ENVIRONMENT for correct GPU context selection
+   * for anim player. */
+  BLI_args_add(ba, NULL, "--gpu-backend", CB(arg_handle_gpu_backend_set), NULL);
 
   /* Pass: Background Mode & Settings
    *
@@ -2130,8 +2195,13 @@ void main_args_setup(bContext *C, bArgs *ba)
   BLI_args_add(ba,
                NULL,
                "--debug-ghost",
-               CB_EX(arg_handle_debug_mode_generic_set, handlers),
+               CB_EX(arg_handle_debug_mode_generic_set, ghost),
                (void *)G_DEBUG_GHOST);
+  BLI_args_add(ba,
+               NULL,
+               "--debug-wintab",
+               CB_EX(arg_handle_debug_mode_generic_set, wintab),
+               (void *)G_DEBUG_WINTAB);
   BLI_args_add(ba, NULL, "--debug-all", CB(arg_handle_debug_mode_all), NULL);
 
   BLI_args_add(ba, NULL, "--debug-io", CB(arg_handle_debug_mode_io), NULL);
@@ -2200,6 +2270,11 @@ void main_args_setup(bContext *C, bArgs *ba)
                "--debug-gpu-force-workarounds",
                CB_EX(arg_handle_debug_mode_generic_set, gpu_force_workarounds),
                (void *)G_DEBUG_GPU_FORCE_WORKAROUNDS);
+  BLI_args_add(ba,
+               NULL,
+               "--debug-gpu-disable-ssbo",
+               CB_EX(arg_handle_debug_mode_generic_set, gpu_disable_ssbo),
+               (void *)G_DEBUG_GPU_FORCE_DISABLE_SSBO);
   BLI_args_add(ba, NULL, "--debug-exit-on-error", CB(arg_handle_debug_exit_on_error), NULL);
 
   BLI_args_add(ba, NULL, "--verbose", CB(arg_handle_verbosity_set), NULL);

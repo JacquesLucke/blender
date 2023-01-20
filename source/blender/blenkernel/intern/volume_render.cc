@@ -8,8 +8,8 @@
 
 #include "BLI_array.hh"
 #include "BLI_math_matrix.h"
-#include "BLI_math_vec_types.hh"
 #include "BLI_math_vector.h"
+#include "BLI_math_vector_types.hh"
 #include "BLI_vector.hh"
 
 #include "DNA_volume_types.h"
@@ -102,9 +102,8 @@ bool BKE_volume_grid_dense_floats(const Volume *volume,
   }
 
   const openvdb::Vec3i resolution = bbox.dim().asVec3i();
-  const int64_t num_voxels = static_cast<int64_t>(resolution[0]) *
-                             static_cast<int64_t>(resolution[1]) *
-                             static_cast<int64_t>(resolution[2]);
+  const int64_t num_voxels = int64_t(resolution[0]) * int64_t(resolution[1]) *
+                             int64_t(resolution[2]);
   const int channels = BKE_volume_grid_channels(volume_grid);
   const int elem_size = sizeof(float) * channels;
   float *voxels = static_cast<float *>(MEM_malloc_arrayN(num_voxels, elem_size, __func__));

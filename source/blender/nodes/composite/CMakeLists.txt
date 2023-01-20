@@ -10,17 +10,26 @@ set(INC
   ../../blenlib
   ../../blentranslation
   ../../depsgraph
+  ../../functions
+  ../../gpu
   ../../imbuf
   ../../makesdna
   ../../makesrna
   ../../render
   ../../windowmanager
+  ../../compositor/realtime_compositor
+  ../../compositor/realtime_compositor/algorithms
+  ../../compositor/realtime_compositor/cached_resources
   ../../../../intern/guardedalloc
 
   # dna_type_offsets.h
   ${CMAKE_CURRENT_BINARY_DIR}/../../makesdna/intern
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
+set(INC_SYS
+)
 
 set(SRC
   nodes/node_composite_alpha_over.cc
@@ -89,11 +98,12 @@ set(SRC
   nodes/node_composite_rotate.cc
   nodes/node_composite_scale.cc
   nodes/node_composite_scene_time.cc
+  nodes/node_composite_sepcomb_color.cc
   nodes/node_composite_sepcomb_hsva.cc
   nodes/node_composite_sepcomb_rgba.cc
+  nodes/node_composite_sepcomb_xyz.cc
   nodes/node_composite_sepcomb_ycca.cc
   nodes/node_composite_sepcomb_yuva.cc
-  nodes/node_composite_sepcomb_xyz.cc
   nodes/node_composite_setalpha.cc
   nodes/node_composite_split_viewer.cc
   nodes/node_composite_stabilize2d.cc
@@ -111,21 +121,27 @@ set(SRC
   nodes/node_composite_viewer.cc
   nodes/node_composite_zcombine.cc
 
+  node_composite_register.cc
   node_composite_tree.cc
   node_composite_util.cc
 
+  node_composite_register.hh
   node_composite_util.hh
+)
+
+set(LIB
+  bf_realtime_compositor
 )
 
 if(WITH_IMAGE_OPENEXR)
   add_definitions(-DWITH_OPENEXR)
 endif()
 
-if(WITH_COMPOSITOR)
+if(WITH_COMPOSITOR_CPU)
   list(APPEND INC
     ../../compositor
   )
-  add_definitions(-DWITH_COMPOSITOR)
+  add_definitions(-DWITH_COMPOSITOR_CPU)
 endif()
 
 if(WITH_OPENIMAGEDENOISE)
@@ -141,3 +157,5 @@ endif()
 
 # Needed so we can use dna_type_offsets.h for defaults initialization.
 add_dependencies(bf_nodes_composite bf_dna)
+# RNA_prototypes.h
+add_dependencies(bf_nodes_composite bf_rna)

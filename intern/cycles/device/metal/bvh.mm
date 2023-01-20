@@ -11,6 +11,7 @@
 #  include "util/progress.h"
 
 #  include "device/metal/bvh.h"
+#  include "device/metal/util.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -18,6 +19,7 @@ CCL_NAMESPACE_BEGIN
     { \
       string str = string_printf(__VA_ARGS__); \
       progress.set_substatus(str); \
+      metal_printf("%s\n", str.c_str()); \
     }
 
 BVHMetal::BVHMetal(const BVHParams &params_,
@@ -494,7 +496,7 @@ bool BVHMetal::build_BLAS_pointcloud(Progress &progress,
       num_motion_steps = pointcloud->get_motion_steps();
     }
 
-    const size_t num_aabbs = num_motion_steps;
+    const size_t num_aabbs = num_motion_steps * num_points;
 
     MTLResourceOptions storage_mode;
     if (device.hasUnifiedMemory) {
@@ -753,6 +755,10 @@ bool BVHMetal::build_TLAS(Progress &progress,
       else {
         num_motion_transforms++;
       }
+    }
+
+    if (num_instances == 0) {
+      return false;
     }
 
     /*------------------------------------------------*/

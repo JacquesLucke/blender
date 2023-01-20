@@ -66,6 +66,8 @@
 
 namespace blender {
 
+template<typename T> uint64_t get_default_hash(const T &v);
+
 /**
  * References an array of type T that is owned by someone else. The data in the array cannot be
  * modified.
@@ -112,13 +114,11 @@ template<typename T> class Span {
    *  Span<int> span = {1, 2, 3, 4};
    *  call_function_with_array(span);
    */
-  constexpr Span(const std::initializer_list<T> &list)
-      : Span(list.begin(), static_cast<int64_t>(list.size()))
+  constexpr Span(const std::initializer_list<T> &list) : Span(list.begin(), int64_t(list.size()))
   {
   }
 
-  constexpr Span(const std::vector<T> &vector)
-      : Span(vector.data(), static_cast<int64_t>(vector.size()))
+  constexpr Span(const std::vector<T> &vector) : Span(vector.data(), int64_t(vector.size()))
   {
   }
 
@@ -143,13 +143,30 @@ template<typename T> class Span {
   {
     BLI_assert(start >= 0);
     BLI_assert(size >= 0);
-    const int64_t new_size = std::max<int64_t>(0, std::min(size, size_ - start));
-    return Span(data_ + start, new_size);
+    BLI_assert(start + size <= size_ || size == 0);
+    return Span(data_ + start, size);
   }
 
   constexpr Span slice(IndexRange range) const
   {
     return this->slice(range.start(), range.size());
+  }
+
+  /**
+   * Returns a contiguous part of the array. This invokes undefined behavior when the start or size
+   * is negative. Clamps the size of the new span so it fits in the current one.
+   */
+  constexpr Span slice_safe(const int64_t start, const int64_t size) const
+  {
+    BLI_assert(start >= 0);
+    BLI_assert(size >= 0);
+    const int64_t new_size = std::max<int64_t>(0, std::min(size, size_ - start));
+    return Span(data_ + start, new_size);
+  }
+
+  constexpr Span slice_safe(IndexRange range) const
+  {
+    return this->slice_safe(range.start(), range.size());
   }
 
   /**
@@ -307,13 +324,14 @@ template<typename T> class Span {
   }
 
   /**
-   * Returns a reference to the last element in the array. This invokes undefined behavior when the
-   * array is empty.
+   * Returns a reference to the nth last element. This invokes undefined behavior when the span is
+   * too short.
    */
-  constexpr const T &last() const
+  constexpr const T &last(const int64_t n = 0) const
   {
-    BLI_assert(size_ > 0);
-    return data_[size_ - 1];
+    BLI_assert(n >= 0);
+    BLI_assert(n < size_);
+    return data_[size_ - 1 - n];
   }
 
   /**
@@ -400,6 +418,15 @@ template<typename T> class Span {
   constexpr IndexRange index_range() const
   {
     return IndexRange(size_);
+  }
+
+  constexpr uint64_t hash() const
+  {
+    uint64_t hash = 0;
+    for (const T &value : *this) {
+      hash = hash * 33 ^ get_default_hash(value);
+    }
+    return hash;
   }
 
   /**
@@ -581,13 +608,30 @@ template<typename T> class MutableSpan {
   {
     BLI_assert(start >= 0);
     BLI_assert(size >= 0);
-    const int64_t new_size = std::max<int64_t>(0, std::min(size, size_ - start));
-    return MutableSpan(data_ + start, new_size);
+    BLI_assert(start + size <= size_ || size == 0);
+    return MutableSpan(data_ + start, size);
   }
 
   constexpr MutableSpan slice(IndexRange range) const
   {
     return this->slice(range.start(), range.size());
+  }
+
+  /**
+   * Returns a contiguous part of the array. This invokes undefined behavior when the start or size
+   * is negative. Clamps the size of the new span so it fits in the current one.
+   */
+  constexpr MutableSpan slice_safe(const int64_t start, const int64_t size) const
+  {
+    BLI_assert(start >= 0);
+    BLI_assert(size >= 0);
+    const int64_t new_size = std::max<int64_t>(0, std::min(size, size_ - start));
+    return MutableSpan(data_ + start, new_size);
+  }
+
+  constexpr MutableSpan slice_safe(IndexRange range) const
+  {
+    return this->slice_safe(range.start(), range.size());
   }
 
   /**
@@ -673,13 +717,14 @@ template<typename T> class MutableSpan {
   }
 
   /**
-   * Returns a reference to the last element. This invokes undefined behavior when the array is
-   * empty.
+   * Returns a reference to the nth last element. This invokes undefined behavior when the span is
+   * too short.
    */
-  constexpr T &last() const
+  constexpr T &last(const int64_t n = 0) const
   {
-    BLI_assert(size_ > 0);
-    return data_[size_ - 1];
+    BLI_assert(n >= 0);
+    BLI_assert(n < size_);
+    return data_[size_ - 1 - n];
   }
 
   /**
@@ -716,8 +761,20 @@ template<typename T> class MutableSpan {
   {
     BLI_assert((size_ * sizeof(T)) % sizeof(NewT) == 0);
     int64_t new_size = size_ * sizeof(T) / sizeof(NewT);
-    return MutableSpan<NewT>((NewT *)data_, new_size);
+    return MutableSpan<NewT>(reinterpret_cast<NewT *>(data_), new_size);
   }
 };
+
+/** This is defined here, because in `BLI_index_range.hh` `Span` is not yet defined. */
+inline Span<int64_t> IndexRange::as_span() const
+{
+  const int64_t min_required_size = start_ + size_;
+  const int64_t current_array_size = s_current_array_size.load(std::memory_order_acquire);
+  const int64_t *current_array = s_current_array.load(std::memory_order_acquire);
+  if (min_required_size <= current_array_size) {
+    return Span<int64_t>(current_array + start_, size_);
+  }
+  return this->as_span_internal();
+}
 
 } /* namespace blender */

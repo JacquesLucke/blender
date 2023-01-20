@@ -15,7 +15,7 @@ struct ProjCameraInfo;
 /**
  * Create UV info from the camera, needs to be freed.
  *
- * \param rotmat: can be `obedit->obmat` when uv project is used.
+ * \param rotmat: can be `obedit->object_to_world` when uv project is used.
  * \param winx, winy: can be from `scene->r.xsch / ysch`.
  */
 struct ProjCameraInfo *BLI_uvproject_camera_info(struct Object *ob,
@@ -40,7 +40,7 @@ void BLI_uvproject_from_view(float target[2],
                              float winy);
 
 /**
- * Apply orthographic UV's.
+ * Apply orthographic UVs.
  */
 void BLI_uvproject_from_view_ortho(float target[2], float source[3], const float rotmat[4][4]);
 

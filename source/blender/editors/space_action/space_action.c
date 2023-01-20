@@ -42,6 +42,8 @@
 #include "ED_space_api.h"
 #include "ED_time_scrub_ui.h"
 
+#include "BLO_read_write.h"
+
 #include "action_intern.h" /* own include */
 
 /* ******************** default callbacks for action space ***************** */
@@ -90,7 +92,6 @@ static SpaceLink *action_create(const ScrArea *area, const Scene *scene)
   BLI_addtail(&saction->regionbase, region);
   region->regiontype = RGN_TYPE_UI;
   region->alignment = RGN_ALIGN_RIGHT;
-  region->flag = RGN_FLAG_HIDDEN;
 
   /* main region */
   region = MEM_callocN(sizeof(ARegion), "main region for action");
@@ -98,9 +99,9 @@ static SpaceLink *action_create(const ScrArea *area, const Scene *scene)
   BLI_addtail(&saction->regionbase, region);
   region->regiontype = RGN_TYPE_WINDOW;
 
-  region->v2d.tot.xmin = (float)(SFRA - 10);
+  region->v2d.tot.xmin = (float)(scene->r.sfra - 10);
   region->v2d.tot.ymin = (float)(-area->winy) / 3.0f;
-  region->v2d.tot.xmax = (float)(EFRA + 10);
+  region->v2d.tot.xmax = (float)(scene->r.efra + 10);
   region->v2d.tot.ymax = 0.0f;
 
   region->v2d.cur = region->v2d.tot;
@@ -170,12 +171,8 @@ static void action_main_region_draw(const bContext *C, ARegion *region)
   bAnimContext ac;
   View2D *v2d = &region->v2d;
   short marker_flag = 0;
-  short cfra_flag = 0;
 
   UI_view2d_view_ortho(v2d);
-  if (saction->flag & SACTION_DRAWTIME) {
-    cfra_flag |= DRAWCFRA_UNIT_SECONDS;
-  }
 
   /* clear and setup matrix */
   UI_ThemeClearColor(TH_BACK);
@@ -228,6 +225,9 @@ static void action_main_region_draw(const bContext *C, ARegion *region)
 
   /* reset view matrix */
   UI_view2d_view_restore(C);
+
+  /* gizmos */
+  WM_gizmomap_draw(region->gizmo_map, C, WM_GIZMOMAP_DRAWSTEP_2D);
 
   /* scrubbing region */
   ED_time_scrub_draw(region, scene, saction->flag & SACTION_DRAWTIME, true);
@@ -309,7 +309,7 @@ static void action_header_region_draw(const bContext *C, ARegion *region)
 static void action_channel_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -403,7 +403,7 @@ static void saction_channel_region_message_subscribe(const wmRegionMessageSubscr
 static void action_main_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -478,12 +478,6 @@ static void saction_main_region_message_subscribe(const wmRegionMessageSubscribe
   /* Timeline depends on scene properties. */
   {
     bool use_preview = (scene->r.flag & SCER_PRV_RANGE);
-    extern PropertyRNA rna_Scene_frame_start;
-    extern PropertyRNA rna_Scene_frame_end;
-    extern PropertyRNA rna_Scene_frame_preview_start;
-    extern PropertyRNA rna_Scene_frame_preview_end;
-    extern PropertyRNA rna_Scene_use_preview_range;
-    extern PropertyRNA rna_Scene_frame_current;
     const PropertyRNA *props[] = {
         use_preview ? &rna_Scene_frame_preview_start : &rna_Scene_frame_start,
         use_preview ? &rna_Scene_frame_preview_end : &rna_Scene_frame_end,
@@ -507,14 +501,14 @@ static void saction_main_region_message_subscribe(const wmRegionMessageSubscribe
 static void action_listener(const wmSpaceTypeListenerParams *params)
 {
   ScrArea *area = params->area;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
   SpaceAction *saction = (SpaceAction *)area->spacedata.first;
 
   /* context changes */
   switch (wmn->category) {
     case NC_GPENCIL:
-      /* only handle these events in GPencil mode for performance considerations */
-      if (saction->mode == SACTCONT_GPENCIL) {
+      /* only handle these events for containers in which GPencil frames are displayed */
+      if (ELEM(saction->mode, SACTCONT_GPENCIL, SACTCONT_DOPESHEET, SACTCONT_TIMELINE)) {
         if (wmn->action == NA_EDITED) {
           ED_area_tag_redraw(area);
         }
@@ -568,8 +562,8 @@ static void action_listener(const wmSpaceTypeListenerParams *params)
           LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
             if (region->regiontype == RGN_TYPE_WINDOW) {
               Scene *scene = wmn->reference;
-              region->v2d.tot.xmin = (float)(SFRA - 4);
-              region->v2d.tot.xmax = (float)(EFRA + 4);
+              region->v2d.tot.xmin = (float)(scene->r.sfra - 4);
+              region->v2d.tot.xmax = (float)(scene->r.efra + 4);
               break;
             }
           }
@@ -661,7 +655,7 @@ static void action_header_region_listener(const wmRegionListenerParams *params)
 {
   ScrArea *area = params->area;
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
   SpaceAction *saction = (SpaceAction *)area->spacedata.first;
 
   /* context changes */
@@ -736,7 +730,7 @@ static void action_buttons_area_draw(const bContext *C, ARegion *region)
 static void action_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -842,13 +836,37 @@ static void action_space_subtype_item_extend(bContext *UNUSED(C),
   RNA_enum_items_add(item, totitem, rna_enum_space_action_mode_items);
 }
 
+static void action_blend_read_data(BlendDataReader *UNUSED(reader), SpaceLink *sl)
+{
+  SpaceAction *saction = (SpaceAction *)sl;
+  memset(&saction->runtime, 0x0, sizeof(saction->runtime));
+}
+
+static void action_blend_read_lib(BlendLibReader *reader, ID *parent_id, SpaceLink *sl)
+{
+  SpaceAction *saction = (SpaceAction *)sl;
+  bDopeSheet *ads = &saction->ads;
+
+  if (ads) {
+    BLO_read_id_address(reader, parent_id->lib, &ads->source);
+    BLO_read_id_address(reader, parent_id->lib, &ads->filter_grp);
+  }
+
+  BLO_read_id_address(reader, parent_id->lib, &saction->action);
+}
+
+static void action_blend_write(BlendWriter *writer, SpaceLink *sl)
+{
+  BLO_write_struct(writer, SpaceAction, sl);
+}
+
 void ED_spacetype_action(void)
 {
   SpaceType *st = MEM_callocN(sizeof(SpaceType), "spacetype action");
   ARegionType *art;
 
   st->spaceid = SPACE_ACTION;
-  strncpy(st->name, "Action", BKE_ST_MAXNAME);
+  STRNCPY(st->name, "Action");
 
   st->create = action_create;
   st->free = action_free;
@@ -862,6 +880,9 @@ void ED_spacetype_action(void)
   st->space_subtype_item_extend = action_space_subtype_item_extend;
   st->space_subtype_get = action_space_subtype_get;
   st->space_subtype_set = action_space_subtype_set;
+  st->blend_read_data = action_blend_read_data;
+  st->blend_read_lib = action_blend_read_lib;
+  st->blend_write = action_blend_write;
 
   /* regions: main window */
   art = MEM_callocN(sizeof(ARegionType), "spacetype action region");
@@ -871,7 +892,7 @@ void ED_spacetype_action(void)
   art->draw_overlay = action_main_region_draw_overlay;
   art->listener = action_main_region_listener;
   art->message_subscribe = saction_main_region_message_subscribe;
-  art->keymapflag = ED_KEYMAP_VIEW2D | ED_KEYMAP_ANIMATION | ED_KEYMAP_FRAMES;
+  art->keymapflag = ED_KEYMAP_GIZMO | ED_KEYMAP_VIEW2D | ED_KEYMAP_ANIMATION | ED_KEYMAP_FRAMES;
 
   BLI_addhead(&st->regiontypes, art);
 
@@ -912,6 +933,9 @@ void ED_spacetype_action(void)
   BLI_addhead(&st->regiontypes, art);
 
   action_buttons_register(art);
+
+  art = ED_area_type_hud(st->spaceid);
+  BLI_addhead(&st->regiontypes, art);
 
   BKE_spacetype_register(st);
 }

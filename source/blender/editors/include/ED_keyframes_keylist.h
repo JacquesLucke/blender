@@ -15,7 +15,6 @@ extern "C" {
 
 struct AnimData;
 struct CacheFile;
-struct DLRBT_Tree;
 struct FCurve;
 struct MaskLayer;
 struct Object;
@@ -131,7 +130,11 @@ const struct ActKeyColumn *ED_keylist_find_any_between(const struct AnimKeylist 
                                                        const Range2f frame_range);
 bool ED_keylist_is_empty(const struct AnimKeylist *keylist);
 const struct ListBase /* ActKeyColumn */ *ED_keylist_listbase(const struct AnimKeylist *keylist);
-bool ED_keylist_frame_range(const struct AnimKeylist *keylist, Range2f *r_frame_range);
+bool ED_keylist_all_keys_frame_range(const struct AnimKeylist *keylist, Range2f *r_frame_range);
+/* Return the selected keyframe's range. If none are selected, return False and
+ * do not affect the frame range. */
+bool ED_keylist_selected_keys_frame_range(const struct AnimKeylist *keylist,
+                                          Range2f *r_frame_range);
 const ActKeyColumn *ED_keylist_array(const struct AnimKeylist *keylist);
 int64_t ED_keylist_array_len(const struct AnimKeylist *keylist);
 
@@ -183,10 +186,10 @@ void mask_to_keylist(struct bDopeSheet *ads,
 
 /* ActKeyColumn API ---------------- */
 
-/* Checks if ActKeyColumn has any block data */
+/** Checks if #ActKeyColumn has any block data. */
 bool actkeyblock_is_valid(const ActKeyColumn *ac);
 
-/* Checks if ActKeyColumn can be used as a block (i.e. drawn/used to detect "holds") */
+/** Checks if #ActKeyColumn can be used as a block (i.e. drawn/used to detect "holds"). */
 int actkeyblock_get_valid_hold(const ActKeyColumn *ac);
 
 #ifdef __cplusplus

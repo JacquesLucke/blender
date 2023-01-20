@@ -13,7 +13,6 @@ extern "C" {
 
 #include "BLI_ghash.h"
 
-struct Editing;
 struct GSet;
 struct GSetIterator;
 struct Sequence;
@@ -131,6 +130,9 @@ bool SEQ_collection_remove_strip(struct Sequence *seq, SeqCollection *collection
  * \param collection: collection to be freed
  */
 void SEQ_collection_free(SeqCollection *collection);
+/** Quiet compiler warning for free function. */
+#define SEQ_collection_free_void_p ((GHashValFreeFP)SEQ_collection_free)
+
 /**
  * Move strips from collection_src to collection_dst. Source collection will be freed.
  *
@@ -154,9 +156,11 @@ void SEQ_collection_exclude(SeqCollection *collection, SeqCollection *exclude_el
  * \param collection: SeqCollection to be expanded
  * \param seq_query_func: query function callback
  */
-void SEQ_collection_expand(struct ListBase *seqbase,
+void SEQ_collection_expand(const struct Scene *scene,
+                           struct ListBase *seqbase,
                            SeqCollection *collection,
-                           void seq_query_func(struct Sequence *seq_reference,
+                           void seq_query_func(const struct Scene *scene,
+                                               struct Sequence *seq_reference,
                                                struct ListBase *seqbase,
                                                SeqCollection *collection));
 /**
@@ -168,8 +172,10 @@ void SEQ_collection_expand(struct ListBase *seqbase,
  * \return strip collection
  */
 SeqCollection *SEQ_query_by_reference(struct Sequence *seq_reference,
+                                      const struct Scene *scene,
                                       struct ListBase *seqbase,
-                                      void seq_query_func(struct Sequence *seq_reference,
+                                      void seq_query_func(const struct Scene *scene,
+                                                          struct Sequence *seq_reference,
                                                           struct ListBase *seqbase,
                                                           SeqCollection *collection));
 /**
@@ -208,7 +214,9 @@ SeqCollection *SEQ_query_all_strips_recursive(ListBase *seqbase);
  * \param displayed_channel: viewed channel. when set to 0, no channel filter is applied
  * \return strip collection
  */
-SeqCollection *SEQ_query_rendered_strips(ListBase *seqbase,
+SeqCollection *SEQ_query_rendered_strips(const struct Scene *scene,
+                                         ListBase *channels,
+                                         ListBase *seqbase,
                                          int timeline_frame,
                                          int displayed_channel);
 /**
@@ -220,7 +228,8 @@ SeqCollection *SEQ_query_rendered_strips(ListBase *seqbase,
  * \param seqbase: ListBase in which strips are queried
  * \param collection: collection to be filled
  */
-void SEQ_query_strip_effect_chain(struct Sequence *seq_reference,
+void SEQ_query_strip_effect_chain(const struct Scene *scene,
+                                  struct Sequence *seq_reference,
                                   struct ListBase *seqbase,
                                   SeqCollection *collection);
 void SEQ_filter_selected_strips(SeqCollection *collection);

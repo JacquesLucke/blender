@@ -25,6 +25,8 @@
 
 #include "BLF_api.h"
 
+#include "UI_interface.h"
+
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
@@ -159,7 +161,7 @@ static void wm_keymap_item_properties_update_ot_from_list(ListBase *km_lb)
 static bool wm_keymap_item_equals_result(wmKeyMapItem *a, wmKeyMapItem *b)
 {
   return (STREQ(a->idname, b->idname) &&
-          /* We do not really care about which Main we pass here, tbh. */
+          /* We do not really care about which Main we pass here, TBH. */
           RNA_struct_equals(G_MAIN, a->ptr, b->ptr, RNA_EQ_UNSET_MATCH_NONE) &&
           (a->flag & KMI_INACTIVE) == (b->flag & KMI_INACTIVE) && a->propvalue == b->propvalue);
 }
@@ -169,6 +171,7 @@ static bool wm_keymap_item_equals(wmKeyMapItem *a, wmKeyMapItem *b)
   return (wm_keymap_item_equals_result(a, b) && a->type == b->type && a->val == b->val &&
           a->shift == b->shift && a->ctrl == b->ctrl && a->alt == b->alt && a->oskey == b->oskey &&
           a->keymodifier == b->keymodifier && a->maptype == b->maptype &&
+          ((a->val != KM_CLICK_DRAG) || (a->direction == b->direction)) &&
           ((ISKEYBOARD(a->type) == 0) ||
            (a->flag & KMI_REPEAT_IGNORE) == (b->flag & KMI_REPEAT_IGNORE)));
 }
@@ -194,9 +197,6 @@ int WM_keymap_item_map_type_get(const wmKeyMapItem *kmi)
   }
   if (ISKEYBOARD(kmi->type)) {
     return KMI_TYPE_KEYBOARD;
-  }
-  if (ISTWEAK(kmi->type)) {
-    return KMI_TYPE_TWEAK;
   }
   if (ISMOUSE(kmi->type)) {
     return KMI_TYPE_MOUSE;
@@ -447,7 +447,10 @@ bool WM_keymap_poll(bContext *C, wmKeyMap *keymap)
      * When developing a customized Blender though you may want empty keymaps. */
     if (!U.app_template[0] &&
         /* Fallback key-maps may be intentionally empty, don't flood the output. */
-        !BLI_str_endswith(keymap->idname, " (fallback)")) {
+        !BLI_str_endswith(keymap->idname, " (fallback)") &&
+        /* This is an exception which may be empty.
+         * Longer term we might want a flag to indicate an empty key-map is intended. */
+        !STREQ(keymap->idname, "Node Tool: Tweak")) {
       CLOG_WARN(WM_LOG_KEYMAPS, "empty keymap '%s'", keymap->idname);
     }
   }
@@ -458,31 +461,35 @@ bool WM_keymap_poll(bContext *C, wmKeyMap *keymap)
   return true;
 }
 
-static void keymap_event_set(
-    wmKeyMapItem *kmi, short type, short val, int modifier, short keymodifier)
+static void keymap_event_set(wmKeyMapItem *kmi, const KeyMapItem_Params *params)
 {
-  kmi->type = type;
-  kmi->val = val;
-  kmi->keymodifier = keymodifier;
+  kmi->type = params->type;
+  kmi->val = params->value;
+  kmi->keymodifier = params->keymodifier;
+  kmi->direction = params->direction;
 
-  if (modifier == KM_ANY) {
+  if (params->modifier == KM_ANY) {
     kmi->shift = kmi->ctrl = kmi->alt = kmi->oskey = KM_ANY;
   }
   else {
     /* Only one of the flags should be set. */
-    BLI_assert(((modifier & (KM_SHIFT | KM_SHIFT_ANY)) != (KM_SHIFT | KM_SHIFT_ANY)) &&
-               ((modifier & (KM_CTRL | KM_CTRL_ANY)) != (KM_CTRL | KM_CTRL_ANY)) &&
-               ((modifier & (KM_ALT | KM_ALT_ANY)) != (KM_ALT | KM_ALT_ANY)) &&
-               ((modifier & (KM_OSKEY | KM_OSKEY_ANY)) != (KM_OSKEY | KM_OSKEY_ANY)));
+    BLI_assert(((params->modifier & (KM_SHIFT | KM_SHIFT_ANY)) != (KM_SHIFT | KM_SHIFT_ANY)) &&
+               ((params->modifier & (KM_CTRL | KM_CTRL_ANY)) != (KM_CTRL | KM_CTRL_ANY)) &&
+               ((params->modifier & (KM_ALT | KM_ALT_ANY)) != (KM_ALT | KM_ALT_ANY)) &&
+               ((params->modifier & (KM_OSKEY | KM_OSKEY_ANY)) != (KM_OSKEY | KM_OSKEY_ANY)));
 
-    kmi->shift = ((modifier & KM_SHIFT) ? KM_MOD_HELD :
-                                          ((modifier & KM_SHIFT_ANY) ? KM_ANY : KM_NOTHING));
-    kmi->ctrl = ((modifier & KM_CTRL) ? KM_MOD_HELD :
-                                        ((modifier & KM_CTRL_ANY) ? KM_ANY : KM_NOTHING));
-    kmi->alt = ((modifier & KM_ALT) ? KM_MOD_HELD :
-                                      ((modifier & KM_ALT_ANY) ? KM_ANY : KM_NOTHING));
-    kmi->oskey = ((modifier & KM_OSKEY) ? KM_MOD_HELD :
-                                          ((modifier & KM_OSKEY_ANY) ? KM_ANY : KM_NOTHING));
+    kmi->shift = ((params->modifier & KM_SHIFT) ?
+                      KM_MOD_HELD :
+                      ((params->modifier & KM_SHIFT_ANY) ? KM_ANY : KM_NOTHING));
+    kmi->ctrl = ((params->modifier & KM_CTRL) ?
+                     KM_MOD_HELD :
+                     ((params->modifier & KM_CTRL_ANY) ? KM_ANY : KM_NOTHING));
+    kmi->alt = ((params->modifier & KM_ALT) ?
+                    KM_MOD_HELD :
+                    ((params->modifier & KM_ALT_ANY) ? KM_ANY : KM_NOTHING));
+    kmi->oskey = ((params->modifier & KM_OSKEY) ?
+                      KM_MOD_HELD :
+                      ((params->modifier & KM_OSKEY_ANY) ? KM_ANY : KM_NOTHING));
   }
 }
 
@@ -497,15 +504,16 @@ static void keymap_item_set_id(wmKeyMap *keymap, wmKeyMapItem *kmi)
   }
 }
 
-wmKeyMapItem *WM_keymap_add_item(
-    wmKeyMap *keymap, const char *idname, int type, int val, int modifier, int keymodifier)
+wmKeyMapItem *WM_keymap_add_item(wmKeyMap *keymap,
+                                 const char *idname,
+                                 const KeyMapItem_Params *params)
 {
   wmKeyMapItem *kmi = MEM_callocN(sizeof(wmKeyMapItem), "keymap entry");
 
   BLI_addtail(&keymap->items, kmi);
   BLI_strncpy(kmi->idname, idname, OP_MAX_TYPENAME);
 
-  keymap_event_set(kmi, type, val, modifier, keymodifier);
+  keymap_event_set(kmi, params);
   wm_keymap_item_properties_set(kmi);
 
   keymap_item_set_id(keymap, kmi);
@@ -918,15 +926,14 @@ wmKeyMap *WM_modalkeymap_find(wmKeyConfig *keyconf, const char *idname)
   return NULL;
 }
 
-wmKeyMapItem *WM_modalkeymap_add_item(
-    wmKeyMap *km, int type, int val, int modifier, int keymodifier, int value)
+wmKeyMapItem *WM_modalkeymap_add_item(wmKeyMap *km, const KeyMapItem_Params *params, int value)
 {
   wmKeyMapItem *kmi = MEM_callocN(sizeof(wmKeyMapItem), "keymap entry");
 
   BLI_addtail(&km->items, kmi);
   kmi->propvalue = value;
 
-  keymap_event_set(kmi, type, val, modifier, keymodifier);
+  keymap_event_set(kmi, params);
 
   keymap_item_set_id(km, kmi);
 
@@ -935,15 +942,16 @@ wmKeyMapItem *WM_modalkeymap_add_item(
   return kmi;
 }
 
-wmKeyMapItem *WM_modalkeymap_add_item_str(
-    wmKeyMap *km, int type, int val, int modifier, int keymodifier, const char *value)
+wmKeyMapItem *WM_modalkeymap_add_item_str(wmKeyMap *km,
+                                          const KeyMapItem_Params *params,
+                                          const char *value)
 {
   wmKeyMapItem *kmi = MEM_callocN(sizeof(wmKeyMapItem), "keymap entry");
 
   BLI_addtail(&km->items, kmi);
   BLI_strncpy(kmi->propvalue_str, value, sizeof(kmi->propvalue_str));
 
-  keymap_event_set(kmi, type, val, modifier, keymodifier);
+  keymap_event_set(kmi, params);
 
   keymap_item_set_id(km, kmi);
 
@@ -978,7 +986,7 @@ const wmKeyMapItem *WM_modalkeymap_find_propvalue(const wmKeyMap *km, const int 
 
 void WM_modalkeymap_assign(wmKeyMap *km, const char *opname)
 {
-  wmOperatorType *ot = WM_operatortype_find(opname, 0);
+  wmOperatorType *ot = WM_operatortype_find(opname, false);
 
   if (ot) {
     ot->modalkeymap = km;
@@ -1191,6 +1199,9 @@ int WM_keymap_item_raw_to_string(const short shift,
     if (val == KM_DBL_CLICK) {
       p += BLI_strcpy_rlen(p, IFACE_("dbl-"));
     }
+    else if (val == KM_CLICK_DRAG) {
+      p += BLI_strcpy_rlen(p, IFACE_("drag-"));
+    }
     p += BLI_strcpy_rlen(p, WM_key_event_string(type, compact));
   }
 
@@ -1305,12 +1316,13 @@ static wmKeyMapItem *wm_keymap_item_find_in_keymap(wmKeyMap *keymap,
     if (kmi->flag & KMI_INACTIVE) {
       continue;
     }
+    if (!STREQ(kmi->idname, opname)) {
+      continue;
+    }
 
     bool kmi_match = false;
-
-    if (STREQ(kmi->idname, opname)) {
-      if (properties) {
-        /* example of debugging keymaps */
+    if (properties) {
+      /* example of debugging keymaps */
 #if 0
         if (kmi->ptr) {
           if (STREQ("MESH_OT_rip_move", opname)) {
@@ -1322,54 +1334,53 @@ static wmKeyMapItem *wm_keymap_item_find_in_keymap(wmKeyMap *keymap,
         }
 #endif
 
-        if (kmi->ptr && IDP_EqualsProperties_ex(properties, kmi->ptr->data, is_strict)) {
-          kmi_match = true;
-        }
-        /* Debug only, helps spotting mismatches between menu entries and shortcuts! */
-        else if (G.debug & G_DEBUG_WM) {
-          if (is_strict && kmi->ptr) {
-            wmOperatorType *ot = WM_operatortype_find(opname, true);
-            if (ot) {
-              /* make a copy of the properties and set unset ones to their default values. */
-              PointerRNA opptr;
-              IDProperty *properties_default = IDP_CopyProperty(kmi->ptr->data);
+      if (kmi->ptr && IDP_EqualsProperties_ex(properties, kmi->ptr->data, is_strict)) {
+        kmi_match = true;
+      }
+      /* Debug only, helps spotting mismatches between menu entries and shortcuts! */
+      else if (G.debug & G_DEBUG_WM) {
+        if (is_strict && kmi->ptr) {
+          wmOperatorType *ot = WM_operatortype_find(opname, true);
+          if (ot) {
+            /* make a copy of the properties and set unset ones to their default values. */
+            PointerRNA opptr;
+            IDProperty *properties_default = IDP_CopyProperty(kmi->ptr->data);
 
-              RNA_pointer_create(NULL, ot->srna, properties_default, &opptr);
-              WM_operator_properties_default(&opptr, true);
+            RNA_pointer_create(NULL, ot->srna, properties_default, &opptr);
+            WM_operator_properties_default(&opptr, true);
 
-              if (IDP_EqualsProperties_ex(properties, properties_default, is_strict)) {
-                char kmi_str[128];
-                WM_keymap_item_to_string(kmi, false, kmi_str, sizeof(kmi_str));
-                /* NOTE: given properties could come from other things than menu entry. */
-                printf(
-                    "%s: Some set values in menu entry match default op values, "
-                    "this might not be desired!\n",
-                    opname);
-                printf("\tkm: '%s', kmi: '%s'\n", keymap->idname, kmi_str);
+            if (IDP_EqualsProperties_ex(properties, properties_default, is_strict)) {
+              char kmi_str[128];
+              WM_keymap_item_to_string(kmi, false, kmi_str, sizeof(kmi_str));
+              /* NOTE: given properties could come from other things than menu entry. */
+              printf(
+                  "%s: Some set values in menu entry match default op values, "
+                  "this might not be desired!\n",
+                  opname);
+              printf("\tkm: '%s', kmi: '%s'\n", keymap->idname, kmi_str);
 #ifndef NDEBUG
 #  ifdef WITH_PYTHON
-                printf("OPERATOR\n");
-                IDP_print(properties);
-                printf("KEYMAP\n");
-                IDP_print(kmi->ptr->data);
+              printf("OPERATOR\n");
+              IDP_print(properties);
+              printf("KEYMAP\n");
+              IDP_print(kmi->ptr->data);
 #  endif
 #endif
-                printf("\n");
-              }
-
-              IDP_FreeProperty(properties_default);
+              printf("\n");
             }
+
+            IDP_FreeProperty(properties_default);
           }
         }
       }
-      else {
-        kmi_match = true;
-      }
+    }
+    else {
+      kmi_match = true;
+    }
 
-      if (kmi_match) {
-        if ((params == NULL) || params->filter_fn(keymap, kmi, params->user_data)) {
-          return kmi;
-        }
+    if (kmi_match) {
+      if ((params == NULL) || params->filter_fn(keymap, kmi, params->user_data)) {
+        return kmi;
       }
     }
   }
@@ -1650,6 +1661,11 @@ char *WM_key_event_operator_string(const bContext *C,
     return result;
   }
 
+  /* Check UI state (non key-map actions for UI regions). */
+  if (UI_key_event_operator_string(C, opname, properties, is_strict, result, result_len)) {
+    return result;
+  }
+
   return NULL;
 }
 
@@ -1728,6 +1744,9 @@ bool WM_keymap_item_compare(const wmKeyMapItem *k1, const wmKeyMapItem *k2)
       return 0;
     }
     if (k1->val != k2->val) {
+      return 0;
+    }
+    if (k1->val == KM_CLICK_DRAG && (k1->direction != k2->direction)) {
       return 0;
     }
   }

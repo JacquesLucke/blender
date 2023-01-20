@@ -21,14 +21,14 @@ static void sh_node_valtorgb_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Float>(N_("Alpha"));
 }
 
-static void node_shader_init_valtorgb(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_valtorgb(bNodeTree * /*ntree*/, bNode *node)
 {
   node->storage = BKE_colorband_add(true);
 }
 
 static int gpu_shader_valtorgb(GPUMaterial *mat,
                                bNode *node,
-                               bNodeExecData *UNUSED(execdata),
+                               bNodeExecData * /*execdata*/,
                                GPUNodeStack *in,
                                GPUNodeStack *out)
 {
@@ -87,37 +87,33 @@ static int gpu_shader_valtorgb(GPUMaterial *mat,
   return GPU_stack_link(mat, node, "valtorgb", in, out, tex, GPU_constant(&layer));
 }
 
-class ColorBandFunction : public blender::fn::MultiFunction {
+class ColorBandFunction : public mf::MultiFunction {
  private:
   const ColorBand &color_band_;
 
  public:
   ColorBandFunction(const ColorBand &color_band) : color_band_(color_band)
   {
-    static blender::fn::MFSignature signature = create_signature();
+    static const mf::Signature signature = []() {
+      mf::Signature signature;
+      mf::SignatureBuilder builder{"Color Band", signature};
+      builder.single_input<float>("Value");
+      builder.single_output<ColorGeometry4f>("Color");
+      builder.single_output<float>("Alpha");
+      return signature;
+    }();
     this->set_signature(&signature);
   }
 
-  static blender::fn::MFSignature create_signature()
+  void call(IndexMask mask, mf::Params params, mf::Context /*context*/) const override
   {
-    blender::fn::MFSignatureBuilder signature{"Color Band"};
-    signature.single_input<float>("Value");
-    signature.single_output<blender::ColorGeometry4f>("Color");
-    signature.single_output<float>("Alpha");
-    return signature.build();
-  }
-
-  void call(blender::IndexMask mask,
-            blender::fn::MFParams params,
-            blender::fn::MFContext UNUSED(context)) const override
-  {
-    const blender::VArray<float> &values = params.readonly_single_input<float>(0, "Value");
-    blender::MutableSpan<blender::ColorGeometry4f> colors =
-        params.uninitialized_single_output<blender::ColorGeometry4f>(1, "Color");
-    blender::MutableSpan<float> alphas = params.uninitialized_single_output<float>(2, "Alpha");
+    const VArray<float> &values = params.readonly_single_input<float>(0, "Value");
+    MutableSpan<ColorGeometry4f> colors = params.uninitialized_single_output<ColorGeometry4f>(
+        1, "Color");
+    MutableSpan<float> alphas = params.uninitialized_single_output<float>(2, "Alpha");
 
     for (int64_t i : mask) {
-      blender::ColorGeometry4f color;
+      ColorGeometry4f color;
       BKE_colorband_evaluate(&color_band_, values[i], color);
       colors[i] = color;
       alphas[i] = color.a;
@@ -125,10 +121,9 @@ class ColorBandFunction : public blender::fn::MultiFunction {
   }
 };
 
-static void sh_node_valtorgb_build_multi_function(
-    blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_valtorgb_build_multi_function(nodes::NodeMultiFunctionBuilder &builder)
 {
-  bNode &bnode = builder.node();
+  const bNode &bnode = builder.node();
   const ColorBand *color_band = (const ColorBand *)bnode.storage;
   builder.construct_and_set_matching_fn<ColorBandFunction>(*color_band);
 }
@@ -143,10 +138,10 @@ void register_node_type_sh_valtorgb()
 
   sh_fn_node_type_base(&ntype, SH_NODE_VALTORGB, "ColorRamp", NODE_CLASS_CONVERTER);
   ntype.declare = file_ns::sh_node_valtorgb_declare;
-  node_type_init(&ntype, file_ns::node_shader_init_valtorgb);
+  ntype.initfunc = file_ns::node_shader_init_valtorgb;
   node_type_size_preset(&ntype, NODE_SIZE_LARGE);
   node_type_storage(&ntype, "ColorBand", node_free_standard_storage, node_copy_standard_storage);
-  node_type_gpu(&ntype, file_ns::gpu_shader_valtorgb);
+  ntype.gpu_fn = file_ns::gpu_shader_valtorgb;
   ntype.build_multi_function = file_ns::sh_node_valtorgb_build_multi_function;
 
   nodeRegisterType(&ntype);

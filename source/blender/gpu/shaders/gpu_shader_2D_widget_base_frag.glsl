@@ -1,19 +1,4 @@
-#ifndef USE_GPU_SHADER_CREATE_INFO
-uniform vec3 checkerColorAndSize;
-
-noperspective in vec2 uvInterp;
-noperspective in float butCo;
-flat in float discardFac;
-flat in float shadeTri;
-flat in vec2 outRectSize;
-flat in vec4 outRoundCorners;
-noperspective in vec4 innerColor;
-flat in vec4 borderColor;
-flat in vec4 embossColor;
-flat in float lineWidth;
-
-out vec4 fragColor;
-#endif
+#pragma BLENDER_REQUIRE(gpu_shader_colorspace_lib.glsl)
 
 vec3 compute_masks(vec2 uv)
 {
@@ -21,7 +6,7 @@ vec3 compute_masks(vec2 uv)
   bool right_half = uv.x > outRectSize.x * 0.5;
   float corner_rad;
 
-  /* Correct aspect ratio for 2D views not using uniform scalling.
+  /* Correct aspect ratio for 2D views not using uniform scaling.
    * uv is already in pixel space so a uniform scale should give us a ratio of 1. */
   float ratio = (butCo != -2.0) ? (dFdy(uv.y) / dFdx(uv.x)) : 1.0;
   vec2 uv_sdf = uv;

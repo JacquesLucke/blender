@@ -585,13 +585,13 @@ static void draw_primitive_view_impl(const struct bContext *C,
   }
   else if (ipd->primitive_type == PLACE_PRIMITIVE_TYPE_CYLINDER) {
     draw_circle_in_quad(UNPACK4(bounds.vec), 32, color);
-    draw_circle_in_quad(UNPACK4((&bounds.vec[4])), 32, color);
+    draw_circle_in_quad(UNPACK4(&bounds.vec[4]), 32, color);
   }
   else if (ipd->primitive_type == PLACE_PRIMITIVE_TYPE_CONE) {
     draw_circle_in_quad(UNPACK4(bounds.vec), 32, color);
 
     float center[3];
-    mid_v3_v3v3v3v3(center, UNPACK4((&bounds.vec[4])));
+    mid_v3_v3v3v3v3(center, UNPACK4(&bounds.vec[4]));
 
     float coords_a[4][3];
     float coords_b[4][3];
@@ -684,7 +684,7 @@ static bool view3d_interactive_add_calc_snap(bContext *UNUSED(C),
                                              bool *r_is_enabled,
                                              bool *r_is_snap_invert)
 {
-  V3DSnapCursorData *snap_data = ED_view3d_cursor_snap_data_get(NULL, NULL, 0, 0);
+  V3DSnapCursorData *snap_data = ED_view3d_cursor_snap_data_get();
   copy_v3_v3(r_co_src, snap_data->loc);
   if (r_matrix_orient) {
     copy_m3_m3(r_matrix_orient, snap_data->plane_omat);
@@ -695,7 +695,7 @@ static bool view3d_interactive_add_calc_snap(bContext *UNUSED(C),
   if (r_is_snap_invert) {
     *r_is_snap_invert = snap_data->is_snap_invert;
   }
-  return snap_data->snap_elem != 0;
+  return snap_data->snap_elem != SCE_SNAP_MODE_NONE;
 }
 
 /** \} */
@@ -727,6 +727,23 @@ static void view3d_interactive_add_begin(bContext *C, wmOperator *op, const wmEv
   V3DSnapCursorState *snap_state_new = ED_view3d_cursor_snap_active();
   if (snap_state_new) {
     ipd->snap_state = snap_state = snap_state_new;
+
+    /* For drag events, update the location since it will be set from the drag-start.
+     * This is needed as cursor-drawing doesn't deal with drag events and will use
+     * the current cursor location instead of the drag-start. */
+    if (event->val == KM_CLICK_DRAG) {
+      /* Set this flag so snapping always updated. */
+      int mval[2];
+      WM_event_drag_start_mval(event, ipd->region, mval);
+      int flag_orig = snap_state_new->flag;
+      snap_state_new->flag |= V3D_SNAPCURSOR_TOGGLE_ALWAYS_TRUE;
+
+      /* Be sure to also compute the #V3DSnapCursorData.plane_omat. */
+      snap_state->draw_plane = true;
+
+      ED_view3d_cursor_snap_data_update(snap_state_new, C, mval[0], mval[1]);
+      snap_state_new->flag = flag_orig;
+    }
   }
 
   snap_state->draw_point = true;
@@ -1140,7 +1157,7 @@ static int view3d_interactive_add_modal(bContext *C, wmOperator *op, const wmEve
             RNA_float_set(&op_props, "radius2", 0.0f);
           }
 
-          WM_operator_name_call_ptr(C, ot, WM_OP_EXEC_DEFAULT, &op_props);
+          WM_operator_name_call_ptr(C, ot, WM_OP_EXEC_DEFAULT, &op_props, NULL);
           WM_operator_properties_free(&op_props);
         }
         else {
@@ -1157,7 +1174,8 @@ static int view3d_interactive_add_modal(bContext *C, wmOperator *op, const wmEve
   }
 
   if (do_cursor_update) {
-    const float mval_fl[2] = {UNPACK2(event->mval)};
+    float mval_fl[2];
+    WM_event_drag_start_mval_fl(event, region, mval_fl);
 
     /* Calculate the snap location on mouse-move or when toggling snap. */
     ipd->is_snap_found = false;
@@ -1285,7 +1303,7 @@ static int idp_rna_snap_target_get_fn(struct PointerRNA *UNUSED(ptr),
                                       struct PropertyRNA *UNUSED(prop))
 {
   V3DSnapCursorState *snap_state = ED_view3d_cursor_snap_state_get();
-  if (!snap_state->snap_elem_force) {
+  if (snap_state->snap_elem_force == SCE_SNAP_MODE_NONE) {
     return PLACE_SNAP_TO_DEFAULT;
   }
 
@@ -1298,7 +1316,7 @@ static void idp_rna_snap_target_set_fn(struct PointerRNA *UNUSED(ptr),
                                        struct PropertyRNA *UNUSED(prop),
                                        int value)
 {
-  short snap_mode = 0; /* #toolsettings->snap_mode. */
+  eSnapMode snap_mode = SCE_SNAP_MODE_NONE; /* #toolsettings->snap_mode. */
   const enum ePlace_SnapTo snap_to = value;
   if (snap_to == PLACE_SNAP_TO_GEOMETRY) {
     snap_mode = SCE_SNAP_MODE_GEOM;
@@ -1497,11 +1515,21 @@ static void preview_plane_free_fn(void *customdata)
   ED_view3d_cursor_snap_deactive(snap_state);
 }
 
+static bool snap_cursor_poll(ARegion *region, void *data)
+{
+  if (WM_gizmomap_group_find_ptr(region->gizmo_map, (wmGizmoGroupType *)data) == NULL) {
+    /* Wrong viewport. */
+    return false;
+  }
+  return true;
+}
+
 static void WIDGETGROUP_placement_setup(const bContext *UNUSED(C), wmGizmoGroup *gzgroup)
 {
   V3DSnapCursorState *snap_state = ED_view3d_cursor_snap_active();
   if (snap_state) {
-    snap_state->gzgrp_type = gzgroup->type;
+    snap_state->poll = snap_cursor_poll;
+    snap_state->poll_data = gzgroup->type;
     snap_state->draw_plane = true;
 
     gzgroup->customdata = snap_state;

@@ -24,12 +24,16 @@
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_image_format.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_screen.h"
 
+#include "BLT_translation.h"
+
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_prototypes.h"
 
 #include "UI_interface.h"
 
@@ -52,13 +56,12 @@ static int screenshot_data_create(bContext *C, wmOperator *op, ScrArea *area)
 {
   int dumprect_size[2];
 
-  wmWindowManager *wm = CTX_wm_manager(C);
   wmWindow *win = CTX_wm_window(C);
 
   /* do redraw so we don't show popups/menus */
   WM_redraw_windows(C);
 
-  uint *dumprect = WM_window_pixels_read(wm, win, dumprect_size);
+  uint *dumprect = WM_window_pixels_read_offscreen(C, win, dumprect_size);
 
   if (dumprect) {
     ScreenshotData *scd = MEM_callocN(sizeof(ScreenshotData), "screenshot");
@@ -70,7 +73,7 @@ static int screenshot_data_create(bContext *C, wmOperator *op, ScrArea *area)
       scd->crop = area->totrct;
     }
 
-    BKE_imformat_defaults(&scd->im_format);
+    BKE_image_format_init(&scd->im_format, false);
 
     op->customdata = scd;
 
@@ -123,7 +126,8 @@ static int screenshot_exec(bContext *C, wmOperator *op)
         scd->dumprect = ibuf->rect;
       }
 
-      if (scd->im_format.planes == R_IMF_PLANES_BW) {
+      if ((scd->im_format.planes == R_IMF_PLANES_BW) &&
+          (scd->im_format.imtype != R_IMF_IMTYPE_MULTILAYER)) {
         /* bw screenshot? - users will notice if it fails! */
         IMB_color_to_bw(ibuf);
       }
@@ -162,7 +166,8 @@ static int screenshot_invoke(bContext *C, wmOperator *op, const wmEvent *event)
     }
 
     /* extension is added by 'screenshot_check' after */
-    char filepath[FILE_MAX] = "//screen";
+    char filepath[FILE_MAX];
+    BLI_snprintf(filepath, FILE_MAX, "//%s", DATA_("screen"));
     const char *blendfile_path = BKE_main_blendfile_path_from_global();
     if (blendfile_path[0] != '\0') {
       BLI_strncpy(filepath, blendfile_path, sizeof(filepath));
@@ -194,7 +199,7 @@ static bool screenshot_draw_check_prop(PointerRNA *UNUSED(ptr),
 {
   const char *prop_id = RNA_property_identifier(prop);
 
-  return !(STREQ(prop_id, "filepath"));
+  return !STREQ(prop_id, "filepath");
 }
 
 static void screenshot_draw(bContext *UNUSED(C), wmOperator *op)

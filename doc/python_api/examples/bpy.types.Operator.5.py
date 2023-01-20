@@ -1,4 +1,6 @@
 """
+.. _modal_operator:
+
 Modal Execution
 +++++++++++++++
 
@@ -42,6 +44,7 @@ class ModalOperator(bpy.types.Operator):
         elif event.type == 'LEFTMOUSE':  # Confirm
             return {'FINISHED'}
         elif event.type in {'RIGHTMOUSE', 'ESC'}:  # Cancel
+            # Revert all changes that have been made
             context.object.location.x = self.init_loc_x
             return {'CANCELLED'}
 
@@ -55,11 +58,13 @@ class ModalOperator(bpy.types.Operator):
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 
-# Only needed if you want to add into a dynamic menu
+
+# Only needed if you want to add into a dynamic menu.
 def menu_func(self, context):
     self.layout.operator(ModalOperator.bl_idname, text="Modal Operator")
 
-# Register and add to the object menu (required to also use F3 search "Modal Operator" for quick access)
+
+# Register and add to the object menu (required to also use F3 search "Modal Operator" for quick access).
 bpy.utils.register_class(ModalOperator)
 bpy.types.VIEW3D_MT_object.append(menu_func)
 

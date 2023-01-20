@@ -12,15 +12,7 @@ extern "C" {
 #endif
 
 struct Scene;
-struct SeqRenderData;
 struct Sequence;
-
-/* **********************************************************************
- * sequencer.c
- *
- * Sequencer editing functions
- * **********************************************************************
- */
 
 struct SeqEffectHandle seq_effect_get_sequence_blend(struct Sequence *seq);
 /**

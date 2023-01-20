@@ -13,12 +13,12 @@ struct BMesh;
 struct GPUIndexBuf;
 struct GPUUniformBuf;
 struct GPUVertBuf;
+struct GPUVertFormat;
 struct Mesh;
 struct MeshBatchCache;
 struct MeshBufferCache;
 struct MeshRenderData;
 struct Object;
-struct Scene;
 struct Subdiv;
 struct ToolSettings;
 
@@ -41,6 +41,56 @@ typedef struct DRWPatchMap {
 /** \} */
 
 /* -------------------------------------------------------------------- */
+/** \name DRWSubdivLooseEdge
+ *
+ * This stores information about a subdivided loose edge.
+ * \{ */
+
+typedef struct DRWSubdivLooseEdge {
+  /* The corresponding coarse edge, this is always valid. */
+  int coarse_edge_index;
+  /* Pointers into #DRWSubdivLooseGeom.verts. */
+  int loose_subdiv_v1_index;
+  int loose_subdiv_v2_index;
+} DRWSubdivLooseEdge;
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name DRWSubdivLooseVertex
+ *
+ * This stores information about a subdivided loose vertex, that may or may not come from a loose
+ * edge.
+ * \{ */
+
+typedef struct DRWSubdivLooseVertex {
+  /* The corresponding coarse vertex, or -1 if this vertex is the result
+   * of subdivision. */
+  unsigned int coarse_vertex_index;
+  /* Position and normal of the vertex. */
+  float co[3];
+  float nor[3];
+} DRWSubdivLooseVertex;
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name DRWSubdivLooseGeom
+ *
+ * This stores the subdivided vertices and edges of loose geometry from #MeshExtractLooseGeom.
+ * \{ */
+
+typedef struct DRWSubdivLooseGeom {
+  DRWSubdivLooseEdge *edges;
+  DRWSubdivLooseVertex *verts;
+  int edge_len;
+  int vert_len;
+  int loop_len;
+} DRWSubdivLooseGeom;
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name DRWSubdivCache
  *
  * This holds the various buffers used to evaluate and render subdivision through OpenGL.
@@ -51,11 +101,12 @@ typedef struct DRWSubdivCache {
   struct BMesh *bm;
   struct Subdiv *subdiv;
   bool optimal_display;
-  bool do_limit_normals;
   bool use_custom_loop_normals;
 
-  /* Coordinates used to evaluate patches for UVs, positions, and normals. */
+  /* Coordinates used to evaluate patches for positions and normals. */
   struct GPUVertBuf *patch_coords;
+  /* Coordinates used to evaluate patches for attributes. */
+  struct GPUVertBuf *corner_patch_coords;
   /* Coordinates used to evaluate patches for the face centers (or face dots) in edit-mode. */
   struct GPUVertBuf *fdots_patch_coords;
 
@@ -70,12 +121,19 @@ typedef struct DRWSubdivCache {
   uint num_subdiv_verts;
   uint num_subdiv_quads;
 
+  /* We only do the subdivision traversal for full faces, however we may have geometries that only
+   * have loose edges (e.g. a custom bone shape). This flag is used to detect those cases, as the
+   * counters above will all be set to zero if we do not have subdivision loops. */
+  bool may_have_loose_geom;
+
   /* Number of polygons in the coarse mesh, notably used to compute a coarse polygon index given a
    * subdivision loop index. */
   int num_coarse_poly;
 
   /* Maps subdivision loop to subdivided vertex index. */
   int *subdiv_loop_subdiv_vert_index;
+  /* Maps subdivision loop to subdivided edge index. */
+  int *subdiv_loop_subdiv_edge_index;
   /* Maps subdivision loop to original coarse poly index. */
   int *subdiv_loop_poly_index;
 
@@ -103,8 +161,8 @@ typedef struct DRWSubdivCache {
   /* Contains the start loop index and the smooth flag for each coarse polygon. */
   struct GPUVertBuf *extra_coarse_face_data;
 
-  /* Computed for ibo.points, one value per subdivided vertex, mapping coarse vertices ->
-   * subdivided loop */
+  /* Computed for `ibo.points`, one value per subdivided vertex,
+   * mapping coarse vertices -> subdivided loop. */
   int *point_indices;
 
   /* Material offsets. */
@@ -114,8 +172,14 @@ typedef struct DRWSubdivCache {
 
   DRWPatchMap gpu_patch_map;
 
+  DRWSubdivLooseGeom loose_geom;
+
   /* UBO to store settings for the various compute shaders. */
   struct GPUUniformBuf *ubo;
+
+  /* Extra flags, passed to the UBO. */
+  bool is_edit_mode;
+  bool use_hide;
 } DRWSubdivCache;
 
 /* Only frees the data of the cache, caller is responsible to free the cache itself if necessary.
@@ -124,8 +188,7 @@ void draw_subdiv_cache_free(DRWSubdivCache *cache);
 
 /** \} */
 
-void DRW_create_subdivision(const struct Scene *scene,
-                            struct Object *ob,
+void DRW_create_subdivision(struct Object *ob,
                             struct Mesh *mesh,
                             struct MeshBatchCache *batch_cache,
                             struct MeshBufferCache *mbc,
@@ -135,7 +198,7 @@ void DRW_create_subdivision(const struct Scene *scene,
                             const float obmat[4][4],
                             const bool do_final,
                             const bool do_uvedit,
-                            const bool use_subsurf_fdots,
+                            const bool do_cage,
                             const ToolSettings *ts,
                             const bool use_hide);
 
@@ -148,7 +211,7 @@ void draw_subdiv_init_mesh_render_data(DRWSubdivCache *cache,
                                        const struct ToolSettings *toolsettings);
 
 void draw_subdiv_init_origindex_buffer(struct GPUVertBuf *buffer,
-                                       int *vert_origindex,
+                                       int32_t *vert_origindex,
                                        uint num_loops,
                                        uint loose_len);
 
@@ -165,6 +228,7 @@ void draw_subdiv_accumulate_normals(const DRWSubdivCache *cache,
                                     struct GPUVertBuf *pos_nor,
                                     struct GPUVertBuf *face_adjacency_offsets,
                                     struct GPUVertBuf *face_adjacency_lists,
+                                    struct GPUVertBuf *vertex_loop_map,
                                     struct GPUVertBuf *vertex_normals);
 
 void draw_subdiv_finalize_normals(const DRWSubdivCache *cache,
@@ -177,12 +241,14 @@ void draw_subdiv_finalize_custom_normals(const DRWSubdivCache *cache,
                                          GPUVertBuf *pos_nor);
 
 void draw_subdiv_extract_pos_nor(const DRWSubdivCache *cache,
+                                 GPUVertBuf *flags_buffer,
                                  struct GPUVertBuf *pos_nor,
-                                 bool do_limit_normals);
+                                 struct GPUVertBuf *orco);
 
 void draw_subdiv_interp_custom_data(const DRWSubdivCache *cache,
                                     struct GPUVertBuf *src_data,
                                     struct GPUVertBuf *dst_data,
+                                    int comp_type, /*GPUVertCompType*/
                                     int dimensions,
                                     int dst_offset);
 
@@ -205,6 +271,7 @@ void draw_subdiv_build_lines_buffer(const DRWSubdivCache *cache,
 
 void draw_subdiv_build_lines_loose_buffer(const DRWSubdivCache *cache,
                                           struct GPUIndexBuf *lines_indices,
+                                          GPUVertBuf *lines_flags,
                                           uint num_loose_edges);
 
 void draw_subdiv_build_fdots_buffers(const DRWSubdivCache *cache,
@@ -226,6 +293,22 @@ void draw_subdiv_build_edituv_stretch_angle_buffer(const DRWSubdivCache *cache,
                                                    int uvs_offset,
                                                    struct GPUVertBuf *stretch_angles);
 
+/** Return the format used for the positions and normals VBO.
+ */
+struct GPUVertFormat *draw_subdiv_get_pos_nor_format(void);
+
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+#  include "BLI_span.hh"
+
+/* Helper to access the loose edges. */
+blender::Span<DRWSubdivLooseEdge> draw_subdiv_cache_get_loose_edges(const DRWSubdivCache *cache);
+
+/* Helper to access only the loose vertices, i.e. not the ones attached to loose edges. To access
+ * loose vertices of loose edges #draw_subdiv_cache_get_loose_edges should be used. */
+blender::Span<DRWSubdivLooseVertex> draw_subdiv_cache_get_loose_verts(const DRWSubdivCache *cache);
+
 #endif

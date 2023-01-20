@@ -25,8 +25,6 @@ struct MDeformVert;
 #define GP_DEFAULT_GRID_LINES 4
 #define GP_MAX_INPUT_SAMPLES 10
 
-#define GP_MATERIAL_BUFFER_LEN 256
-
 #define GP_DEFAULT_CURVE_RESOLUTION 32
 #define GP_DEFAULT_CURVE_ERROR 0.1f
 #define GP_DEFAULT_CURVE_EDIT_CORNER_ANGLE M_PI_2
@@ -50,6 +48,8 @@ typedef struct bGPDcontrolpoint {
 } bGPDcontrolpoint;
 
 typedef struct bGPDspoint_Runtime {
+  DNA_DEFINE_CXX_METHODS(bGPDspoint_Runtime)
+
   /** Original point (used to dereference evaluated data) */
   struct bGPDspoint *pt_orig;
   /** Original index array position */
@@ -63,6 +63,8 @@ typedef struct bGPDspoint_Runtime {
  *    This assumes that the bottom-left corner is (0,0)
  */
 typedef struct bGPDspoint {
+  DNA_DEFINE_CXX_METHODS(bGPDspoint)
+
   /** Co-ordinates of point (usually 2d, but can be 3d as well). */
   float x, y, z;
   /** Pressure of input device (from 0 to 1) at this point. */
@@ -122,6 +124,8 @@ typedef struct bGPDtriangle {
 
 /* color of palettes */
 typedef struct bGPDpalettecolor {
+  DNA_DEFINE_CXX_METHODS(bGPDpalettecolor)
+
   struct bGPDpalettecolor *next, *prev;
   /** Color name. Must be unique. */
   char info[64];
@@ -150,6 +154,8 @@ typedef enum eGPDpalettecolor_Flag {
 
 /* palette of colors */
 typedef struct bGPDpalette {
+  DNA_DEFINE_CXX_METHODS(bGPDpalette)
+
   struct bGPDpalette *next, *prev;
 
   /** Pointer to individual colors. */
@@ -205,6 +211,8 @@ typedef enum eGPDcurve_point_Flag {
 
 /* Curve for Bezier Editing. */
 typedef struct bGPDcurve {
+  DNA_DEFINE_CXX_METHODS(bGPDcurve)
+
   /** Array of BezTriple. */
   bGPDcurve_point *curve_points;
   /** Total number of curve points. */
@@ -227,18 +235,23 @@ typedef enum bGPDcurve_Flag {
 
 /* Runtime temp data for bGPDstroke */
 typedef struct bGPDstroke_Runtime {
+  DNA_DEFINE_CXX_METHODS(bGPDstroke_Runtime)
+
   /** temporary layer name only used during copy/paste to put the stroke in the original layer */
   char tmp_layerinfo[128];
 
   /** Runtime falloff factor (only for transform). */
   float multi_frame_falloff;
 
-  /** Vertex offset in the VBO where this stroke starts. */
+  /** Triangle offset in the IBO where this stroke starts. */
   int stroke_start;
-  /** Triangle offset in the ibo where this fill starts. */
+  /** Triangle offset in the IBO where this fill starts. */
   int fill_start;
+  /** Vertex offset in the VBO where this stroke starts. */
+  int vertex_start;
   /** Curve Handles offset in the IBO where this handle starts. */
   int curve_start;
+  int _pad0;
 
   /** Original stroke (used to dereference evaluated data) */
   struct bGPDstroke *gps_orig;
@@ -250,6 +263,8 @@ typedef struct bGPDstroke_Runtime {
  *    drawn by the user in one 'mouse-down'->'mouse-up' operation
  */
 typedef struct bGPDstroke {
+  DNA_DEFINE_CXX_METHODS(bGPDstroke)
+
   struct bGPDstroke *next, *prev;
 
   /** Array of data-points for stroke. */
@@ -335,6 +350,10 @@ typedef enum eGPDstroke_Flag {
   /* Flag to indicated that the editcurve has been changed and the stroke needs to be updated with
    * the curve data */
   GP_STROKE_NEEDS_CURVE_UPDATE = (1 << 9),
+  /* Flag to indicate that a stroke is used only for help, and will not affect rendering or fill */
+  GP_STROKE_HELP = (1 << 10),
+  /* Flag to indicate that a extend stroke collide (fill tool)  */
+  GP_STROKE_COLLIDE = (1 << 11),
   /* only for use with stroke-buffer (while drawing arrows) */
   GP_STROKE_USE_ARROW_START = (1 << 12),
   /* only for use with stroke-buffer (while drawing arrows) */
@@ -371,6 +390,8 @@ typedef enum eGPDstroke_Arrowstyle {
 
 /* Runtime temp data for bGPDframe */
 typedef struct bGPDframe_Runtime {
+  DNA_DEFINE_CXX_METHODS(bGPDframe_Runtime)
+
   /** Index of this frame in the listbase of frames. */
   int frameid;
   /** Onion offset from active frame. 0 if not onion. INT_MAX to bypass frame. */
@@ -384,6 +405,8 @@ typedef struct bGPDframe_Runtime {
  * -> Acts as storage for the 'image' formed by strokes
  */
 typedef struct bGPDframe {
+  DNA_DEFINE_CXX_METHODS(bGPDframe)
+
   struct bGPDframe *next, *prev;
 
   /** List of the simplified 'strokes' that make up the frame's data. */
@@ -418,6 +441,8 @@ typedef enum eGPDframe_Flag {
 
 /* List of masking layers. */
 typedef struct bGPDlayer_Mask {
+  DNA_DEFINE_CXX_METHODS(bGPDlayer_Mask)
+
   struct bGPDlayer_Mask *next, *prev;
   char name[128];
   short flag;
@@ -436,6 +461,8 @@ typedef enum ebGPDlayer_Mask_Flag {
 
 /* Runtime temp data for bGPDlayer */
 typedef struct bGPDlayer_Runtime {
+  DNA_DEFINE_CXX_METHODS(bGPDlayer_Runtime)
+
   /** Id for dynamic icon used to show annotation color preview for layer. */
   int icon_id;
   char _pad[4];
@@ -445,6 +472,8 @@ typedef struct bGPDlayer_Runtime {
 
 /* Grease-Pencil Annotations - 'Layer' */
 typedef struct bGPDlayer {
+  DNA_DEFINE_CXX_METHODS(bGPDlayer)
+
   struct bGPDlayer *next, *prev;
 
   /** List of annotations to display for frames (bGPDframe list). */
@@ -557,7 +586,7 @@ typedef enum eGPDlayer_Flag {
   GP_LAYER_USE_MASK = (1 << 13), /* TODO: DEPRECATED */
   /* Ruler Layer */
   GP_LAYER_IS_RULER = (1 << 14),
-  /* Disable masks in viewlayer render */
+  /* Disable masks in view-layer render */
   GP_LAYER_DISABLE_MASKS_IN_VIEWLAYER = (1 << 15),
 } eGPDlayer_Flag;
 
@@ -582,11 +611,14 @@ typedef enum eGPLayerBlendModes {
 
 /* Runtime temp data for bGPdata */
 typedef struct bGPdata_Runtime {
+  DNA_DEFINE_CXX_METHODS(bGPdata_Runtime)
+
   /** Stroke buffer. */
   void *sbuffer;
   /** Temp batches cleared after drawing. */
-  struct GPUBatch *sbuffer_stroke_batch;
-  struct GPUBatch *sbuffer_fill_batch;
+  struct GPUVertBuf *sbuffer_position_buf;
+  struct GPUVertBuf *sbuffer_color_buf;
+  struct GPUBatch *sbuffer_batch;
   /** Temp stroke used for drawing. */
   struct bGPDstroke *sbuffer_gps;
 
@@ -644,6 +676,8 @@ typedef struct bGPgrid {
 
 /* Grease-Pencil Annotations - 'DataBlock' */
 typedef struct bGPdata {
+  DNA_DEFINE_CXX_METHODS(bGPdata)
+
   /** Grease Pencil data is a data-block. */
   ID id;
   /** Animation data - for animating draw settings. */
@@ -788,10 +822,10 @@ typedef enum eGPdata_Flag {
   /* Vertex Paint Mode - Toggle paint mode */
   GP_DATA_STROKE_VERTEXMODE = (1 << 18),
 
-  /* Autolock not active layers */
+  /* Auto-lock not active layers. */
   GP_DATA_AUTOLOCK_LAYERS = (1 << 20),
 
-  /* Enable Bezier Editing Curve (a submode of Edit mode). */
+  /* Enable Bezier Editing Curve (a sub-mode of Edit mode). */
   GP_DATA_CURVE_EDIT_MODE = (1 << 21),
   /* Use adaptive curve resolution */
   GP_DATA_CURVE_ADAPTIVE_RESOLUTION = (1 << 22),

@@ -12,8 +12,13 @@ set(INC
   ../../makesdna
   ../../makesrna
   ../../windowmanager
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
+  ../../bmesh
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
+)
+
+set(INC_SYS
 )
 
 set(SRC
@@ -26,7 +31,7 @@ set(SRC
   gpencil_add_monkey.c
   gpencil_add_stroke.c
   gpencil_armature.c
-  gpencil_bake_animation.c
+  gpencil_bake_animation.cc
   gpencil_convert.c
   gpencil_data.c
   gpencil_edit.c
@@ -34,7 +39,7 @@ set(SRC
   gpencil_fill.c
   gpencil_interpolate.c
   gpencil_merge.c
-  gpencil_mesh.c
+  gpencil_mesh.cc
   gpencil_ops.c
   gpencil_ops_versioning.c
   gpencil_paint.c
@@ -73,3 +78,6 @@ endif()
 
 
 blender_add_lib(bf_editor_gpencil "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+# RNA_prototypes.h
+add_dependencies(bf_editor_gpencil bf_rna)

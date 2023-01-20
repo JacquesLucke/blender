@@ -17,11 +17,6 @@ CCL_NAMESPACE_BEGIN
  */
 class DebugFlags {
  public:
-  /* Use static BVH in viewport, to match final render exactly. */
-  bool viewport_static_bvh;
-
-  bool running_inside_blender;
-
   /* Descriptor of CPU feature-set to be used. */
   struct CPU {
     CPU();
@@ -30,30 +25,20 @@ class DebugFlags {
     void reset();
 
     /* Flags describing which instructions sets are allowed for use. */
-    bool avx2;
-    bool avx;
-    bool sse41;
-    bool sse3;
-    bool sse2;
+    bool avx2 = true;
+    bool sse41 = true;
+    bool sse2 = true;
 
     /* Check functions to see whether instructions up to the given one
      * are allowed for use.
      */
     bool has_avx2()
     {
-      return has_avx() && avx2;
-    }
-    bool has_avx()
-    {
-      return has_sse41() && avx;
+      return has_sse41() && avx2;
     }
     bool has_sse41()
     {
-      return has_sse3() && sse41;
-    }
-    bool has_sse3()
-    {
-      return has_sse2() && sse3;
+      return has_sse2() && sse41;
     }
     bool has_sse2()
     {
@@ -65,7 +50,7 @@ class DebugFlags {
      * By default the fastest will be used. For debugging the BVH used by other
      * CPUs and GPUs can be selected here instead.
      */
-    BVHLayout bvh_layout;
+    BVHLayout bvh_layout = BVH_LAYOUT_AUTO;
   };
 
   /* Descriptor of CUDA feature-set to be used. */
@@ -77,7 +62,7 @@ class DebugFlags {
 
     /* Whether adaptive feature based runtime compile is enabled or not.
      * Requires the CUDA Toolkit and only works on Linux at the moment. */
-    bool adaptive_compile;
+    bool adaptive_compile = false;
   };
 
   /* Descriptor of HIP feature-set to be used. */
@@ -87,8 +72,8 @@ class DebugFlags {
     /* Reset flags to their defaults. */
     void reset();
 
-    /* Whether adaptive feature based runtime compile is enabled or not.*/
-    bool adaptive_compile;
+    /* Whether adaptive feature based runtime compile is enabled or not. */
+    bool adaptive_compile = false;
   };
 
   /* Descriptor of OptiX feature-set to be used. */
@@ -100,7 +85,7 @@ class DebugFlags {
 
     /* Load OptiX module with debug capabilities. Will lower logging verbosity level, enable
      * validations, and lower optimization level. */
-    bool use_debug;
+    bool use_debug = false;
   };
 
   /* Descriptor of Metal feature-set to be used. */
@@ -110,8 +95,8 @@ class DebugFlags {
     /* Reset flags to their defaults. */
     void reset();
 
-    /* Whether adaptive feature based runtime compile is enabled or not.*/
-    bool adaptive_compile;
+    /* Whether adaptive feature based runtime compile is enabled or not. */
+    bool adaptive_compile = false;
   };
 
   /* Get instance of debug flags registry. */
@@ -142,15 +127,9 @@ class DebugFlags {
  private:
   DebugFlags();
 
-#if (__cplusplus > 199711L)
  public:
   explicit DebugFlags(DebugFlags const & /*other*/) = delete;
   void operator=(DebugFlags const & /*other*/) = delete;
-#else
- private:
-  explicit DebugFlags(DebugFlags const & /*other*/);
-  void operator=(DebugFlags const & /*other*/);
-#endif
 };
 
 typedef DebugFlags &DebugFlagsRef;

@@ -43,7 +43,7 @@ typedef struct NumInput {
   int str_cur;
 } NumInput;
 
-/* NumInput.flag */
+/** #NumInput.flag */
 enum {
   NUM_AFFECT_ALL = (1 << 0),
   /* (1 << 9) and above are reserved for internal flags! */
@@ -66,14 +66,14 @@ struct UnitSettings;
  * \{ */
 
 /**
- * There are important things to note here for code using numinput:
+ * There are important things to note here for code using numeric-input:
  * - Values passed to #applyNumInput() should be valid and are stored as default ones (val_org),
  *   if it is not EDITED.
- * - bool returned by #applyNumInput should be used to decide whether to apply
- *   numinput-specific post-process to data.
+ * - `bool` returned by #applyNumInput should be used to decide whether to apply
+ *   numeric-input-specific post-process to data.
  * - Once #applyNumInput has been called,
- *   #hasNumInput returns a valid value to decide whether to use numinput as drawstr source or not
- *   (i.e. to call #outputNumInput).
+ *   #hasNumInput returns a valid value to decide whether to use numinput as `drawstr`
+ *   source or not (i.e. to call #outputNumInput).
  *
  * Those two steps have to be separated
  * (so do not use a common call to #hasNumInput() to do both in the same time!).

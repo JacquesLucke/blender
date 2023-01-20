@@ -34,7 +34,7 @@ short getAnimEdit_SnapMode(TransInfo *t)
     }
   }
   else if (t->spacetype == SPACE_GRAPH) {
-    if ((t->mode == TFM_TRANSLATION) && activeSnap(t)) {
+    if ((t->mode == TFM_TRANSLATION) && transform_snap_is_active(t)) {
       return autosnap;
     }
     SpaceGraph *sipo = (SpaceGraph *)t->area->spacedata.first;
@@ -115,7 +115,7 @@ void transform_snap_anim_flush_data(TransInfo *t,
 
   float val = td->loc[0];
   float ival = td->iloc[0];
-  AnimData *adt = (!ELEM(t->spacetype, SPACE_NLA, SPACE_SEQ)) ? td->extra : NULL;
+  AnimData *adt = !ELEM(t->spacetype, SPACE_NLA, SPACE_SEQ) ? td->extra : NULL;
 
   /* Convert frame to nla-action time (if needed) */
   if (adt) {

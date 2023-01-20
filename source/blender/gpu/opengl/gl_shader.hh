@@ -9,7 +9,7 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "glew-mx.h"
+#include <epoxy/gl.h>
 
 #include "gpu_shader_create_info.hh"
 #include "gpu_shader_private.hh"
@@ -67,10 +67,13 @@ class GLShader : public Shader {
   void uniform_float(int location, int comp_len, int array_size, const float *data) override;
   void uniform_int(int location, int comp_len, int array_size, const int *data) override;
 
-  void vertformat_from_shader(GPUVertFormat *format) const override;
-
   /** DEPRECATED: Kept only because of BGL API. */
   int program_handle_get() const override;
+
+  bool is_compute() const
+  {
+    return compute_shader_ != 0;
+  }
 
  private:
   char *glsl_patch_get(GLenum gl_stage);

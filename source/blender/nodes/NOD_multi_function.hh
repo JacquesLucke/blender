@@ -6,11 +6,7 @@
 
 #include "DNA_node_types.h"
 
-#include "NOD_derived_node_tree.hh"
-
 namespace blender::nodes {
-
-using namespace fn::multi_function_types;
 
 class NodeMultiFunctions;
 
@@ -19,22 +15,22 @@ class NodeMultiFunctions;
  */
 class NodeMultiFunctionBuilder : NonCopyable, NonMovable {
  private:
-  bNode &node_;
-  bNodeTree &tree_;
-  std::shared_ptr<MultiFunction> owned_built_fn_;
-  const MultiFunction *built_fn_ = nullptr;
+  const bNode &node_;
+  const bNodeTree &tree_;
+  std::shared_ptr<mf::MultiFunction> owned_built_fn_;
+  const mf::MultiFunction *built_fn_ = nullptr;
 
   friend NodeMultiFunctions;
 
  public:
-  NodeMultiFunctionBuilder(bNode &node, bNodeTree &tree);
+  NodeMultiFunctionBuilder(const bNode &node, const bNodeTree &tree);
 
   /**
    * Assign a multi-function for the current node. The input and output parameters of the function
    * have to match the available sockets in the node.
    */
-  void set_matching_fn(const MultiFunction *fn);
-  void set_matching_fn(const MultiFunction &fn);
+  void set_matching_fn(const mf::MultiFunction *fn);
+  void set_matching_fn(const mf::MultiFunction &fn);
 
   /**
    * Utility method for creating and assigning a multi-function when it can't have a static
@@ -42,8 +38,8 @@ class NodeMultiFunctionBuilder : NonCopyable, NonMovable {
    */
   template<typename T, typename... Args> void construct_and_set_matching_fn(Args &&...args);
 
-  bNode &node();
-  bNodeTree &tree();
+  const bNode &node();
+  const bNodeTree &tree();
 };
 
 /**
@@ -52,44 +48,44 @@ class NodeMultiFunctionBuilder : NonCopyable, NonMovable {
 class NodeMultiFunctions {
  public:
   struct Item {
-    const MultiFunction *fn = nullptr;
-    std::shared_ptr<MultiFunction> owned_fn;
+    const mf::MultiFunction *fn = nullptr;
+    std::shared_ptr<mf::MultiFunction> owned_fn;
   };
 
  private:
   Map<const bNode *, Item> map_;
 
  public:
-  NodeMultiFunctions(const DerivedNodeTree &tree);
+  NodeMultiFunctions(const bNodeTree &tree);
 
-  const Item &try_get(const DNode &node) const;
+  const Item &try_get(const bNode &node) const;
 };
 
 /* -------------------------------------------------------------------- */
 /** \name #NodeMultiFunctionBuilder Inline Methods
  * \{ */
 
-inline NodeMultiFunctionBuilder::NodeMultiFunctionBuilder(bNode &node, bNodeTree &tree)
+inline NodeMultiFunctionBuilder::NodeMultiFunctionBuilder(const bNode &node, const bNodeTree &tree)
     : node_(node), tree_(tree)
 {
 }
 
-inline bNode &NodeMultiFunctionBuilder::node()
+inline const bNode &NodeMultiFunctionBuilder::node()
 {
   return node_;
 }
 
-inline bNodeTree &NodeMultiFunctionBuilder::tree()
+inline const bNodeTree &NodeMultiFunctionBuilder::tree()
 {
   return tree_;
 }
 
-inline void NodeMultiFunctionBuilder::set_matching_fn(const MultiFunction *fn)
+inline void NodeMultiFunctionBuilder::set_matching_fn(const mf::MultiFunction *fn)
 {
   built_fn_ = fn;
 }
 
-inline void NodeMultiFunctionBuilder::set_matching_fn(const MultiFunction &fn)
+inline void NodeMultiFunctionBuilder::set_matching_fn(const mf::MultiFunction &fn)
 {
   built_fn_ = &fn;
 }
@@ -107,10 +103,10 @@ inline void NodeMultiFunctionBuilder::construct_and_set_matching_fn(Args &&...ar
 /** \name #NodeMultiFunctions Inline Methods
  * \{ */
 
-inline const NodeMultiFunctions::Item &NodeMultiFunctions::try_get(const DNode &node) const
+inline const NodeMultiFunctions::Item &NodeMultiFunctions::try_get(const bNode &node) const
 {
   static Item empty_item;
-  const Item *item = map_.lookup_ptr(node->bnode());
+  const Item *item = map_.lookup_ptr(&node);
   if (item == nullptr) {
     return empty_item;
   }

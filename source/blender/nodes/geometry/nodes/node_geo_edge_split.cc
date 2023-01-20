@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "BKE_mesh.h"
-#include "BKE_mesh_runtime.h"
+#include "DNA_mesh_types.h"
 
-#include "bmesh.h"
-#include "bmesh_tools.h"
+#include "GEO_mesh_split_edges.hh"
 
 #include "node_geometry_util.hh"
 
@@ -13,34 +11,8 @@ namespace blender::nodes::node_geo_edge_split_cc {
 static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Mesh")).supported_type(GEO_COMPONENT_TYPE_MESH);
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().supports_field();
-  b.add_output<decl::Geometry>(N_("Mesh"));
-}
-
-static Mesh *mesh_edge_split(const Mesh &mesh, const IndexMask selection)
-{
-  BMeshCreateParams bmesh_create_params{};
-  bmesh_create_params.use_toolflags = true;
-  const BMAllocTemplate allocsize = {0, 0, 0, 0};
-  BMesh *bm = BM_mesh_create(&allocsize, &bmesh_create_params);
-
-  BMeshFromMeshParams bmesh_from_mesh_params{};
-  BM_mesh_bm_from_me(bm, &mesh, &bmesh_from_mesh_params);
-
-  BM_mesh_elem_table_ensure(bm, BM_EDGE);
-  for (const int i : selection) {
-    BMEdge *edge = BM_edge_at_index(bm, i);
-    BM_elem_flag_enable(edge, BM_ELEM_TAG);
-  }
-
-  BM_mesh_edgesplit(bm, false, true, false);
-
-  Mesh *result = BKE_mesh_from_bmesh_for_eval_nomain(bm, nullptr, &mesh);
-  BM_mesh_free(bm);
-
-  BKE_mesh_normals_tag_dirty(result);
-
-  return result;
+  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().field_on_all();
+  b.add_output<decl::Geometry>(N_("Mesh")).propagate_all();
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
@@ -50,19 +22,20 @@ static void node_geo_exec(GeoNodeExecParams params)
   const Field<bool> selection_field = params.extract_input<Field<bool>>("Selection");
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-    if (!geometry_set.has_mesh()) {
-      return;
+    if (const Mesh *mesh = geometry_set.get_mesh_for_read()) {
+
+      bke::MeshFieldContext field_context{*mesh, ATTR_DOMAIN_EDGE};
+      fn::FieldEvaluator selection_evaluator{field_context, mesh->totedge};
+      selection_evaluator.set_selection(selection_field);
+      selection_evaluator.evaluate();
+      const IndexMask mask = selection_evaluator.get_evaluated_selection_as_mask();
+      if (mask.is_empty()) {
+        return;
+      }
+
+      geometry::split_edges(
+          *geometry_set.get_mesh_for_write(), mask, params.get_output_propagation_info("Mesh"));
     }
-
-    const MeshComponent &mesh_component = *geometry_set.get_component_for_read<MeshComponent>();
-    GeometryComponentFieldContext field_context{mesh_component, ATTR_DOMAIN_EDGE};
-    const int domain_size = mesh_component.attribute_domain_size(ATTR_DOMAIN_EDGE);
-    fn::FieldEvaluator selection_evaluator{field_context, domain_size};
-    selection_evaluator.add(selection_field);
-    selection_evaluator.evaluate();
-    const IndexMask selection = selection_evaluator.get_evaluated_as_mask(0);
-
-    geometry_set.replace_mesh(mesh_edge_split(*mesh_component.get_for_read(), selection));
   });
 
   params.set_output("Mesh", std::move(geometry_set));

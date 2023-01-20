@@ -13,15 +13,13 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_blenlib.h"
-#include "BLI_math.h"
-#include "BLI_math_geom.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
 #include "PIL_time.h"
 
+#include "BKE_callbacks.h"
 #include "BKE_colortools.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
@@ -51,6 +49,7 @@
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_prototypes.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -319,15 +318,14 @@ static void annotation_stroke_convertcoords(tGPsdata *p,
     int mval_i[2];
     round_v2i_v2fl(mval_i, mval);
     if (annotation_project_check(p) &&
-        (ED_view3d_autodist_simple(p->region, mval_i, out, 0, depth))) {
+        ED_view3d_autodist_simple(p->region, mval_i, out, 0, depth)) {
       /* projecting onto 3D-Geometry
        * - nothing more needs to be done here, since view_autodist_simple() has already done it
        */
     }
     else {
       float mval_prj[2];
-      float rvec[3], dvec[3];
-      float zfac;
+      float rvec[3];
 
       /* Current method just converts each point in screen-coordinates to
        * 3D-coordinates using the 3D-cursor as reference. In general, this
@@ -339,13 +337,14 @@ static void annotation_stroke_convertcoords(tGPsdata *p,
        */
 
       annotation_get_3d_reference(p, rvec);
-      zfac = ED_view3d_calc_zfac(p->region->regiondata, rvec, NULL);
+      const float zfac = ED_view3d_calc_zfac(p->region->regiondata, rvec);
 
       if (ED_view3d_project_float_global(p->region, rvec, mval_prj, V3D_PROJ_TEST_NOP) ==
           V3D_PROJ_RET_OK) {
-        float mval_f[2];
-        sub_v2_v2v2(mval_f, mval_prj, mval);
-        ED_view3d_win_to_delta(p->region, mval_f, dvec, zfac);
+        float dvec[3];
+        float xy_delta[2];
+        sub_v2_v2v2(xy_delta, mval_prj, mval);
+        ED_view3d_win_to_delta(p->region, xy_delta, zfac, dvec);
         sub_v3_v3v3(out, rvec, dvec);
       }
       else {
@@ -980,7 +979,8 @@ static void annotation_stroke_newfrombuffer(tGPsdata *p)
       }
 
       if (found_depth == false) {
-        /* eeh... not much we can do.. :/, ignore depth in this case, use the 3D cursor */
+        /* Unfortunately there is not much we can do when the depth isn't found,
+         * ignore depth in this case, use the 3D cursor. */
         for (i = gpd->runtime.sbuffer_used - 1; i >= 0; i--) {
           depth_arr[i] = 0.9999f;
         }
@@ -1117,7 +1117,7 @@ static void annotation_stroke_eraser_dostroke(tGPsdata *p,
       gpencil_point_to_xy(&p->gsc, gps, gps->points, &pc1[0], &pc1[1]);
 
       /* Do bound-box check first. */
-      if ((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) {
+      if (!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1]) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) {
         /* only check if point is inside */
         if (len_v2v2_int(mval_i, pc1) <= radius) {
           /* free stroke */
@@ -1159,8 +1159,8 @@ static void annotation_stroke_eraser_dostroke(tGPsdata *p,
       gpencil_point_to_xy(&p->gsc, gps, pt2, &pc2[0], &pc2[1]);
 
       /* Check that point segment of the bound-box of the eraser stroke. */
-      if (((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) ||
-          ((!ELEM(V2D_IS_CLIPPED, pc2[0], pc2[1])) && BLI_rcti_isect_pt(rect, pc2[0], pc2[1]))) {
+      if ((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1]) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) ||
+          (!ELEM(V2D_IS_CLIPPED, pc2[0], pc2[1]) && BLI_rcti_isect_pt(rect, pc2[0], pc2[1]))) {
         /* Check if point segment of stroke had anything to do with
          * eraser region  (either within stroke painted, or on its lines)
          *  - this assumes that line-width is irrelevant.
@@ -1348,7 +1348,9 @@ static bool annotation_session_initdata(bContext *C, tGPsdata *p)
 
       if (sc->gpencil_src == SC_GPENCIL_SRC_TRACK) {
         int framenr = ED_space_clip_get_clip_frame_number(sc);
-        MovieTrackingTrack *track = BKE_tracking_track_get_active(&clip->tracking);
+        const MovieTrackingObject *tracking_object = BKE_tracking_object_get_active(
+            &clip->tracking);
+        MovieTrackingTrack *track = tracking_object->active_track;
         MovieTrackingMarker *marker = track ? BKE_tracking_marker_get(track, framenr) : NULL;
 
         if (marker) {
@@ -1509,6 +1511,9 @@ static void annotation_paint_initstroke(tGPsdata *p,
   Scene *scene = p->scene;
   ToolSettings *ts = scene->toolsettings;
 
+  /* Call to the annotation pre handler to notify python the annotation starts. */
+  BKE_callback_exec_id_depsgraph(p->bmain, &p->gpd->id, p->depsgraph, BKE_CB_EVT_ANNOTATION_PRE);
+
   /* get active layer (or add a new one if non-existent) */
   p->gpl = BKE_gpencil_layer_active_get(p->gpd);
   if (p->gpl == NULL) {
@@ -1562,7 +1567,7 @@ static void annotation_paint_initstroke(tGPsdata *p,
       add_frame_mode = GP_GETFRAME_ADD_NEW;
     }
 
-    p->gpf = BKE_gpencil_layer_frame_get(p->gpl, CFRA, add_frame_mode);
+    p->gpf = BKE_gpencil_layer_frame_get(p->gpl, scene->r.cfra, add_frame_mode);
 
     if (p->gpf == NULL) {
       p->status = GP_STATUS_ERROR;
@@ -1675,6 +1680,9 @@ static void annotation_paint_strokeend(tGPsdata *p)
     annotation_stroke_newfrombuffer(p);
   }
 
+  /* Call to the annotation post handler to notify python the annotation is done. */
+  BKE_callback_exec_id_depsgraph(p->bmain, &p->gpd->id, p->depsgraph, BKE_CB_EVT_ANNOTATION_POST);
+
   /* clean up buffer now */
   annotation_session_validatebuffer(p);
 }
@@ -1706,7 +1714,7 @@ static void annotation_draw_eraser(bContext *UNUSED(C), int x, int y, void *p_pt
   if (p->paintmode == GP_PAINTMODE_ERASER) {
     GPUVertFormat *format = immVertexFormat();
     const uint shdr_pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
     GPU_line_smooth(true);
     GPU_blend(GPU_BLEND_ALPHA);
@@ -1716,7 +1724,7 @@ static void annotation_draw_eraser(bContext *UNUSED(C), int x, int y, void *p_pt
 
     immUnbindProgram();
 
-    immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
 
     float viewport_size[4];
     GPU_viewport_size_get_f(viewport_size);
@@ -1725,7 +1733,7 @@ static void annotation_draw_eraser(bContext *UNUSED(C), int x, int y, void *p_pt
     immUniformColor4f(1.0f, 0.39f, 0.39f, 0.78f);
     immUniform1i("colors_len", 0); /* "simple" mode */
     immUniform1f("dash_width", 12.0f);
-    immUniform1f("dash_factor", 0.5f);
+    immUniform1f("udash_factor", 0.5f);
 
     imm_draw_circle_wire_2d(shdr_pos,
                             x,
@@ -1773,7 +1781,7 @@ static void annotation_draw_stabilizer(bContext *C, int x, int y, void *p_ptr)
 
   GPUVertFormat *format = immVertexFormat();
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   GPU_line_smooth(true);
   GPU_blend(GPU_BLEND_ALPHA);
   GPU_line_width(1.25f);
@@ -2053,14 +2061,21 @@ static void annotation_draw_apply_event(
   PointerRNA itemptr;
   float mousef[2];
 
-  /* convert from window-space to area-space mouse coordinates
-   * add any x,y override position for fake events
-   */
-  p->mval[0] = (float)event->mval[0] - x;
-  p->mval[1] = (float)event->mval[1] - y;
+  /* Convert from window-space to area-space mouse coordinates
+   * add any x,y override position for fake events. */
+  if (p->flags & GP_PAINTFLAG_FIRSTRUN) {
+    /* The first run may be a drag event, see: T99368. */
+    WM_event_drag_start_mval_fl(event, p->region, p->mval);
+    p->mval[0] -= x;
+    p->mval[1] -= y;
+  }
+  else {
+    p->mval[0] = (float)event->mval[0] - x;
+    p->mval[1] = (float)event->mval[1] - y;
+  }
 
   /* Key to toggle stabilization. */
-  if (event->shift && p->paintmode == GP_PAINTMODE_DRAW) {
+  if ((event->modifier & KM_SHIFT) && (p->paintmode == GP_PAINTMODE_DRAW)) {
     /* Using permanent stabilization, shift will deactivate the flag. */
     if (p->flags & GP_PAINTFLAG_USE_STABILIZER) {
       if (p->flags & GP_PAINTFLAG_USE_STABILIZER_TEMP) {
@@ -2075,7 +2090,7 @@ static void annotation_draw_apply_event(
     }
   }
   /* verify key status for straight lines */
-  else if (event->ctrl || event->alt) {
+  else if (event->modifier & (KM_CTRL | KM_ALT)) {
     if (p->straight[0] == 0) {
       int dx = abs((int)(p->mval[0] - p->mvalo[0]));
       int dy = abs((int)(p->mval[1] - p->mvalo[1]));
@@ -2299,7 +2314,7 @@ static int annotation_draw_invoke(bContext *C, wmOperator *op, const wmEvent *ev
       p->flags |= GP_PAINTFLAG_USE_STABILIZER | GP_PAINTFLAG_USE_STABILIZER_TEMP;
       annotation_draw_toggle_stabilizer_cursor(p, true);
     }
-    else if (event->shift) {
+    else if (event->modifier & KM_SHIFT) {
       p->flags |= GP_PAINTFLAG_USE_STABILIZER_TEMP;
       annotation_draw_toggle_stabilizer_cursor(p, true);
     }
@@ -2330,7 +2345,7 @@ static int annotation_draw_invoke(bContext *C, wmOperator *op, const wmEvent *ev
   return OPERATOR_RUNNING_MODAL;
 }
 
-/* gpencil modal operator stores area, which can be removed while using it (like fullscreen) */
+/* gpencil modal operator stores area, which can be removed while using it (like full-screen). */
 static bool annotation_area_exists(bContext *C, ScrArea *area_test)
 {
   bScreen *screen = CTX_wm_screen(C);
@@ -2466,10 +2481,10 @@ static int annotation_draw_modal(bContext *C, wmOperator *op, const wmEvent *eve
                   EVT_PAD7,
                   EVT_PAD8,
                   EVT_PAD9)) {
-      /* allow numpad keys so that camera/view manipulations can still take place
-       * - PAD0 in particular is really important for Grease Pencil drawing,
+      /* Allow numpad keys so that camera/view manipulations can still take place
+       * - #EVT_PAD0 in particular is really important for Grease Pencil drawing,
        *   as animators may be working "to camera", so having this working
-       *   is essential for ensuring that they can quickly return to that view
+       *   is essential for ensuring that they can quickly return to that view.
        */
     }
     else if ((event->type == EVT_BKEY) && (event->val == KM_RELEASE)) {
@@ -2477,7 +2492,7 @@ static int annotation_draw_modal(bContext *C, wmOperator *op, const wmEvent *eve
        * - Since this operator is non-modal, we can just call it here, and keep going...
        * - This operator is especially useful when animating
        */
-      WM_operator_name_call(C, "GPENCIL_OT_blank_frame_add", WM_OP_EXEC_DEFAULT, NULL);
+      WM_operator_name_call(C, "GPENCIL_OT_blank_frame_add", WM_OP_EXEC_DEFAULT, NULL, event);
       estate = OPERATOR_RUNNING_MODAL;
     }
     else {
@@ -2504,7 +2519,7 @@ static int annotation_draw_modal(bContext *C, wmOperator *op, const wmEvent *eve
    *    (Disabling RIGHTMOUSE case here results in bugs like T32647)
    * also making sure we have a valid event value, to not exit too early
    */
-  if (ELEM(event->type, LEFTMOUSE, RIGHTMOUSE) && (ELEM(event->val, KM_PRESS, KM_RELEASE))) {
+  if (ELEM(event->type, LEFTMOUSE, RIGHTMOUSE) && ELEM(event->val, KM_PRESS, KM_RELEASE)) {
     /* if painting, end stroke */
     if (p->status == GP_STATUS_PAINTING) {
       int sketch = 0;
@@ -2625,7 +2640,7 @@ static int annotation_draw_modal(bContext *C, wmOperator *op, const wmEvent *eve
   /* handle mode-specific events */
   if (p->status == GP_STATUS_PAINTING) {
     /* handle painting mouse-movements? */
-    if (ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE) || (p->flags & GP_PAINTFLAG_FIRSTRUN)) {
+    if (ISMOUSE_MOTION(event->type) || (p->flags & GP_PAINTFLAG_FIRSTRUN)) {
       /* handle drawing event */
       if ((p->flags & GP_PAINTFLAG_FIRSTRUN) == 0) {
         annotation_add_missing_events(C, op, event, p);
@@ -2682,7 +2697,7 @@ static int annotation_draw_modal(bContext *C, wmOperator *op, const wmEvent *eve
     }
   }
 
-  /* gpencil modal operator stores area, which can be removed while using it (like fullscreen) */
+  /* gpencil modal operator stores area, which can be removed while using it (like full-screen). */
   if (0 == annotation_area_exists(C, p->area)) {
     estate = OPERATOR_CANCELLED;
   }

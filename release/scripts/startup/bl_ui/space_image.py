@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 from bpy.types import (
     Header,
     Menu,
@@ -31,7 +29,10 @@ from bl_ui.space_toolsystem_common import (
     ToolActivePanelHelper,
 )
 
-from bpy.app.translations import pgettext_iface as iface_
+from bpy.app.translations import (
+    contexts as i18n_contexts,
+    pgettext_iface as iface_,
+)
 
 
 class ImagePaintPanel:
@@ -161,6 +162,7 @@ class IMAGE_MT_select(Menu):
 
         layout.operator("uv.select_pinned")
         layout.menu("IMAGE_MT_select_linked")
+        layout.operator("uv.select_similar")
 
         layout.separator()
 
@@ -188,7 +190,8 @@ class IMAGE_MT_image(Menu):
         ima = sima.image
         show_render = sima.show_render
 
-        layout.operator("image.new", text="New")
+        layout.operator("image.new", text="New",
+                        text_ctxt=i18n_contexts.id_image)
         layout.operator("image.open", text="Open...", icon='FILE_FOLDER')
 
         layout.operator("image.read_viewlayers")
@@ -289,6 +292,10 @@ class IMAGE_MT_uvs_transform(Menu):
 
         layout.operator("transform.shear")
 
+        layout.separator()
+
+        layout.operator("uv.randomize_uv_transform")
+
 
 class IMAGE_MT_uvs_snap(Menu):
     bl_label = "Snap"
@@ -307,6 +314,7 @@ class IMAGE_MT_uvs_snap(Menu):
 
         layout.operator("uv.snap_cursor", text="Cursor to Pixels").target = 'PIXELS'
         layout.operator("uv.snap_cursor", text="Cursor to Selected").target = 'SELECTED'
+        layout.operator("uv.snap_cursor", text="Cursor to Origin").target = 'ORIGIN'
 
 
 class IMAGE_MT_uvs_mirror(Menu):
@@ -394,7 +402,7 @@ class IMAGE_MT_uvs(Menu):
         layout.menu("IMAGE_MT_uvs_mirror")
         layout.menu("IMAGE_MT_uvs_snap")
 
-        layout.prop_menu_enum(uv, "pixel_snap_mode")
+        layout.prop_menu_enum(uv, "pixel_round_mode")
         layout.prop(uv, "lock_bounds")
 
         layout.separator()
@@ -428,6 +436,12 @@ class IMAGE_MT_uvs(Menu):
         layout.operator("uv.minimize_stretch")
         layout.operator("uv.stitch")
         layout.menu("IMAGE_MT_uvs_align")
+        layout.operator("uv.align_rotation")
+
+        layout.separator()
+
+        layout.operator("uv.copy")
+        layout.operator("uv.paste")
 
         layout.separator()
 
@@ -528,10 +542,12 @@ class IMAGE_MT_pivot_pie(Menu):
         layout = self.layout
         pie = layout.menu_pie()
 
-        pie.prop_enum(context.space_data, "pivot_point", value='CENTER')
-        pie.prop_enum(context.space_data, "pivot_point", value='CURSOR')
-        pie.prop_enum(context.space_data, "pivot_point", value='INDIVIDUAL_ORIGINS')
-        pie.prop_enum(context.space_data, "pivot_point", value='MEDIAN')
+        sima = context.space_data
+
+        pie.prop_enum(sima, "pivot_point", value='CENTER')
+        pie.prop_enum(sima, "pivot_point", value='CURSOR')
+        pie.prop_enum(sima, "pivot_point", value='INDIVIDUAL_ORIGINS')
+        pie.prop_enum(sima, "pivot_point", value='MEDIAN')
 
 
 class IMAGE_MT_uvs_snap_pie(Menu):
@@ -573,6 +589,11 @@ class IMAGE_MT_uvs_snap_pie(Menu):
             text="Selected to Adjacent Unselected",
             icon='RESTRICT_SELECT_OFF',
         ).target = 'ADJACENT_UNSELECTED'
+        pie.operator(
+            "uv.snap_cursor",
+            text="Cursor to Origin",
+            icon='PIVOT_CURSOR',
+        ).target = 'ORIGIN'
 
 
 class IMAGE_MT_view_pie(Menu):
@@ -676,7 +697,7 @@ class _draw_tool_settings_context_mode:
                         pressure_name="use_pressure_size",
                         unified_name="use_unified_size",
                         slider=True,
-                        header=True
+                        header=True,
                     )
                     UnifiedPaintPanel.prop_unified(
                         layout,
@@ -686,7 +707,7 @@ class _draw_tool_settings_context_mode:
                         pressure_name="use_pressure_strength",
                         unified_name="use_unified_strength",
                         slider=True,
-                        header=True
+                        header=True,
                     )
 
     @staticmethod
@@ -721,10 +742,10 @@ class IMAGE_HT_header(Header):
 
             # Snap.
             snap_uv_element = tool_settings.snap_uv_element
-            act_snap_uv_element = tool_settings.bl_rna.properties['snap_uv_element'].enum_items[snap_uv_element]
+            act_snap_uv_element = tool_settings.bl_rna.properties["snap_uv_element"].enum_items[snap_uv_element]
 
             row = layout.row(align=True)
-            row.prop(tool_settings, "use_snap", text="")
+            row.prop(tool_settings, "use_snap_uv", text="")
 
             sub = row.row(align=True)
             sub.popover(
@@ -759,7 +780,6 @@ class IMAGE_HT_header(Header):
         ima = sima.image
         iuser = sima.image_user
         tool_settings = context.tool_settings
-        show_region_tool_header = sima.show_region_tool_header
 
         show_render = sima.show_render
         show_uvedit = sima.show_uvedit
@@ -772,14 +792,22 @@ class IMAGE_HT_header(Header):
 
         # UV editing.
         if show_uvedit:
-            uvedit = sima.uv_editor
-
             layout.prop(tool_settings, "use_uv_select_sync", text="")
 
             if tool_settings.use_uv_select_sync:
                 layout.template_edit_mode_selection()
             else:
-                layout.prop(tool_settings, "uv_select_mode", text="", expand=True)
+                row = layout.row(align=True)
+                uv_select_mode = tool_settings.uv_select_mode[:]
+                row.operator("uv.select_mode", text="", icon='UV_VERTEXSEL',
+                             depress=(uv_select_mode == 'VERTEX')).type = 'VERTEX'
+                row.operator("uv.select_mode", text="", icon='UV_EDGESEL',
+                             depress=(uv_select_mode == 'EDGE')).type = 'EDGE'
+                row.operator("uv.select_mode", text="", icon='UV_FACESEL',
+                             depress=(uv_select_mode == 'FACE')).type = 'FACE'
+                row.operator("uv.select_mode", text="", icon='UV_ISLANDSEL',
+                             depress=(uv_select_mode == 'ISLAND')).type = 'ISLAND'
+
                 layout.prop(tool_settings, "uv_sticky_select_mode", icon_only=True)
 
         IMAGE_MT_editor_menus.draw_collapsible(context, layout)
@@ -799,6 +827,13 @@ class IMAGE_HT_header(Header):
 
         layout.separator_spacer()
 
+        # Gizmo toggle & popover.
+        row = layout.row(align=True)
+        row.prop(sima, "show_gizmo", icon='GIZMO', text="")
+        sub = row.row(align=True)
+        sub.active = sima.show_gizmo
+        sub.popover(panel="IMAGE_PT_gizmo_display", text="")
+
         # Overlay toggle & popover
         row = layout.row(align=True)
         row.prop(overlay, "show_overlays", icon='OVERLAY', text="")
@@ -807,8 +842,6 @@ class IMAGE_HT_header(Header):
         sub.popover(panel="IMAGE_PT_overlay", text="")
 
         if show_uvedit:
-            uvedit = sima.uv_editor
-
             mesh = context.edit_object.data
             layout.prop_search(mesh.uv_layers, "active", mesh, "uv_layers", text="")
 
@@ -1448,57 +1481,25 @@ class IMAGE_PT_uv_cursor(Panel):
         col.prop(sima, "cursor_location", text="Location")
 
 
-class IMAGE_PT_udim_grid(Panel):
+class IMAGE_PT_gizmo_display(Panel):
     bl_space_type = 'IMAGE_EDITOR'
-    bl_region_type = 'UI'
-    bl_category = "View"
-    bl_label = "UDIM Grid"
-
-    @classmethod
-    def poll(cls, context):
-        sima = context.space_data
-
-        return sima.show_uvedit
+    bl_region_type = 'HEADER'
+    bl_label = "Gizmos"
+    bl_ui_units_x = 8
 
     def draw(self, context):
         layout = self.layout
 
-        sima = context.space_data
-        uvedit = sima.uv_editor
-
-        layout.use_property_split = True
-        layout.use_property_decorate = False
+        view = context.space_data
 
         col = layout.column()
-        col.prop(uvedit, "tile_grid_shape", text="Grid Shape")
+        col.label(text="Viewport Gizmos")
+        col.separator()
 
-class IMAGE_PT_custom_grid(Panel):
-    bl_space_type = 'IMAGE_EDITOR'
-    bl_region_type = 'UI'
-    bl_category = "View"
-    bl_label = "Custom Grid"
+        col.active = view.show_gizmo
+        colsub = col.column()
+        colsub.prop(view, "show_gizmo_navigate", text="Navigate")
 
-    @classmethod
-    def poll(cls, context):
-        sima = context.space_data
-        return sima.show_uvedit
-
-    def draw_header(self, context):
-        sima = context.space_data
-        uvedit = sima.uv_editor
-        self.layout.prop(uvedit, "use_custom_grid", text="")
-
-    def draw(self, context):
-        layout = self.layout
-
-        sima = context.space_data
-        uvedit = sima.uv_editor
-
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        col = layout.column()
-        col.prop(uvedit, "custom_grid_subdivisions", text="Subdivisions")
 
 class IMAGE_PT_overlay(Panel):
     bl_space_type = 'IMAGE_EDITOR'
@@ -1508,6 +1509,47 @@ class IMAGE_PT_overlay(Panel):
 
     def draw(self, context):
         pass
+
+
+class IMAGE_PT_overlay_guides(Panel):
+    bl_space_type = 'IMAGE_EDITOR'
+    bl_region_type = 'HEADER'
+    bl_label = "Guides"
+    bl_parent_id = 'IMAGE_PT_overlay'
+
+    @classmethod
+    def poll(cls, context):
+        sima = context.space_data
+
+        return sima.show_uvedit
+
+    def draw(self, context):
+        layout = self.layout
+
+        sima = context.space_data
+        overlay = sima.overlay
+        uvedit = sima.uv_editor
+
+        layout.active = overlay.show_overlays
+
+        row = layout.row()
+        row.prop(overlay, "show_grid_background", text="Grid")
+
+        if overlay.show_grid_background:
+            sub = row.row()
+            sub.prop(uvedit, "show_grid_over_image", text="Over Image")
+            sub.active = sima.image is not None
+
+            layout.row().prop(uvedit, "grid_shape_source", expand=True)
+
+            layout.use_property_split = True
+            layout.use_property_decorate = False
+
+            row = layout.row()
+            row.prop(uvedit, "custom_grid_subdivisions", text="Fixed Subdivisions")
+            row.active = uvedit.grid_shape_source == 'FIXED'
+
+            layout.prop(uvedit, "tile_grid_shape", text="Tiles")
 
 
 class IMAGE_PT_overlay_uv_edit(Panel):
@@ -1684,9 +1726,9 @@ classes = (
     IMAGE_PT_scope_sample,
     IMAGE_PT_uv_cursor,
     IMAGE_PT_annotation,
-    IMAGE_PT_udim_grid,
-    IMAGE_PT_custom_grid,
+    IMAGE_PT_gizmo_display,
     IMAGE_PT_overlay,
+    IMAGE_PT_overlay_guides,
     IMAGE_PT_overlay_uv_edit,
     IMAGE_PT_overlay_uv_edit_geometry,
     IMAGE_PT_overlay_texture_paint,

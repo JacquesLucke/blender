@@ -31,7 +31,7 @@
 #endif /* defined(WIN32) || defined(__APPLE__) */
 
 static void gearsTimerProc(GHOST_TimerTaskHandle task, uint64_t time);
-int processEvent(GHOST_EventHandle hEvent, GHOST_TUserDataPtr userData);
+bool processEvent(GHOST_EventHandle hEvent, GHOST_TUserDataPtr userData);
 
 static GLfloat view_rotx = 20.0, view_roty = 30.0, view_rotz = 0.0;
 static GLfloat fAngle = 0.0;
@@ -269,9 +269,9 @@ static void setViewPortGL(GHOST_WindowHandle hWindow)
   GHOST_DisposeRectangle(hRect);
 }
 
-int processEvent(GHOST_EventHandle hEvent, GHOST_TUserDataPtr userData)
+bool processEvent(GHOST_EventHandle hEvent, GHOST_TUserDataPtr userData)
 {
-  int handled = 1;
+  bool handled = true;
   int cursor;
   int visibility;
   GHOST_TEventKeyData *keyData = NULL;
@@ -315,7 +315,7 @@ int processEvent(GHOST_EventHandle hEvent, GHOST_TUserDataPtr userData)
         } break;
         case GHOST_kKeyF:
           if (!GHOST_GetFullScreen(shSystem)) {
-            /* Begin fullscreen mode */
+            /* Begin full-screen mode. */
             setting.bpp = 24;
             setting.frequency = 85;
             setting.xPixels = 640;
@@ -389,10 +389,10 @@ int processEvent(GHOST_EventHandle hEvent, GHOST_TUserDataPtr userData)
     } break;
 
     case GHOST_kEventWindowActivate:
-      handled = 0;
+      handled = false;
       break;
     case GHOST_kEventWindowDeactivate:
-      handled = 0;
+      handled = false;
       break;
     case GHOST_kEventWindowUpdate: {
       GHOST_WindowHandle window2 = GHOST_GetEventWindow(hEvent);
@@ -404,7 +404,7 @@ int processEvent(GHOST_EventHandle hEvent, GHOST_TUserDataPtr userData)
     } break;
 
     default:
-      handled = 0;
+      handled = false;
       break;
   }
   return handled;

@@ -67,13 +67,13 @@ void _BLI_assert_unreachable_print(const char *file, int line, const char *funct
 #  define BLI_STATIC_ASSERT(a, msg) static_assert(a, msg);
 #elif defined(_MSC_VER)
 /* Visual Studio */
-#  if (_MSC_VER > 1910) && !defined(__clang__)
+#  if !defined(__clang__)
 #    define BLI_STATIC_ASSERT(a, msg) static_assert(a, msg);
 #  else
 #    define BLI_STATIC_ASSERT(a, msg) _STATIC_ASSERT(a);
 #  endif
 #elif defined(__COVERITY__)
-/* Workaround error with coverity */
+/* Workaround error with COVERITY. */
 #  define BLI_STATIC_ASSERT(a, msg)
 #elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
 /* C11 */

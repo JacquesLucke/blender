@@ -7,30 +7,35 @@ set(INC
   ../../blentranslation
   ../../bmesh
   ../../depsgraph
+  ../../geometry
   ../../gpu
   ../../makesdna
   ../../makesrna
   ../../windowmanager
   ../../../../intern/eigen
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
+set(INC_SYS
+)
 
 set(SRC
   uvedit_buttons.c
+  uvedit_clipboard.cc
+  uvedit_clipboard_graph_iso.cc
   uvedit_draw.c
-  uvedit_islands.c
+  uvedit_islands.cc
   uvedit_ops.c
-  uvedit_parametrizer.c
   uvedit_path.c
   uvedit_rip.c
   uvedit_select.c
   uvedit_smart_stitch.c
   uvedit_unwrap_ops.c
 
+  uvedit_clipboard_graph_iso.hh
   uvedit_intern.h
-  uvedit_parametrizer.h
 )
 
 set(LIB
@@ -39,3 +44,6 @@ set(LIB
 
 
 blender_add_lib(bf_editor_uvedit "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+# RNA_prototypes.h
+add_dependencies(bf_editor_uvedit bf_rna)

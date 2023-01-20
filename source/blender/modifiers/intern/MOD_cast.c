@@ -23,6 +23,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_lib_query.h"
 #include "BKE_mesh.h"
+#include "BKE_mesh_runtime.h"
 #include "BKE_mesh_wrapper.h"
 #include "BKE_modifier.h"
 #include "BKE_screen.h"
@@ -31,6 +32,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph_query.h"
 
@@ -62,9 +64,7 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
   return false;
 }
 
-static void requiredDataMask(Object *UNUSED(ob),
-                             ModifierData *md,
-                             CustomData_MeshMasks *r_cddata_masks)
+static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_masks)
 {
   CastModifierData *cmd = (CastModifierData *)md;
 
@@ -86,7 +86,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   CastModifierData *cmd = (CastModifierData *)md;
   if (cmd->object != NULL) {
     DEG_add_object_relation(ctx->node, cmd->object, DEG_OB_COMP_TRANSFORM, "Cast Modifier");
-    DEG_add_modifier_to_transform_relation(ctx->node, "Cast Modifier");
+    DEG_add_depends_on_transform_relation(ctx->node, "Cast Modifier");
   }
 }
 
@@ -95,9 +95,9 @@ static void sphere_do(CastModifierData *cmd,
                       Object *ob,
                       Mesh *mesh,
                       float (*vertexCos)[3],
-                      int numVerts)
+                      int verts_num)
 {
-  MDeformVert *dvert = NULL;
+  const MDeformVert *dvert = NULL;
   const bool invert_vgroup = (cmd->flag & MOD_CAST_INVERT_VGROUP) != 0;
 
   Object *ctrl_ob = NULL;
@@ -126,13 +126,13 @@ static void sphere_do(CastModifierData *cmd,
    * we use its location, transformed to ob's local space */
   if (ctrl_ob) {
     if (flag & MOD_CAST_USE_OB_TRANSFORM) {
-      invert_m4_m4(imat, ctrl_ob->obmat);
-      mul_m4_m4m4(mat, imat, ob->obmat);
+      invert_m4_m4(imat, ctrl_ob->object_to_world);
+      mul_m4_m4m4(mat, imat, ob->object_to_world);
       invert_m4_m4(imat, mat);
     }
 
-    invert_m4_m4(ob->imat, ob->obmat);
-    mul_v3_m4v3(center, ob->imat, ctrl_ob->obmat[3]);
+    invert_m4_m4(ob->world_to_object, ob->object_to_world);
+    mul_v3_m4v3(center, ob->world_to_object, ctrl_ob->object_to_world[3]);
   }
 
   /* now we check which options the user wants */
@@ -158,17 +158,17 @@ static void sphere_do(CastModifierData *cmd,
   }
 
   if (len <= 0) {
-    for (i = 0; i < numVerts; i++) {
+    for (i = 0; i < verts_num; i++) {
       len += len_v3v3(center, vertexCos[i]);
     }
-    len /= numVerts;
+    len /= verts_num;
 
     if (len == 0.0f) {
       len = 10.0f;
     }
   }
 
-  for (i = 0; i < numVerts; i++) {
+  for (i = 0; i < verts_num; i++) {
     float tmp_co[3];
 
     copy_v3_v3(tmp_co, vertexCos[i]);
@@ -236,9 +236,9 @@ static void cuboid_do(CastModifierData *cmd,
                       Object *ob,
                       Mesh *mesh,
                       float (*vertexCos)[3],
-                      int numVerts)
+                      int verts_num)
 {
-  MDeformVert *dvert = NULL;
+  const MDeformVert *dvert = NULL;
   int defgrp_index;
   const bool invert_vgroup = (cmd->flag & MOD_CAST_INVERT_VGROUP) != 0;
 
@@ -275,13 +275,13 @@ static void cuboid_do(CastModifierData *cmd,
 
   if (ctrl_ob) {
     if (flag & MOD_CAST_USE_OB_TRANSFORM) {
-      invert_m4_m4(imat, ctrl_ob->obmat);
-      mul_m4_m4m4(mat, imat, ob->obmat);
+      invert_m4_m4(imat, ctrl_ob->object_to_world);
+      mul_m4_m4m4(mat, imat, ob->object_to_world);
       invert_m4_m4(imat, mat);
     }
 
-    invert_m4_m4(ob->imat, ob->obmat);
-    mul_v3_m4v3(center, ob->imat, ctrl_ob->obmat[3]);
+    invert_m4_m4(ob->world_to_object, ob->object_to_world);
+    mul_v3_m4v3(center, ob->world_to_object, ctrl_ob->object_to_world[3]);
   }
 
   if ((flag & MOD_CAST_SIZE_FROM_RADIUS) && has_radius) {
@@ -311,13 +311,13 @@ static void cuboid_do(CastModifierData *cmd,
       /* let the center of the ctrl_ob be part of the bound box: */
       minmax_v3v3_v3(min, max, center);
 
-      for (i = 0; i < numVerts; i++) {
+      for (i = 0; i < verts_num; i++) {
         sub_v3_v3v3(vec, vertexCos[i], center);
         minmax_v3v3_v3(min, max, vec);
       }
     }
     else {
-      for (i = 0; i < numVerts; i++) {
+      for (i = 0; i < verts_num; i++) {
         minmax_v3v3_v3(min, max, vertexCos[i]);
       }
     }
@@ -346,7 +346,7 @@ static void cuboid_do(CastModifierData *cmd,
   bb[4][2] = bb[5][2] = bb[6][2] = bb[7][2] = max[2];
 
   /* ready to apply the effect, one vertex at a time */
-  for (i = 0; i < numVerts; i++) {
+  for (i = 0; i < verts_num; i++) {
     int octant, coord;
     float d[3], dmax, apex[3], fbb;
     float tmp_co[3];
@@ -459,21 +459,21 @@ static void deformVerts(ModifierData *md,
                         const ModifierEvalContext *ctx,
                         Mesh *mesh,
                         float (*vertexCos)[3],
-                        int numVerts)
+                        int verts_num)
 {
   CastModifierData *cmd = (CastModifierData *)md;
   Mesh *mesh_src = NULL;
 
   if (ctx->object->type == OB_MESH && cmd->defgrp_name[0] != '\0') {
     /* mesh_src is only needed for vgroups. */
-    mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, mesh, NULL, numVerts, false, false);
+    mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, mesh, NULL, verts_num, false);
   }
 
   if (cmd->type == MOD_CAST_TYPE_CUBOID) {
-    cuboid_do(cmd, ctx, ctx->object, mesh_src, vertexCos, numVerts);
+    cuboid_do(cmd, ctx, ctx->object, mesh_src, vertexCos, verts_num);
   }
   else { /* MOD_CAST_TYPE_SPHERE or MOD_CAST_TYPE_CYLINDER */
-    sphere_do(cmd, ctx, ctx->object, mesh_src, vertexCos, numVerts);
+    sphere_do(cmd, ctx, ctx->object, mesh_src, vertexCos, verts_num);
   }
 
   if (!ELEM(mesh_src, NULL, mesh)) {
@@ -486,29 +486,29 @@ static void deformVertsEM(ModifierData *md,
                           struct BMEditMesh *editData,
                           Mesh *mesh,
                           float (*vertexCos)[3],
-                          int numVerts)
+                          int verts_num)
 {
   CastModifierData *cmd = (CastModifierData *)md;
   Mesh *mesh_src = NULL;
 
   if (cmd->defgrp_name[0] != '\0') {
-    mesh_src = MOD_deform_mesh_eval_get(ctx->object, editData, mesh, NULL, numVerts, false, false);
+    mesh_src = MOD_deform_mesh_eval_get(ctx->object, editData, mesh, NULL, verts_num, false);
   }
 
-  if (mesh && mesh->runtime.wrapper_type == ME_WRAPPER_TYPE_MDATA) {
-    BLI_assert(mesh->totvert == numVerts);
+  if (mesh && BKE_mesh_wrapper_type(mesh) == ME_WRAPPER_TYPE_MDATA) {
+    BLI_assert(mesh->totvert == verts_num);
   }
 
-  /* TODO(Campbell): use edit-mode data only (remove this line). */
+  /* TODO(@campbellbarton): use edit-mode data only (remove this line). */
   if (mesh_src != NULL) {
     BKE_mesh_wrapper_ensure_mdata(mesh_src);
   }
 
   if (cmd->type == MOD_CAST_TYPE_CUBOID) {
-    cuboid_do(cmd, ctx, ctx->object, mesh_src, vertexCos, numVerts);
+    cuboid_do(cmd, ctx, ctx->object, mesh_src, vertexCos, verts_num);
   }
   else { /* MOD_CAST_TYPE_SPHERE or MOD_CAST_TYPE_CYLINDER */
-    sphere_do(cmd, ctx, ctx->object, mesh_src, vertexCos, numVerts);
+    sphere_do(cmd, ctx, ctx->object, mesh_src, vertexCos, verts_num);
   }
 
   if (!ELEM(mesh_src, NULL, mesh)) {
@@ -557,35 +557,35 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Cast = {
-    /* name */ "Cast",
-    /* structName */ "CastModifierData",
-    /* structSize */ sizeof(CastModifierData),
-    /* srna */ &RNA_CastModifier,
-    /* type */ eModifierTypeType_OnlyDeform,
-    /* flags */ eModifierTypeFlag_AcceptsCVs | eModifierTypeFlag_AcceptsVertexCosOnly |
+    /*name*/ N_("Cast"),
+    /*structName*/ "CastModifierData",
+    /*structSize*/ sizeof(CastModifierData),
+    /*srna*/ &RNA_CastModifier,
+    /*type*/ eModifierTypeType_OnlyDeform,
+    /*flags*/ eModifierTypeFlag_AcceptsCVs | eModifierTypeFlag_AcceptsVertexCosOnly |
         eModifierTypeFlag_SupportsEditmode,
-    /* icon */ ICON_MOD_CAST,
+    /*icon*/ ICON_MOD_CAST,
 
-    /* copyData */ BKE_modifier_copydata_generic,
+    /*copyData*/ BKE_modifier_copydata_generic,
 
-    /* deformVerts */ deformVerts,
-    /* deformMatrices */ NULL,
-    /* deformVertsEM */ deformVertsEM,
-    /* deformMatricesEM */ NULL,
-    /* modifyMesh */ NULL,
-    /* modifyGeometrySet */ NULL,
+    /*deformVerts*/ deformVerts,
+    /*deformMatrices*/ NULL,
+    /*deformVertsEM*/ deformVertsEM,
+    /*deformMatricesEM*/ NULL,
+    /*modifyMesh*/ NULL,
+    /*modifyGeometrySet*/ NULL,
 
-    /* initData */ initData,
-    /* requiredDataMask */ requiredDataMask,
-    /* freeData */ NULL,
-    /* isDisabled */ isDisabled,
-    /* updateDepsgraph */ updateDepsgraph,
-    /* dependsOnTime */ NULL,
-    /* dependsOnNormals */ NULL,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ NULL,
-    /* freeRuntimeData */ NULL,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ NULL,
-    /* blendRead */ NULL,
+    /*initData*/ initData,
+    /*requiredDataMask*/ requiredDataMask,
+    /*freeData*/ NULL,
+    /*isDisabled*/ isDisabled,
+    /*updateDepsgraph*/ updateDepsgraph,
+    /*dependsOnTime*/ NULL,
+    /*dependsOnNormals*/ NULL,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ NULL,
+    /*freeRuntimeData*/ NULL,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ NULL,
+    /*blendRead*/ NULL,
 };

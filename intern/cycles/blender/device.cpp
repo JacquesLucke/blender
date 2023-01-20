@@ -15,6 +15,7 @@ enum ComputeDevice {
   COMPUTE_DEVICE_OPTIX = 3,
   COMPUTE_DEVICE_HIP = 4,
   COMPUTE_DEVICE_METAL = 5,
+  COMPUTE_DEVICE_ONEAPI = 6,
 
   COMPUTE_DEVICE_NUM
 };
@@ -29,7 +30,10 @@ int blender_device_threads(BL::Scene &b_scene)
     return 0;
 }
 
-DeviceInfo blender_device_info(BL::Preferences &b_preferences, BL::Scene &b_scene, bool background)
+DeviceInfo blender_device_info(BL::Preferences &b_preferences,
+                               BL::Scene &b_scene,
+                               bool background,
+                               bool preview)
 {
   PointerRNA cscene = RNA_pointer_get(&b_scene.ptr, "cycles");
 
@@ -76,6 +80,9 @@ DeviceInfo blender_device_info(BL::Preferences &b_preferences, BL::Scene &b_scen
       else if (compute_device == COMPUTE_DEVICE_METAL) {
         mask |= DEVICE_MASK_METAL;
       }
+      else if (compute_device == COMPUTE_DEVICE_ONEAPI) {
+        mask |= DEVICE_MASK_ONEAPI;
+      }
       vector<DeviceInfo> devices = Device::available_devices(mask);
 
       /* Match device preferences and available devices. */
@@ -107,6 +114,18 @@ DeviceInfo blender_device_info(BL::Preferences &b_preferences, BL::Scene &b_scen
 
   if (get_boolean(cpreferences, "use_metalrt")) {
     device.use_metalrt = true;
+  }
+
+  if (preview) {
+    /* Disable specialization for preview renders. */
+    device.kernel_optimization_level = KERNEL_OPTIMIZATION_LEVEL_OFF;
+  }
+  else {
+    device.kernel_optimization_level = (KernelOptimizationLevel)get_enum(
+        cpreferences,
+        "kernel_optimization_level",
+        KERNEL_OPTIMIZATION_NUM_LEVELS,
+        KERNEL_OPTIMIZATION_LEVEL_FULL);
   }
 
   return device;

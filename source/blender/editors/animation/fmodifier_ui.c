@@ -33,6 +33,7 @@
 #include "WM_types.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -411,7 +412,7 @@ static void generator_panel_draw(const bContext *C, Panel *panel)
       uiLayout *first_row = uiLayoutRow(col, true);
       uiItemFullR(first_row, ptr, prop, 0, 0, 0, IFACE_("y = (Ax + B)"), ICON_NONE);
       uiItemFullR(first_row, ptr, prop, 1, 0, 0, "", ICON_NONE);
-      for (int i = 2; i < data->arraysize - 1; i++) {
+      for (int i = 2; i < data->arraysize - 1; i += 2) {
         /* \u2715 is the multiplication symbol. */
         uiLayout *row = uiLayoutRow(col, true);
         uiItemFullR(row, ptr, prop, i, 0, 0, IFACE_("\u2715 (Ax + B)"), ICON_NONE);
@@ -886,8 +887,7 @@ void ANIM_fmodifier_panels(const bContext *C,
 
   if (!panels_match) {
     UI_panels_free_instanced(C, region);
-    FModifier *fcm = fmodifiers->first;
-    for (int i = 0; fcm; i++, fcm = fcm->next) {
+    for (FModifier *fcm = fmodifiers->first; fcm; fcm = fcm->next) {
       char panel_idname[MAX_NAME];
       panel_id_fn(fcm, panel_idname);
 
@@ -1019,7 +1019,7 @@ bool ANIM_fmodifiers_paste_from_buf(ListBase *modifiers, bool replace, FCurve *c
 
   /* adding or removing the Cycles modifier requires an update to handles */
   if (curve && BKE_fcurve_is_cyclic(curve) != was_cyclic) {
-    calchandles_fcurve(curve);
+    BKE_fcurve_handles_recalc(curve);
   }
 
   /* did we succeed? */

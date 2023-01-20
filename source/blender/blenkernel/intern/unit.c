@@ -268,7 +268,7 @@ static struct bUnitCollection buImperialAclCollection = {buImperialAclDef, 0, 0,
 /* Time. */
 static struct bUnitDef buNaturalTimeDef[] = {
   /* Weeks? - probably not needed for Blender. */
-  {"day",         "days",         "d",   NULL, "Days",         "DAYS",     90000.0,      0.0, B_UNIT_DEF_NONE},
+  {"day",         "days",         "d",   NULL, "Days",         "DAYS",     86400.0,      0.0, B_UNIT_DEF_NONE},
   {"hour",        "hours",        "hr",  "h",  "Hours",        "HOURS",     3600.0,      0.0, B_UNIT_DEF_NONE},
   {"minute",      "minutes",      "min", "m",  "Minutes",      "MINUTES",     60.0,      0.0, B_UNIT_DEF_NONE},
   {"second",      "seconds",      "sec", "s",  "Seconds",      "SECONDS",      1.0,      0.0, B_UNIT_DEF_NONE}, /* Base unit. */
@@ -460,11 +460,20 @@ static size_t unit_as_string(char *str,
   }
 
   double value_conv = (value / unit->scalar) - unit->bias;
+  bool strip_skip = false;
+
+  /* Negative precision is used to disable stripping of zeroes.
+   * This reduces text jumping when changing values. */
+  if (prec < 0) {
+    strip_skip = true;
+    prec *= -1;
+  }
 
   /* Adjust precision to expected number of significant digits.
    * Note that here, we shall not have to worry about very big/small numbers, units are expected
    * to replace 'scientific notation' in those cases. */
   prec -= integer_digits_d(value_conv);
+
   CLAMP(prec, 0, 6);
 
   /* Convert to a string. */
@@ -478,12 +487,14 @@ static size_t unit_as_string(char *str,
   size_t i = len - 1;
 
   if (prec > 0) {
-    while (i > 0 && str[i] == '0') { /* 4.300 -> 4.3 */
-      str[i--] = pad;
-    }
+    if (!strip_skip) {
+      while (i > 0 && str[i] == '0') { /* 4.300 -> 4.3 */
+        str[i--] = pad;
+      }
 
-    if (i > 0 && str[i] == '.') { /* 10. -> 10 */
-      str[i--] = pad;
+      if (i > 0 && str[i] == '.') { /* 10. -> 10 */
+        str[i--] = pad;
+      }
     }
   }
 
@@ -704,7 +715,7 @@ static const char *unit_find_str(const char *str, const char *substr, bool case_
           /* Weak unicode support!, so "µm" won't match up be replaced by "m"
            * since non ascii utf8 values will NEVER return true */
           isalpha_or_utf8(*BLI_str_find_prev_char_utf8(str_found, str)) == 0) {
-        /* Next char cannot be alphanum. */
+        /* Next char cannot be alpha-numeric. */
         int len_name = strlen(substr);
 
         if (!isalpha_or_utf8(*(str_found + len_name))) {
@@ -834,8 +845,8 @@ static bool unit_distribute_negatives(char *str, const int len_max)
   bool changed = false;
 
   char *remaining_str = str;
-  int remaining_str_len = len_max;
   while ((remaining_str = find_next_negative(str, remaining_str)) != NULL) {
+    int remaining_str_len;
     /* Exit early in the unlikely situation that we've run out of length to add the parentheses. */
     remaining_str_len = len_max - (int)(remaining_str - str);
     if (remaining_str_len <= 2) {
@@ -1014,6 +1025,16 @@ static bool unit_find(const char *str, const bUnitDef *unit)
   return false;
 }
 
+static const bUnitDef *unit_find_in_collection(const bUnitCollection *usys, const char *str)
+{
+  for (const bUnitDef *unit = usys->units; unit->name; unit++) {
+    if (unit_find(str, unit)) {
+      return unit;
+    }
+  }
+  return NULL;
+}
+
 /**
  * Try to find a default unit from current or previous string.
  * This allows us to handle cases like 2 + 2mm, people would expect to get 4mm, not 2.002m!
@@ -1024,25 +1045,15 @@ static const bUnitDef *unit_detect_from_str(const bUnitCollection *usys,
                                             const char *str,
                                             const char *str_prev)
 {
-  const bUnitDef *unit = NULL;
-
   /* See which units the new value has. */
-  for (unit = usys->units; unit->name; unit++) {
-    if (unit_find(str, unit)) {
-      break;
-    }
-  }
+  const bUnitDef *unit = unit_find_in_collection(usys, str);
   /* Else, try to infer the default unit from the previous string. */
-  if (str_prev && (unit == NULL || unit->name == NULL)) {
+  if (str_prev && (unit == NULL)) {
     /* See which units the original value had. */
-    for (unit = usys->units; unit->name; unit++) {
-      if (unit_find(str_prev, unit)) {
-        break;
-      }
-    }
+    unit = unit_find_in_collection(usys, str_prev);
   }
   /* Else, fall back to default unit. */
-  if (unit == NULL || unit->name == NULL) {
+  if (unit == NULL) {
     unit = unit_default(usys);
   }
 
@@ -1056,11 +1067,8 @@ bool BKE_unit_string_contains_unit(const char *str, int type)
     if (!is_valid_unit_collection(usys)) {
       continue;
     }
-
-    for (int i = 0; i < usys->length; i++) {
-      if (unit_find(str, usys->units + i)) {
-        return true;
-      }
+    if (unit_find_in_collection(usys, str)) {
+      return true;
     }
   }
   return false;
@@ -1144,13 +1152,12 @@ bool BKE_unit_replace_string(
    */
   {
     char *str_found = str;
-    const char *ch = str;
 
     while ((str_found = strchr(str_found, SEP_CHR))) {
       bool op_found = false;
 
       /* Any operators after this? */
-      for (ch = str_found + 1; *ch != '\0'; ch++) {
+      for (const char *ch = str_found + 1; *ch != '\0'; ch++) {
         if (ELEM(*ch, ' ', '\t')) {
           continue;
         }

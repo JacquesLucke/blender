@@ -292,7 +292,7 @@ static void gpencil_primitive_set_initdata(bContext *C, tGPDprimitive *tgpi)
   Scene *scene = CTX_data_scene(C);
   ToolSettings *ts = scene->toolsettings;
   Brush *brush = tgpi->brush;
-  int cfra = CFRA;
+  int cfra = scene->r.cfra;
 
   bGPDlayer *gpl = CTX_data_active_gpencil_layer(C);
 
@@ -677,8 +677,8 @@ static void gpencil_primitive_circle(tGPDprimitive *tgpi, tGPspoint *points2D)
 
   center[0] = tgpi->start[0] + ((tgpi->end[0] - tgpi->start[0]) / 2.0f);
   center[1] = tgpi->start[1] + ((tgpi->end[1] - tgpi->start[1]) / 2.0f);
-  radius[0] = fabsf(((tgpi->end[0] - tgpi->start[0]) / 2.0f));
-  radius[1] = fabsf(((tgpi->end[1] - tgpi->start[1]) / 2.0f));
+  radius[0] = fabsf((tgpi->end[0] - tgpi->start[0]) / 2.0f);
+  radius[1] = fabsf((tgpi->end[1] - tgpi->start[1]) / 2.0f);
 
   for (int i = tgpi->tot_stored_edges; i < totpoints; i++) {
     tGPspoint *p2d = &points2D[i];
@@ -1024,8 +1024,10 @@ static void gpencil_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
         gpd->runtime.sbuffer, &gpd->runtime.sbuffer_size, &gpd->runtime.sbuffer_used, false);
 
     /* add small offset to keep stroke over the surface */
-    if ((depth_arr) && (gpd->zdepth_offset > 0.0f) && (depth_arr[i] != DEPTH_INVALID)) {
-      depth_arr[i] *= (1.0f - (gpd->zdepth_offset / 1000.0f));
+    if (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_VIEW) {
+      if ((depth_arr) && (gpd->zdepth_offset > 0.0f) && (depth_arr[i] != DEPTH_INVALID)) {
+        depth_arr[i] *= (1.0f - (gpd->zdepth_offset / 1000.0f));
+      }
     }
 
     /* convert screen-coordinates to 3D coordinates */
@@ -1071,7 +1073,7 @@ static void gpencil_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
   /* if parented change position relative to parent object */
   for (int i = 0; i < gps->totpoints; i++) {
     bGPDspoint *pt = &gps->points[i];
-    gpencil_apply_parent_point(tgpi->depsgraph, tgpi->ob, tgpi->gpl, pt);
+    gpencil_world_to_object_space_point(tgpi->depsgraph, tgpi->ob, tgpi->gpl, pt);
   }
 
   /* If camera view or view projection, reproject flat to view to avoid perspective effect. */
@@ -1107,7 +1109,7 @@ static void gpencil_primitive_update(bContext *C, wmOperator *op, tGPDprimitive 
 /* Initialize mouse points. */
 static void gpencil_primitive_interaction_begin(tGPDprimitive *tgpi, const wmEvent *event)
 {
-  copy_v2fl_v2i(tgpi->mval, event->mval);
+  WM_event_drag_start_mval_fl(event, tgpi->region, tgpi->mval);
   copy_v2_v2(tgpi->origin, tgpi->mval);
   copy_v2_v2(tgpi->start, tgpi->mval);
   copy_v2_v2(tgpi->end, tgpi->mval);
@@ -1195,7 +1197,7 @@ static void gpencil_primitive_init(bContext *C, wmOperator *op)
   tgpi->orign_type = RNA_enum_get(op->ptr, "type");
 
   /* set current frame number */
-  tgpi->cframe = CFRA;
+  tgpi->cframe = scene->r.cfra;
 
   /* set GP datablock */
   tgpi->gpd = gpd;
@@ -1401,7 +1403,7 @@ static void gpencil_primitive_interaction_end(bContext *C,
     BKE_gpencil_stroke_geometry_update(tgpi->gpd, gps);
   }
 
-  /* In Multiframe mode, duplicate the stroke in other frames. */
+  /* In Multi-frame mode, duplicate the stroke in other frames. */
   if (GPENCIL_MULTIEDIT_SESSIONS_ON(tgpi->gpd)) {
     const bool tail = (ts->gpencil_flags & GP_TOOL_FLAG_PAINT_ONBACK);
     BKE_gpencil_stroke_copy_to_keyframes(tgpi->gpd, tgpi->gpl, gpf, gps, tail);
@@ -1481,7 +1483,7 @@ static void gpencil_primitive_edit_event_handling(
       break;
     }
     case MOUSEMOVE: {
-      if ((event->val == KM_PRESS) && tgpi->sel_cp != SELECT_NONE) {
+      if (tgpi->sel_cp != SELECT_NONE) {
         if (tgpi->sel_cp == SELECT_START && tgpi->tot_stored_edges == 0) {
           copy_v2_v2(tgpi->start, tgpi->mval);
         }
@@ -1494,7 +1496,7 @@ static void gpencil_primitive_edit_event_handling(
           float dy = (tgpi->mval[1] - tgpi->mvalo[1]);
           tgpi->cp1[0] += dx;
           tgpi->cp1[1] += dy;
-          if (event->shift) {
+          if (event->modifier & KM_SHIFT) {
             copy_v2_v2(tgpi->cp2, tgpi->cp1);
           }
         }
@@ -1503,7 +1505,7 @@ static void gpencil_primitive_edit_event_handling(
           float dy = (tgpi->mval[1] - tgpi->mvalo[1]);
           tgpi->cp2[0] += dx;
           tgpi->cp2[1] += dy;
-          if (event->shift) {
+          if (event->modifier & KM_SHIFT) {
             copy_v2_v2(tgpi->cp1, tgpi->cp2);
           }
         }
@@ -1513,7 +1515,7 @@ static void gpencil_primitive_edit_event_handling(
       break;
     }
     case EVT_MKEY: {
-      if ((event->val == KM_PRESS) && (tgpi->curve) && (ELEM(tgpi->orign_type, GP_STROKE_ARC))) {
+      if ((event->val == KM_PRESS) && (tgpi->curve) && ELEM(tgpi->orign_type, GP_STROKE_ARC)) {
         tgpi->flip ^= 1;
         gpencil_primitive_update_cps(tgpi);
         gpencil_primitive_update(C, op, tgpi);
@@ -1692,7 +1694,7 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
         WM_cursor_modal_set(win, WM_CURSOR_NSEW_SCROLL);
         copy_v2_v2(tgpi->end, tgpi->mval);
 
-        if (event->shift) {
+        if (event->modifier & KM_SHIFT) {
           gpencil_primitive_constrain(tgpi, true);
         }
 
@@ -1701,7 +1703,7 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
       }
       case EVT_PADPLUSKEY:
       case WHEELUPMOUSE: {
-        if ((event->val != KM_RELEASE)) {
+        if (event->val != KM_RELEASE) {
           tgpi->tot_edges = tgpi->tot_edges + 1;
           CLAMP(tgpi->tot_edges, tgpi->type == GP_STROKE_BOX ? 1 : MIN_EDGES, MAX_EDGES);
           RNA_int_set(op->ptr, "edges", tgpi->tot_edges);
@@ -1711,7 +1713,7 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
       }
       case EVT_PADMINUS:
       case WHEELDOWNMOUSE: {
-        if ((event->val != KM_RELEASE)) {
+        if (event->val != KM_RELEASE) {
           tgpi->tot_edges = tgpi->tot_edges - 1;
           CLAMP(tgpi->tot_edges, tgpi->type == GP_STROKE_BOX ? 1 : MIN_EDGES, MAX_EDGES);
           RNA_int_set(op->ptr, "edges", tgpi->tot_edges);
@@ -1721,8 +1723,8 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
       }
       case EVT_FKEY: /* brush thickness/ brush strength */
       {
-        if ((event->val == KM_PRESS)) {
-          if (event->shift) {
+        if (event->val == KM_PRESS) {
+          if (event->modifier & KM_SHIFT) {
             tgpi->prev_flag = tgpi->flag;
             tgpi->flag = IN_BRUSH_STRENGTH;
           }
@@ -1806,14 +1808,14 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
         }
       }
       else if ((event->val == KM_RELEASE) && (tgpi->flag == IN_PROGRESS) &&
-               (!ELEM(tgpi->type, GP_STROKE_POLYLINE))) {
+               !ELEM(tgpi->type, GP_STROKE_POLYLINE)) {
         /* set control points and enter edit mode */
         tgpi->flag = IN_CURVE_EDIT;
         gpencil_primitive_update_cps(tgpi);
         gpencil_primitive_update(C, op, tgpi);
       }
       else if ((event->val == KM_RELEASE) && (tgpi->flag == IN_PROGRESS) &&
-               (!ELEM(tgpi->type, GP_STROKE_CURVE, GP_STROKE_POLYLINE))) {
+               !ELEM(tgpi->type, GP_STROKE_CURVE, GP_STROKE_POLYLINE)) {
         /* stop drawing primitive */
         tgpi->flag = IDLE;
         gpencil_primitive_interaction_end(C, op, win, tgpi);
@@ -1821,7 +1823,7 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
         return OPERATOR_FINISHED;
       }
       else if ((event->val == KM_RELEASE) && (tgpi->flag == IN_PROGRESS) &&
-               (ELEM(tgpi->type, GP_STROKE_POLYLINE))) {
+               ELEM(tgpi->type, GP_STROKE_POLYLINE)) {
         /* set control points and enter edit mode */
         tgpi->flag = IN_POLYLINE;
         gpencil_primitive_update(C, op, tgpi);
@@ -1867,7 +1869,7 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
     }
     case EVT_PADPLUSKEY:
     case WHEELUPMOUSE: {
-      if ((event->val != KM_RELEASE)) {
+      if (event->val != KM_RELEASE) {
         tgpi->tot_edges = tgpi->tot_edges + 1;
         CLAMP(tgpi->tot_edges, tgpi->type == GP_STROKE_BOX ? 1 : MIN_EDGES, MAX_EDGES);
         RNA_int_set(op->ptr, "edges", tgpi->tot_edges);
@@ -1879,7 +1881,7 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
     }
     case EVT_PADMINUS:
     case WHEELDOWNMOUSE: {
-      if ((event->val != KM_RELEASE)) {
+      if (event->val != KM_RELEASE) {
         tgpi->tot_edges = tgpi->tot_edges - 1;
         CLAMP(tgpi->tot_edges, tgpi->type == GP_STROKE_BOX ? 1 : MIN_EDGES, MAX_EDGES);
         RNA_int_set(op->ptr, "edges", tgpi->tot_edges);
@@ -1891,7 +1893,7 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
     }
     case EVT_GKEY: /* grab mode */
     {
-      if ((event->val == KM_PRESS)) {
+      if (event->val == KM_PRESS) {
         tgpi->flag = IN_MOVE;
         WM_cursor_modal_set(win, WM_CURSOR_NSEW_SCROLL);
       }
@@ -1899,8 +1901,8 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
     }
     case EVT_FKEY: /* brush thickness/ brush strength */
     {
-      if ((event->val == KM_PRESS)) {
-        if (event->shift) {
+      if (event->val == KM_PRESS) {
+        if (event->modifier & KM_SHIFT) {
           tgpi->prev_flag = tgpi->flag;
           tgpi->flag = IN_BRUSH_STRENGTH;
         }
@@ -1954,12 +1956,12 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
           copy_v2_v2(tgpi->origin, tgpi->mval);
         }
         /* Keep square if shift key */
-        if (event->shift) {
+        if (event->modifier & KM_SHIFT) {
           gpencil_primitive_constrain(
               tgpi, (ELEM(tgpi->type, GP_STROKE_LINE, GP_STROKE_POLYLINE) || tgpi->curve));
         }
         /* Center primitive if alt key */
-        if (event->alt && !ELEM(tgpi->type, GP_STROKE_POLYLINE)) {
+        if ((event->modifier & KM_ALT) && !ELEM(tgpi->type, GP_STROKE_POLYLINE)) {
           tgpi->start[0] = tgpi->origin[0] - (tgpi->end[0] - tgpi->origin[0]);
           tgpi->start[1] = tgpi->origin[1] - (tgpi->end[1] - tgpi->origin[1]);
         }

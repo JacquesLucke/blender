@@ -15,8 +15,12 @@ set(INC
   ../../makesrna
   ../../sequencer
   ../../windowmanager
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
+)
+
+set(INC_SYS
 )
 
 set(SRC
@@ -33,6 +37,7 @@ set(SRC
   screendump.c
   workspace_edit.c
   workspace_layout_edit.c
+  workspace_listen.cc
 
   screen_intern.h
 )
@@ -44,3 +49,6 @@ set(LIB
 
 
 blender_add_lib(bf_editor_screen "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+# RNA_prototypes.h
+add_dependencies(bf_editor_screen bf_rna)

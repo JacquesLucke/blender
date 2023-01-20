@@ -19,6 +19,8 @@
 
 #include "BKE_collection.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
+#include "BKE_lib_id.h"
 #include "BKE_lib_remap.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
@@ -35,10 +37,12 @@
 
 #include "ED_armature.h"
 #include "ED_asset.h"
+#include "ED_gpencil.h"
 #include "ED_image.h"
 #include "ED_mesh.h"
 #include "ED_object.h"
 #include "ED_paint.h"
+#include "ED_screen.h"
 #include "ED_space_api.h"
 #include "ED_util.h"
 
@@ -51,22 +55,19 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-/* ********* general editor util funcs, not BKE stuff please! ********* */
+/* ********* general editor util functions, not BKE stuff please! ********* */
 
 void ED_editors_init_for_undo(Main *bmain)
 {
   wmWindowManager *wm = bmain->wm.first;
   LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
+    Scene *scene = WM_window_get_active_scene(win);
     ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-    Base *base = BASACT(view_layer);
-    if (base != NULL) {
-      Object *ob = base->object;
-      if (ob->mode & OB_MODE_TEXTURE_PAINT) {
-        Scene *scene = WM_window_get_active_scene(win);
-
-        BKE_texpaint_slots_refresh_object(scene, ob);
-        ED_paint_proj_mesh_data_check(scene, ob, NULL, NULL, NULL, NULL);
-      }
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    Object *ob = BKE_view_layer_active_object_get(view_layer);
+    if (ob && (ob->mode & OB_MODE_TEXTURE_PAINT)) {
+      BKE_texpaint_slots_refresh_object(scene, ob);
+      ED_paint_proj_mesh_data_check(scene, ob, NULL, NULL, NULL, NULL);
     }
   }
 }
@@ -97,11 +98,12 @@ void ED_editors_init(bContext *C)
       continue;
     }
     if (BKE_object_has_mode_data(ob, mode)) {
+      /* For multi-edit mode we may already have mode data. */
       continue;
     }
     if (ob->type == OB_GPENCIL) {
-      /* For multi-edit mode we may already have mode data (grease pencil does not need it).
-       * However we may have a non-active object stuck in a grease-pencil edit mode. */
+      /* Grease pencil does not need a toggle of mode. However we may have a non-active object
+       * stuck in a grease-pencil edit mode. */
       if (ob != obact) {
         bGPdata *gpd = (bGPdata *)ob->data;
         gpd->flag &= ~(GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_EDITMODE |
@@ -109,6 +111,9 @@ void ED_editors_init(bContext *C)
                        GP_DATA_STROKE_VERTEXMODE);
         ob->mode = OB_MODE_OBJECT;
         DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE);
+      }
+      else if (mode & OB_MODE_ALL_PAINT_GPENCIL) {
+        ED_gpencil_toggle_brush_cursor(C, true, NULL);
       }
       continue;
     }
@@ -124,8 +129,9 @@ void ED_editors_init(bContext *C)
     if (obact == NULL || ob->type != obact->type) {
       continue;
     }
-    /* Object mode is enforced for linked data (or their obdata). */
-    if (ID_IS_LINKED(ob) || (ob_data != NULL && ID_IS_LINKED(ob_data))) {
+    /* Object mode is enforced for non-editable data (or their obdata). */
+    if (!BKE_id_is_editable(bmain, &ob->id) ||
+        (ob_data != NULL && !BKE_id_is_editable(bmain, ob_data))) {
       continue;
     }
 
@@ -135,8 +141,12 @@ void ED_editors_init(bContext *C)
       ED_object_posemode_enter_ex(bmain, ob);
     }
 
-    /* Other edit/paint/etc. modes are only settable for objects in active scene currently. */
-    if (!BKE_collection_has_object_recursive(scene->master_collection, ob)) {
+    /* Other edit/paint/etc. modes are only settable for objects visible in active scene currently.
+     * Otherwise, they (and their obdata) may not be (fully) evaluated, which is mandatory for some
+     * modes like Sculpt.
+     * Ref. T98225. */
+    if (!BKE_collection_has_object_recursive(scene->master_collection, ob) ||
+        !BKE_scene_has_object(scene, ob) || (ob->visibility_flag & OB_HIDE_VIEWPORT) != 0) {
       continue;
     }
 
@@ -168,7 +178,7 @@ void ED_editors_init(bContext *C)
       }
     }
     else {
-      /* TODO(campbell): avoid operator calls. */
+      /* TODO(@campbellbarton): avoid operator calls. */
       if (obact == ob) {
         ED_object_mode_set(C, mode);
       }
@@ -178,6 +188,18 @@ void ED_editors_init(bContext *C)
   /* image editor paint mode */
   if (scene) {
     ED_space_image_paint_update(bmain, wm, scene);
+  }
+
+  /* Enforce a full redraw for the first time areas/regions get drawn. Further region init/refresh
+   * just triggers non-rebuild redraws (#RGN_DRAW_NO_REBUILD). Usually a full redraw would be
+   * triggered by a `NC_WM | ND_FILEREAD` notifier, but if a startup script calls an operator that
+   * redraws the window, notifiers are not handled before the operator runs. See T98461. */
+  LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
+    const bScreen *screen = WM_window_get_active_screen(win);
+
+    ED_screen_areas_iter (win, screen, area) {
+      ED_area_tag_redraw(area);
+    }
   }
 
   ED_assetlist_storage_tag_main_data_dirty();
@@ -306,7 +328,7 @@ bool ED_editors_flush_edits(Main *bmain)
 /* ***** XXX: functions are using old blender names, cleanup later ***** */
 
 void apply_keyb_grid(
-    int shift, int ctrl, float *val, float fac1, float fac2, float fac3, int invert)
+    bool shift, bool ctrl, float *val, float fac1, float fac2, float fac3, int invert)
 {
   /* fac1 is for 'nothing', fac2 for CTRL, fac3 for SHIFT */
   if (invert) {
@@ -342,7 +364,7 @@ void unpack_menu(bContext *C,
   uiPopupMenu *pup;
   uiLayout *layout;
   char line[FILE_MAX + 100];
-  wmOperatorType *ot = WM_operatortype_find(opname, 1);
+  wmOperatorType *ot = WM_operatortype_find(opname, true);
   const char *blendfile_path = BKE_main_blendfile_path(bmain);
 
   pup = UI_popup_menu_begin(C, IFACE_("Unpack File"), ICON_NONE);
@@ -357,7 +379,7 @@ void unpack_menu(bContext *C,
     char local_name[FILE_MAXDIR + FILE_MAX], fi[FILE_MAX];
 
     BLI_split_file_part(abs_name, fi, sizeof(fi));
-    BLI_snprintf(local_name, sizeof(local_name), "//%s/%s", folder, fi);
+    BLI_path_join(local_name, sizeof(local_name), "//", folder, fi);
     if (!STREQ(abs_name, local_name)) {
       switch (BKE_packedfile_compare_to_file(blendfile_path, local_name, pf)) {
         case PF_CMP_NOFILE:

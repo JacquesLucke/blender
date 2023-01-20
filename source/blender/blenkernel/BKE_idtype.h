@@ -47,8 +47,6 @@ typedef struct IDCacheKey {
   /* Value uniquely identifying the cache within its ID.
    * Typically the offset of its member in the data-block struct, but can be anything. */
   size_t offset_in_ID;
-  /* Actual address of the cached data to save and restore. */
-  void *cache_v;
 } IDCacheKey;
 
 uint BKE_idtype_cache_key_hash(const void *key_v);
@@ -87,7 +85,7 @@ typedef void (*IDTypeForeachCacheFunction)(struct ID *id,
 
 typedef void (*IDTypeForeachPathFunction)(struct ID *id, struct BPathForeachPathData *bpath_data);
 
-typedef struct ID *(*IDTypeEmbeddedOwnerGetFunction)(struct Main *bmain, struct ID *id);
+typedef struct ID **(*IDTypeEmbeddedOwnerPointerGetFunction)(struct ID *id);
 
 typedef void (*IDTypeBlendWriteFunction)(struct BlendWriter *writer,
                                          struct ID *id,
@@ -111,7 +109,7 @@ typedef struct IDTypeInfo {
    */
   short id_code;
   /**
-   * Bitflag matching id_code, used for filtering (e.g. in file browser), see DNA_ID.h's
+   * Bit-flag matching id_code, used for filtering (e.g. in file browser), see DNA_ID.h's
    * FILTER_ID_XX enums.
    */
   uint64_t id_filter;
@@ -182,9 +180,9 @@ typedef struct IDTypeInfo {
   IDTypeForeachPathFunction foreach_path;
 
   /**
-   * For embedded IDs, return their owner ID.
+   * For embedded IDs, return the address of the pointer to their owner ID.
    */
-  IDTypeEmbeddedOwnerGetFunction owner_get;
+  IDTypeEmbeddedOwnerPointerGetFunction owner_pointer_get;
 
   /* ********** Callbacks for reading and writing .blend files. ********** */
 
@@ -230,7 +228,7 @@ extern IDTypeInfo IDType_ID_SCE;
 extern IDTypeInfo IDType_ID_LI;
 extern IDTypeInfo IDType_ID_OB;
 extern IDTypeInfo IDType_ID_ME;
-extern IDTypeInfo IDType_ID_CU;
+extern IDTypeInfo IDType_ID_CU_LEGACY;
 extern IDTypeInfo IDType_ID_MB;
 extern IDTypeInfo IDType_ID_MA;
 extern IDTypeInfo IDType_ID_TE;

@@ -40,7 +40,7 @@
 
 static bool socket_is_used(bNodeSocket *sock)
 {
-  return sock->flag & SOCK_IN_USE;
+  return sock->flag & SOCK_IS_LINKED;
 }
 
 static float *cycles_node_socket_float_value(bNodeSocket *socket)
@@ -330,7 +330,7 @@ static void image_node_colorspace(bNode *node)
     return;
   }
 
-  const int SHD_COLORSPACE_NONE = 0;
+  enum { SHD_COLORSPACE_NONE = 0 };
   Image *image = (Image *)node->id;
   if (color_space == SHD_COLORSPACE_NONE) {
     STRNCPY(image->colorspace_settings.name,
@@ -371,7 +371,7 @@ static void light_emission_node_to_energy(Light *light, float *energy, float col
   bNodeSocket *strength_socket = nodeFindSocket(emission_node, SOCK_IN, "Strength");
   bNodeSocket *color_socket = nodeFindSocket(emission_node, SOCK_IN, "Color");
 
-  if ((strength_socket->flag & SOCK_IN_USE) || (color_socket->flag & SOCK_IN_USE)) {
+  if ((strength_socket->flag & SOCK_IS_LINKED) || (color_socket->flag & SOCK_IS_LINKED)) {
     return;
   }
 
@@ -689,7 +689,6 @@ static void update_vector_math_node_normalize_operator(bNodeTree *ntree)
  * a value of -1 just to be identified later in the versioning code:
  *
  * Average Operator : 2 -> -1
- *
  */
 static void update_vector_math_node_operators_enum_mapping(bNodeTree *ntree)
 {
@@ -867,7 +866,6 @@ static void update_mapping_node_fcurve_rna_path_callback(ID *UNUSED(id),
  * and check if they control a property of the node, if they do, we update
  * the path to be that of the corresponding socket in the node or the added
  * minimum/maximum node.
- *
  */
 static void update_mapping_node_inputs_and_properties(bNodeTree *ntree)
 {
@@ -1057,7 +1055,6 @@ static void update_voronoi_node_fac_output(bNodeTree *ntree)
  *    the inputs of the subtract node.
  * 6. The output of the subtract node is connected to the
  *    appropriate sockets.
- *
  */
 static void update_voronoi_node_crackle(bNodeTree *ntree)
 {
@@ -1197,7 +1194,7 @@ static void update_voronoi_node_square_distance(bNodeTree *ntree)
       NodeTexVoronoi *tex = (NodeTexVoronoi *)node->storage;
       bNodeSocket *sockDistance = nodeFindSocket(node, SOCK_OUT, "Distance");
       if (tex->distance == SHD_VORONOI_EUCLIDEAN &&
-          (ELEM(tex->feature, SHD_VORONOI_F1, SHD_VORONOI_F2)) && socket_is_used(sockDistance)) {
+          ELEM(tex->feature, SHD_VORONOI_F1, SHD_VORONOI_F2) && socket_is_used(sockDistance)) {
         bNode *multiplyNode = nodeAddStaticNode(NULL, ntree, SH_NODE_MATH);
         multiplyNode->custom1 = NODE_MATH_MULTIPLY;
         multiplyNode->locx = node->locx + node->width + 20.0f;
@@ -1362,10 +1359,12 @@ void blo_do_versions_cycles(FileData *UNUSED(fd), Library *UNUSED(lib), Main *bm
 
 void do_versions_after_linking_cycles(Main *bmain)
 {
-  const int DENOISER_AUTO = 0;
-  const int DENOISER_NLM = 1;
-  const int DENOISER_OPTIX = 2;
-  const int DENOISER_OPENIMAGEDENOISE = 4;
+  enum {
+    DENOISER_AUTO = 0,
+    DENOISER_NLM = 1,
+    DENOISER_OPTIX = 2,
+    DENOISER_OPENIMAGEDENOISE = 4,
+  };
 
   if (!MAIN_VERSION_ATLEAST(bmain, 280, 66)) {
     /* Shader node tree changes. After lib linking so we have all the typeinfo

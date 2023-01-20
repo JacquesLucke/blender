@@ -14,12 +14,13 @@ static void node_declare(NodeDeclarationBuilder &b)
       .min(-1.0f)
       .max(1.0f)
       .subtype(PROP_FACTOR);
+  b.add_input<decl::Float>(N_("Weight")).unavailable();
   b.add_output<decl::Shader>(N_("Volume"));
 }
 
 static int node_shader_gpu_volume_scatter(GPUMaterial *mat,
                                           bNode *node,
-                                          bNodeExecData *UNUSED(execdata),
+                                          bNodeExecData * /*execdata*/,
                                           GPUNodeStack *in,
                                           GPUNodeStack *out)
 {
@@ -37,7 +38,7 @@ void register_node_type_sh_volume_scatter()
 
   sh_node_type_base(&ntype, SH_NODE_VOLUME_SCATTER, "Volume Scatter", NODE_CLASS_SHADER);
   ntype.declare = file_ns::node_declare;
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_volume_scatter);
+  ntype.gpu_fn = file_ns::node_shader_gpu_volume_scatter;
 
   nodeRegisterType(&ntype);
 }

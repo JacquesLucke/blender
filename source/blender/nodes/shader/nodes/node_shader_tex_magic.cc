@@ -11,19 +11,19 @@ namespace blender::nodes::node_shader_tex_magic_cc {
 static void sh_node_tex_magic_declare(NodeDeclarationBuilder &b)
 {
   b.is_function_node();
-  b.add_input<decl::Vector>(N_("Vector")).implicit_field();
+  b.add_input<decl::Vector>(N_("Vector")).implicit_field(implicit_field_inputs::position);
   b.add_input<decl::Float>(N_("Scale")).min(-1000.0f).max(1000.0f).default_value(5.0f);
   b.add_input<decl::Float>(N_("Distortion")).min(-1000.0f).max(1000.0f).default_value(1.0f);
   b.add_output<decl::Color>(N_("Color")).no_muted_links();
   b.add_output<decl::Float>(N_("Fac")).no_muted_links();
 }
 
-static void node_shader_buts_tex_magic(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_shader_buts_tex_magic(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "turbulence_depth", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
 }
 
-static void node_shader_init_tex_magic(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_tex_magic(bNodeTree * /*ntree*/, bNode *node)
 {
   NodeTexMagic *tex = MEM_cnew<NodeTexMagic>(__func__);
   BKE_texture_mapping_default(&tex->base.tex_mapping, TEXMAP_TYPE_POINT);
@@ -35,7 +35,7 @@ static void node_shader_init_tex_magic(bNodeTree *UNUSED(ntree), bNode *node)
 
 static int node_shader_gpu_tex_magic(GPUMaterial *mat,
                                      bNode *node,
-                                     bNodeExecData *UNUSED(execdata),
+                                     bNodeExecData * /*execdata*/,
                                      GPUNodeStack *in,
                                      GPUNodeStack *out)
 {
@@ -48,29 +48,27 @@ static int node_shader_gpu_tex_magic(GPUMaterial *mat,
   return GPU_stack_link(mat, node, "node_tex_magic", in, out, GPU_constant(&depth));
 }
 
-class MagicFunction : public fn::MultiFunction {
+class MagicFunction : public mf::MultiFunction {
  private:
   int depth_;
 
  public:
   MagicFunction(int depth) : depth_(depth)
   {
-    static fn::MFSignature signature = create_signature();
+    static const mf::Signature signature = []() {
+      mf::Signature signature;
+      mf::SignatureBuilder builder{"MagicFunction", signature};
+      builder.single_input<float3>("Vector");
+      builder.single_input<float>("Scale");
+      builder.single_input<float>("Distortion");
+      builder.single_output<ColorGeometry4f>("Color");
+      builder.single_output<float>("Fac", mf::ParamFlag::SupportsUnusedOutput);
+      return signature;
+    }();
     this->set_signature(&signature);
   }
 
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"MagicFunction"};
-    signature.single_input<float3>("Vector");
-    signature.single_input<float>("Scale");
-    signature.single_input<float>("Distortion");
-    signature.single_output<ColorGeometry4f>("Color");
-    signature.single_output<float>("Fac");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
+  void call(IndexMask mask, mf::Params params, mf::Context /*context*/) const override
   {
     const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
     const VArray<float> &scale = params.readonly_single_input<float>(1, "Scale");
@@ -159,10 +157,9 @@ class MagicFunction : public fn::MultiFunction {
   }
 };
 
-static void sh_node_magic_tex_build_multi_function(
-    blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_magic_tex_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
-  bNode &node = builder.node();
+  const bNode &node = builder.node();
   NodeTexMagic *tex = (NodeTexMagic *)node.storage;
   builder.construct_and_set_matching_fn<MagicFunction>(tex->depth);
 }
@@ -178,10 +175,10 @@ void register_node_type_sh_tex_magic()
   sh_fn_node_type_base(&ntype, SH_NODE_TEX_MAGIC, "Magic Texture", NODE_CLASS_TEXTURE);
   ntype.declare = file_ns::sh_node_tex_magic_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_tex_magic;
-  node_type_init(&ntype, file_ns::node_shader_init_tex_magic);
+  ntype.initfunc = file_ns::node_shader_init_tex_magic;
   node_type_storage(
       &ntype, "NodeTexMagic", node_free_standard_storage, node_copy_standard_storage);
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_tex_magic);
+  ntype.gpu_fn = file_ns::node_shader_gpu_tex_magic;
   ntype.build_multi_function = file_ns::sh_node_magic_tex_build_multi_function;
 
   nodeRegisterType(&ntype);

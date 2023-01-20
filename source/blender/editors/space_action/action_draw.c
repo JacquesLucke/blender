@@ -104,7 +104,7 @@ void draw_channel_names(bContext *C, bAnimContext *ac, ARegion *region)
     UI_block_draw(C, block);
   }
 
-  /* free tempolary channels */
+  /* Free temporary channels. */
   ANIM_animdata_freelist(&anim_data);
 }
 
@@ -206,7 +206,7 @@ void draw_channel_strips(bAnimContext *ac, SpaceAction *saction, ARegion *region
   GPUVertFormat *format = immVertexFormat();
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
   GPU_blend(GPU_BLEND_ALPHA);
 
@@ -266,6 +266,20 @@ void draw_channel_strips(bAnimContext *ac, SpaceAction *saction, ARegion *region
               FCurve *fcu = ale->data;
               if (show_group_colors && fcu->grp && fcu->grp->customCol) {
                 immUniformColor3ubvAlpha((uchar *)fcu->grp->cs.active, sel ? col1[3] : col2[3]);
+              }
+              else {
+                immUniformColor4ubv(sel ? col1 : col2);
+              }
+              break;
+            }
+            case ANIMTYPE_GPLAYER: {
+              if (show_group_colors) {
+                uchar gpl_col[4];
+                bGPDlayer *gpl = (bGPDlayer *)ale->data;
+                rgb_float_to_uchar(gpl_col, gpl->color);
+                gpl_col[3] = col1[3];
+
+                immUniformColor4ubv(sel ? col1 : gpl_col);
               }
               else {
                 immUniformColor4ubv(sel ? col1 : col2);
@@ -617,7 +631,7 @@ void timeline_draw_cache(SpaceAction *saction, Object *ob, Scene *scene)
 
   uint pos_id = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
   GPU_blend(GPU_BLEND_ALPHA);
 

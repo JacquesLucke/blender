@@ -124,7 +124,7 @@ class RenderScheduler {
   /* Get sample up to which rendering has been done.
    * This is an absolute 0-based value.
    *
-   * For example, if start sample is 10 and and 5 samples were rendered, then this call will
+   * For example, if start sample is 10 and 5 samples were rendered, then this call will
    * return 14.
    *
    * If there were no samples rendered, then the behavior is undefined. */
@@ -132,7 +132,7 @@ class RenderScheduler {
 
   /* Get number of samples rendered within the current scheduling session.
    *
-   * For example, if start sample is 10 and and 5 samples were rendered, then this call will
+   * For example, if start sample is 10 and 5 samples were rendered, then this call will
    * return 5.
    *
    * Note that this is based on the scheduling information. In practice this means that if someone
@@ -186,6 +186,8 @@ class RenderScheduler {
   /* Generate full multi-line report of the rendering process, including rendering parameters,
    * times, and so on. */
   string full_report() const;
+
+  void set_limit_samples_per_update(const int limit_samples);
 
  protected:
   /* Check whether all work has been scheduled and time limit was not exceeded.
@@ -450,6 +452,10 @@ class RenderScheduler {
    * (quadratic dependency from the resolution divider): resolution divider of 2 brings render time
    * down by a factor of 4. */
   int calculate_resolution_divider_for_time(double desired_time, double actual_time);
+
+  /* If the number of samples per rendering progression should be limited because of path guiding
+   * being activated or is still inside its training phase */
+  int limit_samples_per_update_ = 0;
 };
 
 int calculate_resolution_divider_for_resolution(int width, int height, int resolution);

@@ -24,6 +24,9 @@
 #include "BKE_movieclip.h"
 #include "BKE_tracking.h"
 
+#include "IMB_imbuf.h"
+#include "IMB_imbuf_types.h"
+
 #include "libmv-capi.h"
 #include "tracking_private.h"
 
@@ -98,6 +101,12 @@ typedef struct AutoTrackContext {
 
   /* Accessor for images of clip. Used by the autotrack context. */
   TrackingImageAccessor *image_accessor;
+
+  /* Image buffers acquired for markers which are using keyframe pattern matching.
+   * These image buffers are user-referenced and flagged as persistent so that they don't get
+   * removed from the movie cache during tracking. */
+  int num_referenced_image_buffers;
+  ImBuf **referenced_image_buffers;
 
   /* --------------------------------------------------------------------
    * Variant part.
@@ -352,10 +361,9 @@ static void autotrack_context_init_tracks_for_clip(AutoTrackContext *context, in
 
   const AutoTrackClip *autotrack_clip = &context->autotrack_clips[clip_index];
   MovieClip *clip = autotrack_clip->clip;
-  MovieTracking *tracking = &clip->tracking;
-  ListBase *tracks_base = BKE_tracking_get_active_tracks(tracking);
+  const MovieTrackingObject *tracking_object = BKE_tracking_object_get_active(&clip->tracking);
 
-  const int num_clip_tracks = BLI_listbase_count(tracks_base);
+  const int num_clip_tracks = BLI_listbase_count(&tracking_object->tracks);
   if (num_clip_tracks == 0) {
     return;
   }
@@ -364,7 +372,7 @@ static void autotrack_context_init_tracks_for_clip(AutoTrackContext *context, in
                                                (context->num_all_tracks + num_clip_tracks) *
                                                    sizeof(AutoTrackTrack));
 
-  LISTBASE_FOREACH (MovieTrackingTrack *, track, tracks_base) {
+  LISTBASE_FOREACH (MovieTrackingTrack *, track, &tracking_object->tracks) {
     AutoTrackTrack *autotrack_track = &context->all_autotrack_tracks[context->num_all_tracks++];
     autotrack_track->clip_index = clip_index;
     autotrack_track->track = track;
@@ -549,6 +557,59 @@ AutoTrackContext *BKE_autotrack_context_new(MovieClip *clip,
   BLI_spin_init(&context->spin_lock);
 
   return context;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Context tracking start.
+ *
+ * Called from possible job once before performing tracking steps.
+ * \{ */
+
+static void reference_keyframed_image_buffers(AutoTrackContext *context)
+{
+  /* NOTE: This is potentially over-allocating, but it simplifies memory manipulation.
+   * In practice this is unlikely to be noticed in the profiler as the memory footprint of this
+   * data is way less of what the tracking process will use. */
+  context->referenced_image_buffers = MEM_calloc_arrayN(
+      context->num_autotrack_markers, sizeof(ImBuf *), __func__);
+
+  context->num_referenced_image_buffers = 0;
+
+  for (int i = 0; i < context->num_autotrack_markers; ++i) {
+    const AutoTrackMarker *autotrack_marker = &context->autotrack_markers[i];
+    const int clip_index = autotrack_marker->libmv_marker.clip;
+    const int track_index = autotrack_marker->libmv_marker.track;
+
+    const AutoTrackClip *autotrack_clip = &context->autotrack_clips[clip_index];
+    const AutoTrackTrack *autotrack_track = &context->all_autotrack_tracks[track_index];
+    const MovieTrackingTrack *track = autotrack_track->track;
+
+    if (track->pattern_match != TRACK_MATCH_KEYFRAME) {
+      continue;
+    }
+
+    const int scene_frame = BKE_movieclip_remap_clip_to_scene_frame(
+        autotrack_clip->clip, autotrack_marker->libmv_marker.reference_frame);
+
+    MovieClipUser user_at_keyframe;
+    BKE_movieclip_user_set_frame(&user_at_keyframe, scene_frame);
+    user_at_keyframe.render_size = MCLIP_PROXY_RENDER_SIZE_FULL;
+    user_at_keyframe.render_flag = 0;
+
+    /* Keep reference to the image buffer so that we can manipulate its flags later on.
+     * Also request the movie cache to not remove the image buffer from the cache. */
+    ImBuf *ibuf = BKE_movieclip_get_ibuf(autotrack_clip->clip, &user_at_keyframe);
+    ibuf->userflags |= IB_PERSISTENT;
+
+    context->referenced_image_buffers[context->num_referenced_image_buffers++] = ibuf;
+  }
+}
+
+void BKE_autotrack_context_start(AutoTrackContext *context)
+{
+  reference_keyframed_image_buffers(context);
 }
 
 /** \} */
@@ -776,11 +837,11 @@ void BKE_autotrack_context_finish(AutoTrackContext *context)
   for (int clip_index = 0; clip_index < context->num_clips; clip_index++) {
     const AutoTrackClip *autotrack_clip = &context->autotrack_clips[clip_index];
     MovieClip *clip = autotrack_clip->clip;
-    ListBase *plane_tracks_base = BKE_tracking_get_active_plane_tracks(&clip->tracking);
+    const MovieTrackingObject *tracking_object = BKE_tracking_object_get_active(&clip->tracking);
     const int start_clip_frame = BKE_movieclip_remap_scene_to_clip_frame(
         clip, context->start_scene_frame);
 
-    LISTBASE_FOREACH (MovieTrackingPlaneTrack *, plane_track, plane_tracks_base) {
+    LISTBASE_FOREACH (MovieTrackingPlaneTrack *, plane_track, &tracking_object->plane_tracks) {
       if (plane_track->flag & PLANE_TRACK_AUTOKEY) {
         continue;
       }
@@ -799,6 +860,20 @@ void BKE_autotrack_context_finish(AutoTrackContext *context)
   }
 }
 
+static void release_keyframed_image_buffers(AutoTrackContext *context)
+{
+  for (int i = 0; i < context->num_referenced_image_buffers; ++i) {
+    ImBuf *ibuf = context->referenced_image_buffers[i];
+
+    /* Restore flag. It is not expected that anyone else is setting this flag on image buffers from
+     * movie clip, so can simply clear the flag. */
+    ibuf->userflags &= ~IB_PERSISTENT;
+    IMB_freeImBuf(ibuf);
+  }
+
+  MEM_freeN(context->referenced_image_buffers);
+}
+
 void BKE_autotrack_context_free(AutoTrackContext *context)
 {
   if (context->autotrack != NULL) {
@@ -808,6 +883,8 @@ void BKE_autotrack_context_free(AutoTrackContext *context)
   if (context->image_accessor != NULL) {
     tracking_image_accessor_destroy(context->image_accessor);
   }
+
+  release_keyframed_image_buffers(context);
 
   MEM_SAFE_FREE(context->all_autotrack_tracks);
   MEM_SAFE_FREE(context->autotrack_markers);

@@ -12,7 +12,6 @@ extern "C" {
 
 struct CustomData;
 struct CustomData_MeshMasks;
-struct MVert;
 struct MemArena;
 struct Mesh;
 
@@ -42,7 +41,7 @@ void BKE_mesh_remap_free(MeshPairRemap *map);
 void BKE_mesh_remap_item_define_invalid(MeshPairRemap *map, int index);
 
 /* TODO:
- * Add other 'from/to' mapping sources, like e.g. using an UVMap, etc.
+ * Add other 'from/to' mapping sources, like e.g. using a UVMap, etc.
  * https://blenderartists.org/t/619105
  *
  * We could also use similar topology mappings inside a same mesh
@@ -158,14 +157,14 @@ void BKE_mesh_remap_calc_source_cddata_masks_from_map_modes(
  * in favor of a global good matching.
  */
 float BKE_mesh_remap_calc_difference_from_mesh(const struct SpaceTransform *space_transform,
-                                               const struct MVert *verts_dst,
+                                               const float (*vert_positions_dst)[3],
                                                int numverts_dst,
                                                struct Mesh *me_src);
 
 /**
  * Set r_space_transform so that best bbox of dst matches best bbox of src.
  */
-void BKE_mesh_remap_find_best_match_from_mesh(const struct MVert *verts_dst,
+void BKE_mesh_remap_find_best_match_from_mesh(const float (*vert_positions_dst)[3],
                                               int numverts_dst,
                                               struct Mesh *me_src,
                                               struct SpaceTransform *r_space_transform);
@@ -174,22 +173,24 @@ void BKE_mesh_remap_calc_verts_from_mesh(int mode,
                                          const struct SpaceTransform *space_transform,
                                          float max_dist,
                                          float ray_radius,
-                                         const struct MVert *verts_dst,
+                                         const float (*vert_positions_dst)[3],
                                          int numverts_dst,
                                          bool dirty_nors_dst,
                                          struct Mesh *me_src,
+                                         struct Mesh *me_dst,
                                          MeshPairRemap *r_map);
 
 void BKE_mesh_remap_calc_edges_from_mesh(int mode,
                                          const struct SpaceTransform *space_transform,
                                          float max_dist,
                                          float ray_radius,
-                                         const struct MVert *verts_dst,
+                                         const float (*vert_positions_dst)[3],
                                          int numverts_dst,
                                          const struct MEdge *edges_dst,
                                          int numedges_dst,
                                          bool dirty_nors_dst,
                                          struct Mesh *me_src,
+                                         struct Mesh *me_dst,
                                          MeshPairRemap *r_map);
 
 void BKE_mesh_remap_calc_loops_from_mesh(int mode,
@@ -197,13 +198,13 @@ void BKE_mesh_remap_calc_loops_from_mesh(int mode,
                                          float max_dist,
                                          float ray_radius,
                                          struct Mesh *mesh_dst,
-                                         struct MVert *verts_dst,
+                                         const float (*vert_positions_dst)[3],
                                          int numverts_dst,
-                                         struct MEdge *edges_dst,
+                                         const struct MEdge *edges_dst,
                                          int numedges_dst,
-                                         struct MLoop *loops_dst,
+                                         const struct MLoop *loops_dst,
                                          int numloops_dst,
-                                         struct MPoly *polys_dst,
+                                         const struct MPoly *polys_dst,
                                          int numpolys_dst,
                                          struct CustomData *ldata_dst,
                                          bool use_split_nors_dst,
@@ -218,10 +219,10 @@ void BKE_mesh_remap_calc_polys_from_mesh(int mode,
                                          const struct SpaceTransform *space_transform,
                                          float max_dist,
                                          float ray_radius,
-                                         struct Mesh *mesh_dst,
-                                         struct MVert *verts_dst,
-                                         struct MLoop *loops_dst,
-                                         struct MPoly *polys_dst,
+                                         const struct Mesh *mesh_dst,
+                                         const float (*vert_positions_dst)[3],
+                                         const struct MLoop *loops_dst,
+                                         const struct MPoly *polys_dst,
                                          int numpolys_dst,
                                          struct Mesh *me_src,
                                          struct MeshPairRemap *r_map);

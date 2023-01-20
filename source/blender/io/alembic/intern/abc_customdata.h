@@ -6,16 +6,18 @@
  * \ingroup balembic
  */
 
+#include "BLI_math_vector_types.hh"
+
 #include <Alembic/Abc/All.h>
 #include <Alembic/AbcGeom/All.h>
 
 #include <map>
 
+#include "BLI_math_vector_types.hh"
+
 struct CustomData;
 struct MLoop;
-struct MLoopUV;
 struct MPoly;
-struct MVert;
 struct Mesh;
 
 using Alembic::Abc::ICompoundProperty;
@@ -34,10 +36,10 @@ struct CDStreamConfig {
   MPoly *mpoly;
   int totpoly;
 
-  MVert *mvert;
+  float3 *positions;
   int totvert;
 
-  MLoopUV *mloopuv;
+  float2 *mloopuv;
 
   CustomData *loopdata;
 
@@ -48,8 +50,8 @@ struct CDStreamConfig {
   Mesh *mesh;
   void *(*add_customdata_cb)(Mesh *mesh, const char *name, int data_type);
 
-  float weight;
-  float time;
+  double weight;
+  Alembic::Abc::chrono_t time;
   int timesample_index;
   bool use_vertex_interpolation;
   Alembic::AbcGeom::index_t index;
@@ -79,8 +81,8 @@ struct CDStreamConfig {
         pack_uvs(false),
         mesh(NULL),
         add_customdata_cb(NULL),
-        weight(0.0f),
-        time(0.0f),
+        weight(0.0),
+        time(0.0),
         index(0),
         ceil_index(0),
         modifier_error_message(NULL)

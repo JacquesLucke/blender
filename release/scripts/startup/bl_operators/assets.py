@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 from __future__ import annotations
 
 import bpy
 from bpy.types import Operator
+from bpy.app.translations import (
+    pgettext_data as data_,
+    pgettext_tip as tip_,
+)
+
 
 from bpy_extras.asset_utils import (
     SpaceAssetInfo,
@@ -35,7 +38,7 @@ class ASSET_OT_tag_add(AssetBrowserMetadataOperator, Operator):
 
     def execute(self, context):
         active_asset = SpaceAssetInfo.get_active_asset(context)
-        active_asset.tags.new("Tag")
+        active_asset.tags.new(data_("Tag"))
 
         return {'FINISHED'}
 
@@ -78,8 +81,8 @@ class ASSET_OT_open_containing_blend_file(Operator):
 
     @classmethod
     def poll(cls, context):
-        asset_file_handle = getattr(context, 'asset_file_handle', None)
-        asset_library_ref = getattr(context, 'asset_library_ref', None)
+        asset_file_handle = getattr(context, "asset_file_handle", None)
+        asset_library_ref = getattr(context, "asset_library_ref", None)
 
         if not asset_library_ref:
             cls.poll_message_set("No asset library selected")
@@ -94,13 +97,12 @@ class ASSET_OT_open_containing_blend_file(Operator):
 
     def execute(self, context):
         asset_file_handle = context.asset_file_handle
-        asset_library_ref = context.asset_library_ref
 
         if asset_file_handle.local_id:
             self.report({'WARNING'}, "This asset is stored in the current blend file")
             return {'CANCELLED'}
 
-        asset_lib_path = bpy.types.AssetHandle.get_full_library_path(asset_file_handle, asset_library_ref)
+        asset_lib_path = bpy.types.AssetHandle.get_full_library_path(asset_file_handle)
         self.open_in_new_blender(asset_lib_path)
 
         wm = context.window_manager
@@ -124,7 +126,7 @@ class ASSET_OT_open_containing_blend_file(Operator):
             return {'RUNNING_MODAL'}
 
         if returncode:
-            self.report({'WARNING'}, "Blender sub-process exited with error code %d" % returncode)
+            self.report({'WARNING'}, tip_("Blender sub-process exited with error code %d") % returncode)
 
         if bpy.ops.asset.library_refresh.poll():
             bpy.ops.asset.library_refresh()

@@ -212,6 +212,7 @@ static void rna_def_light_energy(StructRNA *srna, const short light_type)
                                "Power",
                                "The energy this light would emit over its entire area "
                                "if it wasn't limited by the spot angle");
+      RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_LIGHT);
       RNA_def_property_update(prop, 0, "rna_Light_draw_update");
       break;
     }
@@ -224,6 +225,7 @@ static void rna_def_light_energy(StructRNA *srna, const short light_type)
           prop,
           "Power",
           "Light energy emitted over the entire area of the light in all directions");
+      RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_LIGHT);
       RNA_def_property_update(prop, 0, "rna_Light_draw_update");
       break;
     }
@@ -334,7 +336,7 @@ static void rna_def_light_shadow(StructRNA *srna, bool sun)
   RNA_def_property_update(prop, 0, "rna_Light_update");
 
   prop = RNA_def_property(srna, "shadow_soft_size", PROP_FLOAT, PROP_DISTANCE);
-  RNA_def_property_float_sdna(prop, NULL, "area_size");
+  RNA_def_property_float_sdna(prop, NULL, "radius");
   RNA_def_property_range(prop, 0.0f, FLT_MAX);
   RNA_def_property_ui_range(prop, 0, 100, 0.1, 3);
   RNA_def_property_ui_text(
@@ -470,7 +472,7 @@ static void rna_def_area_light(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "spread", PROP_FLOAT, PROP_ANGLE);
   RNA_def_property_float_sdna(prop, NULL, "area_spread");
-  RNA_def_property_range(prop, DEG2RADF(1.0f), DEG2RADF(180.0f));
+  RNA_def_property_range(prop, DEG2RADF(0.0f), DEG2RADF(180.0f));
   RNA_def_property_ui_text(
       prop,
       "Spread",

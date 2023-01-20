@@ -8,6 +8,7 @@
 
 #include "DNA_listBase.h"
 
+#include "RNA_access.h"
 #include "RNA_types.h"
 
 struct BlenderRNA;
@@ -30,14 +31,16 @@ typedef struct IDProperty IDProperty;
 
 /* Function Callbacks */
 
-/** Update callback for an RNA property.
+/**
+ * Update callback for an RNA property.
  *
- *  \note This is NOT called automatically when writing into the property, it needs to be called
+ * \note This is NOT called automatically when writing into the property, it needs to be called
  * manually (through #RNA_property_update or #RNA_property_update_main) when needed.
  *
- *  \param bmain: the Main data-base to which `ptr` data belongs.
- *  \param active_scene: The current active scene (may be NULL in some cases).
- *  \param ptr: The RNA pointer data to update. */
+ * \param bmain: the Main data-base to which `ptr` data belongs.
+ * \param active_scene: The current active scene (may be NULL in some cases).
+ * \param ptr: The RNA pointer data to update.
+ */
 typedef void (*UpdateFunc)(struct Main *bmain, struct Scene *active_scene, struct PointerRNA *ptr);
 typedef void (*ContextPropUpdateFunc)(struct bContext *C,
                                       struct PointerRNA *ptr,
@@ -48,9 +51,10 @@ typedef int (*EditableFunc)(struct PointerRNA *ptr, const char **r_info);
 typedef int (*ItemEditableFunc)(struct PointerRNA *ptr, int index);
 typedef struct IDProperty **(*IDPropertiesFunc)(struct PointerRNA *ptr);
 typedef struct StructRNA *(*StructRefineFunc)(struct PointerRNA *ptr);
-typedef char *(*StructPathFunc)(struct PointerRNA *ptr);
+typedef char *(*StructPathFunc)(const struct PointerRNA *ptr);
 
-typedef int (*PropArrayLengthGetFunc)(struct PointerRNA *ptr, int length[RNA_MAX_ARRAY_DIMENSION]);
+typedef int (*PropArrayLengthGetFunc)(const struct PointerRNA *ptr,
+                                      int length[RNA_MAX_ARRAY_DIMENSION]);
 typedef bool (*PropBooleanGetFunc)(struct PointerRNA *ptr);
 typedef void (*PropBooleanSetFunc)(struct PointerRNA *ptr, bool value);
 typedef void (*PropBooleanArrayGetFunc)(struct PointerRNA *ptr, bool *values);
@@ -202,7 +206,7 @@ typedef int (*RNAPropOverrideDiff)(struct Main *bmain,
                                    const char *rna_path,
                                    size_t rna_path_len,
                                    int flags,
-                                   bool *r_override_changed);
+                                   eRNAOverrideMatchResult *r_report_flag);
 
 /**
  * Only used for differential override (add, sub, etc.).
@@ -437,6 +441,15 @@ typedef struct StringPropertyRNA {
   PropStringLengthFuncEx length_ex;
   PropStringSetFuncEx set_ex;
 
+  /**
+   * Optional callback to list candidates for a string.
+   * This is only for use as suggestions in UI, other values may be assigned.
+   *
+   * \note The callback type is public, hence the difference in naming convention.
+   */
+  StringPropertySearchFunc search;
+  eStringPropertySearchFlag search_flag;
+
   int maxlength; /* includes string terminator! */
 
   const char *defaultvalue;
@@ -520,7 +533,7 @@ struct StructRNA {
   /* property to iterate over properties */
   PropertyRNA *iteratorproperty;
 
-  /* struct this is derivedfrom */
+  /** Struct this is derived from. */
   struct StructRNA *base;
 
   /* only use for nested structs, where both the parent and child access

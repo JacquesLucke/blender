@@ -92,7 +92,7 @@ template<
      * The equality operator used to compare keys. By default it will simply compare keys using the
      * `==` operator.
      */
-    typename IsEqual = DefaultEquality,
+    typename IsEqual = DefaultEquality<Key>,
     /**
      * This is what will actually be stored in the hash table array. At a minimum a slot has to be
      * able to hold a key, a value and information about whether the slot is empty, occupied or
@@ -130,10 +130,10 @@ class Map {
   uint64_t slot_mask_;
 
   /** This is called to hash incoming keys. */
-  Hash hash_;
+  BLI_NO_UNIQUE_ADDRESS Hash hash_;
 
   /** This is called to check equality of two keys. */
-  IsEqual is_equal_;
+  BLI_NO_UNIQUE_ADDRESS IsEqual is_equal_;
 
   /** The max load factor is 1/2 = 50% by default. */
 #define LOAD_FACTOR 1, 2
@@ -669,10 +669,10 @@ class Map {
       return *this;
     }
 
-    BaseIterator operator++(int) const
+    BaseIterator operator++(int)
     {
       BaseIterator copied_iterator = *this;
-      ++copied_iterator;
+      ++(*this);
       return copied_iterator;
     }
 
@@ -887,6 +887,25 @@ class Map {
   }
 
   /**
+   * Remove all key-value-pairs for that the given predicate is true.
+   *
+   * This is similar to std::erase_if.
+   */
+  template<typename Predicate> void remove_if(Predicate &&predicate)
+  {
+    for (Slot &slot : slots_) {
+      if (slot.is_occupied()) {
+        const Key &key = *slot.key();
+        Value &value = *slot.value();
+        if (predicate(MutableItem{key, value})) {
+          slot.remove();
+          removed_slots_++;
+        }
+      }
+    }
+  }
+
+  /**
    * Print common statistics like size and collision count. This is useful for debugging purposes.
    */
   void print_stats(StringRef name = "") const
@@ -943,7 +962,7 @@ class Map {
    */
   int64_t size_in_bytes() const
   {
-    return static_cast<int64_t>(sizeof(Slot) * slots_.size());
+    return int64_t(sizeof(Slot) * slots_.size());
   }
 
   /**
@@ -962,7 +981,22 @@ class Map {
    */
   void clear()
   {
-    this->noexcept_reset();
+    for (Slot &slot : slots_) {
+      slot.~Slot();
+      new (&slot) Slot();
+    }
+
+    removed_slots_ = 0;
+    occupied_and_removed_slots_ = 0;
+  }
+
+  /**
+   * Removes all key-value-pairs from the map and frees any allocated memory.
+   */
+  void clear_and_shrink()
+  {
+    std::destroy_at(this);
+    new (this) Map(NoExceptConstructor{});
   }
 
   /**
@@ -981,7 +1015,7 @@ class Map {
     max_load_factor_.compute_total_and_usable_slots(
         SlotArray::inline_buffer_capacity(), min_usable_slots, &total_slots, &usable_slots);
     BLI_assert(total_slots >= 1);
-    const uint64_t new_slot_mask = static_cast<uint64_t>(total_slots) - 1;
+    const uint64_t new_slot_mask = uint64_t(total_slots) - 1;
 
     /**
      * Optimize the case when the map was empty beforehand. We can avoid some copies here.
@@ -1238,7 +1272,7 @@ template<typename Key,
                                                                        sizeof(Value)),
          typename ProbingStrategy = DefaultProbingStrategy,
          typename Hash = DefaultHash<Key>,
-         typename IsEqual = DefaultEquality,
+         typename IsEqual = DefaultEquality<Key>,
          typename Slot = typename DefaultMapSlot<Key, Value>::type>
 using RawMap =
     Map<Key, Value, InlineBufferCapacity, ProbingStrategy, Hash, IsEqual, Slot, RawAllocator>;
@@ -1255,7 +1289,7 @@ template<typename Key, typename Value> class StdUnorderedMapWrapper {
  public:
   int64_t size() const
   {
-    return static_cast<int64_t>(map_.size());
+    return int64_t(map_.size());
   }
 
   bool is_empty() const
@@ -1289,7 +1323,7 @@ template<typename Key, typename Value> class StdUnorderedMapWrapper {
 
   bool remove(const Key &key)
   {
-    return (bool)map_.erase(key);
+    return bool(map_.erase(key));
   }
 
   Value &lookup(const Key &key)
@@ -1307,7 +1341,7 @@ template<typename Key, typename Value> class StdUnorderedMapWrapper {
     map_.clear();
   }
 
-  void print_stats(StringRef UNUSED(name) = "") const
+  void print_stats(StringRef /*name*/ = "") const
   {
   }
 };

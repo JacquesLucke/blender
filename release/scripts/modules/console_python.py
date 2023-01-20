@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8-80 compliant>
 import sys
 import bpy
 
@@ -158,11 +156,8 @@ def execute(context, is_interactive):
     if _BPY_MAIN_OWN:
         sys.modules["__main__"] = main_mod_back
 
-    stdout.seek(0)
-    stderr.seek(0)
-
-    output = stdout.read()
-    output_err = stderr.read()
+    output = stdout.getvalue()
+    output_err = stderr.getvalue()
 
     # cleanup
     sys.last_traceback = None
@@ -213,7 +208,7 @@ execute.hooks = []
 
 
 def autocomplete(context):
-    from console import intellisense
+    from bl_console_utils.autocomplete import intellisense
 
     sc = context.space_data
 
@@ -327,7 +322,7 @@ def banner(context):
         "PYTHON INTERACTIVE CONSOLE %s" % version_string,
         "",
         "Builtin Modules:       "
-        "bpy, bpy.data, bpy.ops, bpy.props, bpy.types, bpy.context, bpy.utils, bgl, blf, mathutils",
+        "bpy, bpy.data, bpy.ops, bpy.props, bpy.types, bpy.context, bpy.utils, bgl, gpu, blf, mathutils",
 
         "Convenience Imports:   from mathutils import *; from math import *",
         "Convenience Variables: C = bpy.context, D = bpy.data",

@@ -40,6 +40,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
+#include "BKE_mesh_legacy_convert.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_node.h"
 #include "BKE_object.h"
@@ -65,7 +66,7 @@
 #include "ExportSettings.h"
 #include "collada_utils.h"
 
-float bc_get_float_value(const COLLADAFW::FloatOrDoubleArray &array, unsigned int index)
+float bc_get_float_value(const COLLADAFW::FloatOrDoubleArray &array, uint index)
 {
   if (index >= array.getValuesCount()) {
     return 0.0f;
@@ -128,7 +129,7 @@ bool bc_set_parent(Object *ob, Object *par, bContext *C, bool is_parent_space)
   const bool keep_transform = false;
 
   if (par && is_parent_space) {
-    mul_m4_m4m4(ob->obmat, par->obmat, ob->obmat);
+    mul_m4_m4m4(ob->object_to_world, par->object_to_world, ob->object_to_world);
   }
 
   bool ok = ED_object_parent_set(
@@ -196,6 +197,7 @@ Object *bc_add_object(Main *bmain, Scene *scene, ViewLayer *view_layer, int type
   LayerCollection *layer_collection = BKE_layer_collection_get_active(view_layer);
   BKE_collection_object_add(bmain, layer_collection->collection, ob);
 
+  BKE_view_layer_synced_ensure(scene, view_layer);
   Base *base = BKE_view_layer_base_find(view_layer, ob);
   /* TODO: is setting active needed? */
   BKE_view_layer_base_select_and_set_active(view_layer, base);
@@ -320,7 +322,7 @@ bool bc_is_root_bone(Bone *aBone, bool deform_bones_only)
 int bc_get_active_UVLayer(Object *ob)
 {
   Mesh *me = (Mesh *)ob->data;
-  return CustomData_get_active_layer_index(&me->ldata, CD_MLOOPUV);
+  return CustomData_get_active_layer_index(&me->ldata, CD_PROP_FLOAT2);
 }
 
 std::string bc_url_encode(std::string data)
@@ -346,10 +348,10 @@ std::string bc_replace_string(std::string data,
 void bc_match_scale(Object *ob, UnitConverter &bc_unit, bool scale_to_scene)
 {
   if (scale_to_scene) {
-    mul_m4_m4m4(ob->obmat, bc_unit.get_scale(), ob->obmat);
+    mul_m4_m4m4(ob->object_to_world, bc_unit.get_scale(), ob->object_to_world);
   }
-  mul_m4_m4m4(ob->obmat, bc_unit.get_rotation(), ob->obmat);
-  BKE_object_apply_mat4(ob, ob->obmat, false, false);
+  mul_m4_m4m4(ob->object_to_world, bc_unit.get_rotation(), ob->object_to_world);
+  BKE_object_apply_mat4(ob, ob->object_to_world, false, false);
 }
 
 void bc_match_scale(std::vector<Object *> *objects_done,
@@ -411,6 +413,7 @@ void bc_triangulate_mesh(Mesh *me)
   BMesh *bm = BM_mesh_create(&bm_mesh_allocsize_default, &bm_create_params);
   BMeshFromMeshParams bm_from_me_params{};
   bm_from_me_params.calc_face_normal = true;
+  bm_from_me_params.calc_vert_normal = true;
   BM_mesh_bm_from_me(bm, me, &bm_from_me_params);
   BM_mesh_triangulate(bm, quad_method, use_beauty, 4, tag_only, nullptr, nullptr, nullptr);
 
@@ -613,8 +616,7 @@ void BoneExtended::set_bone_layers(std::string layerString, std::vector<std::str
     }
 
     /* If numeric layers and labeled layers are used in parallel (unlikely),
-     * we get a potential mixup. Just leave as is for now.
-     */
+     * we get a potential mix-up. Just leave as is for now. */
     this->bone_layers = bc_set_layer(this->bone_layers, pos);
   }
 }
@@ -708,13 +710,16 @@ float bc_get_property(Bone *bone, std::string key, float def)
   if (property) {
     switch (property->type) {
       case IDP_INT:
-        result = (float)(IDP_Int(property));
+        result = float(IDP_Int(property));
         break;
       case IDP_FLOAT:
-        result = (float)(IDP_Float(property));
+        result = float(IDP_Float(property));
         break;
       case IDP_DOUBLE:
-        result = (float)(IDP_Double(property));
+        result = float(IDP_Double(property));
+        break;
+      case IDP_BOOLEAN:
+        result = (float)(IDP_Bool(property));
         break;
       default:
         result = def;
@@ -1006,9 +1011,9 @@ void bc_create_restpose_mat(BCExportSettings &export_settings,
 void bc_sanitize_v3(float v[3], int precision)
 {
   for (int i = 0; i < 3; i++) {
-    double val = (double)v[i];
+    double val = double(v[i]);
     val = double_round(val, precision);
-    v[i] = (float)val;
+    v[i] = float(val);
   }
 }
 
@@ -1069,9 +1074,9 @@ void bc_copy_m4d_v44(double (&r)[4][4], std::vector<std::vector<double>> &a)
  */
 static std::string bc_get_active_uvlayer_name(Mesh *me)
 {
-  int num_layers = CustomData_number_of_layers(&me->ldata, CD_MLOOPUV);
+  int num_layers = CustomData_number_of_layers(&me->ldata, CD_PROP_FLOAT2);
   if (num_layers) {
-    char *layer_name = bc_CustomData_get_active_layer_name(&me->ldata, CD_MLOOPUV);
+    char *layer_name = bc_CustomData_get_active_layer_name(&me->ldata, CD_PROP_FLOAT2);
     if (layer_name) {
       return std::string(layer_name);
     }
@@ -1094,9 +1099,9 @@ static std::string bc_get_active_uvlayer_name(Object *ob)
  */
 static std::string bc_get_uvlayer_name(Mesh *me, int layer)
 {
-  int num_layers = CustomData_number_of_layers(&me->ldata, CD_MLOOPUV);
+  int num_layers = CustomData_number_of_layers(&me->ldata, CD_PROP_FLOAT2);
   if (num_layers && layer < num_layers) {
-    char *layer_name = bc_CustomData_get_layer_name(&me->ldata, CD_MLOOPUV, layer);
+    char *layer_name = bc_CustomData_get_layer_name(&me->ldata, CD_PROP_FLOAT2, layer);
     if (layer_name) {
       return std::string(layer_name);
     }
@@ -1107,7 +1112,7 @@ static std::string bc_get_uvlayer_name(Mesh *me, int layer)
 static bNodeTree *prepare_material_nodetree(Material *ma)
 {
   if (ma->nodetree == nullptr) {
-    ma->nodetree = ntreeAddTree(nullptr, "Shader Nodetree", "ShaderNodeTree");
+    ntreeAddTreeEmbedded(nullptr, &ma->id, "Shader Nodetree", "ShaderNodeTree");
     ma->use_nodes = true;
   }
   return ma->nodetree;
@@ -1337,7 +1342,7 @@ bool bc_get_float_from_shader(bNode *shader, double &val, std::string nodeid)
   bNodeSocket *socket = nodeFindSocket(shader, SOCK_IN, nodeid.c_str());
   if (socket) {
     bNodeSocketValueFloat *ref = (bNodeSocketValueFloat *)socket->default_value;
-    val = (double)ref->value;
+    val = double(ref->value);
     return true;
   }
   return false;

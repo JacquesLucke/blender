@@ -185,7 +185,7 @@ static void opencl_initialize(const bool use_opencl)
       cl_platform_id *platforms = (cl_platform_id *)MEM_mallocN(
           sizeof(cl_platform_id) * number_of_platforms, __func__);
       error = clGetPlatformIDs(number_of_platforms, platforms, nullptr);
-      unsigned int index_platform;
+      uint index_platform;
       for (index_platform = 0; index_platform < number_of_platforms; index_platform++) {
         cl_platform_id platform = platforms[index_platform];
         cl_uint number_of_devices = 0;
@@ -240,7 +240,7 @@ static void opencl_initialize(const bool use_opencl)
           MEM_freeN(build_log);
         }
         else {
-          unsigned int index_devices;
+          uint index_devices;
           for (index_devices = 0; index_devices < number_of_devices; index_devices++) {
             cl_device_id device = cldevices[index_devices];
             cl_int vendorID = 0;
@@ -266,7 +266,7 @@ static void opencl_initialize(const bool use_opencl)
 
 static void opencl_deinitialize()
 {
-  g_work_scheduler.opencl.devices.clear_and_make_inline();
+  g_work_scheduler.opencl.devices.clear_and_shrink();
 
   if (g_work_scheduler.opencl.program) {
     clReleaseProgram(g_work_scheduler.opencl.program);
@@ -364,7 +364,7 @@ static void threading_model_queue_deinitialize()
 {
   /* deinitialize CPU threads */
   if (g_work_scheduler.queue.initialized) {
-    g_work_scheduler.queue.devices.clear_and_make_inline();
+    g_work_scheduler.queue.devices.clear_and_shrink();
 
     BLI_thread_local_delete(g_thread_device);
     g_work_scheduler.queue.initialized = false;
@@ -377,7 +377,7 @@ static void threading_model_queue_deinitialize()
 /** \name Task Scheduling
  * \{ */
 
-static void threading_model_task_execute(TaskPool *__restrict UNUSED(pool), void *task_data)
+static void threading_model_task_execute(TaskPool *__restrict /*pool*/, void *task_data)
 {
   WorkPackage *package = static_cast<WorkPackage *>(task_data);
   CPUDevice device(BLI_task_parallel_thread_id(nullptr));

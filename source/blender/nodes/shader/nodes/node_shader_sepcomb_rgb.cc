@@ -20,43 +20,39 @@ static void sh_node_seprgb_declare(NodeDeclarationBuilder &b)
 
 static int gpu_shader_seprgb(GPUMaterial *mat,
                              bNode *node,
-                             bNodeExecData *UNUSED(execdata),
+                             bNodeExecData * /*execdata*/,
                              GPUNodeStack *in,
                              GPUNodeStack *out)
 {
   return GPU_stack_link(mat, node, "separate_rgb", in, out);
 }
 
-class SeparateRGBFunction : public blender::fn::MultiFunction {
+class SeparateRGBFunction : public mf::MultiFunction {
  public:
   SeparateRGBFunction()
   {
-    static blender::fn::MFSignature signature = create_signature();
+    static const mf::Signature signature = []() {
+      mf::Signature signature;
+      mf::SignatureBuilder builder{"Separate RGB", signature};
+      builder.single_input<ColorGeometry4f>("Color");
+      builder.single_output<float>("R");
+      builder.single_output<float>("G");
+      builder.single_output<float>("B");
+      return signature;
+    }();
     this->set_signature(&signature);
   }
 
-  static blender::fn::MFSignature create_signature()
+  void call(IndexMask mask, mf::Params params, mf::Context /*context*/) const override
   {
-    blender::fn::MFSignatureBuilder signature{"Separate RGB"};
-    signature.single_input<blender::ColorGeometry4f>("Color");
-    signature.single_output<float>("R");
-    signature.single_output<float>("G");
-    signature.single_output<float>("B");
-    return signature.build();
-  }
-
-  void call(blender::IndexMask mask,
-            blender::fn::MFParams params,
-            blender::fn::MFContext UNUSED(context)) const override
-  {
-    const blender::VArray<blender::ColorGeometry4f> &colors =
-        params.readonly_single_input<blender::ColorGeometry4f>(0, "Color");
-    blender::MutableSpan<float> rs = params.uninitialized_single_output<float>(1, "R");
-    blender::MutableSpan<float> gs = params.uninitialized_single_output<float>(2, "G");
-    blender::MutableSpan<float> bs = params.uninitialized_single_output<float>(3, "B");
+    const VArray<ColorGeometry4f> &colors = params.readonly_single_input<ColorGeometry4f>(0,
+                                                                                          "Color");
+    MutableSpan<float> rs = params.uninitialized_single_output<float>(1, "R");
+    MutableSpan<float> gs = params.uninitialized_single_output<float>(2, "G");
+    MutableSpan<float> bs = params.uninitialized_single_output<float>(3, "B");
 
     for (int64_t i : mask) {
-      blender::ColorGeometry4f color = colors[i];
+      ColorGeometry4f color = colors[i];
       rs[i] = color.r;
       gs[i] = color.g;
       bs[i] = color.b;
@@ -64,7 +60,7 @@ class SeparateRGBFunction : public blender::fn::MultiFunction {
   }
 };
 
-static void sh_node_seprgb_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_seprgb_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
   static SeparateRGBFunction fn;
   builder.set_matching_fn(fn);
@@ -78,10 +74,12 @@ void register_node_type_sh_seprgb()
 
   static bNodeType ntype;
 
-  sh_fn_node_type_base(&ntype, SH_NODE_SEPRGB, "Separate RGB", NODE_CLASS_CONVERTER);
+  sh_fn_node_type_base(
+      &ntype, SH_NODE_SEPRGB_LEGACY, "Separate RGB (Legacy)", NODE_CLASS_CONVERTER);
   ntype.declare = file_ns::sh_node_seprgb_declare;
-  node_type_gpu(&ntype, file_ns::gpu_shader_seprgb);
+  ntype.gpu_fn = file_ns::gpu_shader_seprgb;
   ntype.build_multi_function = file_ns::sh_node_seprgb_build_multi_function;
+  ntype.gather_link_search_ops = nullptr;
 
   nodeRegisterType(&ntype);
 }
@@ -99,18 +97,17 @@ static void sh_node_combrgb_declare(NodeDeclarationBuilder &b)
 
 static int gpu_shader_combrgb(GPUMaterial *mat,
                               bNode *node,
-                              bNodeExecData *UNUSED(execdata),
+                              bNodeExecData * /*execdata*/,
                               GPUNodeStack *in,
                               GPUNodeStack *out)
 {
   return GPU_stack_link(mat, node, "combine_rgb", in, out);
 }
 
-static void sh_node_combrgb_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_combrgb_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
-  static blender::fn::CustomMF_SI_SI_SI_SO<float, float, float, blender::ColorGeometry4f> fn{
-      "Combine RGB",
-      [](float r, float g, float b) { return blender::ColorGeometry4f(r, g, b, 1.0f); }};
+  static auto fn = mf::build::SI3_SO<float, float, float, ColorGeometry4f>(
+      "Combine RGB", [](float r, float g, float b) { return ColorGeometry4f(r, g, b, 1.0f); });
   builder.set_matching_fn(fn);
 }
 
@@ -122,10 +119,12 @@ void register_node_type_sh_combrgb()
 
   static bNodeType ntype;
 
-  sh_fn_node_type_base(&ntype, SH_NODE_COMBRGB, "Combine RGB", NODE_CLASS_CONVERTER);
+  sh_fn_node_type_base(
+      &ntype, SH_NODE_COMBRGB_LEGACY, "Combine RGB (Legacy)", NODE_CLASS_CONVERTER);
   ntype.declare = file_ns::sh_node_combrgb_declare;
-  node_type_gpu(&ntype, file_ns::gpu_shader_combrgb);
+  ntype.gpu_fn = file_ns::gpu_shader_combrgb;
   ntype.build_multi_function = file_ns::sh_node_combrgb_build_multi_function;
+  ntype.gather_link_search_ops = nullptr;
 
   nodeRegisterType(&ntype);
 }

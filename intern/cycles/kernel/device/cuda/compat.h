@@ -30,6 +30,7 @@ typedef unsigned long long uint64_t;
 /* Qualifiers */
 
 #define ccl_device __device__ __inline__
+#define ccl_device_extern extern "C" __device__
 #if __CUDA_ARCH__ < 500
 #  define ccl_device_inline __device__ __forceinline__
 #  define ccl_device_forceinline __device__ __forceinline__
@@ -72,15 +73,15 @@ typedef unsigned long long uint64_t;
 
 #define ccl_gpu_syncthreads() __syncthreads()
 #define ccl_gpu_ballot(predicate) __ballot_sync(0xFFFFFFFF, predicate)
-#define ccl_gpu_shfl_down_sync(mask, var, detla) __shfl_down_sync(mask, var, detla)
 
 /* GPU texture objects */
 
 typedef unsigned long long CUtexObject;
-typedef CUtexObject ccl_gpu_tex_object;
+typedef CUtexObject ccl_gpu_tex_object_2D;
+typedef CUtexObject ccl_gpu_tex_object_3D;
 
 template<typename T>
-ccl_device_forceinline T ccl_gpu_tex_object_read_2D(const ccl_gpu_tex_object texobj,
+ccl_device_forceinline T ccl_gpu_tex_object_read_2D(const ccl_gpu_tex_object_2D texobj,
                                                     const float x,
                                                     const float y)
 {
@@ -88,7 +89,7 @@ ccl_device_forceinline T ccl_gpu_tex_object_read_2D(const ccl_gpu_tex_object tex
 }
 
 template<typename T>
-ccl_device_forceinline T ccl_gpu_tex_object_read_3D(const ccl_gpu_tex_object texobj,
+ccl_device_forceinline T ccl_gpu_tex_object_read_3D(const ccl_gpu_tex_object_3D texobj,
                                                     const float x,
                                                     const float y,
                                                     const float z)
@@ -109,14 +110,14 @@ ccl_device_forceinline T ccl_gpu_tex_object_read_3D(const ccl_gpu_tex_object tex
 
 typedef unsigned short half;
 
-__device__ half __float2half(const float f)
+ccl_device_forceinline half __float2half(const float f)
 {
   half val;
   asm("{  cvt.rn.f16.f32 %0, %1;}\n" : "=h"(val) : "f"(f));
   return val;
 }
 
-__device__ float __half2float(const half h)
+ccl_device_forceinline float __half2float(const half h)
 {
   float val;
   asm("{  cvt.f32.f16 %0, %1;}\n" : "=f"(val) : "h"(h));

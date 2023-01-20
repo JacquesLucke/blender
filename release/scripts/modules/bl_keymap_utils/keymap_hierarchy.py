@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 __all__ = (
     "generate",
 )
@@ -57,6 +55,7 @@ _km_hierarchy = [
         ('Curve', 'EMPTY', 'WINDOW', [
             _km_expand_from_toolsystem('VIEW_3D', 'EDIT_CURVE'),
         ]),
+        ('Curves', 'EMPTY', 'WINDOW', []),
         ('Armature', 'EMPTY', 'WINDOW', [
             _km_expand_from_toolsystem('VIEW_3D', 'EDIT_ARMATURE'),
         ]),
@@ -90,6 +89,10 @@ _km_hierarchy = [
             _km_expand_from_toolsystem('VIEW_3D', 'SCULPT'),
         ]),
 
+        ('Sculpt Curves', 'EMPTY', 'WINDOW', [
+            _km_expand_from_toolsystem('VIEW_3D', 'CURVES_SCULPT'),
+        ]),
+
         ('Particle', 'EMPTY', 'WINDOW', [
             _km_expand_from_toolsystem('VIEW_3D', 'PARTICLE'),
         ]),
@@ -100,6 +103,7 @@ _km_hierarchy = [
         ('Paint Stroke Modal', 'EMPTY', 'WINDOW', []),
         ('Sculpt Expand Modal', 'EMPTY', 'WINDOW', []),
         ('Paint Curve', 'EMPTY', 'WINDOW', []),
+        ('Curve Pen Modal Map', 'EMPTY', 'WINDOW', []),
 
         ('Object Non-modal', 'EMPTY', 'WINDOW', []),  # mode change
 

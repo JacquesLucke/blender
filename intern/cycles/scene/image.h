@@ -69,6 +69,7 @@ class ImageMetaData {
 
   /* Optional color space, defaults to raw. */
   ustring colorspace;
+  string colorspace_file_hint;
   const char *colorspace_file_format;
 
   /* Optional transform for 3D images. */
@@ -112,6 +113,9 @@ class ImageLoader {
   /* Optional for OSL texture cache. */
   virtual ustring osl_filepath() const;
 
+  /* Optional for tiled textures loaded externally. */
+  virtual int get_tile_number() const;
+
   /* Free any memory used for loading metadata and pixels. */
   virtual void cleanup(){};
 
@@ -139,14 +143,17 @@ class ImageHandle {
 
   void clear();
 
-  bool empty();
-  int num_tiles();
+  bool empty() const;
+  int num_tiles() const;
 
   ImageMetaData metadata();
   int svm_slot(const int tile_index = 0) const;
+  vector<int4> get_svm_slots() const;
   device_texture *image_memory(const int tile_index = 0) const;
 
   VDBImageLoader *vdb_loader(const int tile_index = 0) const;
+
+  ImageManager *get_manager() const;
 
  protected:
   vector<int> tile_slots;
@@ -169,6 +176,7 @@ class ImageManager {
                         const ImageParams &params,
                         const array<int> &tiles);
   ImageHandle add_image(ImageLoader *loader, const ImageParams &params, const bool builtin = true);
+  ImageHandle add_image(const vector<ImageLoader *> &loaders, const ImageParams &params);
 
   void device_update(Device *device, Scene *scene, Progress &progress);
   void device_update_slot(Device *device, Scene *scene, int slot, Progress *progress);

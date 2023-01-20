@@ -37,30 +37,30 @@ const EnumPropertyItem rna_enum_prop_dynamicpaint_type_items[] = {
 #  include "DEG_depsgraph.h"
 #  include "DEG_depsgraph_build.h"
 
-static char *rna_DynamicPaintCanvasSettings_path(PointerRNA *ptr)
+static char *rna_DynamicPaintCanvasSettings_path(const PointerRNA *ptr)
 {
-  DynamicPaintCanvasSettings *settings = (DynamicPaintCanvasSettings *)ptr->data;
-  ModifierData *md = (ModifierData *)settings->pmd;
+  const DynamicPaintCanvasSettings *settings = (DynamicPaintCanvasSettings *)ptr->data;
+  const ModifierData *md = (ModifierData *)settings->pmd;
   char name_esc[sizeof(md->name) * 2];
 
   BLI_str_escape(name_esc, md->name, sizeof(name_esc));
   return BLI_sprintfN("modifiers[\"%s\"].canvas_settings", name_esc);
 }
 
-static char *rna_DynamicPaintBrushSettings_path(PointerRNA *ptr)
+static char *rna_DynamicPaintBrushSettings_path(const PointerRNA *ptr)
 {
-  DynamicPaintBrushSettings *settings = (DynamicPaintBrushSettings *)ptr->data;
-  ModifierData *md = (ModifierData *)settings->pmd;
+  const DynamicPaintBrushSettings *settings = (DynamicPaintBrushSettings *)ptr->data;
+  const ModifierData *md = (ModifierData *)settings->pmd;
   char name_esc[sizeof(md->name) * 2];
 
   BLI_str_escape(name_esc, md->name, sizeof(name_esc));
   return BLI_sprintfN("modifiers[\"%s\"].brush_settings", name_esc);
 }
 
-static char *rna_DynamicPaintSurface_path(PointerRNA *ptr)
+static char *rna_DynamicPaintSurface_path(const PointerRNA *ptr)
 {
-  DynamicPaintSurface *surface = (DynamicPaintSurface *)ptr->data;
-  ModifierData *md = (ModifierData *)surface->canvas->pmd;
+  const DynamicPaintSurface *surface = (DynamicPaintSurface *)ptr->data;
+  const ModifierData *md = (ModifierData *)surface->canvas->pmd;
   char name_esc[sizeof(md->name) * 2];
   char name_esc_surface[sizeof(surface->name) * 2];
 
@@ -237,8 +237,7 @@ static const EnumPropertyItem *rna_DynamicPaint_surface_type_itemf(bContext *UNU
   RNA_enum_item_add(&item, &totitem, &tmp);
 
   /* Displace */
-  if (surface->format == MOD_DPAINT_SURFACE_F_VERTEX ||
-      surface->format == MOD_DPAINT_SURFACE_F_IMAGESEQ) {
+  if (ELEM(surface->format, MOD_DPAINT_SURFACE_F_VERTEX, MOD_DPAINT_SURFACE_F_IMAGESEQ)) {
     tmp.value = MOD_DPAINT_SURFACE_T_DISPLACE;
     tmp.identifier = "DISPLACE";
     tmp.name = "Displace";

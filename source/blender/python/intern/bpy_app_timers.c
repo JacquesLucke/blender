@@ -93,7 +93,15 @@ static PyObject *bpy_app_timers_register(PyObject *UNUSED(self), PyObject *args,
   int persistent = false;
 
   static const char *_keywords[] = {"function", "first_interval", "persistent", NULL};
-  static _PyArg_Parser _parser = {"O|$dp:register", _keywords, 0};
+  static _PyArg_Parser _parser = {
+      "O"  /* `function` */
+      "|$" /* Optional keyword only arguments. */
+      "d"  /* `first_interval` */
+      "p"  /* `persistent` */
+      ":register",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(
           args, kw, &_parser, &function, &first_interval, &persistent)) {
     return NULL;
@@ -156,14 +164,14 @@ static struct PyMethodDef M_AppTimers_methods[] = {
 
 static struct PyModuleDef M_AppTimers_module_def = {
     PyModuleDef_HEAD_INIT,
-    "bpy.app.timers",    /* m_name */
-    NULL,                /* m_doc */
-    0,                   /* m_size */
-    M_AppTimers_methods, /* m_methods */
-    NULL,                /* m_reload */
-    NULL,                /* m_traverse */
-    NULL,                /* m_clear */
-    NULL,                /* m_free */
+    /*m_name*/ "bpy.app.timers",
+    /*m_doc*/ NULL,
+    /*m_size*/ 0,
+    /*m_methods*/ M_AppTimers_methods,
+    /*m_slots*/ NULL,
+    /*m_traverse*/ NULL,
+    /*m_clear*/ NULL,
+    /*m_free*/ NULL,
 };
 
 PyObject *BPY_app_timers_module(void)

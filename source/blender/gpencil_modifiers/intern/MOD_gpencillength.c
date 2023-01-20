@@ -6,10 +6,11 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 
 #include "BLI_hash.h"
 #include "BLI_listbase.h"
-#include "BLI_math.h"
+#include "BLI_math_base.h"
 #include "BLI_rand.h"
 #include "BLI_utildefines.h"
 
@@ -137,7 +138,7 @@ static void applyLength(GpencilModifierData *md,
     seed += BLI_hash_string(md->name);
 
     if (lmd->flag & GP_LENGTH_USE_RANDOM) {
-      seed += ((int)DEG_get_ctime(depsgraph)) / lmd->step;
+      seed += (int)DEG_get_ctime(depsgraph) / lmd->step;
     }
 
     float rand_offset = BLI_hash_int_01(seed);
@@ -239,16 +240,7 @@ static void bakeModifier(Main *UNUSED(bmain),
                          GpencilModifierData *md,
                          Object *ob)
 {
-
-  bGPdata *gpd = ob->data;
-
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
-      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        deformStroke(md, depsgraph, ob, gpl, gpf, gps);
-      }
-    }
-  }
+  generic_bake_deform_stroke(depsgraph, md, ob, false, deformStroke);
 }
 
 static void foreachIDLink(GpencilModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
@@ -363,25 +355,25 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Length = {
-    /* name */ "Length",
-    /* structName */ "LengthGpencilModifierData",
-    /* structSize */ sizeof(LengthGpencilModifierData),
-    /* type */ eGpencilModifierTypeType_Gpencil,
-    /* flags */ eGpencilModifierTypeFlag_SupportsEditmode,
+    /*name*/ N_("Length"),
+    /*structName*/ "LengthGpencilModifierData",
+    /*structSize*/ sizeof(LengthGpencilModifierData),
+    /*type*/ eGpencilModifierTypeType_Gpencil,
+    /*flags*/ eGpencilModifierTypeFlag_SupportsEditmode,
 
-    /* copyData */ copyData,
+    /*copyData*/ copyData,
 
-    /* deformStroke */ deformStroke,
-    /* generateStrokes */ NULL,
-    /* bakeModifier */ bakeModifier,
-    /* remapTime */ NULL,
+    /*deformStroke*/ deformStroke,
+    /*generateStrokes*/ NULL,
+    /*bakeModifier*/ bakeModifier,
+    /*remapTime*/ NULL,
 
-    /* initData */ initData,
-    /* freeData */ NULL,
-    /* isDisabled */ NULL,
-    /* updateDepsgraph */ NULL,
-    /* dependsOnTime */ NULL,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ NULL,
-    /* panelRegister */ panelRegister,
+    /*initData*/ initData,
+    /*freeData*/ NULL,
+    /*isDisabled*/ NULL,
+    /*updateDepsgraph*/ NULL,
+    /*dependsOnTime*/ NULL,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ NULL,
+    /*panelRegister*/ panelRegister,
 };

@@ -142,9 +142,9 @@ static void rna_ShaderFx_name_set(PointerRNA *ptr, const char *value)
   BKE_animdata_fix_paths_rename_all(NULL, "shader_effects", oldname, gmd->name);
 }
 
-static char *rna_ShaderFx_path(PointerRNA *ptr)
+static char *rna_ShaderFx_path(const PointerRNA *ptr)
 {
-  ShaderFxData *gmd = ptr->data;
+  const ShaderFxData *gmd = ptr->data;
   char name_esc[sizeof(gmd->name) * 2];
 
   BLI_str_escape(name_esc, gmd->name, sizeof(name_esc));
@@ -432,7 +432,7 @@ static void rna_def_shader_fx_shadow(BlenderRNA *brna)
   prop = RNA_def_property(srna, "scale", PROP_FLOAT, PROP_XYZ);
   RNA_def_property_float_sdna(prop, NULL, "scale");
   RNA_def_property_range(prop, -FLT_MAX, FLT_MAX);
-  RNA_def_property_ui_text(prop, "Scale", "Offset of the shadow");
+  RNA_def_property_ui_text(prop, "Scale", "Scale of the shadow");
   RNA_def_property_update(prop, NC_OBJECT | ND_SHADERFX, "rna_ShaderFx_update");
 
   prop = RNA_def_property(srna, "shadow_color", PROP_FLOAT, PROP_COLOR);
@@ -524,7 +524,6 @@ static void rna_def_shader_fx_glow(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, NULL, "glow_color[3]");
   RNA_def_property_range(prop, 0.0, 1.0f);
   RNA_def_property_ui_text(prop, "Opacity", "Effect Opacity");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
   RNA_def_property_update(prop, NC_OBJECT | ND_SHADERFX, "rna_ShaderFx_update");
 
   prop = RNA_def_property(srna, "select_color", PROP_FLOAT, PROP_COLOR);

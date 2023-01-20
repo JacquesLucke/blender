@@ -14,7 +14,6 @@
 extern "C" {
 #endif
 
-struct GPUBatch;
 struct IDRemapper;
 struct Main;
 struct bContext;
@@ -98,6 +97,12 @@ void ED_slider_factor_set(struct tSlider *slider, float factor);
 bool ED_slider_allow_overshoot_get(struct tSlider *slider);
 void ED_slider_allow_overshoot_set(struct tSlider *slider, bool value);
 
+bool ED_slider_allow_increments_get(struct tSlider *slider);
+void ED_slider_allow_increments_set(struct tSlider *slider, bool value);
+
+bool ED_slider_is_bidirectional_get(struct tSlider *slider);
+void ED_slider_is_bidirectional_set(struct tSlider *slider, bool value);
+
 /* ************** XXX OLD CRUFT WARNING ************* */
 
 /**
@@ -106,7 +111,7 @@ void ED_slider_allow_overshoot_set(struct tSlider *slider, bool value);
  * \note Shift/Control are not configurable key-bindings.
  */
 void apply_keyb_grid(
-    int shift, int ctrl, float *val, float fac1, float fac2, float fac3, int invert);
+    bool shift, bool ctrl, float *val, float fac1, float fac2, float fac3, int invert);
 
 /* where else to go ? */
 void unpack_menu(struct bContext *C,

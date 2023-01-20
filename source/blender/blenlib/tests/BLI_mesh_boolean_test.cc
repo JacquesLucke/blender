@@ -11,7 +11,7 @@
 #include "BLI_array.hh"
 #include "BLI_map.hh"
 #include "BLI_math_mpq.hh"
-#include "BLI_math_vec_mpq_types.hh"
+#include "BLI_math_vector_mpq_types.hh"
 #include "BLI_mesh_boolean.hh"
 #include "BLI_vector.hh"
 
@@ -39,11 +39,13 @@ class IMeshBuilder {
     return std::pair<int, int>(e_index / MAX_FACE_LEN, e_index % MAX_FACE_LEN);
   }
 
-  /*
+  /**
    * Spec should have form:
-   *  #verts #faces
-   *  mpq_class mpq_class mpq_clas [#verts lines]
-   *  int int int ... [#faces lines; indices into verts for given face]
+   * <pre>
+   * #verts #faces
+   * mpq_class mpq_class mpq_clas [#verts lines]
+   * int int int ... [#faces lines; indices into verts for given face]
+   * </pre>
    */
   IMeshBuilder(const char *spec)
   {
@@ -104,7 +106,7 @@ class IMeshBuilder {
   }
 };
 
-static int all_shape_zero(int UNUSED(t))
+static int all_shape_zero(int /*t*/)
 {
   return 0;
 }

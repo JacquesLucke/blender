@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 import bpy
 from bpy.types import Panel, Menu
 from rna_prop_ui import PropertyPanel
@@ -156,68 +154,14 @@ class DATA_PT_bone_groups(ArmatureButtonsPanel, Panel):
         sub.operator("pose.group_deselect", text="Deselect")
 
 
-class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
-    bl_label = "Pose Library"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        return (context.object and context.object.type == 'ARMATURE' and context.object.pose)
-
-    def draw(self, context):
-        layout = self.layout
-
-        ob = context.object
-        poselib = ob.pose_library
-
-        layout.template_ID(ob, "pose_library", new="poselib.new", unlink="poselib.unlink")
-
-        if poselib:
-            # warning about poselib being in an invalid state
-            if poselib.fcurves and not poselib.pose_markers:
-                layout.label(icon='ERROR', text="Error: Potentially corrupt library, run 'Sanitize' operator to fix")
-
-            # list of poses in pose library
-            row = layout.row()
-            row.template_list("UI_UL_list", "pose_markers", poselib, "pose_markers",
-                              poselib.pose_markers, "active_index", rows=5)
-
-            # column of operators for active pose
-            # - goes beside list
-            col = row.column(align=True)
-
-            # invoke should still be used for 'add', as it is needed to allow
-            # add/replace options to be used properly
-            col.operator("poselib.pose_add", icon='ADD', text="")
-
-            col.operator_context = 'EXEC_DEFAULT'  # exec not invoke, so that menu doesn't need showing
-
-            pose_marker_active = poselib.pose_markers.active
-
-            if pose_marker_active is not None:
-                col.operator("poselib.pose_remove", icon='REMOVE', text="")
-                col.operator(
-                    "poselib.apply_pose",
-                    icon='ZOOM_SELECTED',
-                    text="",
-                ).pose_index = poselib.pose_markers.active_index
-
-            col.operator("poselib.action_sanitize", icon='HELP', text="")  # XXX: put in menu?
-            col.operator("poselib.convert_old_poselib", icon='ASSET_MANAGER', text="")
-
-            if pose_marker_active is not None:
-                col.operator("poselib.pose_move", icon='TRIA_UP', text="").direction = 'UP'
-                col.operator("poselib.pose_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
-
-
 class DATA_PT_iksolver_itasc(ArmatureButtonsPanel, Panel):
     bl_label = "Inverse Kinematics"
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):
         ob = context.object
-        return (ob and ob.pose)
+        return ob and ob.pose
 
     def draw(self, context):
         layout = self.layout
@@ -314,7 +258,6 @@ classes = (
     DATA_PT_skeleton,
     DATA_MT_bone_group_context_menu,
     DATA_PT_bone_groups,
-    DATA_PT_pose_library,
     DATA_PT_motion_paths,
     DATA_PT_motion_paths_display,
     DATA_PT_display,

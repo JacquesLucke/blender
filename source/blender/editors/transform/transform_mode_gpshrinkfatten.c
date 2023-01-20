@@ -73,8 +73,8 @@ static void applyGPShrinkFatten(TransInfo *t, const int UNUSED(mval[2]))
 
       if (td->val) {
         *td->val = td->ival * ratio;
-        /* apply PET */
-        *td->val = (*td->val * td->factor) + ((1.0f - td->factor) * td->ival);
+        /* Apply proportional editing. */
+        *td->val = interpf(*td->val, td->ival, td->factor);
         if (*td->val <= 0.0f) {
           *td->val = 0.001f;
         }

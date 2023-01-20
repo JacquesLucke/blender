@@ -27,21 +27,21 @@ struct GHOST_ModifierKeys {
    * \param mask: The mask of the modifier key.
    * \return The modifier key's key code.
    */
-  static GHOST_TKey getModifierKeyCode(GHOST_TModifierKeyMask mask);
+  static GHOST_TKey getModifierKeyCode(GHOST_TModifierKey mask);
 
   /**
    * Returns the state of a single modifier key.
    * \param mask: Key state to return.
    * \return The state of the key (pressed == true).
    */
-  bool get(GHOST_TModifierKeyMask mask) const;
+  bool get(GHOST_TModifierKey mask) const;
 
   /**
    * Updates the state of a single modifier key.
    * \param mask: Key state to update.
    * \param down: The new state of the key.
    */
-  void set(GHOST_TModifierKeyMask mask, bool down);
+  void set(GHOST_TModifierKey mask, bool down);
 
   /**
    * Sets the state of all modifier keys to up.
@@ -55,18 +55,19 @@ struct GHOST_ModifierKeys {
    */
   bool equals(const GHOST_ModifierKeys &keys) const;
 
-  /** Bitfield that stores the appropriate key state. */
+  /** Bit-field that stores the appropriate key state. */
   uint8_t m_LeftShift : 1;
-  /** Bitfield that stores the appropriate key state. */
+  /** Bit-field that stores the appropriate key state. */
   uint8_t m_RightShift : 1;
-  /** Bitfield that stores the appropriate key state. */
+  /** Bit-field that stores the appropriate key state. */
   uint8_t m_LeftAlt : 1;
-  /** Bitfield that stores the appropriate key state. */
+  /** Bit-field that stores the appropriate key state. */
   uint8_t m_RightAlt : 1;
-  /** Bitfield that stores the appropriate key state. */
+  /** Bit-field that stores the appropriate key state. */
   uint8_t m_LeftControl : 1;
-  /** Bitfield that stores the appropriate key state. */
+  /** Bit-field that stores the appropriate key state. */
   uint8_t m_RightControl : 1;
-  /** Bitfield that stores the appropriate key state. */
-  uint8_t m_OS : 1;
+  /** Bit-field that stores the appropriate key state. */
+  uint8_t m_LeftOS : 1;
+  uint8_t m_RightOS : 1;
 };

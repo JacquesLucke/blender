@@ -17,7 +17,7 @@
 #include "engines/eevee/eevee_private.h"
 #include "engines/gpencil/gpencil_engine.h"
 #include "engines/image/image_private.hh"
-#include "engines/overlay/overlay_private.h"
+#include "engines/overlay/overlay_private.hh"
 #include "engines/workbench/workbench_private.h"
 #include "intern/draw_shader.h"
 
@@ -192,8 +192,6 @@ DRAW_TEST(image_glsl_shaders)
 
 static void test_overlay_glsl_shaders()
 {
-  OVERLAY_shader_library_ensure();
-
   for (int i = 0; i < 2; i++) {
     eGPUShaderConfig sh_cfg = i == 0 ? GPU_SHADER_CFG_DEFAULT : GPU_SHADER_CFG_CLIPPED;
     DRW_draw_state_init_gtests(sh_cfg);
@@ -256,8 +254,10 @@ static void test_overlay_glsl_shaders()
     EXPECT_NE(OVERLAY_shader_motion_path_line(), nullptr);
     EXPECT_NE(OVERLAY_shader_motion_path_vert(), nullptr);
     EXPECT_NE(OVERLAY_shader_uniform_color(), nullptr);
+    EXPECT_NE(OVERLAY_shader_uniform_color_pointcloud(), nullptr);
     EXPECT_NE(OVERLAY_shader_outline_prepass(false), nullptr);
     EXPECT_NE(OVERLAY_shader_outline_prepass(true), nullptr);
+    EXPECT_NE(OVERLAY_shader_outline_prepass_curves(), nullptr);
     EXPECT_NE(OVERLAY_shader_outline_prepass_gpencil(), nullptr);
     EXPECT_NE(OVERLAY_shader_outline_prepass_pointcloud(), nullptr);
     EXPECT_NE(OVERLAY_shader_extra_grid(), nullptr);
@@ -272,6 +272,11 @@ static void test_overlay_glsl_shaders()
     EXPECT_NE(OVERLAY_shader_particle_dot(), nullptr);
     EXPECT_NE(OVERLAY_shader_particle_shape(), nullptr);
     EXPECT_NE(OVERLAY_shader_sculpt_mask(), nullptr);
+    EXPECT_NE(OVERLAY_shader_sculpt_curves_selection(), nullptr);
+    EXPECT_NE(OVERLAY_shader_viewer_attribute_curve(), nullptr);
+    EXPECT_NE(OVERLAY_shader_viewer_attribute_curves(), nullptr);
+    EXPECT_NE(OVERLAY_shader_viewer_attribute_mesh(), nullptr);
+    EXPECT_NE(OVERLAY_shader_viewer_attribute_pointcloud(), nullptr);
     EXPECT_NE(OVERLAY_shader_volume_velocity(false, false), nullptr);
     EXPECT_NE(OVERLAY_shader_volume_velocity(false, true), nullptr);
     EXPECT_NE(OVERLAY_shader_volume_velocity(true, false), nullptr);
@@ -399,6 +404,7 @@ static void test_basic_glsl_shaders()
     eGPUShaderConfig sh_cfg = static_cast<eGPUShaderConfig>(i);
     BASIC_shaders_depth_sh_get(sh_cfg);
     BASIC_shaders_pointcloud_depth_sh_get(sh_cfg);
+    BASIC_shaders_curves_depth_sh_get(sh_cfg);
     BASIC_shaders_depth_conservative_sh_get(sh_cfg);
     BASIC_shaders_pointcloud_depth_conservative_sh_get(sh_cfg);
   }

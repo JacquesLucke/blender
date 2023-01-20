@@ -8,7 +8,7 @@
  */
 
 #include "BKE_subsurf.h"
-#include "BLI_compiler_compat.h"
+#include "BLI_utildefines.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,10 +24,7 @@ struct Object;
 struct Scene;
 struct SubdivCCG;
 
-struct MLoop;
-struct MLoopTri;
 struct MPoly;
-struct MVert;
 
 /**
  * Delete mesh mdisps and grid paint masks.
@@ -44,7 +41,7 @@ void multires_flush_sculpt_updates(struct Object *object);
 void multires_force_sculpt_rebuild(struct Object *object);
 void multires_force_external_reload(struct Object *object);
 
-/* internal, only called in subsurf_ccg.c */
+/* internal, only called in subsurf_ccg.cc */
 void multires_modifier_update_mdisps(struct DerivedMesh *dm, struct Scene *scene);
 void multires_modifier_update_hidden(struct DerivedMesh *dm);
 
@@ -53,12 +50,13 @@ void multires_modifier_update_hidden(struct DerivedMesh *dm);
  */
 void multiresModifier_set_levels_from_disps(struct MultiresModifierData *mmd, struct Object *ob);
 
-typedef enum {
+typedef enum MultiresFlags {
   MULTIRES_USE_LOCAL_MMD = 1,
   MULTIRES_USE_RENDER_PARAMS = 2,
   MULTIRES_ALLOC_PAINT_MASK = 4,
   MULTIRES_IGNORE_SIMPLIFY = 8,
 } MultiresFlags;
+ENUM_OPERATORS(MultiresFlags, MULTIRES_IGNORE_SIMPLIFY);
 
 struct DerivedMesh *multires_make_derived_from_derived(struct DerivedMesh *dm,
                                                        struct MultiresModifierData *mmd,
@@ -130,7 +128,7 @@ void multiresModifier_prepare_join(struct Depsgraph *depsgraph,
                                    struct Object *ob,
                                    struct Object *to_ob);
 
-int multires_mdisp_corners(struct MDisps *s);
+int multires_mdisp_corners(const struct MDisps *s);
 
 /**
  * Update multi-res data after topology changing.
@@ -155,17 +153,10 @@ void old_mdisps_bilinear(float out[3], float (*disps)[3], int st, float u, float
 /**
  * Find per-corner coordinate with given per-face UV coord.
  */
-int mdisp_rot_face_to_crn(struct MVert *mvert,
-                          struct MPoly *mpoly,
-                          struct MLoop *mloop,
-                          const struct MLoopTri *lt,
-                          int face_side,
-                          float u,
-                          float v,
-                          float *x,
-                          float *y);
+int mdisp_rot_face_to_crn(
+    struct MPoly *mpoly, int face_side, float u, float v, float *x, float *y);
 
-/* Reshaping, define in multires_reshape.c */
+/* Reshaping, define in multires_reshape.cc */
 
 bool multiresModifier_reshapeFromVertcos(struct Depsgraph *depsgraph,
                                          struct Object *object,
@@ -213,7 +204,7 @@ void multiresModifier_subdivide_to_level(struct Object *object,
                                          int top_level,
                                          eMultiresSubdivideModeType mode);
 
-/* Subdivision integration, defined in multires_subdiv.c */
+/* Subdivision integration, defined in multires_subdiv.cc */
 
 struct SubdivSettings;
 struct SubdivToMeshSettings;

@@ -27,6 +27,8 @@
 #include "BKE_main.h"
 #include "BKE_undo_system.h"
 
+#include "RNA_access.h"
+
 #include "MEM_guardedalloc.h"
 
 #define undo_stack _wm_undo_stack_disallow /* pass in as a variable always. */
@@ -299,7 +301,7 @@ static void undosys_stack_clear_all_last(UndoStack *ustack, UndoStep *us)
       BLI_assert(us_iter != ustack->step_active);
       undosys_step_free_and_unlink(ustack, us_iter);
       undosys_stack_validate(ustack, is_not_empty);
-    } while ((us != us_iter));
+    } while (us != us_iter);
   }
 }
 
@@ -320,7 +322,7 @@ static void undosys_stack_clear_all_first(UndoStack *ustack, UndoStep *us, UndoS
       BLI_assert(us_iter != ustack->step_active);
       undosys_step_free_and_unlink(ustack, us_iter);
       undosys_stack_validate(ustack, is_not_empty);
-    } while ((us != us_iter));
+    } while (us != us_iter);
   }
 }
 
@@ -494,7 +496,9 @@ eUndoPushReturn BKE_undosys_step_push_with_type(UndoStack *ustack,
 
   /* Might not be final place for this to be called - probably only want to call it from some
    * undo handlers, not all of them? */
-  if (BKE_lib_override_library_main_operations_create(G_MAIN, false)) {
+  eRNAOverrideMatchResult report_flags = RNA_OVERRIDE_MATCH_RESULT_INIT;
+  BKE_lib_override_library_main_operations_create(G_MAIN, false, (int *)&report_flags);
+  if (report_flags & RNA_OVERRIDE_MATCH_RESULT_CREATED) {
     retval |= UNDO_PUSH_RET_OVERRIDE_CHANGED;
   }
 

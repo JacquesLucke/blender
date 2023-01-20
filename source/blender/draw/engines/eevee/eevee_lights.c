@@ -45,7 +45,7 @@ static void light_shape_parameters_set(EEVEE_Light *evli, const Light *la, const
     evli->sizey = scale[1] / scale[2];
     evli->spotsize = cosf(la->spotsize * 0.5f);
     evli->spotblend = (1.0f - evli->spotsize) * la->spotblend;
-    evli->radius = max_ff(0.001f, la->area_size);
+    evli->radius = max_ff(0.001f, la->radius);
   }
   else if (la->type == LA_AREA) {
     evli->sizex = max_ff(0.003f, la->area_size * scale[0] * 0.5f);
@@ -62,7 +62,7 @@ static void light_shape_parameters_set(EEVEE_Light *evli, const Light *la, const
     evli->radius = max_ff(0.001f, tanf(min_ff(la->sun_angle, DEG2RADF(179.9f)) / 2.0f));
   }
   else {
-    evli->radius = max_ff(0.001f, la->area_size);
+    evli->radius = max_ff(0.001f, la->radius);
   }
 }
 
@@ -132,7 +132,7 @@ static void eevee_light_setup(Object *ob, EEVEE_Light *evli)
   const float light_threshold = draw_ctx->scene->eevee.light_threshold;
 
   /* Position */
-  copy_v3_v3(evli->position, ob->obmat[3]);
+  copy_v3_v3(evli->position, ob->object_to_world[3]);
 
   /* Color */
   copy_v3_v3(evli->color, &la->r);
@@ -153,7 +153,7 @@ static void eevee_light_setup(Object *ob, EEVEE_Light *evli)
   evli->invsqrdist_volume = 1.0f / max_ff(1e-4f, square_f(att_radius_volume));
 
   /* Vectors */
-  normalize_m4_m4_ex(mat, ob->obmat, scale);
+  normalize_m4_m4_ex(mat, ob->object_to_world, scale);
   copy_v3_v3(evli->forwardvec, mat[2]);
   normalize_v3(evli->forwardvec);
   negate_v3(evli->forwardvec);

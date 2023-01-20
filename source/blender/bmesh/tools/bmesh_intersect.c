@@ -10,7 +10,7 @@
  * Supported:
  * - Concave faces.
  * - Non-planar faces.
- * - Custom-data (UV's etc).
+ * - Custom-data (UVs etc).
  *
  * Unsupported:
  * - Intersecting between different meshes.
@@ -1263,7 +1263,7 @@ bool BM_mesh_intersect(BMesh *bm,
         /* only start on an edge-case */
         /* pass */
       }
-      else if ((!BM_elem_flag_test(v_a, BM_ELEM_TAG)) && (!BM_elem_flag_test(v_b, BM_ELEM_TAG))) {
+      else if (!BM_elem_flag_test(v_a, BM_ELEM_TAG) && !BM_elem_flag_test(v_b, BM_ELEM_TAG)) {
         /* simple case, single edge spans face */
         BMVert **splice_pair;
         BM_elem_flag_enable(e_pair[1], BM_ELEM_TAG);
@@ -1342,10 +1342,9 @@ bool BM_mesh_intersect(BMesh *bm,
       GHASH_ITER (gh_iter, s.face_edges) {
         struct LinkBase *e_ls_base = BLI_ghashIterator_getValue(&gh_iter);
         LinkNode **node_prev_p;
-        uint i;
 
         node_prev_p = &e_ls_base->list;
-        for (i = 0, node = e_ls_base->list; node; i++, node = node->next) {
+        for (node = e_ls_base->list; node; node = node->next) {
           BMEdge *e = node->link;
           if (BM_elem_flag_test(e, BM_ELEM_TAG)) {
             /* allocated by arena, don't free */
@@ -1490,7 +1489,7 @@ bool BM_mesh_intersect(BMesh *bm,
   (void)use_separate;
 #endif /* USE_SEPARATE */
 
-  if ((boolean_mode != BMESH_ISECT_BOOLEAN_NONE)) {
+  if (boolean_mode != BMESH_ISECT_BOOLEAN_NONE) {
     BVHTree *tree_pair[2] = {tree_a, tree_b};
 
     /* group vars */

@@ -34,9 +34,9 @@ typedef struct EditBone {
   /** User-Defined Properties on this Bone */
   struct IDProperty *prop;
   /**
-   * Editbones have a one-way link  (i.e. children refer
+   * Edit-bones have a one-way link  (i.e. children refer
    * to parents.  This is converted to a two-way link for
-   * normal bones when leaving editmode.
+   * normal bones when leaving edit-mode.
    */
   struct EditBone *parent;
   /** (64 == MAXBONENAME) */
@@ -158,14 +158,18 @@ struct BoundBox *BKE_armature_boundbox_get(struct Object *ob);
  * or the custom object's bounds (if the bone uses a custom object).
  * Visual elements such as the envelopes radius & bendy-bone spline segments are *not* included,
  * making this not so useful for viewport culling.
+ *
+ * \param use_empty_drawtype: When enabled, the draw type of empty custom-objects is taken into
+ * account when calculating the bounds.
  */
 void BKE_pchan_minmax(const struct Object *ob,
                       const struct bPoseChannel *pchan,
+                      const bool use_empty_drawtype,
                       float r_min[3],
                       float r_max[3]);
 /**
  * Calculate the axis aligned bounds of the pose of `ob` in world-space.
-
+ *
  * `r_min` and `r_max` are expanded to fit `ob->pose` so the caller must initialize them
  * (typically using #INIT_MINMAX).
  *

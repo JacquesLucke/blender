@@ -7,21 +7,22 @@
  */
 
 #ifdef __cplusplus
+#  include "BLI_array.hh"
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
 struct MEdge;
 struct MLoop;
 struct MLoopTri;
-struct MLoopUV;
 struct MPoly;
-struct MVert;
-
-/* map from uv vertex to face (for select linked, stitch, uv suburf) */
 
 /* UvVertMap */
 #define STD_UV_CONNECT_LIMIT 0.0001f
 
+/* Map from uv vertex to face. Used by select linked, uv subdivision-surface and obj exporter. */
 typedef struct UvVertMap {
   struct UvMapVert **vert;
   struct UvMapVert *buf;
@@ -52,24 +53,45 @@ typedef struct UvElement {
   unsigned int island;
 } UvElement;
 
-/* UvElementMap is a container for UvElements of a mesh. It stores some UvElements belonging to the
- * same uv island in sequence and the number of uvs per island so it is possible to access all uvs
- * belonging to an island directly by iterating through the buffer.
+/** UvElementMap is a container for UvElements of a BMesh.
+ *
+ * It simplifies access to UV information and ensures the
+ * different UV selection modes are respected.
+ *
+ * If islands are calculated, it also stores UvElements
+ * belonging to the same uv island in sequence and
+ * the number of uvs per island.
+ *
+ * \note in C++, #head_table and #unique_index_table would
+ * be `mutable`, as they are created on demand, and never
+ * changed after creation.
  */
 typedef struct UvElementMap {
-  /* address UvElements by their vertex */
-  struct UvElement **vert;
-  /* UvElement Store */
-  struct UvElement *buf;
-  /* Total number of UVs in the layer. Useful to know */
-  int totalUVs;
-  /* Number of Islands in the mesh */
-  int totalIslands;
-  /* Stores the starting index in buf where each island begins */
-  int *islandIndices;
-} UvElementMap;
+  /** UvElement Storage. */
+  struct UvElement *storage;
+  /** Total number of UVs. */
+  int total_uvs;
+  /** Total number of unique UVs. */
+  int total_unique_uvs;
 
-#define INVALID_ISLAND ((unsigned int)-1)
+  /** If Non-NULL, address UvElements by `BM_elem_index_get(BMVert*)`. */
+  struct UvElement **vertex;
+
+  /** If Non-NULL, pointer to local head of each unique UV. */
+  struct UvElement **head_table;
+
+  /** If Non-NULL, pointer to index of each unique UV. */
+  int *unique_index_table;
+
+  /** Number of islands, or zero if not calculated. */
+  int total_islands;
+  /** Array of starting index in #storage where each island begins. */
+  int *island_indices;
+  /** Array of number of UVs in each island. */
+  int *island_total_uvs;
+  /** Array of number of unique UVs in each island. */
+  int *island_total_unique_uvs;
+} UvElementMap;
 
 /* Connectivity data */
 typedef struct MeshElemMap {
@@ -79,8 +101,10 @@ typedef struct MeshElemMap {
 
 /* mapping */
 UvVertMap *BKE_mesh_uv_vert_map_create(const struct MPoly *mpoly,
+                                       const bool *hide_poly,
+                                       const bool *select_poly,
                                        const struct MLoop *mloop,
-                                       const struct MLoopUV *mloopuv,
+                                       const float (*mloopuv)[2],
                                        unsigned int totpoly,
                                        unsigned int totvert,
                                        const float limit[2],
@@ -120,7 +144,6 @@ void BKE_mesh_vert_loop_map_create(MeshElemMap **r_map,
  */
 void BKE_mesh_vert_looptri_map_create(MeshElemMap **r_map,
                                       int **r_mem,
-                                      const struct MVert *mvert,
                                       int totvert,
                                       const struct MLoopTri *mlooptri,
                                       int totlooptri,
@@ -234,13 +257,13 @@ void BKE_mesh_loop_islands_add(MeshIslandStore *island_store,
                                int num_innercut_items,
                                int *innercut_item_indices);
 
-typedef bool (*MeshRemapIslandsCalc)(struct MVert *verts,
+typedef bool (*MeshRemapIslandsCalc)(const float (*vert_positions)[3],
                                      int totvert,
-                                     struct MEdge *edges,
+                                     const struct MEdge *edges,
                                      int totedge,
-                                     struct MPoly *polys,
+                                     const struct MPoly *polys,
                                      int totpoly,
-                                     struct MLoop *loops,
+                                     const struct MLoop *loops,
                                      int totloop,
                                      struct MeshIslandStore *r_island_store);
 
@@ -251,20 +274,20 @@ typedef bool (*MeshRemapIslandsCalc)(struct MVert *verts,
  * Calculate 'generic' UV islands, i.e. based only on actual geometry data (edge seams),
  * not some UV layers coordinates.
  */
-bool BKE_mesh_calc_islands_loop_poly_edgeseam(struct MVert *verts,
+bool BKE_mesh_calc_islands_loop_poly_edgeseam(const float (*vert_positions)[3],
                                               int totvert,
-                                              struct MEdge *edges,
+                                              const struct MEdge *edges,
                                               int totedge,
-                                              struct MPoly *polys,
+                                              const struct MPoly *polys,
                                               int totpoly,
-                                              struct MLoop *loops,
+                                              const struct MLoop *loops,
                                               int totloop,
                                               MeshIslandStore *r_island_store);
 
 /**
  * Calculate UV islands.
  *
- * \note If no MLoopUV layer is passed, we only consider edges tagged as seams as UV boundaries.
+ * \note If no UV layer is passed, we only consider edges tagged as seams as UV boundaries.
  * This has the advantages of simplicity, and being valid/common to all UV maps.
  * However, it means actual UV islands without matching UV seams will not be handled correctly.
  * If a valid UV layer is passed as \a luvs parameter,
@@ -274,7 +297,7 @@ bool BKE_mesh_calc_islands_loop_poly_edgeseam(struct MVert *verts,
  * Not sure it would be worth the more complex code, though,
  * those loops are supposed to be really quick to do.
  */
-bool BKE_mesh_calc_islands_loop_poly_uvmap(struct MVert *verts,
+bool BKE_mesh_calc_islands_loop_poly_uvmap(float (*vert_positions)[3],
                                            int totvert,
                                            struct MEdge *edges,
                                            int totedge,
@@ -282,7 +305,7 @@ bool BKE_mesh_calc_islands_loop_poly_uvmap(struct MVert *verts,
                                            int totpoly,
                                            struct MLoop *loops,
                                            int totloop,
-                                           const struct MLoopUV *luvs,
+                                           const float (*luvs)[2],
                                            MeshIslandStore *r_island_store);
 
 /**
@@ -299,6 +322,7 @@ int *BKE_mesh_calc_smoothgroups(const struct MEdge *medge,
                                 int totpoly,
                                 const struct MLoop *mloop,
                                 int totloop,
+                                const bool *sharp_edges,
                                 int *r_totgroup,
                                 bool use_bitflags);
 
@@ -314,4 +338,34 @@ int *BKE_mesh_calc_smoothgroups(const struct MEdge *medge,
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+
+#  include "DNA_meshdata_types.h" /* MPoly */
+
+namespace blender::bke::mesh_topology {
+
+Array<int> build_loop_to_poly_map(Span<MPoly> polys, int loops_num);
+
+Array<Vector<int>> build_vert_to_edge_map(Span<MEdge> edges, int verts_num);
+Array<Vector<int>> build_vert_to_poly_map(Span<MPoly> polys, Span<MLoop> loops, int verts_num);
+Array<Vector<int>> build_vert_to_loop_map(Span<MLoop> loops, int verts_num);
+Array<Vector<int>> build_edge_to_loop_map(Span<MLoop> loops, int edges_num);
+Vector<Vector<int>> build_edge_to_loop_map_resizable(Span<MLoop> loops, int edges_num);
+
+inline int poly_loop_prev(const MPoly &poly, int loop_i)
+{
+  return loop_i - 1 + (loop_i == poly.loopstart) * poly.totloop;
+}
+
+inline int poly_loop_next(const MPoly &poly, int loop_i)
+{
+  if (loop_i == poly.loopstart + poly.totloop - 1) {
+    return poly.loopstart;
+  }
+  return loop_i + 1;
+}
+
+}  // namespace blender::bke::mesh_topology
 #endif

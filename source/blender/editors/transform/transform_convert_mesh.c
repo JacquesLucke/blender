@@ -843,7 +843,8 @@ void transform_convert_mesh_islands_calc(struct BMEditMesh *em,
     MEM_freeN(group_index);
   }
 
-  /* for PET we need islands of 1 so connected vertices can use it with V3D_AROUND_LOCAL_ORIGINS */
+  /* for proportional editing we need islands of 1 so connected vertices can use it with
+   * V3D_AROUND_LOCAL_ORIGINS */
   if (calc_single_islands) {
     BMIter viter;
     BMVert *v;
@@ -1231,6 +1232,12 @@ void transform_convert_mesh_mirrordata_calc(struct BMEditMesh *em,
          * It can happen when vertices occupy the same position. */
         continue;
       }
+      if (vert_map[i].flag & flag) {
+        /* It's already a mirror.
+         * Avoid a mirror vertex dependency cycle.
+         * This can happen when the vertices are within the mirror threshold. */
+        continue;
+      }
 
       vert_map[i_mirr] = (struct MirrorDataVert){i, flag};
       mirror_elem_len++;
@@ -1314,7 +1321,8 @@ void transform_convert_mesh_crazyspace_detect(TransInfo *t,
      * correction with \a quats, relative to the coordinates after
      * the modifiers that support deform matrices \a defcos. */
 
-#if 0 /* TODO(campbell): fix crazy-space & extrude so it can be enabled for general use. */
+#if 0 /* TODO(@campbellbarton): fix crazy-space & extrude so it can be enabled for general use. \
+       */
       if ((totleft > 0) || (totleft == -1))
 #else
     if (totleft > 0)
@@ -1408,7 +1416,6 @@ static void VertsToTransData(TransInfo *t,
                              TransDataExtension *tx,
                              BMEditMesh *em,
                              BMVert *eve,
-                             float *bweight,
                              const struct TransIslandData *island_data,
                              const int island_index)
 {
@@ -1423,8 +1430,7 @@ static void VertsToTransData(TransInfo *t,
   copy_v3_v3(td->iloc, td->loc);
 
   if ((t->mode == TFM_SHRINKFATTEN) && (em->selectmode & SCE_SELECT_FACE) &&
-      BM_elem_flag_test(eve, BM_ELEM_SELECT) &&
-      (BM_vert_calc_normal_ex(eve, BM_ELEM_SELECT, _no))) {
+      BM_elem_flag_test(eve, BM_ELEM_SELECT) && BM_vert_calc_normal_ex(eve, BM_ELEM_SELECT, _no)) {
     no = _no;
   }
   else {
@@ -1449,17 +1455,13 @@ static void VertsToTransData(TransInfo *t,
   td->ext = NULL;
   td->val = NULL;
   td->extra = eve;
-  if (t->mode == TFM_BWEIGHT || t->mode == TFM_VERT_CREASE) {
-    td->val = bweight;
-    td->ival = *bweight;
-  }
-  else if (t->mode == TFM_SHRINKFATTEN) {
+  if (t->mode == TFM_SHRINKFATTEN) {
     td->ext = tx;
     tx->isize[0] = BM_vert_calc_shell_factor_ex(eve, no, BM_ELEM_SELECT);
   }
 }
 
-void createTransEditVerts(TransInfo *t)
+static void createTransEditVerts(bContext *UNUSED(C), TransInfo *t)
 {
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     TransDataExtension *tx = NULL;
@@ -1483,7 +1485,8 @@ void createTransEditVerts(TransInfo *t)
      * transform data is created by selected vertices.
      */
 
-    /* Support other objects using PET to adjust these, unless connected is enabled. */
+    /* Support other objects using proportional editing to adjust these, unless connected is
+     * enabled. */
     if ((!prop_mode || (prop_mode & T_PROP_CONNECTED)) && (bm->totvertsel == 0)) {
       continue;
     }
@@ -1532,7 +1535,7 @@ void createTransEditVerts(TransInfo *t)
           em, calc_single_islands, calc_island_center, calc_island_axismtx, &island_data);
     }
 
-    copy_m3_m4(mtx, tc->obedit->obmat);
+    copy_m3_m4(mtx, tc->obedit->object_to_world);
     /* we use a pseudo-inverse so that when one of the axes is scaled to 0,
      * matrix inversion still works and we can still moving along the other */
     pseudoinverse_m3_m3(smtx, mtx, PSEUDOINVERSE_EPSILON);
@@ -1560,7 +1563,7 @@ void createTransEditVerts(TransInfo *t)
 
       if (mirror_data.vert_map) {
         tc->data_mirror_len = mirror_data.mirror_elem_len;
-        tc->data_mirror = MEM_mallocN(mirror_data.mirror_elem_len * sizeof(*tc->data_mirror),
+        tc->data_mirror = MEM_callocN(mirror_data.mirror_elem_len * sizeof(*tc->data_mirror),
                                       __func__);
 
         BM_ITER_MESH_INDEX (eve, &iter, bm, BM_VERTS_OF_MESH, a) {
@@ -1587,17 +1590,6 @@ void createTransEditVerts(TransInfo *t)
        * but with generic transform code its hard to lazy init vars */
       tx = tc->data_ext = MEM_callocN(tc->data_len * sizeof(TransDataExtension),
                                       "TransObData ext");
-    }
-
-    int cd_vert_bweight_offset = -1;
-    int cd_vert_crease_offset = -1;
-    if (t->mode == TFM_BWEIGHT) {
-      BM_mesh_cd_flag_ensure(bm, BKE_mesh_from_object(tc->obedit), ME_CDFLAG_VERT_BWEIGHT);
-      cd_vert_bweight_offset = CustomData_get_offset(&bm->vdata, CD_BWEIGHT);
-    }
-    else if (t->mode == TFM_VERT_CREASE) {
-      BM_mesh_cd_flag_ensure(bm, BKE_mesh_from_object(tc->obedit), ME_CDFLAG_VERT_CREASE);
-      cd_vert_crease_offset = CustomData_get_offset(&bm->vdata, CD_CREASE);
     }
 
     TransData *tob = tc->data;
@@ -1632,15 +1624,9 @@ void createTransEditVerts(TransInfo *t)
         td_mirror++;
       }
       else if (prop_mode || BM_elem_flag_test(eve, BM_ELEM_SELECT)) {
-        float *bweight = (cd_vert_bweight_offset != -1) ?
-                             BM_ELEM_CD_GET_VOID_P(eve, cd_vert_bweight_offset) :
-                         (cd_vert_crease_offset != -1) ?
-                             BM_ELEM_CD_GET_VOID_P(eve, cd_vert_crease_offset) :
-                             NULL;
-
         /* Do not use the island center in case we are using islands
          * only to get axis for snap/rotate to normal... */
-        VertsToTransData(t, tob, tx, em, eve, bweight, &island_data, island_index);
+        VertsToTransData(t, tob, tx, em, eve, &island_data, island_index);
         if (tx) {
           tx++;
         }
@@ -1909,7 +1895,7 @@ static void tc_mesh_partial_types_calc(TransInfo *t, struct PartialTypeState *r_
       partial_for_looptri = PARTIAL_TYPE_GROUP;
       partial_for_normals = PARTIAL_TYPE_GROUP;
       /* Translation can rotate when snapping to normal. */
-      if (activeSnap(t) && usingSnappingNormal(t) && validSnappingNormal(t)) {
+      if (transform_snap_is_active(t) && usingSnappingNormal(t) && validSnappingNormal(t)) {
         partial_for_normals = PARTIAL_TYPE_ALL;
       }
       break;
@@ -1940,7 +1926,7 @@ static void tc_mesh_partial_types_calc(TransInfo *t, struct PartialTypeState *r_
   }
 
   /* With projection, transform isn't affine. */
-  if (activeSnap_with_project(t)) {
+  if (transform_snap_project_individual_is_active(t)) {
     if (partial_for_looptri == PARTIAL_TYPE_GROUP) {
       partial_for_looptri = PARTIAL_TYPE_ALL;
     }
@@ -2051,12 +2037,12 @@ static void tc_mesh_transdata_mirror_apply(TransDataContainer *tc)
   }
 }
 
-void recalcData_mesh(TransInfo *t)
+static void recalcData_mesh(TransInfo *t)
 {
   bool is_canceling = t->state == TRANS_CANCEL;
   /* Apply corrections. */
   if (!is_canceling) {
-    applyProject(t);
+    transform_snap_project_individual_apply(t);
 
     bool do_mirror = !(t->flag & T_NO_MIRROR);
     FOREACH_TRANS_DATA_CONTAINER (t, tc) {
@@ -2090,7 +2076,7 @@ void recalcData_mesh(TransInfo *t)
 /** \name Special After Transform Mesh
  * \{ */
 
-void special_aftertrans_update__mesh(bContext *UNUSED(C), TransInfo *t)
+static void special_aftertrans_update__mesh(bContext *UNUSED(C), TransInfo *t)
 {
   const bool is_canceling = (t->state == TRANS_CANCEL);
   const bool use_automerge = !is_canceling && (t->flag & (T_AUTOMERGE | T_AUTOSPLIT)) != 0;
@@ -2145,9 +2131,16 @@ void special_aftertrans_update__mesh(bContext *UNUSED(C), TransInfo *t)
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     /* table needs to be created for each edit command, since vertices can move etc */
     ED_mesh_mirror_spatial_table_end(tc->obedit);
-    /* TODO(campbell): xform: We need support for many mirror objects at once! */
+    /* TODO(@campbellbarton): xform: We need support for many mirror objects at once! */
     break;
   }
 }
 
 /** \} */
+
+TransConvertTypeInfo TransConvertType_Mesh = {
+    /*flags*/ (T_EDIT | T_POINTS),
+    /*createTransData*/ createTransEditVerts,
+    /*recalcData*/ recalcData_mesh,
+    /*special_aftertrans_update*/ special_aftertrans_update__mesh,
+};

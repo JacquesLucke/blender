@@ -11,12 +11,13 @@
 #include "BLI_listbase.h"
 #include "BLI_utildefines.h"
 
+#include "BLT_translation.h"
+
 #include "DNA_defaults.h"
 #include "DNA_gpencil_modifier_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
-#include "DNA_vec_types.h"
 
 #include "BKE_context.h"
 #include "BKE_gpencil_geom.h"
@@ -64,7 +65,7 @@ static void deformStroke(GpencilModifierData *md,
                                       mmd->material,
                                       mmd->pass_index,
                                       mmd->layer_pass,
-                                      mmd->mode == GP_SIMPLIFY_SAMPLE ? 2 : 4,
+                                      mmd->mode == GP_SIMPLIFY_SAMPLE ? 2 : 3,
                                       gpl,
                                       gps,
                                       mmd->flag & GP_SIMPLIFY_INVERT_LAYER,
@@ -88,7 +89,7 @@ static void deformStroke(GpencilModifierData *md,
       break;
     }
     case GP_SIMPLIFY_SAMPLE: {
-      BKE_gpencil_stroke_sample(gpd, gps, mmd->length, false);
+      BKE_gpencil_stroke_sample(gpd, gps, mmd->length, false, mmd->sharp_threshold);
       break;
     }
     case GP_SIMPLIFY_MERGE: {
@@ -105,15 +106,7 @@ static void bakeModifier(struct Main *UNUSED(bmain),
                          GpencilModifierData *md,
                          Object *ob)
 {
-  bGPdata *gpd = ob->data;
-
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
-      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        deformStroke(md, depsgraph, ob, gpl, gpf, gps);
-      }
-    }
-  }
+  generic_bake_deform_stroke(depsgraph, md, ob, false, deformStroke);
 }
 
 static void foreachIDLink(GpencilModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
@@ -143,6 +136,7 @@ static void panel_draw(const bContext *UNUSED(C), Panel *panel)
   }
   else if (mode == GP_SIMPLIFY_SAMPLE) {
     uiItemR(layout, ptr, "length", 0, NULL, ICON_NONE);
+    uiItemR(layout, ptr, "sharp_threshold", 0, NULL, ICON_NONE);
   }
   else if (mode == GP_SIMPLIFY_MERGE) {
     uiItemR(layout, ptr, "distance", 0, NULL, ICON_NONE);
@@ -165,25 +159,25 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Simplify = {
-    /* name */ "Simplify",
-    /* structName */ "SimplifyGpencilModifierData",
-    /* structSize */ sizeof(SimplifyGpencilModifierData),
-    /* type */ eGpencilModifierTypeType_Gpencil,
-    /* flags */ eGpencilModifierTypeFlag_SupportsEditmode,
+    /*name*/ N_("Simplify"),
+    /*structName*/ "SimplifyGpencilModifierData",
+    /*structSize*/ sizeof(SimplifyGpencilModifierData),
+    /*type*/ eGpencilModifierTypeType_Gpencil,
+    /*flags*/ eGpencilModifierTypeFlag_SupportsEditmode,
 
-    /* copyData */ copyData,
+    /*copyData*/ copyData,
 
-    /* deformStroke */ deformStroke,
-    /* generateStrokes */ NULL,
-    /* bakeModifier */ bakeModifier,
-    /* remapTime */ NULL,
+    /*deformStroke*/ deformStroke,
+    /*generateStrokes*/ NULL,
+    /*bakeModifier*/ bakeModifier,
+    /*remapTime*/ NULL,
 
-    /* initData */ initData,
-    /* freeData */ NULL,
-    /* isDisabled */ NULL,
-    /* updateDepsgraph */ NULL,
-    /* dependsOnTime */ NULL,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ NULL,
-    /* panelRegister */ panelRegister,
+    /*initData*/ initData,
+    /*freeData*/ NULL,
+    /*isDisabled*/ NULL,
+    /*updateDepsgraph*/ NULL,
+    /*dependsOnTime*/ NULL,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ NULL,
+    /*panelRegister*/ panelRegister,
 };

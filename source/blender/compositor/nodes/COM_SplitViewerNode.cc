@@ -16,7 +16,7 @@ SplitViewerNode::SplitViewerNode(bNode *editor_node) : Node(editor_node)
 void SplitViewerNode::convert_to_operations(NodeConverter &converter,
                                             const CompositorContext &context) const
 {
-  bNode *editor_node = this->get_bnode();
+  const bNode *editor_node = this->get_bnode();
   bool do_output = (editor_node->flag & NODE_DO_OUTPUT_RECALC || context.is_rendering()) &&
                    (editor_node->flag & NODE_DO_OUTPUT);
 
@@ -24,6 +24,7 @@ void SplitViewerNode::convert_to_operations(NodeConverter &converter,
   NodeInput *image2Socket = this->get_input_socket(1);
   Image *image = (Image *)this->get_bnode()->id;
   ImageUser *image_user = (ImageUser *)this->get_bnode()->storage;
+  Scene *scene = context.get_scene();
 
   SplitOperation *split_viewer_operation = new SplitOperation();
   split_viewer_operation->set_split_percentage(this->get_bnode()->custom1);
@@ -36,8 +37,8 @@ void SplitViewerNode::convert_to_operations(NodeConverter &converter,
   ViewerOperation *viewer_operation = new ViewerOperation();
   viewer_operation->set_image(image);
   viewer_operation->set_image_user(image_user);
-  viewer_operation->set_view_settings(context.get_view_settings());
-  viewer_operation->set_display_settings(context.get_display_settings());
+  viewer_operation->set_view_settings(&scene->view_settings);
+  viewer_operation->set_display_settings(&scene->display_settings);
   viewer_operation->set_render_data(context.get_render_data());
   viewer_operation->set_view_name(context.get_view_name());
 

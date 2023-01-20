@@ -33,6 +33,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -77,9 +78,7 @@ static void freeData(ModifierData *md)
 #endif /* WITH_FLUID */
 }
 
-static void requiredDataMask(Object *UNUSED(ob),
-                             ModifierData *md,
-                             CustomData_MeshMasks *r_cddata_masks)
+static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_masks)
 {
   FluidModifierData *fmd = (FluidModifierData *)md;
 
@@ -150,9 +149,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
 #endif /* WITH_FLUID */
 }
 
-static bool dependsOnTime(struct Scene *UNUSED(scene),
-                          ModifierData *UNUSED(md),
-                          const int UNUSED(dag_eval_mode))
+static bool dependsOnTime(struct Scene *UNUSED(scene), ModifierData *UNUSED(md))
 {
   return true;
 }
@@ -216,7 +213,7 @@ static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *u
     }
 
     if (fmd->domain->effector_weights) {
-      walk(userData, ob, (ID **)&fmd->domain->effector_weights->group, IDWALK_CB_NOP);
+      walk(userData, ob, (ID **)&fmd->domain->effector_weights->group, IDWALK_CB_USER);
     }
   }
 
@@ -242,34 +239,34 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Fluid = {
-    /* name */ "Fluid",
-    /* structName */ "FluidModifierData",
-    /* structSize */ sizeof(FluidModifierData),
-    /* srna */ &RNA_FluidModifier,
-    /* type */ eModifierTypeType_Constructive,
-    /* flags */ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_Single,
-    /* icon */ ICON_MOD_FLUIDSIM,
+    /*name*/ N_("Fluid"),
+    /*structName*/ "FluidModifierData",
+    /*structSize*/ sizeof(FluidModifierData),
+    /*srna*/ &RNA_FluidModifier,
+    /*type*/ eModifierTypeType_Constructive,
+    /*flags*/ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_Single,
+    /*icon*/ ICON_MOD_FLUIDSIM,
 
-    /* copyData */ copyData,
+    /*copyData*/ copyData,
 
-    /* deformVerts */ NULL,
-    /* deformMatrices */ NULL,
-    /* deformVertsEM */ NULL,
-    /* deformMatricesEM */ NULL,
-    /* modifyMesh */ modifyMesh,
-    /* modifyGeometrySet */ NULL,
+    /*deformVerts*/ NULL,
+    /*deformMatrices*/ NULL,
+    /*deformVertsEM*/ NULL,
+    /*deformMatricesEM*/ NULL,
+    /*modifyMesh*/ modifyMesh,
+    /*modifyGeometrySet*/ NULL,
 
-    /* initData */ initData,
-    /* requiredDataMask */ requiredDataMask,
-    /* freeData */ freeData,
-    /* isDisabled */ NULL,
-    /* updateDepsgraph */ updateDepsgraph,
-    /* dependsOnTime */ dependsOnTime,
-    /* dependsOnNormals */ NULL,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ NULL,
-    /* freeRuntimeData */ NULL,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ NULL,
-    /* blendRead */ NULL,
+    /*initData*/ initData,
+    /*requiredDataMask*/ requiredDataMask,
+    /*freeData*/ freeData,
+    /*isDisabled*/ NULL,
+    /*updateDepsgraph*/ updateDepsgraph,
+    /*dependsOnTime*/ dependsOnTime,
+    /*dependsOnNormals*/ NULL,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ NULL,
+    /*freeRuntimeData*/ NULL,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ NULL,
+    /*blendRead*/ NULL,
 };

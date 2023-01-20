@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 import time
 
 
@@ -95,7 +93,7 @@ class ProgressReport:
     def leave_substeps(self, msg=""):
         if (msg):
             self.update(msg)
-        assert(len(self.steps) > 1)
+        assert len(self.steps) > 1
         del self.steps[-1]
         del self.curr_step[-1]
         del self.start_time[-1]
@@ -136,7 +134,7 @@ class ProgressReportSubstep:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        assert(len(self.progress.steps) > self.level)
+        assert len(self.progress.steps) > self.level
         while len(self.progress.steps) > self.level + 1:
             self.progress.leave_substeps()
         self.progress.leave_substeps(self.final_msg)

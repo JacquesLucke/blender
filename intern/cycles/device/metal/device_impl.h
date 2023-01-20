@@ -28,7 +28,10 @@ class MetalDevice : public Device {
   id<MTLCommandQueue> mtlGeneralCommandQueue = nil;
   id<MTLArgumentEncoder> mtlAncillaryArgEncoder =
       nil; /* encoder used for fetching device pointers from MTLBuffers */
-  string source_used_for_compile[PSO_NUM];
+  string source[PSO_NUM];
+  string source_md5[PSO_NUM];
+
+  bool capture_enabled = false;
 
   KernelParamsMetal launch_params = {0};
 
@@ -39,7 +42,6 @@ class MetalDevice : public Device {
       nil; /* encoder used for fetching device pointers from MTLAccelerationStructure */
   /*---------------------------------------------------*/
 
-  string device_name;
   MetalGPUVendor device_vendor;
 
   uint kernel_features;
@@ -72,9 +74,22 @@ class MetalDevice : public Device {
   id<MTLBuffer> texture_bindings_3d = nil;
   std::vector<id<MTLTexture>> texture_slot_map;
 
-  MetalDeviceKernels kernels;
   bool use_metalrt = false;
-  bool use_function_specialisation = false;
+  MetalPipelineType kernel_specialization_level = PSO_GENERIC;
+
+  int device_id = 0;
+
+  static thread_mutex existing_devices_mutex;
+  static std::map<int, MetalDevice *> active_device_ids;
+
+  static bool is_device_cancelled(int device_id);
+
+  static MetalDevice *get_device_by_ID(int device_idID,
+                                       thread_scoped_lock &existing_devices_mutex_lock);
+
+  virtual bool is_ready(string &status) const override;
+
+  virtual void cancel() override;
 
   virtual BVHLayoutMask get_bvh_layout_mask() const override;
 
@@ -90,15 +105,11 @@ class MetalDevice : public Device {
 
   bool use_adaptive_compilation();
 
-  string get_source(const uint kernel_features);
+  bool make_source_and_check_if_compile_needed(MetalPipelineType pso_type);
 
-  string compile_kernel(const uint kernel_features, const char *name);
+  void make_source(MetalPipelineType pso_type, const uint kernel_features);
 
   virtual bool load_kernels(const uint kernel_features) override;
-
-  void reserve_local_memory(const uint kernel_features);
-
-  void init_host_memory();
 
   void load_texture_info();
 
@@ -110,8 +121,14 @@ class MetalDevice : public Device {
 
   virtual void build_bvh(BVH *bvh, Progress &progress, bool refit) override;
 
+  virtual void optimize_for_scene(Scene *scene) override;
+
+  static void compile_and_load(int device_id, MetalPipelineType pso_type);
+
   /* ------------------------------------------------------------------ */
   /* low-level memory management */
+
+  bool max_working_set_exceeded(size_t safety_margin = 8 * 1024 * 1024) const;
 
   MetalMem *generic_alloc(device_memory &mem);
 

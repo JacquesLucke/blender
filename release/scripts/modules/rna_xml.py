@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 import bpy
 
 
@@ -250,19 +248,19 @@ def xml2rna(
                 value_xml = xml_node.attributes[attr].value
 
                 subvalue_type = type(subvalue)
-                tp_name = 'UNKNOWN'
+                # tp_name = 'UNKNOWN'
                 if subvalue_type == float:
                     value_xml_coerce = float(value_xml)
-                    tp_name = 'FLOAT'
+                    # tp_name = 'FLOAT'
                 elif subvalue_type == int:
                     value_xml_coerce = int(value_xml)
-                    tp_name = 'INT'
+                    # tp_name = 'INT'
                 elif subvalue_type == bool:
                     value_xml_coerce = {'TRUE': True, 'FALSE': False}[value_xml]
-                    tp_name = 'BOOL'
+                    # tp_name = 'BOOL'
                 elif subvalue_type == str:
                     value_xml_coerce = value_xml
-                    tp_name = 'STR'
+                    # tp_name = 'STR'
                 elif hasattr(subvalue, "__len__"):
                     if value_xml.startswith("#"):
                         # read hexadecimal value as float array
@@ -280,7 +278,7 @@ def xml2rna(
                             except ValueError:  # bool vector property
                                 value_xml_coerce = [{'TRUE': True, 'FALSE': False}[v] for v in value_xml_split]
                         del value_xml_split
-                    tp_name = 'ARRAY'
+                    # tp_name = 'ARRAY'
 
                     # print("  %s.%s (%s) --- %s" % (type(value).__name__, attr, tp_name, subvalue_type))
                 try:
@@ -345,14 +343,10 @@ def xml2rna(
 
 
 def _get_context_val(context, path):
-    path_full = "context." + path
     try:
-        value = eval(path_full)
-    except:
-        import traceback
-        traceback.print_exc()
-        print("Error: %r could not be found" % path_full)
-
+        value = context.path_resolve(path)
+    except Exception as ex:
+        print("Error: %r, path %r not found" % (ex, path))
         value = Ellipsis
 
     return value

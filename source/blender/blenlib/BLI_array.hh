@@ -64,10 +64,10 @@ class Array {
   int64_t size_;
 
   /** Used for allocations when the inline buffer is too small. */
-  Allocator allocator_;
+  BLI_NO_UNIQUE_ADDRESS Allocator allocator_;
 
   /** A placeholder buffer that will remain uninitialized until it is used. */
-  TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
+  BLI_NO_UNIQUE_ADDRESS TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
 
  public:
   /**
@@ -278,18 +278,20 @@ class Array {
   }
 
   /**
-   * Return a reference to the last element in the array.
-   * This invokes undefined behavior when the array is empty.
+   * Return a reference to the nth last element.
+   * This invokes undefined behavior when the array is too short.
    */
-  const T &last() const
+  const T &last(const int64_t n = 0) const
   {
-    BLI_assert(size_ > 0);
-    return *(data_ + size_ - 1);
+    BLI_assert(n >= 0);
+    BLI_assert(n < size_);
+    return *(data_ + size_ - 1 - n);
   }
-  T &last()
+  T &last(const int64_t n = 0)
   {
-    BLI_assert(size_ > 0);
-    return *(data_ + size_ - 1);
+    BLI_assert(n >= 0);
+    BLI_assert(n < size_);
+    return *(data_ + size_ - 1 - n);
   }
 
   /**
@@ -422,8 +424,7 @@ class Array {
 
   T *allocate(int64_t size)
   {
-    return static_cast<T *>(
-        allocator_.allocate(static_cast<size_t>(size) * sizeof(T), alignof(T), AT));
+    return static_cast<T *>(allocator_.allocate(size_t(size) * sizeof(T), alignof(T), AT));
   }
 
   void deallocate_if_not_inline(T *ptr)

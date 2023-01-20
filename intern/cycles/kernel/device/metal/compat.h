@@ -30,9 +30,15 @@ using namespace metal::raytracing;
 /* Qualifiers */
 
 #define ccl_device
-#define ccl_device_inline ccl_device
-#define ccl_device_forceinline ccl_device
-#define ccl_device_noinline ccl_device __attribute__((noinline))
+#define ccl_device_inline ccl_device __attribute__((always_inline))
+#define ccl_device_forceinline ccl_device __attribute__((always_inline))
+#if defined(__KERNEL_METAL_APPLE__)
+#  define ccl_device_noinline ccl_device
+#else
+#  define ccl_device_noinline ccl_device __attribute__((noinline))
+#endif
+
+#define ccl_device_extern extern "C"
 #define ccl_device_noinline_cpu ccl_device
 #define ccl_device_inline_method ccl_device
 #define ccl_global device
@@ -132,6 +138,7 @@ void kernel_gpu_##name::run(thread MetalKernelContext& context, \
                   uint simd_group_index, \
                   uint num_simd_groups) ccl_global const
 
+#define ccl_gpu_kernel_postfix
 #define ccl_gpu_kernel_call(x) context.x
 
 /* define a function object where "func" is the lambda body, and additional parameters are used to specify captured state  */
@@ -172,35 +179,46 @@ void kernel_gpu_##name::run(thread MetalKernelContext& context, \
   } volume_write_lambda_pass{kg, this, state};
 
 /* make_type definitions with Metal style element initializers */
-#ifdef make_float2
-#  undef make_float2
-#endif
-#ifdef make_float3
-#  undef make_float3
-#endif
-#ifdef make_float4
-#  undef make_float4
-#endif
-#ifdef make_int2
-#  undef make_int2
-#endif
-#ifdef make_int3
-#  undef make_int3
-#endif
-#ifdef make_int4
-#  undef make_int4
-#endif
-#ifdef make_uchar4
-#  undef make_uchar4
-#endif
+ccl_device_forceinline float2 make_float2(const float x, const float y)
+{
+  return float2(x, y);
+}
 
-#define make_float2(x, y) float2(x, y)
-#define make_float3(x, y, z) float3(x, y, z)
-#define make_float4(x, y, z, w) float4(x, y, z, w)
-#define make_int2(x, y) int2(x, y)
-#define make_int3(x, y, z) int3(x, y, z)
-#define make_int4(x, y, z, w) int4(x, y, z, w)
-#define make_uchar4(x, y, z, w) uchar4(x, y, z, w)
+ccl_device_forceinline float3 make_float3(const float x, const float y, const float z)
+{
+  return float3(x, y, z);
+}
+
+ccl_device_forceinline float4 make_float4(const float x,
+                                          const float y,
+                                          const float z,
+                                          const float w)
+{
+  return float4(x, y, z, w);
+}
+
+ccl_device_forceinline int2 make_int2(const int x, const int y)
+{
+  return int2(x, y);
+}
+
+ccl_device_forceinline int3 make_int3(const int x, const int y, const int z)
+{
+  return int3(x, y, z);
+}
+
+ccl_device_forceinline int4 make_int4(const int x, const int y, const int z, const int w)
+{
+  return int4(x, y, z, w);
+}
+
+ccl_device_forceinline uchar4 make_uchar4(const uchar x,
+                                          const uchar y,
+                                          const uchar z,
+                                          const uchar w)
+{
+  return uchar4(x, y, z, w);
+}
 
 /* Math functions */
 
@@ -243,8 +261,6 @@ void kernel_gpu_##name::run(thread MetalKernelContext& context, \
 
 #ifdef __METALRT__
 
-#  define __KERNEL_GPU_RAYTRACING__
-
 #  if defined(__METALRT_MOTION__)
 #    define METALRT_TAGS instancing, instance_motion, primitive_motion
 #  else
@@ -285,10 +301,12 @@ enum SamplerType {
   SamplerFilterNearest_AddressRepeat,
   SamplerFilterNearest_AddressClampEdge,
   SamplerFilterNearest_AddressClampZero,
+  SamplerFilterNearest_AddressMirroredRepeat,
 
   SamplerFilterLinear_AddressRepeat,
   SamplerFilterLinear_AddressClampEdge,
   SamplerFilterLinear_AddressClampZero,
+  SamplerFilterLinear_AddressMirroredRepeat,
 
   SamplerCount
 };
@@ -297,7 +315,9 @@ constant constexpr array<sampler, SamplerCount> metal_samplers = {
     sampler(address::repeat, filter::nearest),
     sampler(address::clamp_to_edge, filter::nearest),
     sampler(address::clamp_to_zero, filter::nearest),
+    sampler(address::mirrored_repeat, filter::nearest),
     sampler(address::repeat, filter::linear),
     sampler(address::clamp_to_edge, filter::linear),
     sampler(address::clamp_to_zero, filter::linear),
+    sampler(address::mirrored_repeat, filter::linear),
 };

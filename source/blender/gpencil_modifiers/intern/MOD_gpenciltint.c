@@ -10,7 +10,9 @@
 #include "BLI_utildefines.h"
 
 #include "BLI_listbase.h"
-#include "BLI_math.h"
+#include "BLI_math_vector.h"
+
+#include "BLT_translation.h"
 
 #include "DNA_defaults.h"
 #include "DNA_gpencil_modifier_types.h"
@@ -47,7 +49,6 @@
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
-#include "DEG_depsgraph_query.h"
 
 static void initData(GpencilModifierData *md)
 {
@@ -143,7 +144,7 @@ static void deformStroke(GpencilModifierData *md,
   float coba_res[4];
   float matrix[4][4];
   if (is_gradient) {
-    mul_m4_m4m4(matrix, mmd->object->imat, ob->obmat);
+    mul_m4_m4m4(matrix, mmd->object->world_to_object, ob->object_to_world);
   }
 
   /* loop points and apply color. */
@@ -261,32 +262,12 @@ static void bakeModifier(Main *UNUSED(bmain),
                          Object *ob)
 {
   TintGpencilModifierData *mmd = (TintGpencilModifierData *)md;
-  Scene *scene = DEG_get_evaluated_scene(depsgraph);
-  bGPdata *gpd = ob->data;
-  int oldframe = (int)DEG_get_ctime(depsgraph);
 
   if ((mmd->type == GP_TINT_GRADIENT) && (mmd->object == NULL)) {
     return;
   }
 
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
-      /* apply effects on this frame
-       * NOTE: this assumes that we don't want animation on non-keyframed frames
-       */
-      CFRA = gpf->framenum;
-      BKE_scene_graph_update_for_newframe(depsgraph);
-
-      /* compute effects on this frame */
-      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        deformStroke(md, depsgraph, ob, gpl, gpf, gps);
-      }
-    }
-  }
-
-  /* return frame state and DB to original state */
-  CFRA = oldframe;
-  BKE_scene_graph_update_for_newframe(depsgraph);
+  generic_bake_deform_stroke(depsgraph, md, ob, true, deformStroke);
 }
 
 static void freeData(GpencilModifierData *md)
@@ -386,25 +367,25 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Tint = {
-    /* name */ "Tint",
-    /* structName */ "TintGpencilModifierData",
-    /* structSize */ sizeof(TintGpencilModifierData),
-    /* type */ eGpencilModifierTypeType_Gpencil,
-    /* flags */ eGpencilModifierTypeFlag_SupportsEditmode,
+    /*name*/ N_("Tint"),
+    /*structName*/ "TintGpencilModifierData",
+    /*structSize*/ sizeof(TintGpencilModifierData),
+    /*type*/ eGpencilModifierTypeType_Gpencil,
+    /*flags*/ eGpencilModifierTypeFlag_SupportsEditmode,
 
-    /* copyData */ copyData,
+    /*copyData*/ copyData,
 
-    /* deformStroke */ deformStroke,
-    /* generateStrokes */ NULL,
-    /* bakeModifier */ bakeModifier,
-    /* remapTime */ NULL,
+    /*deformStroke*/ deformStroke,
+    /*generateStrokes*/ NULL,
+    /*bakeModifier*/ bakeModifier,
+    /*remapTime*/ NULL,
 
-    /* initData */ initData,
-    /* freeData */ freeData,
-    /* isDisabled */ isDisabled,
-    /* updateDepsgraph */ updateDepsgraph,
-    /* dependsOnTime */ NULL,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ NULL,
-    /* panelRegister */ panelRegister,
+    /*initData*/ initData,
+    /*freeData*/ freeData,
+    /*isDisabled*/ isDisabled,
+    /*updateDepsgraph*/ updateDepsgraph,
+    /*dependsOnTime*/ NULL,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ NULL,
+    /*panelRegister*/ panelRegister,
 };

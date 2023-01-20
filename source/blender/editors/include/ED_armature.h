@@ -27,10 +27,10 @@ struct MeshDeformModifierData;
 struct Object;
 struct ReportList;
 struct Scene;
+struct SelectPick_Params;
 struct UndoType;
 struct View3D;
 struct ViewLayer;
-struct bAction;
 struct bArmature;
 struct bContext;
 struct bPoseChannel;
@@ -164,18 +164,20 @@ bool ED_armature_edit_deselect_all_visible(struct Object *obedit);
 bool ED_armature_edit_deselect_all_multi_ex(struct Base **bases, uint bases_len);
 bool ED_armature_edit_deselect_all_visible_multi_ex(struct Base **bases, uint bases_len);
 bool ED_armature_edit_deselect_all_visible_multi(struct bContext *C);
+/**
+ * \return True when pick finds an element or the selection changed.
+ */
 bool ED_armature_edit_select_pick_bone(struct bContext *C,
                                        struct Base *basact,
                                        struct EditBone *ebone,
                                        int selmask,
-                                       bool extend,
-                                       bool deselect,
-                                       bool toggle);
+                                       const struct SelectPick_Params *params);
 /**
  * Bone selection picking for armature edit-mode in the view3d.
  */
-bool ED_armature_edit_select_pick(
-    struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle);
+bool ED_armature_edit_select_pick(struct bContext *C,
+                                  const int mval[2],
+                                  const struct SelectPick_Params *params);
 /**
  * Perform a selection operation on elements which have been 'touched',
  * use for lasso & border select but can be used elsewhere too.
@@ -279,6 +281,7 @@ void ED_armature_ebone_selectflag_enable(struct EditBone *ebone, int flag);
 void ED_armature_ebone_selectflag_disable(struct EditBone *ebone, int flag);
 
 /* pose_edit.c */
+
 struct Object *ED_pose_object_from_context(struct bContext *C);
 bool ED_object_posemode_exit_ex(struct Main *bmain, struct Object *ob);
 bool ED_object_posemode_exit(struct bContext *C, struct Object *ob);
@@ -305,25 +308,28 @@ void ED_pose_recalculate_paths(struct bContext *C,
 
 /* pose_select.c */
 
-void ED_armature_pose_select_pick_bone(struct ViewLayer *view_layer,
+/**
+ * \return True when pick finds an element or the selection changed.
+ */
+bool ED_armature_pose_select_pick_bone(const struct Scene *scene,
+                                       struct ViewLayer *view_layer,
                                        struct View3D *v3d,
                                        struct Object *ob,
                                        struct Bone *bone,
-                                       bool extend,
-                                       bool deselect,
-                                       bool toggle);
+                                       const struct SelectPick_Params *params);
 /**
  * Called for mode-less pose selection.
  * assumes the active object is still on old situation.
+ *
+ * \return True when pick finds an element or the selection changed.
  */
-bool ED_armature_pose_select_pick_with_buffer(struct ViewLayer *view_layer,
+bool ED_armature_pose_select_pick_with_buffer(const struct Scene *scene,
+                                              struct ViewLayer *view_layer,
                                               struct View3D *v3d,
                                               struct Base *base,
                                               const struct GPUSelectResult *buffer,
                                               short hits,
-                                              bool extend,
-                                              bool deselect,
-                                              bool toggle,
+                                              const struct SelectPick_Params *params,
                                               bool do_nearest);
 /**
  * While in weight-paint mode, a single pose may be active as well.
@@ -333,7 +339,8 @@ bool ED_armature_pose_select_pick_with_buffer(struct ViewLayer *view_layer,
  * It can't be set to the active object because we need
  * to keep this set to the weight paint object.
  */
-void ED_armature_pose_select_in_wpaint_mode(struct ViewLayer *view_layer,
+void ED_armature_pose_select_in_wpaint_mode(const struct Scene *scene,
+                                            struct ViewLayer *view_layer,
                                             struct Base *base_select);
 bool ED_pose_deselect_all_multi_ex(struct Base **bases,
                                    uint bases_len,
@@ -353,25 +360,13 @@ void ED_pose_bone_select_tag_update(struct Object *ob);
 void ED_pose_bone_select(struct Object *ob, struct bPoseChannel *pchan, bool select);
 
 /* meshlaplacian.c */
+
 void ED_mesh_deform_bind_callback(struct Object *object,
                                   struct MeshDeformModifierData *mmd,
                                   struct Mesh *cagemesh,
                                   float *vertexcos,
-                                  int totvert,
+                                  int verts_num,
                                   float cagemat[4][4]);
-
-/* Pose backups, pose_backup.c */
-struct PoseBackup;
-/**
- * Create a backup of those bones that are animated in the given action.
- */
-struct PoseBackup *ED_pose_backup_create_selected_bones(
-    const struct Object *ob, const struct bAction *action) ATTR_WARN_UNUSED_RESULT;
-struct PoseBackup *ED_pose_backup_create_all_bones(
-    const struct Object *ob, const struct bAction *action) ATTR_WARN_UNUSED_RESULT;
-bool ED_pose_backup_is_selection_relevant(const struct PoseBackup *pose_backup);
-void ED_pose_backup_restore(const struct PoseBackup *pbd);
-void ED_pose_backup_free(struct PoseBackup *pbd);
 
 #ifdef __cplusplus
 }

@@ -7,7 +7,7 @@
 #include "BLI_hash.hh"
 #include "BLI_math_boolean.hh"
 #include "BLI_math_mpq.hh"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_span.hh"
 #include "BLI_utildefines.h"
 
@@ -193,7 +193,7 @@ static RobustInitCaller init_caller;
   y = b - bvirt
 
 #define Fast_Two_Sum(a, b, x, y) \
-  x = (double)(a + b); \
+  x = double(a + b); \
   Fast_Two_Sum_Tail(a, b, x, y)
 
 #define Fast_Two_Diff_Tail(a, b, x, y) \
@@ -201,34 +201,34 @@ static RobustInitCaller init_caller;
   y = bvirt - b
 
 #define Fast_Two_Diff(a, b, x, y) \
-  x = (double)(a - b); \
+  x = double(a - b); \
   Fast_Two_Diff_Tail(a, b, x, y)
 
 #define Two_Sum_Tail(a, b, x, y) \
-  bvirt = (double)(x - a); \
+  bvirt = double(x - a); \
   avirt = x - bvirt; \
   bround = b - bvirt; \
   around = a - avirt; \
   y = around + bround
 
 #define Two_Sum(a, b, x, y) \
-  x = (double)(a + b); \
+  x = double(a + b); \
   Two_Sum_Tail(a, b, x, y)
 
 #define Two_Diff_Tail(a, b, x, y) \
-  bvirt = (double)(a - x); \
+  bvirt = double(a - x); \
   avirt = x + bvirt; \
   bround = bvirt - b; \
   around = a - avirt; \
   y = around + bround
 
 #define Two_Diff(a, b, x, y) \
-  x = (double)(a - b); \
+  x = double(a - b); \
   Two_Diff_Tail(a, b, x, y)
 
 #define Split(a, ahi, alo) \
-  c = (double)(splitter * a); \
-  abig = (double)(c - a); \
+  c = double(splitter * a); \
+  abig = double(c - a); \
   ahi = c - abig; \
   alo = a - ahi
 
@@ -241,11 +241,11 @@ static RobustInitCaller init_caller;
   y = (alo * blo) - err3
 
 #define Two_Product(a, b, x, y) \
-  x = (double)(a * b); \
+  x = double(a * b); \
   Two_Product_Tail(a, b, x, y)
 
 #define Two_Product_Presplit(a, b, bhi, blo, x, y) \
-  x = (double)(a * b); \
+  x = double(a * b); \
   Split(a, ahi, alo); \
   err1 = x - (ahi * bhi); \
   err2 = err1 - (alo * bhi); \
@@ -253,7 +253,7 @@ static RobustInitCaller init_caller;
   y = (alo * blo) - err3
 
 #define Two_Product_2Presplit(a, ahi, alo, b, bhi, blo, x, y) \
-  x = (double)(a * b); \
+  x = double(a * b); \
   err1 = x - (ahi * bhi); \
   err2 = err1 - (alo * bhi); \
   err3 = err2 - (ahi * blo); \
@@ -266,7 +266,7 @@ static RobustInitCaller init_caller;
   y = (alo * alo) - err3
 
 #define Square(a, x, y) \
-  x = (double)(a * a); \
+  x = double(a * a); \
   Square_Tail(a, x, y)
 
 #define Two_One_Sum(a1, a0, b, x2, x1, x0) \
@@ -647,10 +647,10 @@ static double orient2dadapt(const double *pa, const double *pb, const double *pc
   INEXACT double _i, _j;
   double _0;
 
-  acx = (double)(pa[0] - pc[0]);
-  bcx = (double)(pb[0] - pc[0]);
-  acy = (double)(pa[1] - pc[1]);
-  bcy = (double)(pb[1] - pc[1]);
+  acx = double(pa[0] - pc[0]);
+  bcx = double(pb[0] - pc[0]);
+  acy = double(pa[1] - pc[1]);
+  bcy = double(pb[1] - pc[1]);
 
   Two_Product(acx, bcy, detleft, detlefttail);
   Two_Product(acy, bcx, detright, detrighttail);
@@ -834,15 +834,15 @@ static double orient3dadapt(
   INEXACT double _i, _j, _k;
   double _0;
 
-  adx = (double)(pa[0] - pd[0]);
-  bdx = (double)(pb[0] - pd[0]);
-  cdx = (double)(pc[0] - pd[0]);
-  ady = (double)(pa[1] - pd[1]);
-  bdy = (double)(pb[1] - pd[1]);
-  cdy = (double)(pc[1] - pd[1]);
-  adz = (double)(pa[2] - pd[2]);
-  bdz = (double)(pb[2] - pd[2]);
-  cdz = (double)(pc[2] - pd[2]);
+  adx = double(pa[0] - pd[0]);
+  bdx = double(pb[0] - pd[0]);
+  cdx = double(pc[0] - pd[0]);
+  ady = double(pa[1] - pd[1]);
+  bdy = double(pb[1] - pd[1]);
+  cdy = double(pc[1] - pd[1]);
+  adz = double(pa[2] - pd[2]);
+  bdz = double(pb[2] - pd[2]);
+  cdz = double(pc[2] - pd[2]);
 
   Two_Product(bdx, cdy, bdxcdy1, bdxcdy0);
   Two_Product(cdx, bdy, cdxbdy1, cdxbdy0);
@@ -1358,12 +1358,12 @@ static double incircleadapt(
   INEXACT double _i, _j;
   double _0;
 
-  adx = (double)(pa[0] - pd[0]);
-  bdx = (double)(pb[0] - pd[0]);
-  cdx = (double)(pc[0] - pd[0]);
-  ady = (double)(pa[1] - pd[1]);
-  bdy = (double)(pb[1] - pd[1]);
-  cdy = (double)(pc[1] - pd[1]);
+  adx = double(pa[0] - pd[0]);
+  bdx = double(pb[0] - pd[0]);
+  cdx = double(pc[0] - pd[0]);
+  ady = double(pa[1] - pd[1]);
+  bdy = double(pb[1] - pd[1]);
+  cdy = double(pc[1] - pd[1]);
 
   Two_Product(bdx, cdy, bdxcdy1, bdxcdy0);
   Two_Product(cdx, bdy, cdxbdy1, cdxbdy0);
@@ -1857,23 +1857,23 @@ double incircle(const double *pa, const double *pb, const double *pc, const doub
 }
 
 /**
- *  inspherefast()   Approximate 3D insphere test.  Non-robust.
- *  insphere()   Adaptive exact 3D insphere test.  Robust.
+ * inspherefast()   Approximate 3D insphere test.  Non-robust.
+ * insphere()   Adaptive exact 3D insphere test.  Robust.
  *
- *               Return a positive value if the point pe lies inside the
- *               sphere passing through pa, pb, pc, and pd; a negative value
- *               if it lies outside; and zero if the five points are
- *               co-spherical.  The points pa, pb, pc, and pd must be ordered
- *               so that they have a positive orientation (as defined by
- *               orient3d()), or the sign of the result will be reversed.
+ *              Return a positive value if the point pe lies inside the
+ *              sphere passing through pa, pb, pc, and pd; a negative value
+ *              if it lies outside; and zero if the five points are
+ *              co-spherical.  The points pa, pb, pc, and pd must be ordered
+ *              so that they have a positive orientation (as defined by
+ *              orient3d()), or the sign of the result will be reversed.
  *
- *  The second uses exact arithmetic to ensure a correct answer.  The
- *  result returned is the determinant of a matrix.  In insphere() only,
- *  this determinant is computed adaptively, in the sense that exact
- *  arithmetic is used only to the degree it is needed to ensure that the
- *  returned value has the correct sign.  Hence, insphere() is usually quite
- *  fast, but will run more slowly when the input points are co-spherical or
- *  nearly so.
+ * The second uses exact arithmetic to ensure a correct answer.  The
+ * result returned is the determinant of a matrix.  In insphere() only,
+ * this determinant is computed adaptively, in the sense that exact
+ * arithmetic is used only to the degree it is needed to ensure that the
+ * returned value has the correct sign.  Hence, insphere() is usually quite
+ * fast, but will run more slowly when the input points are co-spherical or
+ * nearly so.
  */
 
 double inspherefast(
@@ -2191,18 +2191,18 @@ static double insphereadapt(const double *pa,
   INEXACT double _i, _j;
   double _0;
 
-  aex = (double)(pa[0] - pe[0]);
-  bex = (double)(pb[0] - pe[0]);
-  cex = (double)(pc[0] - pe[0]);
-  dex = (double)(pd[0] - pe[0]);
-  aey = (double)(pa[1] - pe[1]);
-  bey = (double)(pb[1] - pe[1]);
-  cey = (double)(pc[1] - pe[1]);
-  dey = (double)(pd[1] - pe[1]);
-  aez = (double)(pa[2] - pe[2]);
-  bez = (double)(pb[2] - pe[2]);
-  cez = (double)(pc[2] - pe[2]);
-  dez = (double)(pd[2] - pe[2]);
+  aex = double(pa[0] - pe[0]);
+  bex = double(pb[0] - pe[0]);
+  cex = double(pc[0] - pe[0]);
+  dex = double(pd[0] - pe[0]);
+  aey = double(pa[1] - pe[1]);
+  bey = double(pb[1] - pe[1]);
+  cey = double(pc[1] - pe[1]);
+  dey = double(pd[1] - pe[1]);
+  aez = double(pa[2] - pe[2]);
+  bez = double(pb[2] - pe[2]);
+  cez = double(pc[2] - pe[2]);
+  dez = double(pd[2] - pe[2]);
 
   Two_Product(aex, bey, aexbey1, aexbey0);
   Two_Product(bex, aey, bexaey1, bexaey0);

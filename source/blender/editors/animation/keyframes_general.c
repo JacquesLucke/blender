@@ -29,6 +29,7 @@
 
 #include "RNA_access.h"
 #include "RNA_enum_types.h"
+#include "RNA_path.h"
 
 #include "ED_anim_api.h"
 #include "ED_keyframes_edit.h"
@@ -47,82 +48,13 @@
 
 /* **************************************************** */
 
-void delete_fcurve_key(FCurve *fcu, int index, bool do_recalc)
-{
-  /* sanity check */
-  if (fcu == NULL) {
-    return;
-  }
-
-  /* verify the index:
-   * 1) cannot be greater than the number of available keyframes
-   * 2) negative indices are for specifying a value from the end of the array
-   */
-  if (abs(index) >= fcu->totvert) {
-    return;
-  }
-  if (index < 0) {
-    index += fcu->totvert;
-  }
-
-  /* Delete this keyframe */
-  memmove(
-      &fcu->bezt[index], &fcu->bezt[index + 1], sizeof(BezTriple) * (fcu->totvert - index - 1));
-  fcu->totvert--;
-
-  if (fcu->totvert == 0) {
-    MEM_SAFE_FREE(fcu->bezt);
-  }
-
-  /* recalc handles - only if it won't cause problems */
-  if (do_recalc) {
-    calchandles_fcurve(fcu);
-  }
-}
-
-bool delete_fcurve_keys(FCurve *fcu)
+bool duplicate_fcurve_keys(FCurve *fcu)
 {
   bool changed = false;
 
-  if (fcu->bezt == NULL) { /* ignore baked curves */
-    return false;
-  }
-
-  /* Delete selected BezTriples */
-  for (int i = 0; i < fcu->totvert; i++) {
-    if (fcu->bezt[i].f2 & SELECT) {
-      if (i == fcu->active_keyframe_index) {
-        BKE_fcurve_active_keyframe_set(fcu, NULL);
-      }
-      memmove(&fcu->bezt[i], &fcu->bezt[i + 1], sizeof(BezTriple) * (fcu->totvert - i - 1));
-      fcu->totvert--;
-      i--;
-      changed = true;
-    }
-  }
-
-  /* Free the array of BezTriples if there are not keyframes */
-  if (fcu->totvert == 0) {
-    clear_fcurve_keys(fcu);
-  }
-
-  return changed;
-}
-
-void clear_fcurve_keys(FCurve *fcu)
-{
-  MEM_SAFE_FREE(fcu->bezt);
-
-  fcu->totvert = 0;
-}
-
-/* ---------------- */
-
-void duplicate_fcurve_keys(FCurve *fcu)
-{
   /* this can only work when there is an F-Curve, and also when there are some BezTriples */
   if (ELEM(NULL, fcu, fcu->bezt)) {
-    return;
+    return changed;
   }
 
   for (int i = 0; i < fcu->totvert; i++) {
@@ -135,7 +67,7 @@ void duplicate_fcurve_keys(FCurve *fcu)
       memcpy(newbezt + i + 1, fcu->bezt + i, sizeof(BezTriple));
       memcpy(newbezt + i + 2, fcu->bezt + i + 1, sizeof(BezTriple) * (fcu->totvert - (i + 1)));
       fcu->totvert++;
-
+      changed = true;
       /* reassign pointers... (free old, and add new) */
       MEM_freeN(fcu->bezt);
       fcu->bezt = newbezt;
@@ -148,6 +80,7 @@ void duplicate_fcurve_keys(FCurve *fcu)
       BEZT_SEL_ALL(&fcu->bezt[i]);
     }
   }
+  return changed;
 }
 
 /* **************************************************** */
@@ -218,7 +151,7 @@ void clean_fcurve(struct bAnimContext *ac, bAnimListElem *ale, float thresh, boo
        * if there is a considerable distance between the points, and also if the
        * current is further away than the next one is to the previous.
        */
-      if (beztn && (IS_EQT(cur[0], next[0], thresh)) && (IS_EQT(next[1], prev[1], thresh) == 0)) {
+      if (beztn && IS_EQT(cur[0], next[0], thresh) && (IS_EQT(next[1], prev[1], thresh) == 0)) {
         /* only add if current is further away from previous */
         if (cur[1] > next[1]) {
           if (IS_EQT(cur[1], prev[1], thresh) == 0) {
@@ -279,7 +212,7 @@ void clean_fcurve(struct bAnimContext *ac, bAnimListElem *ale, float thresh, boo
     }
 
     if (fcu->bezt->vec[1][1] == default_value) {
-      clear_fcurve_keys(fcu);
+      BKE_fcurve_delete_keys_all(fcu);
 
       /* check if curve is really unused and if it is, return signal for deletion */
       if (BKE_fcurve_is_empty(fcu)) {
@@ -349,15 +282,15 @@ ListBase find_fcurve_segments(FCurve *fcu)
   return segments;
 }
 
-static BezTriple fcurve_segment_start_get(FCurve *fcu, int index)
+static const BezTriple *fcurve_segment_start_get(FCurve *fcu, int index)
 {
-  BezTriple start_bezt = index - 1 >= 0 ? fcu->bezt[index - 1] : fcu->bezt[index];
+  const BezTriple *start_bezt = index - 1 >= 0 ? &fcu->bezt[index - 1] : &fcu->bezt[index];
   return start_bezt;
 }
 
-static BezTriple fcurve_segment_end_get(FCurve *fcu, int index)
+static const BezTriple *fcurve_segment_end_get(FCurve *fcu, int index)
 {
-  BezTriple end_bezt = index < fcu->totvert ? fcu->bezt[index] : fcu->bezt[index - 1];
+  const BezTriple *end_bezt = index < fcu->totvert ? &fcu->bezt[index] : &fcu->bezt[index - 1];
   return end_bezt;
 }
 
@@ -366,7 +299,7 @@ static BezTriple fcurve_segment_end_get(FCurve *fcu, int index)
 void blend_to_neighbor_fcurve_segment(FCurve *fcu, FCurveSegment *segment, const float factor)
 {
   const float blend_factor = fabs(factor * 2 - 1);
-  BezTriple target_bezt;
+  const BezTriple *target_bezt;
   /* Find which key to blend towards. */
   if (factor < 0.5f) {
     target_bezt = fcurve_segment_start_get(fcu, segment->start_index);
@@ -376,7 +309,109 @@ void blend_to_neighbor_fcurve_segment(FCurve *fcu, FCurveSegment *segment, const
   }
   /* Blend each key individually. */
   for (int i = segment->start_index; i < segment->start_index + segment->length; i++) {
-    fcu->bezt[i].vec[1][1] = interpf(target_bezt.vec[1][1], fcu->bezt[i].vec[1][1], blend_factor);
+    fcu->bezt[i].vec[1][1] = interpf(target_bezt->vec[1][1], fcu->bezt[i].vec[1][1], blend_factor);
+  }
+}
+
+/* ---------------- */
+
+float get_default_rna_value(FCurve *fcu, PropertyRNA *prop, PointerRNA *ptr)
+{
+  const int len = RNA_property_array_length(ptr, prop);
+
+  float default_value = 0;
+  /* Find the default value of that property. */
+  switch (RNA_property_type(prop)) {
+    case PROP_BOOLEAN:
+      if (len) {
+        default_value = RNA_property_boolean_get_default_index(ptr, prop, fcu->array_index);
+      }
+      else {
+        default_value = RNA_property_boolean_get_default(ptr, prop);
+      }
+      break;
+    case PROP_INT:
+      if (len) {
+        default_value = RNA_property_int_get_default_index(ptr, prop, fcu->array_index);
+      }
+      else {
+        default_value = RNA_property_int_get_default(ptr, prop);
+      }
+      break;
+    case PROP_FLOAT:
+      if (len) {
+        default_value = RNA_property_float_get_default_index(ptr, prop, fcu->array_index);
+      }
+      else {
+        default_value = RNA_property_float_get_default(ptr, prop);
+      }
+      break;
+
+    default:
+      break;
+  }
+  return default_value;
+}
+
+/* This function blends the selected keyframes to the default value of the property the fcurve
+ * drives. */
+void blend_to_default_fcurve(PointerRNA *id_ptr, FCurve *fcu, const float factor)
+{
+  PointerRNA ptr;
+  PropertyRNA *prop;
+
+  /* Check if path is valid. */
+  if (!RNA_path_resolve_property(id_ptr, fcu->rna_path, &ptr, &prop)) {
+    return;
+  }
+
+  const float default_value = get_default_rna_value(fcu, prop, &ptr);
+
+  /* Blend selected keys to default */
+  for (int i = 0; i < fcu->totvert; i++) {
+    if (fcu->bezt[i].f2 & SELECT) {
+      fcu->bezt[i].vec[1][1] = interpf(default_value, fcu->bezt[i].vec[1][1], factor);
+    }
+  }
+}
+
+/* ---------------- */
+
+void ease_fcurve_segment(FCurve *fcu, FCurveSegment *segment, const float factor)
+{
+  const BezTriple *left_key = fcurve_segment_start_get(fcu, segment->start_index);
+  const float left_x = left_key->vec[1][0];
+  const float left_y = left_key->vec[1][1];
+
+  const BezTriple *right_key = fcurve_segment_end_get(fcu, segment->start_index + segment->length);
+
+  const float key_x_range = right_key->vec[1][0] - left_x;
+  const float key_y_range = right_key->vec[1][1] - left_y;
+
+  /* Happens if there is only 1 key on the FCurve. Needs to be skipped because it
+   * would be a divide by 0. */
+  if (IS_EQF(key_x_range, 0.0f)) {
+    return;
+  }
+
+  /* In order to have a curve that favors the right key, the curve needs to be mirrored in x and y.
+   * Having an exponent that is a fraction of 1 would produce a similar but inferior result. */
+  const bool inverted = factor > 0.5;
+  const float exponent = 1 + fabs(factor * 2 - 1) * 4;
+
+  for (int i = segment->start_index; i < segment->start_index + segment->length; i++) {
+    /* For easy calculation of the curve, the  values are normalized. */
+    const float normalized_x = (fcu->bezt[i].vec[1][0] - left_x) / key_x_range;
+
+    float normalized_y = 0;
+    if (inverted) {
+      normalized_y = 1 - pow(1 - normalized_x, exponent);
+    }
+    else {
+      normalized_y = pow(normalized_x, exponent);
+    }
+
+    fcu->bezt[i].vec[1][1] = left_y + normalized_y * key_y_range;
   }
 }
 
@@ -384,11 +419,12 @@ void blend_to_neighbor_fcurve_segment(FCurve *fcu, FCurveSegment *segment, const
 
 void breakdown_fcurve_segment(FCurve *fcu, FCurveSegment *segment, const float factor)
 {
-  BezTriple left_bezt = fcurve_segment_start_get(fcu, segment->start_index);
-  BezTriple right_bezt = fcurve_segment_end_get(fcu, segment->start_index + segment->length);
+  const BezTriple *left_bezt = fcurve_segment_start_get(fcu, segment->start_index);
+  const BezTriple *right_bezt = fcurve_segment_end_get(fcu,
+                                                       segment->start_index + segment->length);
 
   for (int i = segment->start_index; i < segment->start_index + segment->length; i++) {
-    fcu->bezt[i].vec[1][1] = interpf(right_bezt.vec[1][1], left_bezt.vec[1][1], factor);
+    fcu->bezt[i].vec[1][1] = interpf(right_bezt->vec[1][1], left_bezt->vec[1][1], factor);
   }
 }
 
@@ -614,7 +650,7 @@ void smooth_fcurve(FCurve *fcu)
   }
 
   /* recalculate handles */
-  calchandles_fcurve(fcu);
+  BKE_fcurve_handles_recalc(fcu);
 }
 
 /* ---------------- */
@@ -659,8 +695,8 @@ void sample_fcurve(FCurve *fcu)
          * keyframes while sampling will affect the outcome...
          * - only start sampling+adding from index=1, so that we don't overwrite original keyframe
          */
-        range = (int)(ceil(end->vec[1][0] - start->vec[1][0]));
-        sfra = (int)(floor(start->vec[1][0]));
+        range = (int)ceil(end->vec[1][0] - start->vec[1][0]);
+        sfra = (int)floor(start->vec[1][0]);
 
         if (range) {
           value_cache = MEM_callocN(sizeof(TempFrameValCache) * range, "IcuFrameValCache");
@@ -697,7 +733,7 @@ void sample_fcurve(FCurve *fcu)
   }
 
   /* recalculate channel's handles? */
-  calchandles_fcurve(fcu);
+  BKE_fcurve_handles_recalc(fcu);
 }
 
 /* **************************************************** */
@@ -856,7 +892,7 @@ short copy_animedit_keys(bAnimContext *ac, ListBase *anim_data)
   }
 
   /* in case 'relative' paste method is used */
-  animcopy_cfra = CFRA;
+  animcopy_cfra = scene->r.cfra;
 
   /* everything went fine */
   return 0;
@@ -1056,7 +1092,7 @@ static void paste_animedit_keys_fcurve(
 
     case KEYFRAME_PASTE_MERGE_OVER:
       /* remove all keys */
-      clear_fcurve_keys(fcu);
+      BKE_fcurve_delete_keys_all(fcu);
       break;
 
     case KEYFRAME_PASTE_MERGE_OVER_RANGE:
@@ -1083,7 +1119,7 @@ static void paste_animedit_keys_fcurve(
         }
 
         /* remove frames in the range */
-        delete_fcurve_keys(fcu);
+        BKE_fcurve_delete_keys_selected(fcu);
       }
       break;
     }
@@ -1117,7 +1153,7 @@ static void paste_animedit_keys_fcurve(
   }
 
   /* recalculate F-Curve's handles? */
-  calchandles_fcurve(fcu);
+  BKE_fcurve_handles_recalc(fcu);
 }
 
 const EnumPropertyItem rna_enum_keyframe_paste_offset_items[] = {
@@ -1152,11 +1188,11 @@ const EnumPropertyItem rna_enum_keyframe_paste_merge_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
-short paste_animedit_keys(bAnimContext *ac,
-                          ListBase *anim_data,
-                          const eKeyPasteOffset offset_mode,
-                          const eKeyMergeMode merge_mode,
-                          bool flip)
+eKeyPasteError paste_animedit_keys(bAnimContext *ac,
+                                   ListBase *anim_data,
+                                   const eKeyPasteOffset offset_mode,
+                                   const eKeyMergeMode merge_mode,
+                                   bool flip)
 {
   bAnimListElem *ale;
 
@@ -1170,25 +1206,23 @@ short paste_animedit_keys(bAnimContext *ac,
 
   /* check if buffer is empty */
   if (BLI_listbase_is_empty(&animcopybuf)) {
-    BKE_report(ac->reports, RPT_ERROR, "No animation data in buffer to paste");
-    return -1;
+    return KEYFRAME_PASTE_NOTHING_TO_PASTE;
   }
 
   if (BLI_listbase_is_empty(anim_data)) {
-    BKE_report(ac->reports, RPT_ERROR, "No selected F-Curves to paste into");
-    return -1;
+    return KEYFRAME_PASTE_NOWHERE_TO_PASTE;
   }
 
   /* methods of offset */
   switch (offset_mode) {
     case KEYFRAME_PASTE_OFFSET_CFRA_START:
-      offset = (float)(CFRA - animcopy_firstframe);
+      offset = (float)(scene->r.cfra - animcopy_firstframe);
       break;
     case KEYFRAME_PASTE_OFFSET_CFRA_END:
-      offset = (float)(CFRA - animcopy_lastframe);
+      offset = (float)(scene->r.cfra - animcopy_lastframe);
       break;
     case KEYFRAME_PASTE_OFFSET_CFRA_RELATIVE:
-      offset = (float)(CFRA - animcopy_cfra);
+      offset = (float)(scene->r.cfra - animcopy_cfra);
       break;
     case KEYFRAME_PASTE_OFFSET_NONE:
       offset = 0.0f;
@@ -1270,7 +1304,7 @@ short paste_animedit_keys(bAnimContext *ac,
 
   ANIM_animdata_update(ac, anim_data);
 
-  return 0;
+  return KEYFRAME_PASTE_OK;
 }
 
 /* **************************************************** */

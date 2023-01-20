@@ -25,6 +25,7 @@
 #include "BLT_translation.h"
 
 #include "BKE_context.h"
+#include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
@@ -37,6 +38,7 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_prototypes.h"
 
 #include "ED_object.h"
 #include "ED_screen.h"
@@ -277,8 +279,8 @@ static bool edit_shaderfx_poll_generic(bContext *C,
     CTX_wm_operator_poll_msg_set(C, "Object type is not supported");
     return false;
   }
-  if (ptr.owner_id != NULL && ID_IS_LINKED(ptr.owner_id)) {
-    CTX_wm_operator_poll_msg_set(C, "Cannot edit library data");
+  if (ptr.owner_id != NULL && !BKE_id_is_editable(CTX_data_main(C), ptr.owner_id)) {
+    CTX_wm_operator_poll_msg_set(C, "Cannot edit library or override data");
     return false;
   }
   if (!is_liboverride_allowed && BKE_shaderfx_is_nonlocal_in_liboverride(ob, fx)) {
@@ -479,12 +481,15 @@ static int shaderfx_remove_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   Object *ob = ED_object_active_context(C);
   ShaderFxData *fx = edit_shaderfx_property_get(op, ob, 0);
+  if (!fx) {
+    return OPERATOR_CANCELLED;
+  }
 
   /* Store name temporarily for report. */
   char name[MAX_NAME];
   strcpy(name, fx->name);
 
-  if (!fx || !ED_object_shaderfx_remove(op->reports, bmain, ob, fx)) {
+  if (!ED_object_shaderfx_remove(op->reports, bmain, ob, fx)) {
     return OPERATOR_CANCELLED;
   }
 
@@ -669,7 +674,9 @@ static int shaderfx_copy_exec(bContext *C, wmOperator *op)
 {
   Object *ob = ED_object_active_context(C);
   ShaderFxData *fx = edit_shaderfx_property_get(op, ob, 0);
-
+  if (!fx) {
+    return OPERATOR_CANCELLED;
+  }
   ShaderFxData *nfx = BKE_shaderfx_new(fx->type);
   if (!nfx) {
     return OPERATOR_CANCELLED;

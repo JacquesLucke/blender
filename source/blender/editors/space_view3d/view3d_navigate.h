@@ -7,6 +7,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Size of the sphere being dragged for trackball rotation within the view bounds.
  * also affects speed (smaller is faster).
@@ -24,7 +28,6 @@ struct View3D;
 struct bContext;
 struct rcti;
 struct wmEvent;
-struct wmOperator;
 
 enum eV3D_OpPropFlag {
   V3D_OP_PROP_MOUSE_CO = (1 << 0),
@@ -37,6 +40,8 @@ enum {
   VIEW_PASS = 0,
   VIEW_APPLY,
   VIEW_CONFIRM,
+  /** Only supported by some viewport operators. */
+  VIEW_CANCEL,
 };
 
 /* NOTE: these defines are saved in keymap files, do not change values but just add new ones */
@@ -91,8 +96,13 @@ typedef struct ViewOpsData {
     /** #wmEvent.type that triggered the operator. */
     int event_type;
     float ofs[3];
+    /** #RegionView3D.ofs_lock */
+    float ofs_lock[2];
     /** Initial distance to 'ofs'. */
     float zfac;
+
+    /** Camera offset. */
+    float camdx, camdy;
 
     /** Trackball rotation only. */
     float trackvec[3];
@@ -103,7 +113,13 @@ typedef struct ViewOpsData {
      * #RegionView3D.persp set after auto-perspective is applied.
      * If we want the value before running the operator, add a separate member.
      */
+    char persp_with_auto_persp_applied;
+    /** #RegionView3D.persp set after before auto-perspective is applied. */
     char persp;
+    /** #RegionView3D.view */
+    char view;
+    /** #RegionView3D.view_axis_roll */
+    char view_axis_roll;
 
     /** Used for roll */
     struct Dial *dial;
@@ -133,6 +149,7 @@ typedef struct ViewOpsData {
 } ViewOpsData;
 
 /* view3d_navigate.c */
+
 bool view3d_location_poll(struct bContext *C);
 bool view3d_rotation_poll(struct bContext *C);
 bool view3d_zoom_or_dolly_poll(struct bContext *C);
@@ -140,6 +157,7 @@ bool view3d_zoom_or_dolly_poll(struct bContext *C);
 enum eViewOpsFlag viewops_flag_from_prefs(void);
 void calctrackballvec(const struct rcti *rect, const int event_xy[2], float r_dir[3]);
 void viewmove_apply(ViewOpsData *vod, int x, int y);
+void viewmove_apply_reset(ViewOpsData *vod);
 void view3d_orbit_apply_dyn_ofs(float r_ofs[3],
                                 const float ofs_old[3],
                                 const float viewquat_old[4],
@@ -172,19 +190,23 @@ void VIEW3D_OT_view_orbit(struct wmOperatorType *ot);
 void VIEW3D_OT_view_pan(struct wmOperatorType *ot);
 
 /* view3d_navigate_dolly.c */
+
 void viewdolly_modal_keymap(struct wmKeyConfig *keyconf);
 void VIEW3D_OT_dolly(struct wmOperatorType *ot);
 
 /* view3d_navigate_fly.c */
+
 void fly_modal_keymap(struct wmKeyConfig *keyconf);
 void view3d_keymap(struct wmKeyConfig *keyconf);
 void VIEW3D_OT_fly(struct wmOperatorType *ot);
 
 /* view3d_navigate_move.c */
+
 void viewmove_modal_keymap(struct wmKeyConfig *keyconf);
 void VIEW3D_OT_move(struct wmOperatorType *ot);
 
 /* view3d_navigate_ndof.c */
+
 #ifdef WITH_INPUT_NDOF
 struct wmNDOFMotionData;
 
@@ -205,9 +227,11 @@ void VIEW3D_OT_ndof_all(struct wmOperatorType *ot);
 #endif /* WITH_INPUT_NDOF */
 
 /* view3d_navigate_roll.c */
+
 void VIEW3D_OT_view_roll(struct wmOperatorType *ot);
 
 /* view3d_navigate_rotate.c */
+
 void viewrotate_modal_keymap(struct wmKeyConfig *keyconf);
 void VIEW3D_OT_rotate(struct wmOperatorType *ot);
 
@@ -224,6 +248,14 @@ typedef struct V3D_SmoothParams {
 
   /** Alternate rotation center, when set `ofs` must be NULL. */
   const float *dyn_ofs;
+
+  /** When non-NULL, perform undo pushes when transforming the camera. */
+  const char *undo_str;
+  /**
+   * When true use grouped undo pushes, use for incremental viewport manipulation
+   * which are likely to be activated by holding a key or from the mouse-wheel.
+   */
+  bool undo_grouped;
 } V3D_SmoothParams;
 
 /**
@@ -245,6 +277,22 @@ void ED_view3d_smooth_view(struct bContext *C,
                            const V3D_SmoothParams *sview);
 
 /**
+ * Call before multiple smooth-view operations begin to properly handle undo.
+ *
+ * \note Only use explicit undo calls when multiple calls to smooth-view are necessary
+ * or when calling #ED_view3d_smooth_view_ex.
+ * Otherwise pass in #V3D_SmoothParams.undo_str so an undo step is pushed as needed.
+ */
+void ED_view3d_smooth_view_undo_begin(struct bContext *C, const struct ScrArea *area);
+/**
+ * Run after multiple smooth-view operations have run to push undo as needed.
+ */
+void ED_view3d_smooth_view_undo_end(struct bContext *C,
+                                    const struct ScrArea *area,
+                                    const char *undo_str,
+                                    bool undo_grouped);
+
+/**
  * Apply the smooth-view immediately, use when we need to start a new view operation.
  * (so we don't end up half-applying a view operation when pressing keys quickly).
  */
@@ -255,12 +303,19 @@ void ED_view3d_smooth_view_force_finish(struct bContext *C,
 void VIEW3D_OT_smoothview(struct wmOperatorType *ot);
 
 /* view3d_navigate_walk.c */
+
 void walk_modal_keymap(struct wmKeyConfig *keyconf);
 void VIEW3D_OT_walk(struct wmOperatorType *ot);
 
 /* view3d_navigate_zoom.c */
+
 void viewzoom_modal_keymap(struct wmKeyConfig *keyconf);
 void VIEW3D_OT_zoom(struct wmOperatorType *ot);
 
 /* view3d_navigate_zoom_border.c */
+
 void VIEW3D_OT_zoom_border(struct wmOperatorType *ot);
+
+#ifdef __cplusplus
+}
+#endif

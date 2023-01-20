@@ -5,7 +5,7 @@
  * \ingroup draw
  */
 
-#include "extract_mesh.h"
+#include "extract_mesh.hh"
 
 #include "draw_cache_impl.h"
 
@@ -19,7 +19,7 @@ namespace blender::draw {
 
 struct MeshExtract_EditUVData_Data {
   EditLoopData *vbo_data;
-  int cd_ofs;
+  BMUVOffsets offsets;
 };
 
 static void extract_edituv_data_init_common(const MeshRenderData *mr,
@@ -37,13 +37,12 @@ static void extract_edituv_data_init_common(const MeshRenderData *mr,
   GPU_vertbuf_init_with_format(vbo, &format);
   GPU_vertbuf_data_alloc(vbo, loop_len);
 
-  CustomData *cd_ldata = (mr->extract_type == MR_EXTRACT_BMESH) ? &mr->bm->ldata : &mr->me->ldata;
   data->vbo_data = (EditLoopData *)GPU_vertbuf_get_data(vbo);
-  data->cd_ofs = CustomData_get_offset(cd_ldata, CD_MLOOPUV);
+  data->offsets = BM_uv_map_get_offsets(mr->bm);
 }
 
 static void extract_edituv_data_init(const MeshRenderData *mr,
-                                     struct MeshBatchCache *UNUSED(cache),
+                                     MeshBatchCache * /*cache*/,
                                      void *buf,
                                      void *tls_data)
 {
@@ -54,7 +53,7 @@ static void extract_edituv_data_init(const MeshRenderData *mr,
 
 static void extract_edituv_data_iter_poly_bm(const MeshRenderData *mr,
                                              const BMFace *f,
-                                             const int UNUSED(f_index),
+                                             const int /*f_index*/,
                                              void *_data)
 {
   BMLoop *l_iter, *l_first;
@@ -64,9 +63,9 @@ static void extract_edituv_data_iter_poly_bm(const MeshRenderData *mr,
     MeshExtract_EditUVData_Data *data = static_cast<MeshExtract_EditUVData_Data *>(_data);
     EditLoopData *eldata = &data->vbo_data[l_index];
     memset(eldata, 0x0, sizeof(*eldata));
-    mesh_render_data_loop_flag(mr, l_iter, data->cd_ofs, eldata);
-    mesh_render_data_face_flag(mr, f, data->cd_ofs, eldata);
-    mesh_render_data_loop_edge_flag(mr, l_iter, data->cd_ofs, eldata);
+    mesh_render_data_loop_flag(mr, l_iter, data->offsets, eldata);
+    mesh_render_data_face_flag(mr, f, data->offsets, eldata);
+    mesh_render_data_loop_edge_flag(mr, l_iter, data->offsets, eldata);
   } while ((l_iter = l_iter->next) != l_first);
 }
 
@@ -90,8 +89,8 @@ static void extract_edituv_data_iter_poly_mesh(const MeshRenderData *mr,
       if (eed && eve) {
         /* Loop on an edge endpoint. */
         BMLoop *l = BM_face_edge_share_loop(efa, eed);
-        mesh_render_data_loop_flag(mr, l, data->cd_ofs, eldata);
-        mesh_render_data_loop_edge_flag(mr, l, data->cd_ofs, eldata);
+        mesh_render_data_loop_flag(mr, l, data->offsets, eldata);
+        mesh_render_data_loop_edge_flag(mr, l, data->offsets, eldata);
       }
       else {
         if (eed == nullptr) {
@@ -105,7 +104,7 @@ static void extract_edituv_data_iter_poly_mesh(const MeshRenderData *mr,
         if (eed) {
           /* Mapped points on an edge between two edit verts. */
           BMLoop *l = BM_face_edge_share_loop(efa, eed);
-          mesh_render_data_loop_edge_flag(mr, l, data->cd_ofs, eldata);
+          mesh_render_data_loop_edge_flag(mr, l, data->offsets, eldata);
         }
       }
     }
@@ -114,7 +113,7 @@ static void extract_edituv_data_iter_poly_mesh(const MeshRenderData *mr,
 
 static void extract_edituv_data_init_subdiv(const DRWSubdivCache *subdiv_cache,
                                             const MeshRenderData *mr,
-                                            MeshBatchCache *UNUSED(cache),
+                                            MeshBatchCache * /*cache*/,
                                             void *buf,
                                             void *tls_data)
 {
@@ -137,7 +136,7 @@ static void extract_edituv_data_iter_subdiv_bm(const DRWSubdivCache *subdiv_cach
   uint end_loop_idx = (subdiv_quad_index + 1) * 4;
   for (uint i = start_loop_idx; i < end_loop_idx; i++) {
     const int vert_origindex = subdiv_loop_vert_index[i];
-    const int edge_origindex = subdiv_loop_edge_index[i];
+    int edge_origindex = subdiv_loop_edge_index[i];
 
     EditLoopData *edit_loop_data = &data->vbo_data[i];
     memset(edit_loop_data, 0, sizeof(EditLoopData));
@@ -146,9 +145,25 @@ static void extract_edituv_data_iter_subdiv_bm(const DRWSubdivCache *subdiv_cach
       BMEdge *eed = BM_edge_at_index(mr->bm, edge_origindex);
       /* Loop on an edge endpoint. */
       BMLoop *l = BM_face_edge_share_loop(const_cast<BMFace *>(coarse_quad), eed);
-      mesh_render_data_loop_flag(mr, l, data->cd_ofs, edit_loop_data);
-      mesh_render_data_loop_edge_flag(mr, l, data->cd_ofs, edit_loop_data);
+      mesh_render_data_loop_flag(mr, l, data->offsets, edit_loop_data);
+      mesh_render_data_loop_edge_flag(mr, l, data->offsets, edit_loop_data);
     }
+    else {
+      if (edge_origindex == -1) {
+        /* Find if the loop's vert is not part of an edit edge.
+         * For this, we check if the previous loop was on an edge. */
+        const uint loop_index_last = (i == start_loop_idx) ? end_loop_idx - 1 : i - 1;
+        edge_origindex = subdiv_loop_edge_index[loop_index_last];
+      }
+      if (edge_origindex != -1) {
+        /* Mapped points on an edge between two edit verts. */
+        BMEdge *eed = BM_edge_at_index(mr->bm, edge_origindex);
+        BMLoop *l = BM_face_edge_share_loop(const_cast<BMFace *>(coarse_quad), eed);
+        mesh_render_data_loop_edge_flag(mr, l, data->offsets, edit_loop_data);
+      }
+    }
+
+    mesh_render_data_face_flag(mr, coarse_quad, data->offsets, edit_loop_data);
   }
 }
 
@@ -158,7 +173,7 @@ static void extract_edituv_data_iter_subdiv_mesh(const DRWSubdivCache *subdiv_ca
                                                  uint subdiv_quad_index,
                                                  const MPoly *coarse_quad)
 {
-  const int coarse_quad_index = static_cast<int>(coarse_quad - mr->mpoly);
+  const int coarse_quad_index = int(coarse_quad - mr->mpoly);
   BMFace *coarse_quad_bm = bm_original_face_get(mr, coarse_quad_index);
   extract_edituv_data_iter_subdiv_bm(subdiv_cache, mr, _data, subdiv_quad_index, coarse_quad_bm);
 }
@@ -183,6 +198,4 @@ constexpr MeshExtract create_extractor_edituv_data()
 
 }  // namespace blender::draw
 
-extern "C" {
 const MeshExtract extract_edituv_data = blender::draw::create_extractor_edituv_data();
-}

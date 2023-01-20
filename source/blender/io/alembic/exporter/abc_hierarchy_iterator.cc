@@ -26,10 +26,11 @@
 
 namespace blender::io::alembic {
 
-ABCHierarchyIterator::ABCHierarchyIterator(Depsgraph *depsgraph,
+ABCHierarchyIterator::ABCHierarchyIterator(Main *bmain,
+                                           Depsgraph *depsgraph,
                                            ABCArchive *abc_archive,
                                            const AlembicExportParams &params)
-    : AbstractHierarchyIterator(depsgraph), abc_archive_(abc_archive), params_(params)
+    : AbstractHierarchyIterator(bmain, depsgraph), abc_archive_(abc_archive), params_(params)
 {
 }
 
@@ -190,7 +191,7 @@ ABCAbstractWriter *ABCHierarchyIterator::create_data_writer_for_object_type(
       return new ABCMeshWriter(writer_args);
     case OB_CAMERA:
       return new ABCCameraWriter(writer_args);
-    case OB_CURVE:
+    case OB_CURVES_LEGACY:
       if (params_.curves_as_mesh) {
         return new ABCCurveMeshWriter(writer_args);
       }

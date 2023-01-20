@@ -15,7 +15,7 @@ static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Mesh")).supported_type(GEO_COMPONENT_TYPE_MESH);
   b.add_input<decl::Int>(N_("Level")).default_value(1).min(0).max(6);
-  b.add_output<decl::Geometry>(N_("Mesh"));
+  b.add_output<decl::Geometry>(N_("Mesh")).propagate_all();
 }
 
 static void geometry_set_mesh_subdivide(GeometrySet &geometry_set, const int level)
@@ -50,7 +50,6 @@ static void geometry_set_mesh_subdivide(GeometrySet &geometry_set, const int lev
   }
 
   Mesh *mesh_out = BKE_subdiv_to_mesh(subdiv, &mesh_settings, mesh_in);
-  BKE_mesh_normals_tag_dirty(mesh_out);
 
   MeshComponent &mesh_component = geometry_set.get_component_for_write<MeshComponent>();
   mesh_component.replace(mesh_out);

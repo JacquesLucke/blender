@@ -20,7 +20,6 @@ struct Base;
 struct BoundBox;
 struct Curve;
 struct Depsgraph;
-struct GeometrySet;
 struct GpencilModifierData;
 struct HookGpencilModifierData;
 struct HookModifierData;
@@ -33,7 +32,6 @@ struct Object;
 struct RegionView3D;
 struct RigidBodyWorld;
 struct Scene;
-struct ShaderFxData;
 struct SubsurfModifierData;
 struct View3D;
 struct ViewLayer;
@@ -69,9 +67,6 @@ void BKE_object_free_caches(struct Object *object);
 void BKE_object_modifier_hook_reset(struct Object *ob, struct HookModifierData *hmd);
 void BKE_object_modifier_gpencil_hook_reset(struct Object *ob,
                                             struct HookGpencilModifierData *hmd);
-bool BKE_object_modifier_gpencil_use_time(struct Object *ob, struct GpencilModifierData *md);
-
-bool BKE_object_shaderfx_use_time(struct Object *ob, struct ShaderFxData *fx);
 
 /**
  * \return True if the object's type supports regular modifiers (not grease pencil modifiers).
@@ -140,7 +135,7 @@ bool BKE_object_is_in_wpaint_select_vert(const struct Object *ob);
 bool BKE_object_has_mode_data(const struct Object *ob, eObjectMode object_mode);
 bool BKE_object_is_mode_compat(const struct Object *ob, eObjectMode object_mode);
 
-bool BKE_object_data_is_in_editmode(const struct ID *id);
+bool BKE_object_data_is_in_editmode(const struct Object *ob, const struct ID *id);
 
 char *BKE_object_data_editmode_flush_ptr_get(struct ID *id);
 
@@ -163,9 +158,12 @@ int BKE_object_visibility(const struct Object *ob, int dag_eval_mode);
 
 /**
  * More general add: creates minimum required data, but without vertices etc.
+ *
+ * \param bmain: The main to add the object to. May be null for #LIB_ID_CREATE_NO_MAIN behavior.
  */
-struct Object *BKE_object_add_only_object(struct Main *bmain, int type, const char *name)
-    ATTR_NONNULL(1) ATTR_RETURNS_NONNULL;
+struct Object *BKE_object_add_only_object(struct Main *bmain,
+                                          int type,
+                                          const char *name) ATTR_RETURNS_NONNULL;
 /**
  * General add: to scene, with layer from area and default name.
  *
@@ -175,9 +173,10 @@ struct Object *BKE_object_add_only_object(struct Main *bmain, int type, const ch
  * \note Creates minimum required data, but without vertices etc.
  */
 struct Object *BKE_object_add(struct Main *bmain,
+                              struct Scene *scene,
                               struct ViewLayer *view_layer,
                               int type,
-                              const char *name) ATTR_NONNULL(1, 2) ATTR_RETURNS_NONNULL;
+                              const char *name) ATTR_NONNULL(1, 2, 3) ATTR_RETURNS_NONNULL;
 /**
  * Add a new object, using another one as a reference
  *
@@ -200,6 +199,7 @@ struct Object *BKE_object_add_from(struct Main *bmain,
  * assigning it to the object.
  */
 struct Object *BKE_object_add_for_data(struct Main *bmain,
+                                       const struct Scene *scene,
                                        struct ViewLayer *view_layer,
                                        int type,
                                        const char *name,
@@ -267,43 +267,71 @@ void BKE_object_apply_mat4(struct Object *ob,
                            const float mat[4][4],
                            bool use_compat,
                            bool use_parent);
+
+/**
+ * Use parent's world location and rotation as the child's origin. The parent inverse will
+ * become identity when the parent has no shearing. Otherwise, it is non-identity and contains the
+ * object's local matrix data that cannot be decomposed into location, rotation and scale.
+ *
+ * Assumes the object's world matrix has no shear.
+ * Assumes parent exists.
+ */
+void BKE_object_apply_parent_inverse(struct Object *ob);
+
 void BKE_object_matrix_local_get(struct Object *ob, float r_mat[4][4]);
 
 bool BKE_object_pose_context_check(const struct Object *ob);
+
 struct Object *BKE_object_pose_armature_get(struct Object *ob);
+/**
+ * A version of #BKE_object_pose_armature_get with an additional check.
+ * When `ob` isn't an armature: only return the referenced pose object
+ * when the active object is in weight paint mode.
+ *
+ * \note Some callers need to check that pose bones are selectable
+ * which isn't the case when the object using the armature isn't in weight-paint mode.
+ */
+struct Object *BKE_object_pose_armature_get_with_wpaint_check(struct Object *ob);
 struct Object *BKE_object_pose_armature_get_visible(struct Object *ob,
+                                                    const struct Scene *scene,
                                                     struct ViewLayer *view_layer,
                                                     struct View3D *v3d);
 
 /**
  * Access pose array with special check to get pose object when in weight paint mode.
  */
-struct Object **BKE_object_pose_array_get_ex(struct ViewLayer *view_layer,
+struct Object **BKE_object_pose_array_get_ex(const struct Scene *scene,
+                                             struct ViewLayer *view_layer,
                                              struct View3D *v3d,
                                              unsigned int *r_objects_len,
                                              bool unique);
-struct Object **BKE_object_pose_array_get_unique(struct ViewLayer *view_layer,
+struct Object **BKE_object_pose_array_get_unique(const struct Scene *scene,
+                                                 struct ViewLayer *view_layer,
                                                  struct View3D *v3d,
                                                  unsigned int *r_objects_len);
-struct Object **BKE_object_pose_array_get(struct ViewLayer *view_layer,
+struct Object **BKE_object_pose_array_get(const struct Scene *scene,
+                                          struct ViewLayer *view_layer,
                                           struct View3D *v3d,
                                           unsigned int *r_objects_len);
 
-struct Base **BKE_object_pose_base_array_get_ex(struct ViewLayer *view_layer,
+struct Base **BKE_object_pose_base_array_get_ex(const struct Scene *scene,
+                                                struct ViewLayer *view_layer,
                                                 struct View3D *v3d,
                                                 unsigned int *r_bases_len,
                                                 bool unique);
-struct Base **BKE_object_pose_base_array_get_unique(struct ViewLayer *view_layer,
+struct Base **BKE_object_pose_base_array_get_unique(const struct Scene *scene,
+                                                    struct ViewLayer *view_layer,
                                                     struct View3D *v3d,
                                                     unsigned int *r_bases_len);
-struct Base **BKE_object_pose_base_array_get(struct ViewLayer *view_layer,
+struct Base **BKE_object_pose_base_array_get(const struct Scene *scene,
+                                             struct ViewLayer *view_layer,
                                              struct View3D *v3d,
                                              unsigned int *r_bases_len);
 
 void BKE_object_get_parent_matrix(struct Object *ob, struct Object *par, float r_parentmat[4][4]);
 
 /**
- * Compute object world transform and store it in `ob->obmat`.
+ * Compute object world transform and store it in `ob->object_to_world`.
  */
 void BKE_object_where_is_calc(struct Depsgraph *depsgraph, struct Scene *scene, struct Object *ob);
 void BKE_object_where_is_calc_ex(struct Depsgraph *depsgraph,
@@ -334,7 +362,7 @@ void BKE_boundbox_minmax(const struct BoundBox *bb,
                          float r_min[3],
                          float r_max[3]);
 
-struct BoundBox *BKE_object_boundbox_get(struct Object *ob);
+const struct BoundBox *BKE_object_boundbox_get(struct Object *ob);
 void BKE_object_dimensions_get(struct Object *ob, float r_vec[3]);
 /**
  * The original scale and object matrix can be passed in so any difference
@@ -352,10 +380,7 @@ void BKE_object_dimensions_set_ex(struct Object *ob,
 void BKE_object_dimensions_set(struct Object *ob, const float value[3], int axis_mask);
 
 void BKE_object_empty_draw_type_set(struct Object *ob, int value);
-/**
- * Use this to temporally disable/enable bound-box.
- */
-void BKE_object_boundbox_flag(struct Object *ob, int flag, bool set);
+
 void BKE_object_boundbox_calc_from_mesh(struct Object *ob, const struct Mesh *me_eval);
 bool BKE_object_boundbox_calc_from_evaluated_geometry(struct Object *ob);
 void BKE_object_minmax(struct Object *ob, float r_min[3], float r_max[3], bool use_hidden);
@@ -365,6 +390,13 @@ bool BKE_object_minmax_dupli(struct Depsgraph *depsgraph,
                              float r_min[3],
                              float r_max[3],
                              bool use_hidden);
+/**
+ * Calculate visual bounds from an empty objects draw-type.
+ *
+ * \note This is not part of the calculation used by #BKE_object_boundbox_get
+ * as these bounds represent the extents of visual guides (use for viewport culling for e.g.)
+ */
+bool BKE_object_minmax_empty_drawtype(const struct Object *ob, float r_min[3], float r_max[3]);
 
 /**
  * Sometimes min-max isn't enough, we need to loop over each point.
@@ -459,8 +491,8 @@ void BKE_object_handle_data_update(struct Depsgraph *depsgraph,
  */
 void BKE_object_handle_update(struct Depsgraph *depsgraph, struct Scene *scene, struct Object *ob);
 /**
- * The main object update call, for object matrix, constraints, keys and #DispList (modifiers)
- * requires flags to be set!
+ * The main object update call, for object matrix, constraints, keys and modifiers.
+ * Requires flags to be set!
  *
  * Ideally we shouldn't have to pass the rigid body world,
  * but need bigger restructuring to avoid id.
@@ -473,9 +505,9 @@ void BKE_object_handle_update_ex(struct Depsgraph *depsgraph,
 void BKE_object_sculpt_data_create(struct Object *ob);
 
 bool BKE_object_obdata_texspace_get(struct Object *ob,
-                                    char **r_texflag,
-                                    float **r_loc,
-                                    float **r_size);
+                                    char **r_texspace_flag,
+                                    float **r_texspace_location,
+                                    float **r_texspace_size);
 
 struct Mesh *BKE_object_get_evaluated_mesh_no_subsurf(const struct Object *object);
 /** Get evaluated mesh for given object. */
@@ -571,7 +603,6 @@ void BKE_object_runtime_reset_on_copy(struct Object *object, int flag);
 void BKE_object_runtime_free_data(struct Object *object);
 
 void BKE_object_batch_cache_dirty_tag(struct Object *ob);
-void BKE_object_data_batch_cache_dirty_tag(struct ID *object_data);
 
 /* this function returns a superset of the scenes selection based on relationships */
 
@@ -598,7 +629,8 @@ typedef enum eObjectSet {
  * If #OB_SET_VISIBLE or#OB_SET_SELECTED are collected,
  * then also add related objects according to the given \a includeFilter.
  */
-struct LinkNode *BKE_object_relational_superset(struct ViewLayer *view_layer,
+struct LinkNode *BKE_object_relational_superset(const struct Scene *scene,
+                                                struct ViewLayer *view_layer,
                                                 eObjectSet objectSet,
                                                 eObRelationTypes includeFilter);
 /**
@@ -617,11 +649,6 @@ void BKE_object_groups_clear(struct Main *bmain, struct Scene *scene, struct Obj
  * \return The KD-tree or nullptr if it can't be created.
  */
 struct KDTree_3d *BKE_object_as_kdtree(struct Object *ob, int *r_tot);
-
-bool BKE_object_modifier_use_time(struct Scene *scene,
-                                  struct Object *ob,
-                                  struct ModifierData *md,
-                                  int dag_eval_mode);
 
 /**
  * \note this function should eventually be replaced by depsgraph functionality.

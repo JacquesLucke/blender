@@ -19,8 +19,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "WM_toolsystem.h"
-
 #include "RNA_access.h"
 #include "RNA_define.h"
 
@@ -173,7 +171,6 @@ static void WIDGETGROUP_gizmo_message_subscribe(const bContext *C,
   };
 
   {
-    extern PropertyRNA rna_ToolSettings_workspace_tool_type;
     const PropertyRNA *props[] = {
         &rna_ToolSettings_workspace_tool_type,
     };

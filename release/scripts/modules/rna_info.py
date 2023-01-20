@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 # classes for extracting info from blenders internal classes
 
 import bpy
@@ -61,7 +59,8 @@ def range_str(val):
 
 def float_as_string(f):
     val_str = "%g" % f
-    if '.' not in val_str and '-' not in val_str:  # value could be 1e-05
+    # Ensure a `.0` suffix for whole numbers, excluding scientific notation such as `1e-05` or `1e+5`.
+    if '.' not in val_str and 'e' not in val_str:
         val_str += '.0'
     return val_str
 
@@ -198,9 +197,21 @@ class InfoStructRNA:
         for identifier, attr in self._get_py_visible_attrs():
             # methods may be python wrappers to C functions
             attr_func = getattr(attr, "__func__", attr)
-            if type(attr_func) in {types.BuiltinMethodType, types.BuiltinFunctionType}:
+            if (
+                    (type(attr_func) in {types.BuiltinMethodType, types.BuiltinFunctionType}) or
+                    # Without the `objclass` check, many inherited methods are included.
+                    (type(attr_func) == types.MethodDescriptorType and attr_func.__objclass__ == self.py_class)
+            ):
                 functions.append((identifier, attr))
         return functions
+
+    def get_py_c_properties_getset(self):
+        import types
+        properties_getset = []
+        for identifier, descr in self.py_class.__dict__.items():
+            if type(descr) == types.GetSetDescriptorType:
+                properties_getset.append((identifier, descr))
+        return properties_getset
 
     def __str__(self):
 
@@ -229,6 +240,7 @@ class InfoPropertyRNA:
         "default_str",
         "default",
         "enum_items",
+        "enum_pointer",
         "min",
         "max",
         "array_length",
@@ -236,6 +248,7 @@ class InfoPropertyRNA:
         "collection_type",
         "type",
         "fixed_type",
+        "subtype",
         "is_argument_optional",
         "is_enum_flag",
         "is_required",
@@ -260,6 +273,7 @@ class InfoPropertyRNA:
         self.array_length = getattr(rna_prop, "array_length", 0)
         self.array_dimensions = getattr(rna_prop, "array_dimensions", ())[:]
         self.collection_type = GetInfoStructRNA(rna_prop.srna)
+        self.subtype = getattr(rna_prop, "subtype", "")
         self.is_required = rna_prop.is_required
         self.is_readonly = rna_prop.is_readonly
         self.is_never_none = rna_prop.is_never_none
@@ -272,9 +286,21 @@ class InfoPropertyRNA:
         else:
             self.fixed_type = None
 
+        self.enum_pointer = 0
         if self.type == "enum":
-            self.enum_items[:] = [(item.identifier, item.name, item.description) for item in rna_prop.enum_items]
+            # WARNING: don't convert to a tuple as this causes dynamically allocated enums to access freed memory
+            # since freeing the iterator may free the memory used to store the internal `EnumPropertyItem` array.
+            # To support this properly RNA would have to support owning the dynamically allocated memory.
+            items = rna_prop.enum_items
+            items_static = tuple(rna_prop.enum_items_static)
+            self.enum_items[:] = [(item.identifier, item.name, item.description) for item in items]
             self.is_enum_flag = rna_prop.is_enum_flag
+            # Prioritize static items as this is never going to be allocated data and is therefor
+            # will be a stable match to compare against.
+            item = (items_static or items)
+            if item:
+                self.enum_pointer = item[0].as_pointer()
+            del items, items_static, item
         else:
             self.is_enum_flag = False
 
@@ -329,25 +355,65 @@ class InfoPropertyRNA:
             return "%s=%s" % (self.identifier, default)
         return self.identifier
 
-    def get_type_description(self, as_ret=False, as_arg=False, class_fmt="%s", collection_id="Collection"):
+    def get_type_description(
+            self, *,
+            as_ret=False,
+            as_arg=False,
+            class_fmt="%s",
+            mathutils_fmt="%s",
+            collection_id="Collection",
+            enum_descr_override=None,
+    ):
+        """
+        :arg enum_descr_override: Optionally override items for enum.
+           Otherwise expand the literal items.
+        :type enum_descr_override: string or None when unset.
+        """
         type_str = ""
         if self.fixed_type is None:
             type_str += self.type
             if self.array_length:
                 if self.array_dimensions[1] != 0:
-                    type_str += " multi-dimensional array of %s items" % (
+                    dimension_str = " of %s items" % (
                         " * ".join(str(d) for d in self.array_dimensions if d != 0)
                     )
+                    type_str += " multi-dimensional array" + dimension_str
                 else:
-                    type_str += " array of %d items" % (self.array_length)
+                    dimension_str = " of %d items" % (self.array_length)
+                    type_str += " array" + dimension_str
+
+                # Describe mathutils types; logic mirrors pyrna_math_object_from_array
+                if self.type == "float":
+                    if self.subtype == "MATRIX":
+                        if self.array_length in {9, 16}:
+                            type_str = (mathutils_fmt % "Matrix") + dimension_str
+                    elif self.subtype in {"COLOR", "COLOR_GAMMA"}:
+                        if self.array_length == 3:
+                            type_str = (mathutils_fmt % "Color") + dimension_str
+                    elif self.subtype in {"EULER", "QUATERNION"}:
+                        if self.array_length == 3:
+                            type_str = (mathutils_fmt % "Euler") + " rotation" + dimension_str
+                        elif self.array_length == 4:
+                            type_str = (mathutils_fmt % "Quaternion") + " rotation" + dimension_str
+                    elif self.subtype in {"COORDINATES", "TRANSLATION", "DIRECTION", "VELOCITY",
+                                          "ACCELERATION", "XYZ", "XYZ_LENGTH"}:
+                        if 2 <= self.array_length <= 4:
+                            type_str = (mathutils_fmt % "Vector") + dimension_str
 
             if self.type in {"float", "int"}:
                 type_str += " in [%s, %s]" % (range_str(self.min), range_str(self.max))
             elif self.type == "enum":
+                enum_descr = enum_descr_override
+                if not enum_descr:
+                    if self.is_enum_flag:
+                        enum_descr = "{%s}" % ", ".join(("'%s'" % s[0]) for s in self.enum_items)
+                    else:
+                        enum_descr = "[%s]" % ", ".join(("'%s'" % s[0]) for s in self.enum_items)
                 if self.is_enum_flag:
-                    type_str += " set in {%s}" % ", ".join(("'%s'" % s[0]) for s in self.enum_items)
+                    type_str += " set in %s" % enum_descr
                 else:
-                    type_str += " in [%s]" % ", ".join(("'%s'" % s[0]) for s in self.enum_items)
+                    type_str += " in %s" % enum_descr
+                del enum_descr
 
             if not (as_arg or as_ret):
                 # write default property, ignore function args for this
@@ -572,6 +638,16 @@ def BuildRNAInfo():
     structs = []
 
     def _bpy_types_iterator():
+        # Don't report when these types are ignored.
+        suppress_warning = {
+            "bpy_func",
+            "bpy_prop",
+            "bpy_prop_array",
+            "bpy_prop_collection",
+            "bpy_struct",
+            "bpy_struct_meta_idprop",
+        }
+
         names_unique = set()
         rna_type_list = []
         for rna_type_name in dir(bpy.types):
@@ -581,8 +657,13 @@ def BuildRNAInfo():
             if rna_struct is not None:
                 rna_type_list.append(rna_type)
                 yield (rna_type_name, rna_struct)
+            elif rna_type_name.startswith("_"):
+                # Ignore "__dir__", "__getattr__" .. etc.
+                pass
+            elif rna_type_name in suppress_warning:
+                pass
             else:
-                print("Ignoring", rna_type_name)
+                print("rna_info.BuildRNAInfo(..): ignoring type", repr(rna_type_name))
 
         # Now, there are some sub-classes in add-ons we also want to include.
         # Cycles for e.g. these are referenced from the Scene, but not part of

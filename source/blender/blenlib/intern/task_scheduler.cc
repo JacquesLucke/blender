@@ -8,6 +8,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLI_lazy_threading.hh"
 #include "BLI_task.h"
 #include "BLI_threads.h"
 
@@ -31,14 +32,14 @@ static tbb::global_control *task_scheduler_global_control = nullptr;
 void BLI_task_scheduler_init()
 {
 #ifdef WITH_TBB_GLOBAL_CONTROL
-  const int num_threads_override = BLI_system_num_threads_override_get();
+  const int threads_override_num = BLI_system_num_threads_override_get();
 
-  if (num_threads_override > 0) {
+  if (threads_override_num > 0) {
     /* Override number of threads. This settings is used within the lifetime
      * of tbb::global_control, so we allocate it on the heap. */
     task_scheduler_global_control = MEM_new<tbb::global_control>(
-        __func__, tbb::global_control::max_allowed_parallelism, num_threads_override);
-    task_scheduler_num_threads = num_threads_override;
+        __func__, tbb::global_control::max_allowed_parallelism, threads_override_num);
+    task_scheduler_num_threads = threads_override_num;
   }
   else {
     /* Let TBB choose the number of threads. For (legacy) code that calls
@@ -67,6 +68,7 @@ int BLI_task_scheduler_num_threads()
 void BLI_task_isolate(void (*func)(void *userdata), void *userdata)
 {
 #ifdef WITH_TBB
+  blender::lazy_threading::ReceiverIsolation isolation;
   tbb::this_task_arena::isolate([&] { func(userdata); });
 #else
   func(userdata);

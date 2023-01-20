@@ -25,12 +25,11 @@
 
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
+#include "IMB_openexr.h"
 
 #include "GPU_texture.h"
 
 #include "MEM_guardedalloc.h"
-
-#include "intern/openexr/openexr_multi.h"
 
 /* Statics */
 static ListBase studiolights;
@@ -218,8 +217,8 @@ static void studiolight_load_solid_light(StudioLight *sl)
 #undef READ_IVAL
 #undef READ_FVAL
 
-#define WRITE_FVAL(str, id, val) (BLI_dynstr_appendf(str, id " %f\n", val))
-#define WRITE_IVAL(str, id, val) (BLI_dynstr_appendf(str, id " %d\n", val))
+#define WRITE_FVAL(str, id, val) BLI_dynstr_appendf(str, id " %f\n", val)
+#define WRITE_IVAL(str, id, val) BLI_dynstr_appendf(str, id " %d\n", val)
 
 #define WRITE_VEC3(str, id, val) \
   do { \
@@ -274,7 +273,7 @@ static void direction_to_equirect(float r[2], const float dir[3])
 
 static void equirect_to_direction(float r[3], float u, float v)
 {
-  float phi = (-(M_PI * 2)) * u + M_PI;
+  float phi = -(M_PI * 2) * u + M_PI;
   float theta = -M_PI * v + M_PI;
   float sin_theta = sinf(theta);
   r[0] = sin_theta * cosf(phi);
@@ -343,9 +342,7 @@ static void *studiolight_multilayer_addlayer(void *base, const char *UNUSED(laye
 /* Convert a multilayer pass to ImBuf channel 4 float buffer.
  * NOTE: Parameter rect will become invalid. Do not use rect after calling this
  * function */
-static float *studiolight_multilayer_convert_pass(ImBuf *ibuf,
-                                                  float *rect,
-                                                  const unsigned int channels)
+static float *studiolight_multilayer_convert_pass(ImBuf *ibuf, float *rect, const uint channels)
 {
   if (channels == 4) {
     return rect;
@@ -481,8 +478,13 @@ static void studiolight_create_equirect_radiance_gputexture(StudioLight *sl)
     BKE_studiolight_ensure_flag(sl, STUDIOLIGHT_EXTERNAL_IMAGE_LOADED);
     ImBuf *ibuf = sl->equirect_radiance_buffer;
 
-    sl->equirect_radiance_gputexture = GPU_texture_create_2d(
-        "studiolight_radiance", ibuf->x, ibuf->y, 1, GPU_RGBA16F, ibuf->rect_float);
+    sl->equirect_radiance_gputexture = GPU_texture_create_2d_ex("studiolight_radiance",
+                                                                ibuf->x,
+                                                                ibuf->y,
+                                                                1,
+                                                                GPU_RGBA16F,
+                                                                GPU_TEXTURE_USAGE_SHADER_READ,
+                                                                ibuf->rect_float);
     GPUTexture *tex = sl->equirect_radiance_gputexture;
     GPU_texture_filter_mode(tex, true);
     GPU_texture_wrap_mode(tex, true, true);
@@ -502,7 +504,8 @@ static void studiolight_create_matcap_gputexture(StudioLightImage *sli)
     copy_v3_v3(*offset3, *offset4);
   }
 
-  sli->gputexture = GPU_texture_create_2d("matcap", ibuf->x, ibuf->y, 1, GPU_R11F_G11F_B10F, NULL);
+  sli->gputexture = GPU_texture_create_2d_ex(
+      "matcap", ibuf->x, ibuf->y, 1, GPU_R11F_G11F_B10F, GPU_TEXTURE_USAGE_SHADER_READ, NULL);
   GPU_texture_update(sli->gputexture, GPU_DATA_FLOAT, gpu_matcap_3components);
 
   MEM_SAFE_FREE(gpu_matcap_3components);
@@ -536,8 +539,13 @@ static void studiolight_create_equirect_irradiance_gputexture(StudioLight *sl)
   if (sl->flag & STUDIOLIGHT_EXTERNAL_FILE) {
     BKE_studiolight_ensure_flag(sl, STUDIOLIGHT_EQUIRECT_IRRADIANCE_IMAGE_CALCULATED);
     ImBuf *ibuf = sl->equirect_irradiance_buffer;
-    sl->equirect_irradiance_gputexture = GPU_texture_create_2d(
-        "studiolight_irradiance", ibuf->x, ibuf->y, 1, GPU_RGBA16F, ibuf->rect_float);
+    sl->equirect_irradiance_gputexture = GPU_texture_create_2d_ex("studiolight_irradiance",
+                                                                  ibuf->x,
+                                                                  ibuf->y,
+                                                                  1,
+                                                                  GPU_RGBA16F,
+                                                                  GPU_TEXTURE_USAGE_SHADER_READ,
+                                                                  ibuf->rect_float);
     GPUTexture *tex = sl->equirect_irradiance_gputexture;
     GPU_texture_filter_mode(tex, true);
     GPU_texture_wrap_mode(tex, true, true);
@@ -1167,19 +1175,21 @@ static void studiolight_add_files_from_datafolder(const int folder_id,
                                                   const char *subfolder,
                                                   int flag)
 {
-  struct direntry *dir;
   const char *folder = BKE_appdir_folder_id(folder_id, subfolder);
-  if (folder) {
-    uint totfile = BLI_filelist_dir_contents(folder, &dir);
-    int i;
-    for (i = 0; i < totfile; i++) {
-      if (dir[i].type & S_IFREG) {
-        studiolight_add_file(dir[i].path, flag);
-      }
-    }
-    BLI_filelist_free(dir, totfile);
-    dir = NULL;
+  if (!folder) {
+    return;
   }
+
+  struct direntry *dirs;
+  const uint dirs_num = BLI_filelist_dir_contents(folder, &dirs);
+  int i;
+  for (i = 0; i < dirs_num; i++) {
+    if (dirs[i].type & S_IFREG) {
+      studiolight_add_file(dirs[i].path, flag);
+    }
+  }
+  BLI_filelist_free(dirs, dirs_num);
+  dirs = NULL;
 }
 
 static int studiolight_flag_cmp_order(const StudioLight *sl)

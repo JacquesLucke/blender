@@ -12,68 +12,159 @@
 #include "IMB_imbuf_types.h"
 
 #include "BLI_float4x4.hh"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 
 #include "image_batches.hh"
 #include "image_private.hh"
-#include "image_wrappers.hh"
 
 namespace blender::draw::image_engine {
 
 constexpr float EPSILON_UV_BOUNDS = 0.00001f;
 
 /**
- * \brief Screen space method using a single texture spawning the whole screen.
+ * \brief Screen space method using a multiple textures covering the region.
+ *
  */
-struct OneTextureMethod {
+template<size_t Divisions> class ScreenTileTextures {
+ public:
+  static const size_t TexturesPerDimension = Divisions + 1;
+  static const size_t TexturesRequired = TexturesPerDimension * TexturesPerDimension;
+  static const size_t VerticesPerDimension = TexturesPerDimension + 1;
+
+ private:
+  /**
+   * \brief Helper struct to pair a texture info and a region in uv space of the area.
+   */
+  struct TextureInfoBounds {
+    TextureInfo *info = nullptr;
+    rctf uv_bounds;
+  };
+
   IMAGE_InstanceData *instance_data;
 
-  OneTextureMethod(IMAGE_InstanceData *instance_data) : instance_data(instance_data)
+ public:
+  ScreenTileTextures(IMAGE_InstanceData *instance_data) : instance_data(instance_data)
   {
   }
 
-  /** \brief Update the texture slot uv and screen space bounds. */
-  void update_screen_space_bounds(const ARegion *region)
+  /**
+   * \brief Ensure enough texture infos are allocated in `instance_data`.
+   */
+  void ensure_texture_infos()
   {
-    /* Create a single texture that covers the visible screen space. */
+    instance_data->texture_infos.resize(TexturesRequired);
+  }
+
+  /**
+   * \brief Update the uv and region bounds of all texture_infos of instance_data.
+   */
+  void update_bounds(const ARegion *region)
+  {
+    /* determine uv_area of the region. */
+    Vector<TextureInfo *> unassigned_textures;
+    float4x4 mat = float4x4(instance_data->ss_to_texture).inverted();
+    float2 region_uv_min = float2(mat * float3(0.0f, 0.0f, 0.0f));
+    float2 region_uv_max = float2(mat * float3(1.0f, 1.0f, 0.0f));
+    float2 region_uv_span = region_uv_max - region_uv_min;
+
+    /* Calculate uv coordinates of each vert in the grid of textures. */
+
+    /* Construct the uv bounds of the 4 textures that are needed to fill the region. */
+    Vector<TextureInfoBounds> info_bounds = create_uv_bounds(region_uv_span, region_uv_min);
+    assign_texture_infos_by_uv_bounds(info_bounds, unassigned_textures);
+    assign_unused_texture_infos(info_bounds, unassigned_textures);
+
+    /* Calculate the region bounds from the uv bounds. */
+    rctf region_uv_bounds;
     BLI_rctf_init(
-        &instance_data->texture_infos[0].clipping_bounds, 0, region->winx, 0, region->winy);
-    instance_data->texture_infos[0].visible = true;
+        &region_uv_bounds, region_uv_min.x, region_uv_max.x, region_uv_min.y, region_uv_max.y);
+    update_region_bounds_from_uv_bounds(region_uv_bounds, float2(region->winx, region->winy));
+  }
 
-    /* Mark the other textures as invalid. */
-    for (int i = 1; i < SCREEN_SPACE_DRAWING_MODE_TEXTURE_LEN; i++) {
-      BLI_rctf_init_minmax(&instance_data->texture_infos[i].clipping_bounds);
-      instance_data->texture_infos[i].visible = false;
+  void ensure_gpu_textures_allocation()
+  {
+    float2 viewport_size = DRW_viewport_size_get();
+    int2 texture_size(ceil(viewport_size.x / Divisions), ceil(viewport_size.y / Divisions));
+    for (TextureInfo &info : instance_data->texture_infos) {
+      info.ensure_gpu_texture(texture_size);
     }
   }
 
-  void update_screen_uv_bounds()
+ private:
+  Vector<TextureInfoBounds> create_uv_bounds(float2 region_uv_span, float2 region_uv_min)
   {
-    for (int i = 0; i < SCREEN_SPACE_DRAWING_MODE_TEXTURE_LEN; i++) {
-      update_screen_uv_bounds(instance_data->texture_infos[0]);
+    float2 uv_coords[VerticesPerDimension][VerticesPerDimension];
+    float2 region_tile_uv_span = region_uv_span / float2(float(Divisions));
+    float2 onscreen_multiple = (blender::math::floor(region_uv_min / region_tile_uv_span) +
+                                float2(1.0f)) *
+                               region_tile_uv_span;
+    for (int y = 0; y < VerticesPerDimension; y++) {
+      for (int x = 0; x < VerticesPerDimension; x++) {
+        uv_coords[x][y] = region_tile_uv_span * float2(float(x - 1), float(y - 1)) +
+                          onscreen_multiple;
+      }
+    }
+
+    Vector<TextureInfoBounds> info_bounds;
+    for (int x = 0; x < TexturesPerDimension; x++) {
+      for (int y = 0; y < TexturesPerDimension; y++) {
+        TextureInfoBounds texture_info_bounds;
+        BLI_rctf_init(&texture_info_bounds.uv_bounds,
+                      uv_coords[x][y].x,
+                      uv_coords[x + 1][y + 1].x,
+                      uv_coords[x][y].y,
+                      uv_coords[x + 1][y + 1].y);
+        info_bounds.append(texture_info_bounds);
+      }
+    }
+    return info_bounds;
+  }
+
+  void assign_texture_infos_by_uv_bounds(Vector<TextureInfoBounds> &info_bounds,
+                                         Vector<TextureInfo *> &r_unassigned_textures)
+  {
+    for (TextureInfo &info : instance_data->texture_infos) {
+      bool assigned = false;
+      for (TextureInfoBounds &info_bound : info_bounds) {
+        if (info_bound.info == nullptr &&
+            BLI_rctf_compare(&info_bound.uv_bounds, &info.clipping_uv_bounds, 0.001)) {
+          info_bound.info = &info;
+          assigned = true;
+          break;
+        }
+      }
+      if (!assigned) {
+        r_unassigned_textures.append(&info);
+      }
     }
   }
 
-  void update_screen_uv_bounds(TextureInfo &info)
+  void assign_unused_texture_infos(Vector<TextureInfoBounds> &info_bounds,
+                                   Vector<TextureInfo *> &unassigned_textures)
   {
-    /* Although this works, computing an inverted matrix adds some precision issues and leads to
-     * tearing artifacts. This should be modified to use the scaling and transformation from the
-     * not inverted matrix.*/
-    float4x4 mat(instance_data->ss_to_texture);
-    float4x4 mat_inv = mat.inverted();
-    float3 min_uv = mat_inv * float3(0.0f, 0.0f, 0.0f);
-    float3 max_uv = mat_inv * float3(1.0f, 1.0f, 0.0f);
-    rctf new_clipping_bounds;
-    BLI_rctf_init(&new_clipping_bounds, min_uv[0], max_uv[0], min_uv[1], max_uv[1]);
+    for (TextureInfoBounds &info_bound : info_bounds) {
+      if (info_bound.info == nullptr) {
+        info_bound.info = unassigned_textures.pop_last();
+        info_bound.info->need_full_update = true;
+        info_bound.info->clipping_uv_bounds = info_bound.uv_bounds;
+      }
+    }
+  }
 
-    if (!BLI_rctf_compare(&info.clipping_uv_bounds, &new_clipping_bounds, EPSILON_UV_BOUNDS)) {
-      info.clipping_uv_bounds = new_clipping_bounds;
-      info.dirty = true;
+  void update_region_bounds_from_uv_bounds(const rctf &region_uv_bounds, const float2 region_size)
+  {
+    rctf region_bounds;
+    BLI_rctf_init(&region_bounds, 0.0, region_size.x, 0.0, region_size.y);
+    float4x4 uv_to_screen;
+    BLI_rctf_transform_calc_m4_pivot_min(&region_uv_bounds, &region_bounds, uv_to_screen.ptr());
+    for (TextureInfo &info : instance_data->texture_infos) {
+      info.update_region_bounds_from_uv_bounds(uv_to_screen);
     }
   }
 };
 
 using namespace blender::bke::image::partial_update;
+using namespace blender::bke::image;
 
 template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractDrawingMode {
  private:
@@ -101,18 +192,14 @@ template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractD
     DRWShadingGroup *shgrp = DRW_shgroup_create(shader, instance_data->passes.image_pass);
     DRW_shgroup_uniform_vec2_copy(shgrp, "farNearDistances", sh_params.far_near);
     DRW_shgroup_uniform_vec4_copy(shgrp, "shuffle", sh_params.shuffle);
-    DRW_shgroup_uniform_int_copy(shgrp, "drawFlags", sh_params.flags);
+    DRW_shgroup_uniform_int_copy(shgrp, "drawFlags", static_cast<int32_t>(sh_params.flags));
     DRW_shgroup_uniform_bool_copy(shgrp, "imgPremultiplied", sh_params.use_premul_alpha);
     DRW_shgroup_uniform_texture(shgrp, "depth_texture", dtxl->depth);
     float image_mat[4][4];
     unit_m4(image_mat);
-    for (int i = 0; i < SCREEN_SPACE_DRAWING_MODE_TEXTURE_LEN; i++) {
-      const TextureInfo &info = instance_data->texture_infos[i];
-      if (!info.visible) {
-        continue;
-      }
-
+    for (const TextureInfo &info : instance_data->texture_infos) {
       DRWShadingGroup *shgrp_sub = DRW_shgroup_create_sub(shgrp);
+      DRW_shgroup_uniform_ivec2_copy(shgrp_sub, "offset", info.offset());
       DRW_shgroup_uniform_texture_ex(shgrp_sub, "imageTexture", info.texture, GPU_SAMPLER_DEFAULT);
       DRW_shgroup_call_obmat(shgrp_sub, info.batch, image_mat);
     }
@@ -138,12 +225,7 @@ template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractD
       tile_user = *image_user;
     }
 
-    for (int i = 0; i < SCREEN_SPACE_DRAWING_MODE_TEXTURE_LEN; i++) {
-      const TextureInfo &info = instance_data.texture_infos[i];
-      if (!info.visible) {
-        continue;
-      }
-
+    for (const TextureInfo &info : instance_data.texture_infos) {
       LISTBASE_FOREACH (ImageTile *, image_tile_ptr, &image->tiles) {
         const ImageTileWrapper image_tile(image_tile_ptr);
         const int tile_x = image_tile.get_tile_x_offset();
@@ -154,15 +236,15 @@ template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractD
          * bug or a feature. For now we just acquire to determine if there is a texture. */
         void *lock;
         ImBuf *tile_buffer = BKE_image_acquire_ibuf(image, &tile_user, &lock);
-        if (tile_buffer == nullptr) {
-          continue;
+        if (tile_buffer != nullptr) {
+          instance_data.float_buffers.mark_used(tile_buffer);
+
+          DRWShadingGroup *shsub = DRW_shgroup_create_sub(shgrp);
+          float4 min_max_uv(tile_x, tile_y, tile_x + 1, tile_y + 1);
+          DRW_shgroup_uniform_vec4_copy(shsub, "min_max_uv", min_max_uv);
+          DRW_shgroup_call_obmat(shsub, info.batch, image_mat);
         }
         BKE_image_release_ibuf(image, tile_buffer, lock);
-
-        DRWShadingGroup *shsub = DRW_shgroup_create_sub(shgrp);
-        float4 min_max_uv(tile_x, tile_y, tile_x + 1, tile_y + 1);
-        DRW_shgroup_uniform_vec4_copy(shsub, "min_max_uv", min_max_uv);
-        DRW_shgroup_call_obmat(shsub, info.batch, image_mat);
       }
     }
   }
@@ -184,12 +266,14 @@ template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractD
     switch (changes.get_result_code()) {
       case ePartialUpdateCollectResult::FullUpdateNeeded:
         instance_data.mark_all_texture_slots_dirty();
+        instance_data.float_buffers.clear();
         break;
       case ePartialUpdateCollectResult::NoChangesDetected:
         break;
       case ePartialUpdateCollectResult::PartialChangesDetected:
         /* Partial update when wrap repeat is enabled is not supported. */
         if (instance_data.flags.do_tile_drawing) {
+          instance_data.float_buffers.clear();
           instance_data.mark_all_texture_slots_dirty();
         }
         else {
@@ -200,6 +284,34 @@ template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractD
     do_full_update_for_dirty_textures(instance_data, image_user);
   }
 
+  /**
+   * Update the float buffer in the region given by the partial update checker.
+   */
+  void do_partial_update_float_buffer(
+      ImBuf *float_buffer, PartialUpdateChecker<ImageTileData>::CollectResult &iterator) const
+  {
+    ImBuf *src = iterator.tile_data.tile_buffer;
+    BLI_assert(float_buffer->rect_float != nullptr);
+    BLI_assert(float_buffer->rect == nullptr);
+    BLI_assert(src->rect_float == nullptr);
+    BLI_assert(src->rect != nullptr);
+
+    /* Calculate the overlap between the updated region and the buffer size. Partial Update Checker
+     * always returns a tile (256x256). Which could lay partially outside the buffer when using
+     * different resolutions.
+     */
+    rcti buffer_rect;
+    BLI_rcti_init(&buffer_rect, 0, float_buffer->x, 0, float_buffer->y);
+    rcti clipped_update_region;
+    const bool has_overlap = BLI_rcti_isect(
+        &buffer_rect, &iterator.changed_region.region, &clipped_update_region);
+    if (!has_overlap) {
+      return;
+    }
+
+    IMB_float_from_rect_ex(float_buffer, src, &clipped_update_region);
+  }
+
   void do_partial_update(PartialUpdateChecker<ImageTileData>::CollectResult &iterator,
                          IMAGE_InstanceData &instance_data) const
   {
@@ -208,17 +320,18 @@ template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractD
       if (iterator.tile_data.tile_buffer == nullptr) {
         continue;
       }
-      ensure_float_buffer(*iterator.tile_data.tile_buffer);
-      const float tile_width = static_cast<float>(iterator.tile_data.tile_buffer->x);
-      const float tile_height = static_cast<float>(iterator.tile_data.tile_buffer->y);
+      ImBuf *tile_buffer = instance_data.float_buffers.cached_float_buffer(
+          iterator.tile_data.tile_buffer);
+      if (tile_buffer != iterator.tile_data.tile_buffer) {
+        do_partial_update_float_buffer(tile_buffer, iterator);
+      }
 
-      for (int i = 0; i < SCREEN_SPACE_DRAWING_MODE_TEXTURE_LEN; i++) {
-        const TextureInfo &info = instance_data.texture_infos[i];
+      const float tile_width = float(iterator.tile_data.tile_buffer->x);
+      const float tile_height = float(iterator.tile_data.tile_buffer->y);
+
+      for (const TextureInfo &info : instance_data.texture_infos) {
         /* Dirty images will receive a full update. No need to do a partial one now. */
-        if (info.dirty) {
-          continue;
-        }
-        if (!info.visible) {
+        if (info.need_full_update) {
           continue;
         }
         GPUTexture *texture = info.texture;
@@ -226,23 +339,20 @@ template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractD
         const float texture_height = GPU_texture_height(texture);
         /* TODO: early bound check. */
         ImageTileWrapper tile_accessor(iterator.tile_data.tile);
-        float tile_offset_x = static_cast<float>(tile_accessor.get_tile_x_offset());
-        float tile_offset_y = static_cast<float>(tile_accessor.get_tile_y_offset());
+        float tile_offset_x = float(tile_accessor.get_tile_x_offset());
+        float tile_offset_y = float(tile_accessor.get_tile_y_offset());
         rcti *changed_region_in_texel_space = &iterator.changed_region.region;
         rctf changed_region_in_uv_space;
-        BLI_rctf_init(&changed_region_in_uv_space,
-                      static_cast<float>(changed_region_in_texel_space->xmin) /
-                              static_cast<float>(iterator.tile_data.tile_buffer->x) +
-                          tile_offset_x,
-                      static_cast<float>(changed_region_in_texel_space->xmax) /
-                              static_cast<float>(iterator.tile_data.tile_buffer->x) +
-                          tile_offset_x,
-                      static_cast<float>(changed_region_in_texel_space->ymin) /
-                              static_cast<float>(iterator.tile_data.tile_buffer->y) +
-                          tile_offset_y,
-                      static_cast<float>(changed_region_in_texel_space->ymax) /
-                              static_cast<float>(iterator.tile_data.tile_buffer->y) +
-                          tile_offset_y);
+        BLI_rctf_init(
+            &changed_region_in_uv_space,
+            float(changed_region_in_texel_space->xmin) / float(iterator.tile_data.tile_buffer->x) +
+                tile_offset_x,
+            float(changed_region_in_texel_space->xmax) / float(iterator.tile_data.tile_buffer->x) +
+                tile_offset_x,
+            float(changed_region_in_texel_space->ymin) / float(iterator.tile_data.tile_buffer->y) +
+                tile_offset_y,
+            float(changed_region_in_texel_space->ymax) / float(iterator.tile_data.tile_buffer->y) +
+                tile_offset_y);
         rctf changed_overlapping_region_in_uv_space;
         const bool region_overlap = BLI_rctf_isect(&info.clipping_uv_bounds,
                                                    &changed_region_in_uv_space,
@@ -283,7 +393,6 @@ template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractD
             &extracted_buffer, texture_region_width, texture_region_height, 32, IB_rectfloat);
 
         int offset = 0;
-        ImBuf *tile_buffer = iterator.tile_data.tile_buffer;
         for (int y = gpu_texture_region_to_update.ymin; y < gpu_texture_region_to_update.ymax;
              y++) {
           float yf = y / (float)texture_height;
@@ -302,6 +411,7 @@ template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractD
             offset++;
           }
         }
+        IMB_gpu_clamp_half_float(&extracted_buffer);
 
         GPU_texture_update_sub(texture,
                                GPU_DATA_FLOAT,
@@ -320,12 +430,8 @@ template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractD
   void do_full_update_for_dirty_textures(IMAGE_InstanceData &instance_data,
                                          const ImageUser *image_user) const
   {
-    for (int i = 0; i < SCREEN_SPACE_DRAWING_MODE_TEXTURE_LEN; i++) {
-      TextureInfo &info = instance_data.texture_infos[i];
-      if (!info.dirty) {
-        continue;
-      }
-      if (!info.visible) {
+    for (TextureInfo &info : instance_data.texture_infos) {
+      if (!info.need_full_update) {
         continue;
       }
       do_full_update_gpu_texture(info, instance_data, image_user);
@@ -353,35 +459,21 @@ template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractD
       tile_user.tile = image_tile.get_tile_number();
 
       ImBuf *tile_buffer = BKE_image_acquire_ibuf(image, &tile_user, &lock);
-      if (tile_buffer == nullptr) {
-        /* Couldn't load the image buffer of the tile. */
-        continue;
+      if (tile_buffer != nullptr) {
+        do_full_update_texture_slot(instance_data, info, texture_buffer, *tile_buffer, image_tile);
       }
-      do_full_update_texture_slot(instance_data, info, texture_buffer, *tile_buffer, image_tile);
       BKE_image_release_ibuf(image, tile_buffer, lock);
     }
+    IMB_gpu_clamp_half_float(&texture_buffer);
     GPU_texture_update(info.texture, GPU_DATA_FLOAT, texture_buffer.rect_float);
     imb_freerectImbuf_all(&texture_buffer);
   }
 
   /**
-   * \brief Ensure that the float buffer of the given image buffer is available.
-   *
-   * Returns true when a float buffer was created. Somehow the VSE cache increases the ref
-   * counter, but might use a different mechanism for destructing the image, that doesn't free the
-   * rect_float as the reference-counter isn't 0. To work around this we destruct any created local
-   * buffers ourself.
+   * texture_buffer is the image buffer belonging to the texture_info.
+   * tile_buffer is the image buffer of the tile.
    */
-  bool ensure_float_buffer(ImBuf &image_buffer) const
-  {
-    if (image_buffer.rect_float == nullptr) {
-      IMB_float_from_rect(&image_buffer);
-      return true;
-    }
-    return false;
-  }
-
-  void do_full_update_texture_slot(const IMAGE_InstanceData &instance_data,
+  void do_full_update_texture_slot(IMAGE_InstanceData &instance_data,
                                    const TextureInfo &texture_info,
                                    ImBuf &texture_buffer,
                                    ImBuf &tile_buffer,
@@ -389,27 +481,24 @@ template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractD
   {
     const int texture_width = texture_buffer.x;
     const int texture_height = texture_buffer.y;
-    const bool float_buffer_created = ensure_float_buffer(tile_buffer);
-    /* TODO(jbakker): Find leak when rendering VSE and don't free here. */
-    const bool do_free_float_buffer = float_buffer_created &&
-                                      instance_data.image->type == IMA_TYPE_R_RESULT;
+    ImBuf *float_tile_buffer = instance_data.float_buffers.cached_float_buffer(&tile_buffer);
 
     /* IMB_transform works in a non-consistent space. This should be documented or fixed!.
      * Construct a variant of the info_uv_to_texture that adds the texel space
-     * transformation.*/
-    float uv_to_texel[4][4];
-    copy_m4_m4(uv_to_texel, instance_data.ss_to_texture);
-    float scale[3] = {static_cast<float>(texture_width) / static_cast<float>(tile_buffer.x),
-                      static_cast<float>(texture_height) / static_cast<float>(tile_buffer.y),
-                      1.0f};
-    rescale_m4(uv_to_texel, scale);
-    uv_to_texel[3][0] += image_tile.get_tile_x_offset() /
-                         BLI_rctf_size_x(&texture_info.clipping_uv_bounds);
-    uv_to_texel[3][1] += image_tile.get_tile_y_offset() /
-                         BLI_rctf_size_y(&texture_info.clipping_uv_bounds);
-    uv_to_texel[3][0] *= texture_width;
-    uv_to_texel[3][1] *= texture_height;
-    invert_m4(uv_to_texel);
+     * transformation. */
+    float4x4 uv_to_texel;
+    rctf texture_area;
+    rctf tile_area;
+
+    BLI_rctf_init(&texture_area, 0.0, texture_width, 0.0, texture_height);
+    BLI_rctf_init(
+        &tile_area,
+        tile_buffer.x * (texture_info.clipping_uv_bounds.xmin - image_tile.get_tile_x_offset()),
+        tile_buffer.x * (texture_info.clipping_uv_bounds.xmax - image_tile.get_tile_x_offset()),
+        tile_buffer.y * (texture_info.clipping_uv_bounds.ymin - image_tile.get_tile_y_offset()),
+        tile_buffer.y * (texture_info.clipping_uv_bounds.ymax - image_tile.get_tile_y_offset()));
+    BLI_rctf_transform_calc_m4_pivot_min(&tile_area, &texture_area, uv_to_texel.ptr());
+    invert_m4(uv_to_texel.ptr());
 
     rctf crop_rect;
     rctf *crop_rect_ptr = nullptr;
@@ -423,66 +512,70 @@ template<typename TextureMethod> class ScreenSpaceDrawingMode : public AbstractD
       transform_mode = IMB_TRANSFORM_MODE_CROP_SRC;
     }
 
-    IMB_transform(&tile_buffer,
+    IMB_transform(float_tile_buffer,
                   &texture_buffer,
                   transform_mode,
                   IMB_FILTER_NEAREST,
-                  uv_to_texel,
+                  uv_to_texel.ptr(),
                   crop_rect_ptr);
-
-    if (do_free_float_buffer) {
-      imb_freerectfloatImBuf(&tile_buffer);
-    }
   }
 
  public:
-  void cache_init(IMAGE_Data *vedata) const override
+  void begin_sync(IMAGE_Data *vedata) const override
   {
     IMAGE_InstanceData *instance_data = vedata->instance_data;
     instance_data->passes.image_pass = create_image_pass();
     instance_data->passes.depth_pass = create_depth_pass();
   }
 
-  void cache_image(IMAGE_Data *vedata, Image *image, ImageUser *iuser) const override
+  void image_sync(IMAGE_Data *vedata, Image *image, ImageUser *iuser) const override
   {
     const DRWContextState *draw_ctx = DRW_context_state_get();
     IMAGE_InstanceData *instance_data = vedata->instance_data;
+
     TextureMethod method(instance_data);
+    method.ensure_texture_infos();
 
     instance_data->partial_update.ensure_image(image);
-    instance_data->clear_dirty_flag();
+    instance_data->clear_need_full_update_flag();
+    instance_data->float_buffers.reset_usage_flags();
 
-    /* Step: Find out which screen space textures are needed to draw on the screen. Remove the
-     * screen space textures that aren't needed. */
+    /* Step: Find out which screen space textures are needed to draw on the screen. Recycle
+     * textures that are not on screen anymore. */
     const ARegion *region = draw_ctx->region;
-    method.update_screen_space_bounds(region);
-    method.update_screen_uv_bounds();
+    method.update_bounds(region);
 
-    /* Check for changes in the image user compared to the last time. */
-    instance_data->update_image_user(iuser);
+    /* Step: Check for changes in the image user compared to the last time. */
+    instance_data->update_image_usage(iuser);
 
     /* Step: Update the GPU textures based on the changes in the image. */
-    instance_data->update_gpu_texture_allocations();
+    method.ensure_gpu_textures_allocation();
     update_textures(*instance_data, image, iuser);
 
     /* Step: Add the GPU textures to the shgroup. */
     instance_data->update_batches();
-    add_depth_shgroups(*instance_data, image, iuser);
+    if (!instance_data->flags.do_tile_drawing) {
+      add_depth_shgroups(*instance_data, image, iuser);
+    }
     add_shgroups(instance_data);
   }
 
-  void draw_finish(IMAGE_Data *UNUSED(vedata)) const override
+  void draw_finish(IMAGE_Data *vedata) const override
   {
+    IMAGE_InstanceData *instance_data = vedata->instance_data;
+    instance_data->float_buffers.remove_unused_buffers();
   }
 
-  void draw_scene(IMAGE_Data *vedata) const override
+  void draw_viewport(IMAGE_Data *vedata) const override
   {
     IMAGE_InstanceData *instance_data = vedata->instance_data;
 
     DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
     GPU_framebuffer_bind(dfbl->default_fb);
+
     static float clear_col[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    GPU_framebuffer_clear_color_depth(dfbl->default_fb, clear_col, 1.0);
+    float clear_depth = instance_data->flags.do_tile_drawing ? 0.75 : 1.0f;
+    GPU_framebuffer_clear_color_depth(dfbl->default_fb, clear_col, clear_depth);
 
     DRW_view_set_active(instance_data->view);
     DRW_draw_pass(instance_data->passes.depth_pass);

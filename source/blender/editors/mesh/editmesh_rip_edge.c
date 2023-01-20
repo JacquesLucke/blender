@@ -35,10 +35,11 @@ static int edbm_rip_edge_invoke(bContext *C, wmOperator *UNUSED(op), const wmEve
 {
   ARegion *region = CTX_wm_region(C);
   RegionView3D *rv3d = CTX_wm_region_view3d(C);
+  const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   uint objects_len = 0;
   Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
-      view_layer, CTX_wm_view3d(C), &objects_len);
+      scene, view_layer, CTX_wm_view3d(C), &objects_len);
 
   for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
     Object *obedit = objects[ob_index];
@@ -125,7 +126,7 @@ static int edbm_rip_edge_invoke(bContext *C, wmOperator *UNUSED(op), const wmEve
 
 #ifdef USE_TRICKY_EXTEND
         /* first check if we can select the edge to split based on selection-only */
-        int tot_sel = 0, tot = 0;
+        int tot_sel = 0;
 
         BM_ITER_ELEM (e, &eiter, v, BM_EDGES_OF_VERT) {
           if (!BM_elem_flag_test(e, BM_ELEM_HIDDEN)) {
@@ -133,7 +134,6 @@ static int edbm_rip_edge_invoke(bContext *C, wmOperator *UNUSED(op), const wmEve
               e_best = e;
               tot_sel += 1;
             }
-            tot += 1;
           }
         }
         if (tot_sel != 1) {

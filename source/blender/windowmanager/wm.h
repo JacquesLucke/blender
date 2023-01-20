@@ -45,12 +45,12 @@ extern void wm_close_and_free_all(bContext *C, ListBase *);
 extern void wm_add_default(struct Main *bmain, bContext *C);
 extern void wm_clear_default_size(bContext *C);
 
-/* register to windowmanager for redo or macro */
+/* Register to window-manager for redo or macro. */
 
 /**
  * Called on event handling by `event_system.c`.
  *
- * All operations get registered in the windowmanager here.
+ * All operations get registered in the window-manager here.
  */
 void wm_operator_register(bContext *C, wmOperator *op);
 
@@ -68,21 +68,14 @@ void wm_window_keymap(wmKeyConfig *keyconf);
 void wm_operatortypes_register(void);
 
 /* wm_gesture.c */
+
 /* called in wm_draw.c */
 
 void wm_gesture_draw(struct wmWindow *win);
 /**
- * Tweak and line gestures.
+ * Use for line gesture.
  */
-int wm_gesture_evaluate(wmGesture *gesture, const struct wmEvent *event);
 void wm_gesture_tag_redraw(struct wmWindow *win);
-
-/* wm_gesture_ops.c */
-
-/**
- * Standard tweak, called after window handlers passed on event.
- */
-void wm_tweakevent_test(bContext *C, const wmEvent *event, int action);
 
 /* wm_jobs.c */
 

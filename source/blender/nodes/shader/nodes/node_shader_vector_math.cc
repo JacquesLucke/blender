@@ -28,7 +28,7 @@ static void sh_node_vector_math_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Float>(N_("Value"));
 }
 
-static void node_shader_buts_vect_math(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_shader_buts_vect_math(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "operation", UI_ITEM_R_SPLIT_EMPTY_NAME, "", ICON_NONE);
 }
@@ -141,7 +141,7 @@ static const char *gpu_shader_get_name(int mode)
 
 static int gpu_shader_vector_math(GPUMaterial *mat,
                                   bNode *node,
-                                  bNodeExecData *UNUSED(execdata),
+                                  bNodeExecData * /*execdata*/,
                                   GPUNodeStack *in,
                                   GPUNodeStack *out)
 {
@@ -225,78 +225,76 @@ static void node_shader_update_vector_math(bNodeTree *ntree, bNode *node)
   }
 }
 
-static const blender::fn::MultiFunction *get_multi_function(bNode &node)
+static const mf::MultiFunction *get_multi_function(const bNode &node)
 {
-  using blender::float3;
-
   NodeVectorMathOperation operation = NodeVectorMathOperation(node.custom1);
 
-  const blender::fn::MultiFunction *multi_fn = nullptr;
+  const mf::MultiFunction *multi_fn = nullptr;
 
-  blender::nodes::try_dispatch_float_math_fl3_fl3_to_fl3(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SO<float3, float3, float3> fn{
-            info.title_case_name.c_str(), function};
+  try_dispatch_float_math_fl3_fl3_to_fl3(
+      operation, [&](auto exec_preset, auto function, const FloatMathOperationInfo &info) {
+        static auto fn = mf::build::SI2_SO<float3, float3, float3>(
+            info.title_case_name.c_str(), function, exec_preset);
         multi_fn = &fn;
       });
   if (multi_fn != nullptr) {
     return multi_fn;
   }
 
-  blender::nodes::try_dispatch_float_math_fl3_fl3_fl3_to_fl3(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SI_SO<float3, float3, float3, float3> fn{
-            info.title_case_name.c_str(), function};
+  try_dispatch_float_math_fl3_fl3_fl3_to_fl3(
+      operation, [&](auto exec_preset, auto function, const FloatMathOperationInfo &info) {
+        static auto fn = mf::build::SI3_SO<float3, float3, float3, float3>(
+            info.title_case_name.c_str(), function, exec_preset);
         multi_fn = &fn;
       });
   if (multi_fn != nullptr) {
     return multi_fn;
   }
 
-  blender::nodes::try_dispatch_float_math_fl3_fl3_fl_to_fl3(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SI_SO<float3, float3, float, float3> fn{
-            info.title_case_name.c_str(), function};
+  try_dispatch_float_math_fl3_fl3_fl_to_fl3(
+      operation, [&](auto exec_preset, auto function, const FloatMathOperationInfo &info) {
+        static auto fn = mf::build::SI3_SO<float3, float3, float, float3>(
+            info.title_case_name.c_str(), function, exec_preset);
         multi_fn = &fn;
       });
   if (multi_fn != nullptr) {
     return multi_fn;
   }
 
-  blender::nodes::try_dispatch_float_math_fl3_fl3_to_fl(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SO<float3, float3, float> fn{
-            info.title_case_name.c_str(), function};
+  try_dispatch_float_math_fl3_fl3_to_fl(
+      operation, [&](auto exec_preset, auto function, const FloatMathOperationInfo &info) {
+        static auto fn = mf::build::SI2_SO<float3, float3, float>(
+            info.title_case_name.c_str(), function, exec_preset);
         multi_fn = &fn;
       });
   if (multi_fn != nullptr) {
     return multi_fn;
   }
 
-  blender::nodes::try_dispatch_float_math_fl3_fl_to_fl3(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SO<float3, float, float3> fn{
-            info.title_case_name.c_str(), function};
+  try_dispatch_float_math_fl3_fl_to_fl3(
+      operation, [&](auto exec_preset, auto function, const FloatMathOperationInfo &info) {
+        static auto fn = mf::build::SI2_SO<float3, float, float3>(
+            info.title_case_name.c_str(), function, exec_preset);
         multi_fn = &fn;
       });
   if (multi_fn != nullptr) {
     return multi_fn;
   }
 
-  blender::nodes::try_dispatch_float_math_fl3_to_fl3(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SO<float3, float3> fn{info.title_case_name.c_str(),
-                                                              function};
+  try_dispatch_float_math_fl3_to_fl3(
+      operation, [&](auto exec_preset, auto function, const FloatMathOperationInfo &info) {
+        static auto fn = mf::build::SI1_SO<float3, float3>(
+            info.title_case_name.c_str(), function, exec_preset);
         multi_fn = &fn;
       });
   if (multi_fn != nullptr) {
     return multi_fn;
   }
 
-  blender::nodes::try_dispatch_float_math_fl3_to_fl(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SO<float3, float> fn{info.title_case_name.c_str(),
-                                                             function};
+  try_dispatch_float_math_fl3_to_fl(
+      operation, [&](auto exec_preset, auto function, const FloatMathOperationInfo &info) {
+        static auto fn = mf::build::SI1_SO<float3, float>(
+            info.title_case_name.c_str(), function, exec_preset);
         multi_fn = &fn;
       });
   if (multi_fn != nullptr) {
@@ -306,10 +304,9 @@ static const blender::fn::MultiFunction *get_multi_function(bNode &node)
   return nullptr;
 }
 
-static void sh_node_vector_math_build_multi_function(
-    blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_vector_math_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
-  const blender::fn::MultiFunction *fn = get_multi_function(builder.node());
+  const mf::MultiFunction *fn = get_multi_function(builder.node());
   builder.set_matching_fn(fn);
 }
 
@@ -325,8 +322,8 @@ void register_node_type_sh_vect_math()
   ntype.declare = file_ns::sh_node_vector_math_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_vect_math;
   ntype.labelfunc = node_vector_math_label;
-  node_type_gpu(&ntype, file_ns::gpu_shader_vector_math);
-  node_type_update(&ntype, file_ns::node_shader_update_vector_math);
+  ntype.gpu_fn = file_ns::gpu_shader_vector_math;
+  ntype.updatefunc = file_ns::node_shader_update_vector_math;
   ntype.build_multi_function = file_ns::sh_node_vector_math_build_multi_function;
   ntype.gather_link_search_ops = file_ns::sh_node_vector_math_gather_link_searches;
 

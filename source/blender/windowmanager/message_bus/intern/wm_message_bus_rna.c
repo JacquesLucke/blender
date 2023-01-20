@@ -20,6 +20,7 @@
 #include "message_bus/intern/wm_message_bus_intern.h"
 
 #include "RNA_access.h"
+#include "RNA_path.h"
 
 /* -------------------------------------------------------------------- */
 /** \name Internal Utilities
@@ -27,8 +28,8 @@
 
 BLI_INLINE uint void_hash_uint(const void *key)
 {
-  size_t y = (size_t)key >> (sizeof(void *));
-  return (unsigned int)y;
+  size_t y = (size_t)key >> sizeof(void *);
+  return (uint)y;
 }
 
 static uint wm_msg_rna_gset_hash(const void *key_p)

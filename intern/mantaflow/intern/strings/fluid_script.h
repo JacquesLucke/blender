@@ -14,6 +14,7 @@
 const std::string manta_import =
     "\
 from manta import *\n\
+from math import inf\n\
 import os.path, shutil, math, sys, gc, multiprocessing, platform, time\n\
 \n\
 withMPBake = False # Bake files asynchronously\n\
@@ -739,13 +740,13 @@ file_format_data      = '$CACHE_DATA_FORMAT$'\n\
 file_format_mesh      = '$CACHE_MESH_FORMAT$'\n\
 \n\
 # How many frame to load from cache\n\
-from_cache_cnt = 100\n\
+from_cache_count = 100\n\
 \n\
-loop_cnt = 0\n\
+loop_count = 0\n\
 while current_frame_s$ID$ <= end_frame_s$ID$:\n\
     \n\
     # Load already simulated data from cache:\n\
-    if loop_cnt < from_cache_cnt:\n\
+    if loop_count < from_cache_count:\n\
         load_data(current_frame_s$ID$, cache_resumable)\n\
     \n\
     # Otherwise simulate new data\n\
@@ -756,7 +757,7 @@ while current_frame_s$ID$ <= end_frame_s$ID$:\n\
             step(current_frame_s$ID$)\n\
     \n\
     current_frame_s$ID$ += 1\n\
-    loop_cnt += 1\n\
+    loop_count += 1\n\
     \n\
     if gui:\n\
         gui.pause()\n";

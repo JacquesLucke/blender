@@ -4,14 +4,22 @@ set(INC
   ../include
   ../../blenkernel
   ../../blenlib
+  ../../blenloader
   ../../blentranslation
   ../../depsgraph
   ../../gpu
   ../../makesdna
   ../../makesrna
   ../../windowmanager
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
+
+  # dna_type_offsets.h
+  ${CMAKE_CURRENT_BINARY_DIR}/../../makesdna/intern
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
+)
+
+set(INC_SYS
 )
 
 set(SRC
@@ -34,17 +42,23 @@ set(LIB
 )
 
 if(WITH_AUDASPACE)
+  list(APPEND LIB
+    bf_intern_audaspace
+  )
   list(APPEND INC_SYS
     ${AUDASPACE_C_INCLUDE_DIRS}
   )
-  list(APPEND LIB
-    bf_intern_audaspace
-
-    ${AUDASPACE_C_LIBRARIES}
-    ${AUDASPACE_PY_LIBRARIES}
-  )
+  if(WITH_SYSTEM_AUDASPACE)
+    list(APPEND LIB
+      ${AUDASPACE_C_LIBRARIES}
+      ${AUDASPACE_PY_LIBRARIES}
+    )
+  endif()
   add_definitions(-DWITH_AUDASPACE)
 endif()
 
 
 blender_add_lib(bf_editor_space_graph "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+# RNA_prototypes.h dna_type_offsets.h
+add_dependencies(bf_editor_space_graph bf_rna)

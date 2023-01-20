@@ -65,6 +65,7 @@ void GPUPlatformGlobal::init(eGPUDeviceType gpu_device,
                              eGPUOSType os_type,
                              eGPUDriverType driver_type,
                              eGPUSupportLevel gpu_support_level,
+                             eGPUBackendType backend,
                              const char *vendor_str,
                              const char *renderer_str,
                              const char *version_str)
@@ -78,11 +79,16 @@ void GPUPlatformGlobal::init(eGPUDeviceType gpu_device,
   this->driver = driver_type;
   this->support_level = gpu_support_level;
 
-  this->vendor = BLI_strdup(vendor_str);
-  this->renderer = BLI_strdup(renderer_str);
-  this->version = BLI_strdup(version_str);
-  this->support_key = create_key(gpu_support_level, vendor_str, renderer_str, version_str);
-  this->gpu_name = create_gpu_name(vendor_str, renderer_str, version_str);
+  const char *vendor = vendor_str ? vendor_str : "UNKNOWN";
+  const char *renderer = renderer_str ? renderer_str : "UNKNOWN";
+  const char *version = version_str ? version_str : "UNKNOWN";
+
+  this->vendor = BLI_strdup(vendor);
+  this->renderer = BLI_strdup(renderer);
+  this->version = BLI_strdup(version);
+  this->support_key = create_key(gpu_support_level, vendor, renderer, version);
+  this->gpu_name = create_gpu_name(vendor, renderer, version);
+  this->backend = backend;
 }
 
 void GPUPlatformGlobal::clear()
@@ -143,8 +149,17 @@ const char *GPU_platform_gpu_name()
 
 bool GPU_type_matches(eGPUDeviceType device, eGPUOSType os, eGPUDriverType driver)
 {
+  return GPU_type_matches_ex(device, os, driver, GPU_BACKEND_ANY);
+}
+
+bool GPU_type_matches_ex(eGPUDeviceType device,
+                         eGPUOSType os,
+                         eGPUDriverType driver,
+                         eGPUBackendType backend)
+{
   BLI_assert(GPG.initialized);
-  return (GPG.device & device) && (GPG.os & os) && (GPG.driver & driver);
+  return (GPG.device & device) && (GPG.os & os) && (GPG.driver & driver) &&
+         (GPG.backend & backend);
 }
 
 /** \} */

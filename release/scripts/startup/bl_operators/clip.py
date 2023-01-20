@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 import bpy
 from bpy.types import Operator
 from bpy.props import FloatProperty
@@ -8,6 +6,7 @@ from mathutils import (
     Vector,
     Matrix,
 )
+from bpy.app.translations import pgettext_tip as tip_
 
 
 def CLIP_spaces_walk(context, all_screens, tarea, tspace, callback, *args):
@@ -107,8 +106,8 @@ def CLIP_default_settings_from_track(clip, track, framenr):
     search[1] = search[1] * height
 
     settings.default_correlation_min = track.correlation_min
-    settings.default_pattern_size = max(pattern[0], pattern[1])
-    settings.default_search_size = max(search[0], search[1])
+    settings.default_pattern_size = int(max(pattern[0], pattern[1]))
+    settings.default_search_size = int(max(search[0], search[1]))
     settings.default_frames_limit = track.frames_limit
     settings.default_pattern_match = track.pattern_match
     settings.default_margin = track.margin
@@ -195,7 +194,7 @@ class CLIP_OT_filter_tracks(Operator):
 
     def execute(self, context):
         num_tracks = self._filter_values(context, self.track_threshold)
-        self.report({'INFO'}, "Identified %d problematic tracks" % num_tracks)
+        self.report({'INFO'}, tip_("Identified %d problematic tracks") % num_tracks)
         return {'FINISHED'}
 
 
@@ -541,7 +540,7 @@ class CLIP_OT_setup_tracking_scene(Operator):
         sc = context.space_data
         if sc and sc.type == 'CLIP_EDITOR':
             clip = sc.clip
-            if clip and clip.tracking.reconstruction.is_valid:
+            if clip and clip.tracking.objects.active.reconstruction.is_valid:
                 return True
         return False
 
@@ -621,7 +620,7 @@ class CLIP_OT_setup_tracking_scene(Operator):
         if not view_layers.get("Foreground"):
             if len(view_layers) == 1:
                 fg = view_layers[0]
-                fg.name = 'Foreground'
+                fg.name = "Foreground"
             else:
                 fg = view_layers.new("Foreground")
 
@@ -1029,7 +1028,7 @@ class CLIP_OT_track_settings_to_track(Operator):
         "use_red_channel",
         "use_green_channel",
         "use_blue_channel",
-        "weight"
+        "weight",
     )
 
     _attrs_marker = (

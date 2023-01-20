@@ -17,7 +17,6 @@ struct ARegion;
 struct FileAssetSelectParams;
 struct FileDirEntry;
 struct FileSelectParams;
-struct Scene;
 struct ScrArea;
 struct SpaceFile;
 struct bContext;
@@ -136,7 +135,7 @@ bool ED_fileselect_layout_isect_rect(const FileLayout *layout,
                                      const struct View2D *v2d,
                                      const struct rcti *rect,
                                      struct rcti *r_dst);
-void ED_fileselect_layout_tilepos(FileLayout *layout, int tile, int *x, int *y);
+void ED_fileselect_layout_tilepos(const FileLayout *layout, int tile, int *x, int *y);
 
 void ED_operatormacros_file(void);
 
@@ -164,8 +163,24 @@ void ED_fileselect_window_params_get(const struct wmWindow *win,
                                      int win_size[2],
                                      bool *is_maximized);
 
+/**
+ * Return the File Browser area in which \a file_operator is active.
+ */
 struct ScrArea *ED_fileselect_handler_area_find(const struct wmWindow *win,
                                                 const struct wmOperator *file_operator);
+/**
+ * Check if there is any area in \a win that acts as a modal File Browser (#SpaceFile.op is set)
+ * and return it.
+ */
+struct ScrArea *ED_fileselect_handler_area_find_any_with_op(const struct wmWindow *win);
+
+/**
+ * If filepath property is not set on the operator, sets it to
+ * the blend file path (or untitled if file is not saved yet) with the given extension.
+ */
+void ED_fileselect_ensure_default_filepath(struct bContext *C,
+                                           struct wmOperator *op,
+                                           const char *extension);
 
 /* TODO: Maybe we should move this to BLI?
  * On the other hand, it's using defines from space-file area, so not sure... */
@@ -216,6 +231,8 @@ typedef enum FSMenuInsert {
   FS_INSERT_FIRST = (1 << 2),
   /** just append to preserve delivered order */
   FS_INSERT_LAST = (1 << 3),
+  /** Do not validate the link when inserted. */
+  FS_INSERT_NO_VALIDATE = (1 << 4),
 } FSMenuInsert;
 
 struct FSMenu;

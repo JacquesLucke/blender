@@ -90,7 +90,7 @@ PyDoc_STRVAR(
 PyDoc_STRVAR(bpy_bmlayeraccess_collection__bevel_weight_doc,
              "Bevel weight float in [0 - 1].\n\n:type: :class:`BMLayerCollection`");
 PyDoc_STRVAR(bpy_bmlayeraccess_collection__crease_doc,
-             "Edge crease for subdivision surface - float in [0 - 1].\n\n:type: "
+             "Crease for subdivision surface - float in [0 - 1].\n\n:type: "
              ":class:`BMLayerCollection`");
 PyDoc_STRVAR(
     bpy_bmlayeraccess_collection__uv_doc,
@@ -193,7 +193,7 @@ static PyGetSetDef bpy_bmlayeraccess_vert_getseters[] = {
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
      bpy_bmlayeraccess_collection__color_doc,
-     (void *)CD_MLOOPCOL},
+     (void *)CD_PROP_BYTE_COLOR},
     {"string",
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
@@ -210,6 +210,11 @@ static PyGetSetDef bpy_bmlayeraccess_vert_getseters[] = {
      (setter)NULL,
      bpy_bmlayeraccess_collection__bevel_weight_doc,
      (void *)CD_BWEIGHT},
+    {"crease",
+     (getter)bpy_bmlayeraccess_collection_get,
+     (setter)NULL,
+     bpy_bmlayeraccess_collection__crease_doc,
+     (void *)CD_CREASE},
     {"skin",
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
@@ -249,7 +254,7 @@ static PyGetSetDef bpy_bmlayeraccess_edge_getseters[] = {
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
      bpy_bmlayeraccess_collection__color_doc,
-     (void *)CD_MLOOPCOL},
+     (void *)CD_PROP_BYTE_COLOR},
     {"string",
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
@@ -302,7 +307,7 @@ static PyGetSetDef bpy_bmlayeraccess_face_getseters[] = {
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
      bpy_bmlayeraccess_collection__color_doc,
-     (void *)CD_MLOOPCOL},
+     (void *)CD_PROP_BYTE_COLOR},
     {"string",
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
@@ -355,12 +360,12 @@ static PyGetSetDef bpy_bmlayeraccess_loop_getseters[] = {
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
      bpy_bmlayeraccess_collection__uv_doc,
-     (void *)CD_MLOOPUV},
+     (void *)CD_PROP_FLOAT2},
     {"color",
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
      bpy_bmlayeraccess_collection__color_doc,
-     (void *)CD_MLOOPCOL},
+     (void *)CD_PROP_BYTE_COLOR},
 
     {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
@@ -457,6 +462,12 @@ static PyObject *bpy_bmlayercollection_verify(BPy_BMLayerCollection *self)
     BM_data_layer_add(self->bm, data, self->type);
     index = 0;
   }
+  if (self->type == CD_PROP_FLOAT2 && self->htype == BM_LOOP) {
+    /* Because adding CustomData layers to a bmesh will invalidate any existing pointers
+     * in Py objects we can't lazily add the associated bool layers. So add them all right
+     * now. */
+    BM_uv_map_ensure_select_and_pin_attrs(self->bm);
+  }
 
   BLI_assert(index >= 0);
 
@@ -496,6 +507,13 @@ static PyObject *bpy_bmlayercollection_new(BPy_BMLayerCollection *self, PyObject
   }
   else {
     BM_data_layer_add(self->bm, data, self->type);
+  }
+
+  if (self->type == CD_PROP_FLOAT2 && self->htype == BM_LOOP) {
+    /* Because adding CustomData layers to a bmesh will invalidate any existing pointers
+     * in Py objects we can't lazily add the associated bool layers. So add them all right
+     * now. */
+    BM_uv_map_ensure_select_and_pin_attrs(self->bm);
   }
 
   index = CustomData_number_of_layers(data, self->type) - 1;
@@ -735,7 +753,8 @@ static PyObject *bpy_bmlayercollection_subscript_str(BPy_BMLayerCollection *self
   return NULL;
 }
 
-static PyObject *bpy_bmlayercollection_subscript_int(BPy_BMLayerCollection *self, int keynum)
+static PyObject *bpy_bmlayercollection_subscript_int(BPy_BMLayerCollection *self,
+                                                     Py_ssize_t keynum)
 {
   Py_ssize_t len;
   BPY_BM_CHECK_OBJ(self);
@@ -866,23 +885,23 @@ static int bpy_bmlayercollection_contains(BPy_BMLayerCollection *self, PyObject 
 }
 
 static PySequenceMethods bpy_bmlayercollection_as_sequence = {
-    (lenfunc)bpy_bmlayercollection_length, /* sq_length */
-    NULL,                                  /* sq_concat */
-    NULL,                                  /* sq_repeat */
-    (ssizeargfunc)bpy_bmlayercollection_subscript_int,
-    /* sq_item */          /* Only set this so PySequence_Check() returns True */
-    NULL,                  /* sq_slice */
-    (ssizeobjargproc)NULL, /* sq_ass_item */
-    NULL,                  /* *was* sq_ass_slice */
-    (objobjproc)bpy_bmlayercollection_contains, /* sq_contains */
-    (binaryfunc)NULL,                           /* sq_inplace_concat */
-    (ssizeargfunc)NULL,                         /* sq_inplace_repeat */
+    /*sq_length*/ (lenfunc)bpy_bmlayercollection_length,
+    /*sq_concat*/ NULL,
+    /*sq_repeat*/ NULL,
+    /* Only set this so `PySequence_Check()` returns True. */
+    /*sq_item*/ (ssizeargfunc)bpy_bmlayercollection_subscript_int,
+    /*was_sq_slice*/ NULL, /* DEPRECATED. */
+    /*sq_ass_item*/ NULL,
+    /*was_sq_ass_slice*/ NULL, /* DEPRECATED. */
+    /*sq_contains*/ (objobjproc)bpy_bmlayercollection_contains,
+    /*sq_inplace_concat*/ NULL,
+    /*sq_inplace_repeat*/ NULL,
 };
 
 static PyMappingMethods bpy_bmlayercollection_as_mapping = {
-    (lenfunc)bpy_bmlayercollection_length,       /* mp_length */
-    (binaryfunc)bpy_bmlayercollection_subscript, /* mp_subscript */
-    (objobjargproc)NULL,                         /* mp_ass_subscript */
+    /*mp_len*/ (lenfunc)bpy_bmlayercollection_length,
+    /*mp_subscript*/ (binaryfunc)bpy_bmlayercollection_subscript,
+    /*mp_ass_subscript*/ (objobjargproc)NULL,
 };
 
 /* Iterator
@@ -1125,11 +1144,15 @@ PyObject *BPy_BMLayerItem_GetItem(BPy_BMElem *py_ele, BPy_BMLayerItem *py_layer)
       ret = PyBytes_FromStringAndSize(mstring->s, mstring->s_len);
       break;
     }
-    case CD_MLOOPUV: {
-      ret = BPy_BMLoopUV_CreatePyObject(value);
+    case CD_PROP_FLOAT2: {
+      if (UNLIKELY(py_ele->bm != py_layer->bm)) {
+        PyErr_SetString(PyExc_ValueError, "BMElem[layer]: layer is from another mesh");
+        return NULL;
+      }
+      ret = BPy_BMLoopUV_CreatePyObject(py_ele->bm, (BMLoop *)py_ele->ele);
       break;
     }
-    case CD_MLOOPCOL: {
+    case CD_PROP_BYTE_COLOR: {
       ret = BPy_BMLoopColor_CreatePyObject(value);
       break;
     }
@@ -1227,11 +1250,17 @@ int BPy_BMLayerItem_SetItem(BPy_BMElem *py_ele, BPy_BMLayerItem *py_layer, PyObj
       }
       break;
     }
-    case CD_MLOOPUV: {
-      ret = BPy_BMLoopUV_AssignPyObject(value, py_value);
+    case CD_PROP_FLOAT2: {
+      if (UNLIKELY(py_ele->bm != py_layer->bm)) {
+        PyErr_SetString(PyExc_ValueError, "BMElem[layer]: layer is from another mesh");
+        ret = -1;
+      }
+      else {
+        ret = BPy_BMLoopUV_AssignPyObject(py_ele->bm, (BMLoop *)py_ele->ele, py_value);
+      }
       break;
     }
-    case CD_MLOOPCOL: {
+    case CD_PROP_BYTE_COLOR: {
       ret = BPy_BMLoopColor_AssignPyObject(value, py_value);
       break;
     }

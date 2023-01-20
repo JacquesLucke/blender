@@ -17,9 +17,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Float>(N_("Density"));
 }
 
-static void node_shader_buts_tex_pointdensity(uiLayout *layout,
-                                              bContext *UNUSED(C),
-                                              PointerRNA *ptr)
+static void node_shader_buts_tex_pointdensity(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   bNode *node = (bNode *)ptr->data;
   NodeShaderTexPointDensity *shader_point_density = (NodeShaderTexPointDensity *)node->storage;
@@ -63,9 +61,9 @@ static void node_shader_buts_tex_pointdensity(uiLayout *layout,
   }
 }
 
-static void node_shader_init_tex_pointdensity(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_tex_pointdensity(bNodeTree * /*ntree*/, bNode *node)
 {
-  NodeShaderTexPointDensity *point_density = MEM_cnew<NodeShaderTexPointDensity>("new pd node");
+  NodeShaderTexPointDensity *point_density = MEM_new<NodeShaderTexPointDensity>("new pd node");
   point_density->resolution = 100;
   point_density->radius = 0.3f;
   point_density->space = SHD_POINTDENSITY_SPACE_OBJECT;
@@ -79,18 +77,18 @@ static void node_shader_free_tex_pointdensity(bNode *node)
   PointDensity *pd = &point_density->pd;
   RE_point_density_free(pd);
   BKE_texture_pointdensity_free_data(pd);
-  memset(pd, 0, sizeof(*pd));
+  *pd = dna::shallow_zero_initialize();
   MEM_freeN(point_density);
 }
 
-static void node_shader_copy_tex_pointdensity(bNodeTree *UNUSED(dest_ntree),
+static void node_shader_copy_tex_pointdensity(bNodeTree * /*dst_ntree*/,
                                               bNode *dest_node,
                                               const bNode *src_node)
 {
   dest_node->storage = MEM_dupallocN(src_node->storage);
   NodeShaderTexPointDensity *point_density = (NodeShaderTexPointDensity *)dest_node->storage;
   PointDensity *pd = &point_density->pd;
-  memset(pd, 0, sizeof(*pd));
+  *pd = dna::shallow_zero_initialize();
 }
 
 }  // namespace blender::nodes::node_shader_tex_pointdensity_cc
@@ -105,7 +103,7 @@ void register_node_type_sh_tex_pointdensity()
   sh_node_type_base(&ntype, SH_NODE_TEX_POINTDENSITY, "Point Density", NODE_CLASS_TEXTURE);
   ntype.declare = file_ns::node_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_tex_pointdensity;
-  node_type_init(&ntype, file_ns::node_shader_init_tex_pointdensity);
+  ntype.initfunc = file_ns::node_shader_init_tex_pointdensity;
   node_type_storage(&ntype,
                     "NodeShaderTexPointDensity",
                     file_ns::node_shader_free_tex_pointdensity,

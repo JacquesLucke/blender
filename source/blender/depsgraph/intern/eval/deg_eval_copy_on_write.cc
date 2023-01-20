@@ -41,6 +41,7 @@
 #include "DNA_ID.h"
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
+#include "DNA_gpencil_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
@@ -125,7 +126,7 @@ void nested_id_hack_discard_pointers(ID *id_cow)
     SPECIAL_CASE(ID_WO, World, nodetree)
     SPECIAL_CASE(ID_SIM, Simulation, nodetree)
 
-    SPECIAL_CASE(ID_CU, Curve, key)
+    SPECIAL_CASE(ID_CU_LEGACY, Curve, key)
     SPECIAL_CASE(ID_LT, Lattice, key)
     SPECIAL_CASE(ID_ME, Mesh, key)
 
@@ -162,7 +163,7 @@ const ID *nested_id_hack_get_discarded_pointers(NestedIDHackTempStorage *storage
   switch (GS(id->name)) {
 #  define SPECIAL_CASE(id_type, dna_type, field, variable) \
     case id_type: { \
-      storage->variable = *(dna_type *)id; \
+      storage->variable = dna::shallow_copy(*(dna_type *)id); \
       storage->variable.field = nullptr; \
       return &storage->variable.id; \
     }
@@ -174,7 +175,7 @@ const ID *nested_id_hack_get_discarded_pointers(NestedIDHackTempStorage *storage
     SPECIAL_CASE(ID_WO, World, nodetree, world)
     SPECIAL_CASE(ID_SIM, Simulation, nodetree, simulation)
 
-    SPECIAL_CASE(ID_CU, Curve, key, curve)
+    SPECIAL_CASE(ID_CU_LEGACY, Curve, key, curve)
     SPECIAL_CASE(ID_LT, Lattice, key, lattice)
     SPECIAL_CASE(ID_ME, Mesh, key, mesh)
 
@@ -214,7 +215,7 @@ void nested_id_hack_restore_pointers(const ID *old_id, ID *new_id)
     SPECIAL_CASE(ID_WO, World, nodetree)
     SPECIAL_CASE(ID_SIM, Simulation, nodetree)
 
-    SPECIAL_CASE(ID_CU, Curve, key)
+    SPECIAL_CASE(ID_CU_LEGACY, Curve, key)
     SPECIAL_CASE(ID_LT, Lattice, key)
     SPECIAL_CASE(ID_ME, Mesh, key)
 
@@ -252,7 +253,7 @@ void ntree_hack_remap_pointers(const Depsgraph *depsgraph, ID *id_cow)
     SPECIAL_CASE(ID_WO, World, nodetree, bNodeTree)
     SPECIAL_CASE(ID_SIM, Simulation, nodetree, bNodeTree)
 
-    SPECIAL_CASE(ID_CU, Curve, key, Key)
+    SPECIAL_CASE(ID_CU_LEGACY, Curve, key, Key)
     SPECIAL_CASE(ID_LT, Lattice, key, Key)
     SPECIAL_CASE(ID_ME, Mesh, key, Key)
 
@@ -413,13 +414,16 @@ void scene_remove_all_bases(Scene *scene_cow)
 
 /* Makes it so given view layer only has bases corresponding to enabled
  * objects. */
-void view_layer_remove_disabled_bases(const Depsgraph *depsgraph, ViewLayer *view_layer)
+void view_layer_remove_disabled_bases(const Depsgraph *depsgraph,
+                                      const Scene *scene,
+                                      ViewLayer *view_layer)
 {
   if (view_layer == nullptr) {
     return;
   }
   ListBase enabled_bases = {nullptr, nullptr};
-  LISTBASE_FOREACH_MUTABLE (Base *, base, &view_layer->object_bases) {
+  BKE_view_layer_synced_ensure(scene, view_layer);
+  LISTBASE_FOREACH_MUTABLE (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
     /* TODO(sergey): Would be cool to optimize this somehow, or make it so
      * builder tags bases.
      *
@@ -478,7 +482,7 @@ void scene_setup_view_layers_after_remap(const Depsgraph *depsgraph,
   const ViewLayer *view_layer_orig = get_original_view_layer(depsgraph, id_node);
   ViewLayer *view_layer_eval = reinterpret_cast<ViewLayer *>(scene_cow->view_layers.first);
   view_layer_update_orig_base_pointers(view_layer_orig, view_layer_eval);
-  view_layer_remove_disabled_bases(depsgraph, view_layer_eval);
+  view_layer_remove_disabled_bases(depsgraph, scene_cow, view_layer_eval);
   /* TODO(sergey): Remove objects from collections as well.
    * Not a HUGE deal for now, nobody is looking into those CURRENTLY.
    * Still not an excuse to have those. */
@@ -578,7 +582,7 @@ void update_edit_mode_pointers(const Depsgraph *depsgraph, const ID *id_orig, ID
     case ID_ME:
       update_mesh_edit_mode_pointers(id_orig, id_cow);
       break;
-    case ID_CU:
+    case ID_CU_LEGACY:
       update_curve_edit_mode_pointers(depsgraph, id_orig, id_cow);
       break;
     case ID_MB:
@@ -733,6 +737,16 @@ void update_id_after_copy(const Depsgraph *depsgraph,
       scene_setup_view_layers_after_remap(depsgraph, id_node, reinterpret_cast<Scene *>(id_cow));
       break;
     }
+    /* FIXME: This is a temporary fix to update the runtime pointers properly, see T96216. Should
+     * be removed at some point. */
+    case ID_GD: {
+      bGPdata *gpd_cow = (bGPdata *)id_cow;
+      bGPDlayer *gpl = (bGPDlayer *)(gpd_cow->layers.first);
+      if (gpl != nullptr && gpl->runtime.gpl_orig == nullptr) {
+        BKE_gpencil_data_update_orig_pointers((bGPdata *)id_orig, gpd_cow);
+      }
+      break;
+    }
     default:
       break;
   }
@@ -861,7 +875,9 @@ ID *deg_update_copy_on_write_datablock(const Depsgraph *depsgraph, const IDNode 
    * TODO: Investigate modes besides edit-mode. */
   if (check_datablock_expanded(id_cow) && !id_node->is_cow_explicitly_tagged) {
     const ID_Type id_type = GS(id_orig->name);
-    if (OB_DATA_SUPPORT_EDITMODE(id_type) && BKE_object_data_is_in_editmode(id_orig)) {
+    /* Pass nullptr as the object is only needed for Curves which do not have edit mode pointers.
+     */
+    if (OB_DATA_SUPPORT_EDITMODE(id_type) && BKE_object_data_is_in_editmode(nullptr, id_orig)) {
       /* Make sure pointers in the edit mode data are updated in the copy.
        * This allows depsgraph to pick up changes made in another context after it has been
        * evaluated. Consider the following scenario:
@@ -875,7 +891,7 @@ ID *deg_update_copy_on_write_datablock(const Depsgraph *depsgraph, const IDNode 
       return id_cow;
     }
     /* In case we don't need to do a copy-on-write, we can use the update cache of the grease
-     * pencil data to do an update-on-write.*/
+     * pencil data to do an update-on-write. */
     if (id_type == ID_GD && BKE_gpencil_can_avoid_full_copy_on_write(
                                 (const ::Depsgraph *)depsgraph, (bGPdata *)id_orig)) {
       BKE_gpencil_update_on_write((bGPdata *)id_orig, (bGPdata *)id_cow);
@@ -953,7 +969,7 @@ void discard_edit_mode_pointers(ID *id_cow)
     case ID_ME:
       discard_mesh_edit_mode_pointers(id_cow);
       break;
-    case ID_CU:
+    case ID_CU_LEGACY:
       discard_curve_edit_mode_pointers(id_cow);
       break;
     case ID_MB:
@@ -975,7 +991,7 @@ void discard_edit_mode_pointers(ID *id_cow)
 }  // namespace
 
 /**
-   Free content of the CoW data-block.
+ *  Free content of the CoW data-block.
  * Notes:
  * - Does not recurse into nested ID data-blocks.
  * - Does not free data-block itself.

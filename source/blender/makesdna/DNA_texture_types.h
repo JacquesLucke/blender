@@ -25,12 +25,14 @@ struct PreviewImage;
 struct Tex;
 
 typedef struct MTex {
+  DNA_DEFINE_CXX_METHODS(MTex)
 
   short texco, mapto, maptoneg, blendtype;
   struct Object *object;
   struct Tex *tex;
   /** MAX_CUSTOMDATA_LAYER_NAME. */
-  char uvname[64];
+  char uvname[68];
+  char _pad1[4];
 
   char projx, projy, projz, mapping;
   char brush_map_mode, brush_angle_mode;
@@ -96,6 +98,8 @@ typedef struct ColorBand {
 } ColorBand;
 
 typedef struct PointDensity {
+  DNA_DEFINE_CXX_METHODS(PointDensity)
+
   short flag;
 
   short falloff_type;
@@ -112,14 +116,15 @@ typedef struct PointDensity {
 
   /** for 'Object' or 'Particle system' type - source object */
   struct Object *object;
-  /** `index + 1` in ob.particlesystem, non-ID pointer not allowed */
+  /** `index + 1` in ob.particle-system, non-ID pointer not allowed. */
   int psys;
   /** cache points in world-space, object space, ... ? */
   short psys_cache_space;
   /** cache points in world-space, object space, ... ? */
   short ob_cache_space;
   /** vertex attribute layer for color source, MAX_CUSTOMDATA_LAYER_NAME */
-  char vertex_attribute_name[64];
+  char vertex_attribute_name[68];
+  char _pad1[4];
 
   /** The acceleration tree containing points. */
   void *point_tree;
@@ -130,11 +135,11 @@ typedef struct PointDensity {
   short noise_depth;
   short noise_influence;
   short noise_basis;
-  char _pad1[6];
+  char _pad2[6];
   float noise_fac;
 
   float speed_scale, falloff_speed_scale;
-  char _pad2[4];
+  char _pad3[4];
   /** For time -> color */
   struct ColorBand *coba;
 
@@ -143,6 +148,8 @@ typedef struct PointDensity {
 } PointDensity;
 
 typedef struct Tex {
+  DNA_DEFINE_CXX_METHODS(Tex)
+
   ID id;
   /** Animation data (must be immediately after id for utilities to use it). */
   struct AnimData *adt;
@@ -392,8 +399,7 @@ typedef struct ColorMapping {
 
 /* return value */
 #define TEX_INT 0
-#define TEX_RGB (1 << 0)
-#define TEX_NOR (1 << 1)
+#define TEX_RGB 1
 
 /* pr_texture in material, world, light. */
 #define TEX_PR_TEXTURE 0

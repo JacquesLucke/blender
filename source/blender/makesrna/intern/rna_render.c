@@ -118,7 +118,7 @@ static int engine_get_preview_pixel_size(RenderEngine *UNUSED(engine), Scene *sc
 
 static void engine_bind_display_space_shader(RenderEngine *UNUSED(engine), Scene *UNUSED(scene))
 {
-  GPUShader *shader = GPU_shader_get_builtin_shader(GPU_SHADER_2D_IMAGE);
+  GPUShader *shader = GPU_shader_get_builtin_shader(GPU_SHADER_3D_IMAGE);
   GPU_shader_bind(shader);
 
   int img_loc = GPU_shader_get_uniform(shader, "image");
@@ -483,9 +483,10 @@ static void rna_RenderLayer_passes_begin(CollectionPropertyIterator *iter, Point
   rna_iterator_listbase_begin(iter, &rl->passes, NULL);
 }
 
-static int rna_RenderPass_rect_get_length(PointerRNA *ptr, int length[RNA_MAX_ARRAY_DIMENSION])
+static int rna_RenderPass_rect_get_length(const PointerRNA *ptr,
+                                          int length[RNA_MAX_ARRAY_DIMENSION])
 {
-  RenderPass *rpass = (RenderPass *)ptr->data;
+  const RenderPass *rpass = (RenderPass *)ptr->data;
 
   length[0] = rpass->rectx * rpass->recty;
   length[1] = rpass->channels;

@@ -36,12 +36,12 @@ class MemLeakPrinter {
     const size_t mem_in_use = MEM_get_memory_in_use();
     printf("Error: Not freed memory blocks: %u, total unfreed memory %f MB\n",
            leaked_blocks,
-           (double)mem_in_use / 1024 / 1024);
+           double(mem_in_use) / 1024 / 1024);
     MEM_printmemlist();
 
     if (fail_on_memleak) {
       /* There are many other ways to change the exit code to failure here:
-       * - Make the destructor noexcept(false) and throw an exception.
+       * - Make the destructor `noexcept(false)` and throw an exception.
        * - Call exit(EXIT_FAILURE).
        * - Call terminate().
        */
@@ -53,6 +53,9 @@ class MemLeakPrinter {
 
 void MEM_init_memleak_detection()
 {
+  /* Calling this ensures that the memory usage counters outlive the memory leak detection. */
+  memory_usage_init();
+
   /**
    * This variable is constructed when this function is first called. This should happen as soon as
    * possible when the program starts.

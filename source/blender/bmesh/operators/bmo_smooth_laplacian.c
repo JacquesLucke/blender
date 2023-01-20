@@ -37,7 +37,7 @@ struct BLaplacianSystem {
   BMOperator *op;
   LinearSolver *context;
 
-  /*Data*/
+  /* Data. */
   float min_area;
 };
 typedef struct BLaplacianSystem LaplacianSystem;
@@ -135,7 +135,7 @@ static LaplacianSystem *init_laplacian_system(int a_numEdges, int a_numLoops, in
 }
 
 /**
- * Compute weight between vertice v_i and all your neighbors
+ * Compute weight between vertex v_i and all your neighbors
  * weight between v_i and v_neighbor
  * <pre>
  * Wij = cot(alpha) + cot(beta) / (4.0 * total area of all faces  * sum all weight)
@@ -223,7 +223,7 @@ static void init_laplacian_matrix(LaplacianSystem *sys)
       sys->vweights[vi_prev] += w1 + w2;
       sys->vweights[vi_curr] += w2 + w3;
       sys->vweights[vi_next] += w1 + w3;
-    } while (((void)(l_curr_index += 1), (l_iter = l_iter->next) != l_first));
+    } while ((void)(l_curr_index += 1), (l_iter = l_iter->next) != l_first);
   }
 }
 
@@ -293,7 +293,7 @@ static void fill_laplacian_matrix(LaplacianSystem *sys)
       ok_prev = ok_curr;
       ok_curr = ok_next;
 
-    } while (((void)(l_curr_index += 1), (l_iter = l_iter->next) != l_first));
+    } while ((void)(l_curr_index += 1), (l_iter = l_iter->next) != l_first);
   }
   BM_ITER_MESH_INDEX (e, &eiter, sys->bm, BM_EDGES_OF_MESH, i) {
     if (BM_elem_flag_test(e, BM_ELEM_SELECT) || !BM_edge_is_boundary(e)) {

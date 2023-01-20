@@ -56,12 +56,12 @@ typedef struct bScreen {
   short flag;
   /** Winid from WM, starts with 1. */
   short winid;
-  /** User-setting for which editors get redrawn during anim playback. */
+  /** User-setting for which editors get redrawn during animation playback. */
   short redraws_flag;
 
-  /** Temp screen in a temp window, don't save (like user prefs). */
+  /** Temp screen in a temp window, don't save (like user-preferences). */
   char temp;
-  /** Temp screen for image render display or fileselect. */
+  /** Temp screen for image render display or file-select. */
   char state;
   /** Notifier for drawing edges. */
   char do_draw;
@@ -305,12 +305,6 @@ typedef struct uiList { /* some list UI data need to be saved in file */
   int filter_flag;
   int filter_sort_flag;
 
-  /** Operator executed when activating an item. */
-  const char *custom_activate_opname;
-  /** Operator executed when dragging an item (item gets activated too, without running
-   * custom_activate_opname above). */
-  const char *custom_drag_opname;
-
   /* Custom sub-classes properties. */
   IDProperty *properties;
 
@@ -443,7 +437,7 @@ typedef struct ARegion_Runtime {
    * Lazy initialize, zero'd when unset, relative to #ARegion.winrct x/y min. */
   rcti visible_rect;
 
-  /* The offset needed to not overlap with window scrollbars. Only used by HUD regions for now. */
+  /* The offset needed to not overlap with window scroll-bars. Only used by HUD regions for now. */
   int offset_x, offset_y;
 
   /* Maps uiBlock->name to uiBlock for faster lookups. */
@@ -483,7 +477,7 @@ typedef struct ARegion {
   short do_draw_paintcursor;
   /** Private, set for indicate drawing overlapped. */
   short overlap;
-  /** Temporary copy of flag settings for clean fullscreen. */
+  /** Temporary copy of flag settings for clean full-screen. */
   short flagfullscreen;
 
   /** Callbacks for this region type. */
@@ -540,10 +534,12 @@ enum {
   AREA_FLAG_STACKED_FULLSCREEN = (1 << 7),
   /** Update action zones (even if the mouse is not intersecting them). */
   AREA_FLAG_ACTIONZONES_UPDATE = (1 << 8),
+  /** For off-screen areas. */
+  AREA_FLAG_OFFSCREEN = (1 << 9),
 };
 
 #define AREAGRID 4
-#define AREAMINX 32
+#define AREAMINX 29
 #define HEADER_PADDING_Y 6
 #define HEADERY (20 + HEADER_PADDING_Y)
 
@@ -632,7 +628,7 @@ enum {
   /* Bitflags affecting behavior of any kind of sorting. */
   /** Special flag to indicate that order is locked (not user-changeable). */
   UILST_FLT_SORT_LOCK = 1u << 30,
-  /** Special value, bitflag used to reverse order! */
+  /** Special value, bit-flag used to reverse order! */
   UILST_FLT_SORT_REVERSE = 1u << 31,
 };
 
@@ -662,7 +658,7 @@ typedef enum eRegion_Type {
    * context (surface, mirror view). Does not represent any real region. */
   RGN_TYPE_XR = 13,
 
-#define RGN_TYPE_LEN (RGN_TYPE_XR + 1)
+#define RGN_TYPE_NUM (RGN_TYPE_XR + 1)
 } eRegion_Type;
 
 /* use for function args */

@@ -118,9 +118,9 @@ void OCIO_configGetDefaultLumaCoefs(OCIO_ConstConfigRcPtr *config, float *rgb)
   impl->configGetDefaultLumaCoefs(config, rgb);
 }
 
-void OCIO_configGetXYZtoRGB(OCIO_ConstConfigRcPtr *config, float xyz_to_rgb[3][3])
+void OCIO_configGetXYZtoSceneLinear(OCIO_ConstConfigRcPtr *config, float xyz_to_scene_linear[3][3])
 {
-  impl->configGetXYZtoRGB(config, xyz_to_rgb);
+  impl->configGetXYZtoSceneLinear(config, xyz_to_scene_linear);
 }
 
 int OCIO_configGetNumLooks(OCIO_ConstConfigRcPtr *config)
@@ -234,15 +234,27 @@ const char *OCIO_colorSpaceGetFamily(OCIO_ConstColorSpaceRcPtr *cs)
   return impl->colorSpaceGetFamily(cs);
 }
 
+int OCIO_colorSpaceGetNumAliases(OCIO_ConstColorSpaceRcPtr *cs)
+{
+  return impl->colorSpaceGetNumAliases(cs);
+}
+
+const char *OCIO_colorSpaceGetAlias(OCIO_ConstColorSpaceRcPtr *cs, const int index)
+{
+  return impl->colorSpaceGetAlias(cs, index);
+}
+
 OCIO_ConstProcessorRcPtr *OCIO_createDisplayProcessor(OCIO_ConstConfigRcPtr *config,
                                                       const char *input,
                                                       const char *view,
                                                       const char *display,
                                                       const char *look,
                                                       const float scale,
-                                                      const float exponent)
+                                                      const float exponent,
+                                                      const bool inverse)
 {
-  return impl->createDisplayProcessor(config, input, view, display, look, scale, exponent);
+  return impl->createDisplayProcessor(
+      config, input, view, display, look, scale, exponent, inverse);
 }
 
 OCIO_PackedImageDesc *OCIO_createOCIO_PackedImageDesc(float *data,

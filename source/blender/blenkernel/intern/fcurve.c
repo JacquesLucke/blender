@@ -37,6 +37,7 @@
 #include "BLO_read_write.h"
 
 #include "RNA_access.h"
+#include "RNA_path.h"
 
 #include "CLG_log.h"
 
@@ -84,8 +85,6 @@ void BKE_fcurve_free(FCurve *fcu)
 
 void BKE_fcurves_free(ListBase *list)
 {
-  FCurve *fcu, *fcn;
-
   /* Sanity check. */
   if (list == NULL) {
     return;
@@ -95,7 +94,8 @@ void BKE_fcurves_free(ListBase *list)
    * as we store reference to next, and freeing only touches the curve
    * it's given.
    */
-  for (fcu = list->first; fcu; fcu = fcn) {
+  FCurve *fcn = NULL;
+  for (FCurve *fcu = list->first; fcu; fcu = fcn) {
     fcn = fcu->next;
     BKE_fcurve_free(fcu);
   }
@@ -112,15 +112,13 @@ void BKE_fcurves_free(ListBase *list)
 
 FCurve *BKE_fcurve_copy(const FCurve *fcu)
 {
-  FCurve *fcu_d;
-
   /* Sanity check. */
   if (fcu == NULL) {
     return NULL;
   }
 
   /* Make a copy. */
-  fcu_d = MEM_dupallocN(fcu);
+  FCurve *fcu_d = MEM_dupallocN(fcu);
 
   fcu_d->next = fcu_d->prev = NULL;
   fcu_d->grp = NULL;
@@ -144,8 +142,6 @@ FCurve *BKE_fcurve_copy(const FCurve *fcu)
 
 void BKE_fcurves_copy(ListBase *dst, ListBase *src)
 {
-  FCurve *dfcu, *sfcu;
-
   /* Sanity checks. */
   if (ELEM(NULL, dst, src)) {
     return;
@@ -155,8 +151,8 @@ void BKE_fcurves_copy(ListBase *dst, ListBase *src)
   BLI_listbase_clear(dst);
 
   /* Copy one-by-one. */
-  for (sfcu = src->first; sfcu; sfcu = sfcu->next) {
-    dfcu = BKE_fcurve_copy(sfcu);
+  LISTBASE_FOREACH (FCurve *, sfcu, src) {
+    FCurve *dfcu = BKE_fcurve_copy(sfcu);
     BLI_addtail(dst, dfcu);
   }
 }
@@ -202,12 +198,10 @@ FCurve *id_data_find_fcurve(
 {
   /* Anim vars */
   AnimData *adt = BKE_animdata_from_id(id);
-  FCurve *fcu = NULL;
 
   /* Rna vars */
   PointerRNA ptr;
   PropertyRNA *prop;
-  char *path;
 
   if (r_driven) {
     *r_driven = false;
@@ -224,21 +218,18 @@ FCurve *id_data_find_fcurve(
     return NULL;
   }
 
-  path = RNA_path_from_ID_to_property(&ptr, prop);
+  char *path = RNA_path_from_ID_to_property(&ptr, prop);
   if (path == NULL) {
     return NULL;
   }
 
-  /* Animation takes priority over drivers. */
-  if (adt->action && adt->action->curves.first) {
-    fcu = BKE_fcurve_find(&adt->action->curves, path, index);
-  }
-
-  /* If not animated, check if driven. */
-  if (fcu == NULL && adt->drivers.first) {
-    fcu = BKE_fcurve_find(&adt->drivers, path, index);
-    if (fcu && r_driven) {
-      *r_driven = true;
+  /* FIXME: The way drivers are handled here (always NULL-ifying `fcu`) is very weird, this needs
+   * to be re-checked I think?. */
+  bool is_driven = false;
+  FCurve *fcu = BKE_animadata_fcurve_find_by_rna_path(adt, path, index, NULL, &is_driven);
+  if (is_driven) {
+    if (r_driven != NULL) {
+      *r_driven = is_driven;
     }
     fcu = NULL;
   }
@@ -250,21 +241,18 @@ FCurve *id_data_find_fcurve(
 
 FCurve *BKE_fcurve_find(ListBase *list, const char rna_path[], const int array_index)
 {
-  FCurve *fcu;
-
   /* Sanity checks. */
-  if (ELEM(NULL, list, rna_path) || (array_index < 0)) {
+  if (ELEM(NULL, list, rna_path) || array_index < 0) {
     return NULL;
   }
 
   /* Check paths of curves, then array indices... */
-  for (fcu = list->first; fcu; fcu = fcu->next) {
+  LISTBASE_FOREACH (FCurve *, fcu, list) {
+    /* Check indices first, much cheaper than a string comparison. */
     /* Simple string-compare (this assumes that they have the same root...) */
-    if (fcu->rna_path && STREQ(fcu->rna_path, rna_path)) {
-      /* Now check indices. */
-      if (fcu->array_index == array_index) {
-        return fcu;
-      }
+    if (UNLIKELY(fcu->array_index == array_index && fcu->rna_path &&
+                 fcu->rna_path[0] == rna_path[0] && STREQ(fcu->rna_path, rna_path))) {
+      return fcu;
     }
   }
 
@@ -279,15 +267,13 @@ FCurve *BKE_fcurve_find(ListBase *list, const char rna_path[], const int array_i
 
 FCurve *BKE_fcurve_iter_step(FCurve *fcu_iter, const char rna_path[])
 {
-  FCurve *fcu;
-
   /* Sanity checks. */
   if (ELEM(NULL, fcu_iter, rna_path)) {
     return NULL;
   }
 
   /* Check paths of curves, then array indices... */
-  for (fcu = fcu_iter; fcu; fcu = fcu->next) {
+  for (FCurve *fcu = fcu_iter; fcu; fcu = fcu->next) {
     /* Simple string-compare (this assumes that they have the same root...) */
     if (fcu->rna_path && STREQ(fcu->rna_path, rna_path)) {
       return fcu;
@@ -299,7 +285,6 @@ FCurve *BKE_fcurve_iter_step(FCurve *fcu_iter, const char rna_path[])
 
 int BKE_fcurves_filter(ListBase *dst, ListBase *src, const char *dataPrefix, const char *dataName)
 {
-  FCurve *fcu;
   int matches = 0;
 
   /* Sanity checks. */
@@ -314,7 +299,7 @@ int BKE_fcurves_filter(ListBase *dst, ListBase *src, const char *dataPrefix, con
   char *quotedName = alloca(quotedName_size);
 
   /* Search each F-Curve one by one. */
-  for (fcu = src->first; fcu; fcu = fcu->next) {
+  LISTBASE_FOREACH (FCurve *, fcu, src) {
     /* Check if quoted string matches the path. */
     if (fcu->rna_path == NULL) {
       continue;
@@ -339,6 +324,47 @@ int BKE_fcurves_filter(ListBase *dst, ListBase *src, const char *dataPrefix, con
   return matches;
 }
 
+FCurve *BKE_animadata_fcurve_find_by_rna_path(
+    AnimData *animdata, const char *rna_path, int rna_index, bAction **r_action, bool *r_driven)
+{
+  if (r_driven != NULL) {
+    *r_driven = false;
+  }
+  if (r_action != NULL) {
+    *r_action = NULL;
+  }
+
+  const bool has_action_fcurves = animdata->action != NULL &&
+                                  !BLI_listbase_is_empty(&animdata->action->curves);
+  const bool has_drivers = !BLI_listbase_is_empty(&animdata->drivers);
+
+  /* Animation takes priority over drivers. */
+  if (has_action_fcurves) {
+    FCurve *fcu = BKE_fcurve_find(&animdata->action->curves, rna_path, rna_index);
+
+    if (fcu != NULL) {
+      if (r_action != NULL) {
+        *r_action = animdata->action;
+      }
+      return fcu;
+    }
+  }
+
+  /* If not animated, check if driven. */
+  if (has_drivers) {
+    FCurve *fcu = BKE_fcurve_find(&animdata->drivers, rna_path, rna_index);
+
+    if (fcu != NULL) {
+      if (r_driven != NULL) {
+        *r_driven = true;
+      }
+      return fcu;
+    }
+  }
+
+  return NULL;
+}
+
 FCurve *BKE_fcurve_find_by_rna(PointerRNA *ptr,
                                PropertyRNA *prop,
                                int rnaindex,
@@ -351,8 +377,8 @@ FCurve *BKE_fcurve_find_by_rna(PointerRNA *ptr,
       NULL, ptr, prop, rnaindex, r_adt, r_action, r_driven, r_special);
 }
 
-FCurve *BKE_fcurve_find_by_rna_context_ui(bContext *C,
-                                          PointerRNA *ptr,
+FCurve *BKE_fcurve_find_by_rna_context_ui(bContext *UNUSED(C),
+                                          const PointerRNA *ptr,
                                           PropertyRNA *prop,
                                           int rnaindex,
                                           AnimData **r_animdata,
@@ -360,17 +386,17 @@ FCurve *BKE_fcurve_find_by_rna_context_ui(bContext *C,
                                           bool *r_driven,
                                           bool *r_special)
 {
-  FCurve *fcu = NULL;
-  PointerRNA tptr = *ptr;
-
-  *r_driven = false;
-  *r_special = false;
-
-  if (r_animdata) {
+  if (r_animdata != NULL) {
     *r_animdata = NULL;
   }
-  if (r_action) {
+  if (r_action != NULL) {
     *r_action = NULL;
+  }
+  if (r_driven != NULL) {
+    *r_driven = false;
+  }
+  if (r_special) {
+    *r_special = false;
   }
 
   /* Special case for NLA Control Curves... */
@@ -380,87 +406,46 @@ FCurve *BKE_fcurve_find_by_rna_context_ui(bContext *C,
     /* Set the special flag, since it cannot be a normal action/driver
      * if we've been told to start looking here...
      */
-    *r_special = true;
+    if (r_special) {
+      *r_special = true;
+    }
+
+    *r_driven = false;
+    if (r_animdata) {
+      *r_animdata = NULL;
+    }
+    if (r_action) {
+      *r_action = NULL;
+    }
 
     /* The F-Curve either exists or it doesn't here... */
-    fcu = BKE_fcurve_find(&strip->fcurves, RNA_property_identifier(prop), rnaindex);
-    return fcu;
+    return BKE_fcurve_find(&strip->fcurves, RNA_property_identifier(prop), rnaindex);
   }
 
   /* There must be some RNA-pointer + property combo. */
-  if (prop && tptr.owner_id && RNA_property_animateable(&tptr, prop)) {
-    AnimData *adt = BKE_animdata_from_id(tptr.owner_id);
-    int step = (
-        /* Always 1 in case we have no context (can't check in 'ancestors' of given RNA ptr). */
-        C ? 2 : 1);
-    char *path = NULL;
-
-    if (!adt && C) {
-      path = RNA_path_from_ID_to_property(&tptr, prop);
-      adt = BKE_animdata_from_id(tptr.owner_id);
-      step--;
-    }
-
-    /* Standard F-Curve - Animation (Action) or Drivers. */
-    while (adt && step--) {
-      if ((adt->action == NULL || adt->action->curves.first == NULL) &&
-          (adt->drivers.first == NULL)) {
-        continue;
-      }
-
-      /* XXX This function call can become a performance bottleneck. */
-      if (step) {
-        path = RNA_path_from_ID_to_property(&tptr, prop);
-      }
-      if (path == NULL) {
-        continue;
-      }
-
-      /* XXX: The logic here is duplicated with a function up above. */
-      /* animation takes priority over drivers. */
-      if (adt->action && adt->action->curves.first) {
-        fcu = BKE_fcurve_find(&adt->action->curves, path, rnaindex);
-
-        if (fcu && r_action) {
-          *r_action = adt->action;
-        }
-      }
-
-      /* If not animated, check if driven. */
-      if (!fcu && (adt->drivers.first)) {
-        fcu = BKE_fcurve_find(&adt->drivers, path, rnaindex);
-
-        if (fcu) {
-          if (r_animdata) {
-            *r_animdata = adt;
-          }
-          *r_driven = true;
-        }
-      }
-
-      if (fcu && r_action) {
-        if (r_animdata) {
-          *r_animdata = adt;
-        }
-        *r_action = adt->action;
-        break;
-      }
-
-      if (step) {
-        char *tpath = path ? path : RNA_path_from_ID_to_property(&tptr, prop);
-        if (tpath && tpath != path) {
-          MEM_freeN(path);
-          path = tpath;
-          adt = BKE_animdata_from_id(tptr.owner_id);
-        }
-        else {
-          adt = NULL;
-        }
-      }
-    }
-    MEM_SAFE_FREE(path);
+  if (!prop || !ptr->owner_id || !RNA_property_animateable(ptr, prop)) {
+    return NULL;
   }
 
+  AnimData *adt = BKE_animdata_from_id(ptr->owner_id);
+  if (adt == NULL) {
+    return NULL;
+  }
+
+  /* XXX This function call can become a performance bottleneck. */
+  char *rna_path = RNA_path_from_ID_to_property(ptr, prop);
+  if (rna_path == NULL) {
+    return NULL;
+  }
+
+  /* Standard F-Curve from animdata - Animation (Action) or Drivers. */
+  FCurve *fcu = BKE_animadata_fcurve_find_by_rna_path(adt, rna_path, rnaindex, r_action, r_driven);
+
+  if (fcu != NULL && r_animdata != NULL) {
+    *r_animdata = adt;
+  }
+
+  MEM_freeN(rna_path);
   return fcu;
 }
 
@@ -490,16 +475,14 @@ static int BKE_fcurve_bezt_binarysearch_index_ex(const BezTriple array[],
    * - Keyframe to be added is to be added out of current bounds.
    * - Keyframe to be added would replace one of the existing ones on bounds.
    */
-  if ((arraylen <= 0) || (array == NULL)) {
+  if (arraylen <= 0 || array == NULL) {
     CLOG_WARN(&LOG, "encountered invalid array");
     return 0;
   }
 
   /* Check whether to add before/after/on. */
-  float framenum;
-
   /* 'First' Keyframe (when only one keyframe, this case is used) */
-  framenum = array[0].vec[1][0];
+  float framenum = array[0].vec[1][0];
   if (IS_EQT(frame, framenum, threshold)) {
     *r_replace = true;
     return 0;
@@ -525,9 +508,9 @@ static int BKE_fcurve_bezt_binarysearch_index_ex(const BezTriple array[],
     /* Compute and get midpoint. */
 
     /* We calculate the midpoint this way to avoid int overflows... */
-    int mid = start + ((end - start) / 2);
+    const int mid = start + ((end - start) / 2);
 
-    float midfra = array[mid].vec[1][0];
+    const float midfra = array[mid].vec[1][0];
 
     /* Check if exactly equal to midpoint. */
     if (IS_EQT(frame, midfra, threshold)) {
@@ -574,7 +557,7 @@ int BKE_fcurve_bezt_binarysearch_index(const BezTriple array[],
 /* ...................................... */
 
 /* Helper for calc_fcurve_* functions -> find first and last BezTriple to be used. */
-static short get_fcurve_end_keyframes(FCurve *fcu,
+static short get_fcurve_end_keyframes(const FCurve *fcu,
                                       BezTriple **first,
                                       BezTriple **last,
                                       const bool do_sel_only)
@@ -592,10 +575,8 @@ static short get_fcurve_end_keyframes(FCurve *fcu,
 
   /* Only include selected items? */
   if (do_sel_only) {
-    BezTriple *bezt;
-
     /* Find first selected. */
-    bezt = fcu->bezt;
+    BezTriple *bezt = fcu->bezt;
     for (int i = 0; i < fcu->totvert; bezt++, i++) {
       if (BEZT_ISSEL_ANY(bezt)) {
         *first = bezt;
@@ -624,7 +605,7 @@ static short get_fcurve_end_keyframes(FCurve *fcu,
   return found;
 }
 
-bool BKE_fcurve_calc_bounds(FCurve *fcu,
+bool BKE_fcurve_calc_bounds(const FCurve *fcu,
                             float *xmin,
                             float *xmax,
                             float *ymin,
@@ -699,10 +680,9 @@ bool BKE_fcurve_calc_bounds(FCurve *fcu,
 
       /* Only loop over keyframes to find extents for values if needed. */
       if (ymin || ymax) {
-        FPoint *fpt;
-        int i;
+        int i = 0;
 
-        for (fpt = fcu->fpt, i = 0; i < fcu->totvert; fpt++, i++) {
+        for (FPoint *fpt = fcu->fpt; i < fcu->totvert; fpt++, i++) {
           if (fpt->vec[1] < yminv) {
             yminv = fpt->vec[1];
           }
@@ -755,7 +735,7 @@ bool BKE_fcurve_calc_bounds(FCurve *fcu,
 }
 
 bool BKE_fcurve_calc_range(
-    FCurve *fcu, float *start, float *end, const bool do_sel_only, const bool do_min_length)
+    const FCurve *fcu, float *start, float *end, const bool do_sel_only, const bool do_min_length)
 {
   float min = 999999999.0f, max = -999999999.0f;
   bool foundvert = false;
@@ -858,7 +838,7 @@ void BKE_fcurve_active_keyframe_set(FCurve *fcu, const BezTriple *active_bezt)
 
   /* Gracefully handle out-of-bounds pointers. Ideally this would do a BLI_assert() as well, but
    * then the unit tests would break in debug mode. */
-  ptrdiff_t offset = active_bezt - fcu->bezt;
+  const ptrdiff_t offset = active_bezt - fcu->bezt;
   if (offset < 0 || offset >= fcu->totvert) {
     fcu->active_keyframe_index = FCURVE_ACTIVE_KEYFRAME_NONE;
     return;
@@ -875,8 +855,7 @@ int BKE_fcurve_active_keyframe_index(const FCurve *fcu)
   const int active_keyframe_index = fcu->active_keyframe_index;
 
   /* Array access boundary checks. */
-  if ((fcu->bezt == NULL) || (active_keyframe_index >= fcu->totvert) ||
-      (active_keyframe_index < 0)) {
+  if (fcu->bezt == NULL || active_keyframe_index >= fcu->totvert || active_keyframe_index < 0) {
     return FCURVE_ACTIVE_KEYFRAME_NONE;
   }
 
@@ -903,7 +882,7 @@ void BKE_fcurve_keyframe_move_value_with_handles(struct BezTriple *keyframe, con
 /** \name Status Checks
  * \{ */
 
-bool BKE_fcurve_are_keyframes_usable(FCurve *fcu)
+bool BKE_fcurve_are_keyframes_usable(const FCurve *fcu)
 {
   /* F-Curve must exist. */
   if (fcu == NULL) {
@@ -917,11 +896,9 @@ bool BKE_fcurve_are_keyframes_usable(FCurve *fcu)
 
   /* If it has modifiers, none of these should "drastically" alter the curve. */
   if (fcu->modifiers.first) {
-    FModifier *fcm;
-
     /* Check modifiers from last to first, as last will be more influential. */
     /* TODO: optionally, only check modifier if it is the active one... (Joshua Leung 2010) */
-    for (fcm = fcu->modifiers.last; fcm; fcm = fcm->prev) {
+    LISTBASE_FOREACH_BACKWARD (FModifier *, fcm, &fcu->modifiers) {
       /* Ignore if muted/disabled. */
       if (fcm->flag & (FMODIFIER_FLAG_DISABLED | FMODIFIER_FLAG_MUTED)) {
         continue;
@@ -963,12 +940,24 @@ bool BKE_fcurve_are_keyframes_usable(FCurve *fcu)
   return true;
 }
 
-bool BKE_fcurve_is_protected(FCurve *fcu)
+bool BKE_fcurve_is_protected(const FCurve *fcu)
 {
-  return ((fcu->flag & FCURVE_PROTECTED) || ((fcu->grp) && (fcu->grp->flag & AGRP_PROTECTED)));
+  return ((fcu->flag & FCURVE_PROTECTED) || (fcu->grp && (fcu->grp->flag & AGRP_PROTECTED)));
 }
 
-bool BKE_fcurve_is_keyframable(FCurve *fcu)
+bool BKE_fcurve_has_selected_control_points(const FCurve *fcu)
+{
+  int i;
+  BezTriple *bezt;
+  for (bezt = fcu->bezt, i = 0; i < fcu->totvert; ++i, ++bezt) {
+    if ((bezt->f2 & SELECT) != 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool BKE_fcurve_is_keyframable(const FCurve *fcu)
 {
   /* F-Curve's keyframes must be "usable" (i.e. visible + have an effect on final result) */
   if (BKE_fcurve_are_keyframes_usable(fcu) == 0) {
@@ -1028,9 +1017,8 @@ static void UNUSED_FUNCTION(bezt_add_to_cfra_elem)(ListBase *lb, BezTriple *bezt
  * \{ */
 
 /* Some utilities for working with FPoints (i.e. 'sampled' animation curve data, such as
- * data imported from BVH/Mocap files), which are specialized for use with high density datasets,
- * which BezTriples/Keyframe data are ill equipped to do.
- */
+ * data imported from BVH/motion-capture files), which are specialized for use with high density
+ * datasets, which BezTriples/Keyframe data are ill equipped to do. */
 
 float fcurve_samplingcb_evalcurve(FCurve *fcu, void *UNUSED(data), float evaltime)
 {
@@ -1040,9 +1028,6 @@ float fcurve_samplingcb_evalcurve(FCurve *fcu, void *UNUSED(data), float evaltim
 
 void fcurve_store_samples(FCurve *fcu, void *data, int start, int end, FcuSampleFunc sample_cb)
 {
-  FPoint *fpt, *new_fpt;
-  int cfra;
-
   /* Sanity checks. */
   /* TODO: make these tests report errors using reports not CLOG's (Joshua Leung 2009) */
   if (ELEM(NULL, fcu, sample_cb)) {
@@ -1055,10 +1040,11 @@ void fcurve_store_samples(FCurve *fcu, void *data, int start, int end, FcuSample
   }
 
   /* Set up sample data. */
-  fpt = new_fpt = MEM_callocN(sizeof(FPoint) * (end - start + 1), "FPoint Samples");
+  FPoint *new_fpt;
+  FPoint *fpt = new_fpt = MEM_callocN(sizeof(FPoint) * (end - start + 1), "FPoint Samples");
 
   /* Use the sampling callback at 1-frame intervals from start to end frames. */
-  for (cfra = start; cfra <= end; cfra++, fpt++) {
+  for (int cfra = start; cfra <= end; cfra++, fpt++) {
     fpt->vec[0] = (float)cfra;
     fpt->vec[1] = sample_cb(fcu, data, (float)cfra);
   }
@@ -1111,12 +1097,12 @@ void fcurve_samples_to_keyframes(FCurve *fcu, const int start, const int end)
     MEM_freeN(fcu->bezt);
   }
 
-  BezTriple *bezt;
   FPoint *fpt = fcu->fpt;
   int keyframes_to_insert = end - start;
   int sample_points = fcu->totvert;
 
-  bezt = fcu->bezt = MEM_callocN(sizeof(*fcu->bezt) * (size_t)keyframes_to_insert, __func__);
+  BezTriple *bezt = fcu->bezt = MEM_callocN(sizeof(*fcu->bezt) * (size_t)keyframes_to_insert,
+                                            __func__);
   fcu->totvert = keyframes_to_insert;
 
   /* Get first sample point to 'copy' as keyframe. */
@@ -1151,7 +1137,7 @@ void fcurve_samples_to_keyframes(FCurve *fcu, const int start, const int end)
   MEM_SAFE_FREE(fcu->fpt);
 
   /* Not strictly needed since we use linear interpolation, but better be consistent here. */
-  calchandles_fcurve(fcu);
+  BKE_fcurve_handles_recalc(fcu);
 }
 
 /* ***************************** F-Curve Sanity ********************************* */
@@ -1160,7 +1146,7 @@ void fcurve_samples_to_keyframes(FCurve *fcu, const int start, const int end)
  * that the handles are correct.
  */
 
-eFCU_Cycle_Type BKE_fcurve_get_cycle_type(FCurve *fcu)
+eFCU_Cycle_Type BKE_fcurve_get_cycle_type(const FCurve *fcu)
 {
   FModifier *fcm = fcu->modifiers.first;
 
@@ -1193,7 +1179,7 @@ eFCU_Cycle_Type BKE_fcurve_get_cycle_type(FCurve *fcu)
   return FCU_CYCLE_NONE;
 }
 
-bool BKE_fcurve_is_cyclic(FCurve *fcu)
+bool BKE_fcurve_is_cyclic(const FCurve *fcu)
 {
   return BKE_fcurve_get_cycle_type(fcu) != FCU_CYCLE_NONE;
 }
@@ -1221,9 +1207,8 @@ static BezTriple *cycle_offset_triple(
   return out;
 }
 
-void calchandles_fcurve_ex(FCurve *fcu, eBezTriple_Flag handle_sel_flag)
+void BKE_fcurve_handles_recalc_ex(FCurve *fcu, eBezTriple_Flag handle_sel_flag)
 {
-  BezTriple *bezt, *prev, *next;
   int a = fcu->totvert;
 
   /* Error checking:
@@ -1239,12 +1224,12 @@ void calchandles_fcurve_ex(FCurve *fcu, eBezTriple_Flag handle_sel_flag)
   BezTriple *first = &fcu->bezt[0], *last = &fcu->bezt[fcu->totvert - 1];
   BezTriple tmp;
 
-  bool cycle = BKE_fcurve_is_cyclic(fcu) && BEZT_IS_AUTOH(first) && BEZT_IS_AUTOH(last);
+  const bool cycle = BKE_fcurve_is_cyclic(fcu) && BEZT_IS_AUTOH(first) && BEZT_IS_AUTOH(last);
 
   /* Get initial pointers. */
-  bezt = fcu->bezt;
-  prev = cycle_offset_triple(cycle, &tmp, &fcu->bezt[fcu->totvert - 2], last, first);
-  next = (bezt + 1);
+  BezTriple *bezt = fcu->bezt;
+  BezTriple *prev = cycle_offset_triple(cycle, &tmp, &fcu->bezt[fcu->totvert - 2], last, first);
+  BezTriple *next = (bezt + 1);
 
   /* Loop over all beztriples, adjusting handles. */
   while (a--) {
@@ -1304,28 +1289,27 @@ void calchandles_fcurve_ex(FCurve *fcu, eBezTriple_Flag handle_sel_flag)
   }
 }
 
-void calchandles_fcurve(FCurve *fcu)
+void BKE_fcurve_handles_recalc(FCurve *fcu)
 {
-  calchandles_fcurve_ex(fcu, SELECT);
+  BKE_fcurve_handles_recalc_ex(fcu, SELECT);
 }
 
 void testhandles_fcurve(FCurve *fcu, eBezTriple_Flag sel_flag, const bool use_handle)
 {
-  BezTriple *bezt;
-  unsigned int a;
-
   /* Only beztriples have handles (bpoints don't though). */
   if (ELEM(NULL, fcu, fcu->bezt)) {
     return;
   }
 
   /* Loop over beztriples. */
+  BezTriple *bezt;
+  uint a;
   for (a = 0, bezt = fcu->bezt; a < fcu->totvert; a++, bezt++) {
     BKE_nurb_bezt_handle_test(bezt, sel_flag, use_handle, false);
   }
 
   /* Recalculate handles. */
-  calchandles_fcurve_ex(fcu, sel_flag);
+  BKE_fcurve_handles_recalc_ex(fcu, sel_flag);
 }
 
 void sort_time_fcurve(FCurve *fcu)
@@ -1372,7 +1356,7 @@ void sort_time_fcurve(FCurve *fcu)
 
 bool test_time_fcurve(FCurve *fcu)
 {
-  unsigned int a;
+  uint a;
 
   /* Sanity checks. */
   if (fcu == NULL) {
@@ -1452,7 +1436,7 @@ void BKE_fcurve_correct_bezpart(const float v1[2], float v2[2], float v3[2], con
 }
 
 /**
- * Find roots of cubic equation (c0 x^3 + c1 x^2 + c2 x + c3)
+ * Find roots of cubic equation (c0 + c1 x + c2 x^2 + c3 x^3)
  * \return number of roots in `o`.
  *
  * \note it is up to the caller to allocate enough memory for `o`.
@@ -1595,6 +1579,12 @@ static void berekeny(float f1, float f2, float f3, float f4, float *o, int b)
   }
 }
 
+static void fcurve_bezt_free(FCurve *fcu)
+{
+  MEM_SAFE_FREE(fcu->bezt);
+  fcu->totvert = 0;
+}
+
 bool BKE_fcurve_bezt_subdivide_handles(struct BezTriple *bezt,
                                        struct BezTriple *prev,
                                        struct BezTriple *next,
@@ -1656,6 +1646,196 @@ bool BKE_fcurve_bezt_subdivide_handles(struct BezTriple *bezt,
   return true;
 }
 
+void BKE_fcurve_delete_key(FCurve *fcu, int index)
+{
+  /* sanity check */
+  if (fcu == NULL) {
+    return;
+  }
+
+  /* verify the index:
+   * 1) cannot be greater than the number of available keyframes
+   * 2) negative indices are for specifying a value from the end of the array
+   */
+  if (abs(index) >= fcu->totvert) {
+    return;
+  }
+  if (index < 0) {
+    index += fcu->totvert;
+  }
+
+  /* Delete this keyframe */
+  memmove(
+      &fcu->bezt[index], &fcu->bezt[index + 1], sizeof(BezTriple) * (fcu->totvert - index - 1));
+  fcu->totvert--;
+
+  /* Free the array of BezTriples if there are not keyframes */
+  if (fcu->totvert == 0) {
+    fcurve_bezt_free(fcu);
+  }
+}
+
+bool BKE_fcurve_delete_keys_selected(FCurve *fcu)
+{
+  if (fcu->bezt == NULL) { /* ignore baked curves */
+    return false;
+  }
+
+  bool changed = false;
+
+  /* Delete selected BezTriples */
+  for (int i = 0; i < fcu->totvert; i++) {
+    if (fcu->bezt[i].f2 & SELECT) {
+      if (i == fcu->active_keyframe_index) {
+        BKE_fcurve_active_keyframe_set(fcu, NULL);
+      }
+      memmove(&fcu->bezt[i], &fcu->bezt[i + 1], sizeof(BezTriple) * (fcu->totvert - i - 1));
+      fcu->totvert--;
+      i--;
+      changed = true;
+    }
+  }
+
+  /* Free the array of BezTriples if there are not keyframes */
+  if (fcu->totvert == 0) {
+    fcurve_bezt_free(fcu);
+  }
+
+  return changed;
+}
+
+void BKE_fcurve_delete_keys_all(FCurve *fcu)
+{
+  fcurve_bezt_free(fcu);
+}
+
+/* Time + Average value */
+typedef struct tRetainedKeyframe {
+  struct tRetainedKeyframe *next, *prev;
+  float frame; /* frame to cluster around */
+  float val;   /* average value */
+
+  size_t tot_count; /* number of keyframes that have been averaged */
+  size_t del_count; /* number of keyframes of this sort that have been deleted so far */
+} tRetainedKeyframe;
+
+void BKE_fcurve_merge_duplicate_keys(FCurve *fcu, const int sel_flag, const bool use_handle)
+{
+  /* NOTE: We assume that all keys are sorted */
+  ListBase retained_keys = {NULL, NULL};
+  const bool can_average_points = ((fcu->flag & (FCURVE_INT_VALUES | FCURVE_DISCRETE_VALUES)) ==
+                                   0);
+
+  /* sanity checks */
+  if ((fcu->totvert == 0) || (fcu->bezt == NULL)) {
+    return;
+  }
+
+  /* 1) Identify selected keyframes, and average the values on those
+   * in case there are collisions due to multiple keys getting scaled
+   * to all end up on the same frame
+   */
+  for (int i = 0; i < fcu->totvert; i++) {
+    BezTriple *bezt = &fcu->bezt[i];
+
+    if (BEZT_ISSEL_ANY(bezt)) {
+      bool found = false;
+
+      /* If there's another selected frame here, merge it */
+      for (tRetainedKeyframe *rk = retained_keys.last; rk; rk = rk->prev) {
+        if (IS_EQT(rk->frame, bezt->vec[1][0], BEZT_BINARYSEARCH_THRESH)) {
+          rk->val += bezt->vec[1][1];
+          rk->tot_count++;
+
+          found = true;
+          break;
+        }
+        if (rk->frame < bezt->vec[1][0]) {
+          /* Terminate early if have passed the supposed insertion point? */
+          break;
+        }
+      }
+
+      /* If nothing found yet, create a new one */
+      if (found == false) {
+        tRetainedKeyframe *rk = MEM_callocN(sizeof(tRetainedKeyframe), "tRetainedKeyframe");
+
+        rk->frame = bezt->vec[1][0];
+        rk->val = bezt->vec[1][1];
+        rk->tot_count = 1;
+
+        BLI_addtail(&retained_keys, rk);
+      }
+    }
+  }
+
+  if (BLI_listbase_is_empty(&retained_keys)) {
+    /* This may happen if none of the points were selected... */
+    if (G.debug & G_DEBUG) {
+      printf("%s: nothing to do for FCurve %p (rna_path = '%s')\n", __func__, fcu, fcu->rna_path);
+    }
+    return;
+  }
+
+  /* Compute the average values for each retained keyframe */
+  LISTBASE_FOREACH (tRetainedKeyframe *, rk, &retained_keys) {
+    rk->val = rk->val / (float)rk->tot_count;
+  }
+
+  /* 2) Delete all keyframes duplicating the "retained keys" found above
+   *   - Most of these will be unselected keyframes
+   *   - Some will be selected keyframes though. For those, we only keep the last one
+   *     (or else everything is gone), and replace its value with the averaged value.
+   */
+  for (int i = fcu->totvert - 1; i >= 0; i--) {
+    BezTriple *bezt = &fcu->bezt[i];
+
+    /* Is this keyframe a candidate for deletion? */
+    /* TODO: Replace loop with an O(1) lookup instead */
+    for (tRetainedKeyframe *rk = retained_keys.last; rk; rk = rk->prev) {
+      if (IS_EQT(bezt->vec[1][0], rk->frame, BEZT_BINARYSEARCH_THRESH)) {
+        /* Selected keys are treated with greater care than unselected ones... */
+        if (BEZT_ISSEL_ANY(bezt)) {
+          /* - If this is the last selected key left (based on rk->del_count) ==> UPDATE IT
+           *   (or else we wouldn't have any keyframe left here)
+           * - Otherwise, there are still other selected keyframes on this frame
+           *   to be merged down still ==> DELETE IT
+           */
+          if (rk->del_count == rk->tot_count - 1) {
+            /* Update keyframe... */
+            if (can_average_points) {
+              /* TODO: update handles too? */
+              bezt->vec[1][1] = rk->val;
+            }
+          }
+          else {
+            /* Delete Keyframe */
+            BKE_fcurve_delete_key(fcu, i);
+          }
+
+          /* Update count of how many we've deleted
+           * - It should only matter that we're doing this for all but the last one
+           */
+          rk->del_count++;
+        }
+        else {
+          /* Always delete - Unselected keys don't matter */
+          BKE_fcurve_delete_key(fcu, i);
+        }
+
+        /* Stop the RK search... we've found our match now */
+        break;
+      }
+    }
+  }
+
+  /* 3) Recalculate handles */
+  testhandles_fcurve(fcu, sel_flag, use_handle);
+
+  /* cleanup */
+  BLI_freelistN(&retained_keys);
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -1665,9 +1845,9 @@ bool BKE_fcurve_bezt_subdivide_handles(struct BezTriple *bezt,
 static float fcurve_eval_keyframes_extrapolate(
     FCurve *fcu, BezTriple *bezts, float evaltime, int endpoint_offset, int direction_to_neighbor)
 {
-  BezTriple *endpoint_bezt = bezts + endpoint_offset; /* The first/last keyframe. */
-  BezTriple *neighbor_bezt = endpoint_bezt +
-                             direction_to_neighbor; /* The second (to last) keyframe. */
+  const BezTriple *endpoint_bezt = bezts + endpoint_offset; /* The first/last keyframe. */
+  const BezTriple *neighbor_bezt = endpoint_bezt +
+                                   direction_to_neighbor; /* The second (to last) keyframe. */
 
   if (endpoint_bezt->ipo == BEZT_IPO_CONST || fcu->extend == FCURVE_EXTRAPOLATE_CONSTANT ||
       (fcu->flag & FCURVE_DISCRETE_VALUES) != 0) {
@@ -1682,7 +1862,7 @@ static float fcurve_eval_keyframes_extrapolate(
       return endpoint_bezt->vec[1][1];
     }
 
-    float dx = endpoint_bezt->vec[1][0] - evaltime;
+    const float dx = endpoint_bezt->vec[1][0] - evaltime;
     float fac = neighbor_bezt->vec[1][0] - endpoint_bezt->vec[1][0];
 
     /* Prevent division by zero. */
@@ -1696,8 +1876,8 @@ static float fcurve_eval_keyframes_extrapolate(
 
   /* Use the gradient of the second handle (later) of neighbor to calculate the gradient and thus
    * the value of the curve at evaluation time. */
-  int handle = direction_to_neighbor > 0 ? 0 : 2;
-  float dx = endpoint_bezt->vec[1][0] - evaltime;
+  const int handle = direction_to_neighbor > 0 ? 0 : 2;
+  const float dx = endpoint_bezt->vec[1][0] - evaltime;
   float fac = endpoint_bezt->vec[1][0] - endpoint_bezt->vec[handle][0];
 
   /* Prevent division by zero. */
@@ -1709,11 +1889,12 @@ static float fcurve_eval_keyframes_extrapolate(
   return endpoint_bezt->vec[1][1] - (fac * dx);
 }
 
-static float fcurve_eval_keyframes_interpolate(FCurve *fcu, BezTriple *bezts, float evaltime)
+static float fcurve_eval_keyframes_interpolate(const FCurve *fcu,
+                                               const BezTriple *bezts,
+                                               float evaltime)
 {
   const float eps = 1.e-8f;
-  BezTriple *bezt, *prevbezt;
-  unsigned int a;
+  uint a;
 
   /* Evaltime occurs somewhere in the middle of the curve. */
   bool exact = false;
@@ -1729,7 +1910,7 @@ static float fcurve_eval_keyframes_interpolate(FCurve *fcu, BezTriple *bezts, fl
    *   This lower bound was established in b888a32eee8147b028464336ad2404d8155c64dd.
    */
   a = BKE_fcurve_bezt_binarysearch_index_ex(bezts, evaltime, fcu->totvert, 0.0001, &exact);
-  bezt = bezts + a;
+  const BezTriple *bezt = bezts + a;
 
   if (exact) {
     /* Index returned must be interpreted differently when it sits on top of an existing keyframe
@@ -1741,7 +1922,7 @@ static float fcurve_eval_keyframes_interpolate(FCurve *fcu, BezTriple *bezts, fl
   /* Index returned refers to the keyframe that the eval-time occurs *before*
    * - hence, that keyframe marks the start of the segment we're dealing with.
    */
-  prevbezt = (a > 0) ? (bezt - 1) : bezt;
+  const BezTriple *prevbezt = (a > 0) ? (bezt - 1) : bezt;
 
   /* Use if the key is directly on the frame, in rare cases this is needed else we get 0.0 instead.
    * XXX: consult T39207 for examples of files where failure of these checks can cause issues. */
@@ -1977,7 +2158,7 @@ static float fcurve_eval_keyframes(FCurve *fcu, BezTriple *bezts, float evaltime
     return fcurve_eval_keyframes_extrapolate(fcu, bezts, evaltime, 0, +1);
   }
 
-  BezTriple *lastbezt = bezts + fcu->totvert - 1;
+  const BezTriple *lastbezt = bezts + fcu->totvert - 1;
   if (lastbezt->vec[1][0] <= evaltime) {
     return fcurve_eval_keyframes_extrapolate(fcu, bezts, evaltime, fcu->totvert - 1, -1);
   }
@@ -1986,14 +2167,13 @@ static float fcurve_eval_keyframes(FCurve *fcu, BezTriple *bezts, float evaltime
 }
 
 /* Calculate F-Curve value for 'evaltime' using #FPoint samples. */
-static float fcurve_eval_samples(FCurve *fcu, FPoint *fpts, float evaltime)
+static float fcurve_eval_samples(const FCurve *fcu, const FPoint *fpts, float evaltime)
 {
-  FPoint *prevfpt, *lastfpt, *fpt;
   float cvalue = 0.0f;
 
   /* Get pointers. */
-  prevfpt = fpts;
-  lastfpt = prevfpt + fcu->totvert - 1;
+  const FPoint *prevfpt = fpts;
+  const FPoint *lastfpt = prevfpt + fcu->totvert - 1;
 
   /* Evaluation time at or past endpoints? */
   if (prevfpt->vec[0] >= evaltime) {
@@ -2008,10 +2188,10 @@ static float fcurve_eval_samples(FCurve *fcu, FPoint *fpts, float evaltime)
     float t = fabsf(evaltime - floorf(evaltime));
 
     /* Find the one on the right frame (assume that these are spaced on 1-frame intervals). */
-    fpt = prevfpt + ((int)evaltime - (int)prevfpt->vec[0]);
+    const FPoint *fpt = prevfpt + ((int)evaltime - (int)prevfpt->vec[0]);
 
     /* If not exactly on the frame, perform linear interpolation with the next one. */
-    if ((t != 0.0f) && (t < 1.0f)) {
+    if (t != 0.0f && t < 1.0f) {
       cvalue = interpf(fpt->vec[1], (fpt + 1)->vec[1], 1.0f - t);
     }
     else {
@@ -2033,15 +2213,14 @@ static float fcurve_eval_samples(FCurve *fcu, FPoint *fpts, float evaltime)
  */
 static float evaluate_fcurve_ex(FCurve *fcu, float evaltime, float cvalue)
 {
-  float devaltime;
-
   /* Evaluate modifiers which modify time to evaluate the base curve at. */
   FModifiersStackStorage storage;
   storage.modifier_count = BLI_listbase_count(&fcu->modifiers);
   storage.size_per_modifier = evaluate_fmodifiers_storage_size_per_modifier(&fcu->modifiers);
   storage.buffer = alloca(storage.modifier_count * storage.size_per_modifier);
 
-  devaltime = evaluate_time_fmodifiers(&storage, &fcu->modifiers, fcu, cvalue, evaltime);
+  const float devaltime = evaluate_time_fmodifiers(
+      &storage, &fcu->modifiers, fcu, cvalue, evaltime);
 
   /* Evaluate curve-data
    * - 'devaltime' instead of 'evaltime', as this is the time that the last time-modifying
@@ -2100,16 +2279,15 @@ float evaluate_fcurve_driver(PathResolvedRNA *anim_rna,
 
     /* Only do a default 1-1 mapping if it's unlikely that anything else will set a value... */
     if (fcu->totvert == 0) {
-      FModifier *fcm;
       bool do_linear = true;
 
       /* Out-of-range F-Modifiers will block, as will those which just plain overwrite the values
        * XXX: additive is a bit more dicey; it really depends then if things are in range or not...
        */
-      for (fcm = fcu->modifiers.first; fcm; fcm = fcm->next) {
+      LISTBASE_FOREACH (FModifier *, fcm, &fcu->modifiers) {
         /* If there are range-restrictions, we must definitely block T36950. */
         if ((fcm->flag & FMODIFIER_FLAG_RANGERESTRICT) == 0 ||
-            ((fcm->sfra <= evaltime) && (fcm->efra >= evaltime))) {
+            (fcm->sfra <= evaltime && fcm->efra >= evaltime)) {
           /* Within range: here it probably doesn't matter,
            * though we'd want to check on additive. */
         }
@@ -2130,9 +2308,9 @@ float evaluate_fcurve_driver(PathResolvedRNA *anim_rna,
   return evaluate_fcurve_ex(fcu, evaltime, cvalue);
 }
 
-bool BKE_fcurve_is_empty(FCurve *fcu)
+bool BKE_fcurve_is_empty(const FCurve *fcu)
 {
-  return (fcu->totvert == 0) && (fcu->driver == NULL) &&
+  return fcu->totvert == 0 && fcu->driver == NULL &&
          !list_has_suitable_fmodifier(&fcu->modifiers, 0, FMI_TYPE_GENERATE_CURVE);
 }
 
@@ -2317,7 +2495,7 @@ void BKE_fcurve_blend_write(BlendWriter *writer, ListBase *fcurves)
 
 void BKE_fcurve_blend_read_data(BlendDataReader *reader, ListBase *fcurves)
 {
-  /* link F-Curve data to F-Curve again (non ID-libs) */
+  /* Link F-Curve data to F-Curve again (non ID-libraries). */
   LISTBASE_FOREACH (FCurve *, fcu, fcurves) {
     /* curve data */
     BLO_read_data_address(reader, &fcu->bezt);

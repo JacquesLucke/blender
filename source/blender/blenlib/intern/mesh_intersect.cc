@@ -21,11 +21,12 @@
 #  include "BLI_map.hh"
 #  include "BLI_math_boolean.hh"
 #  include "BLI_math_mpq.hh"
-#  include "BLI_math_vec_mpq_types.hh"
-#  include "BLI_math_vec_types.hh"
 #  include "BLI_math_vector.h"
+#  include "BLI_math_vector_mpq_types.hh"
+#  include "BLI_math_vector_types.hh"
 #  include "BLI_polyfill_2d.h"
 #  include "BLI_set.hh"
+#  include "BLI_sort.hh"
 #  include "BLI_span.hh"
 #  include "BLI_task.h"
 #  include "BLI_task.hh"
@@ -36,10 +37,6 @@
 #  include "PIL_time.h"
 
 #  include "BLI_mesh_intersect.hh"
-
-#  ifdef WITH_TBB
-#    include <tbb/parallel_sort.h>
-#  endif
 
 // #  define PERFDEBUG
 
@@ -638,8 +635,8 @@ void IMesh::populate_vert()
   /* This is likely an overestimate, since verts are shared between
    * faces. It is ok if estimate is over or even under. */
   constexpr int ESTIMATE_VERTS_PER_FACE = 4;
-  int estimate_num_verts = ESTIMATE_VERTS_PER_FACE * face_.size();
-  populate_vert(estimate_num_verts);
+  int estimate_verts_num = ESTIMATE_VERTS_PER_FACE * face_.size();
+  populate_vert(estimate_verts_num);
 }
 
 void IMesh::populate_vert(int max_verts)
@@ -672,11 +669,7 @@ void IMesh::populate_vert(int max_verts)
    * TODO: when all debugged, set fix_order = false. */
   const bool fix_order = true;
   if (fix_order) {
-#  ifdef WITH_TBB
-    tbb::parallel_sort(vert_.begin(), vert_.end(), [](const Vert *a, const Vert *b) {
-#  else
-    std::sort(vert_.begin(), vert_.end(), [](const Vert *a, const Vert *b) {
-#  endif
+    blender::parallel_sort(vert_.begin(), vert_.end(), [](const Vert *a, const Vert *b) {
       if (a->orig != NO_INDEX && b->orig != NO_INDEX) {
         return a->orig < b->orig;
       }
@@ -700,16 +693,16 @@ bool IMesh::erase_face_positions(int f_index, Span<bool> face_pos_erase, IMeshAr
 {
   const Face *cur_f = this->face(f_index);
   int cur_len = cur_f->size();
-  int num_to_erase = 0;
+  int to_erase_num = 0;
   for (int i : cur_f->index_range()) {
     if (face_pos_erase[i]) {
-      ++num_to_erase;
+      ++to_erase_num;
     }
   }
-  if (num_to_erase == 0) {
+  if (to_erase_num == 0) {
     return false;
   }
-  int new_len = cur_len - num_to_erase;
+  int new_len = cur_len - to_erase_num;
   if (new_len < 3) {
     /* This erase causes removal of whole face.
      * Because this may be called from a loop over the face array,
@@ -717,7 +710,7 @@ bool IMesh::erase_face_positions(int f_index, Span<bool> face_pos_erase, IMeshAr
      * mark with null pointer and caller should call remove_null_faces().
      * the loop is done.
      */
-    this->face_[f_index] = NULL;
+    this->face_[f_index] = nullptr;
     return true;
   }
   Array<const Vert *> new_vert(new_len);
@@ -836,13 +829,13 @@ struct BBPadData {
 
 static void pad_face_bb_range_func(void *__restrict userdata,
                                    const int iter,
-                                   const TaskParallelTLS *__restrict UNUSED(tls))
+                                   const TaskParallelTLS *__restrict /*tls*/)
 {
   BBPadData *pad_data = static_cast<BBPadData *>(userdata);
   (*pad_data->face_bounding_box)[iter].expand(pad_data->pad);
 }
 
-static void calc_face_bb_reduce(const void *__restrict UNUSED(userdata),
+static void calc_face_bb_reduce(const void *__restrict /*userdata*/,
                                 void *__restrict chunk_join,
                                 void *__restrict chunk)
 {
@@ -2037,12 +2030,13 @@ static Array<Face *> polyfill_triangulate_poly(Face *f, IMeshArena *arena)
     }
     return Array<Face *>{f0, f1};
   }
-  /* Project along negative face normal so (x,y) can be used in 2d. */ float axis_mat[3][3];
+  /* Project along negative face normal so (x,y) can be used in 2d. */
+  float axis_mat[3][3];
   float(*projverts)[2];
-  unsigned int(*tris)[3];
+  uint(*tris)[3];
   const int totfilltri = flen - 2;
   /* Prepare projected vertices and array to receive triangles in tessellation. */
-  tris = static_cast<unsigned int(*)[3]>(MEM_malloc_arrayN(totfilltri, sizeof(*tris), __func__));
+  tris = static_cast<uint(*)[3]>(MEM_malloc_arrayN(totfilltri, sizeof(*tris), __func__));
   projverts = static_cast<float(*)[2]>(MEM_malloc_arrayN(flen, sizeof(*projverts), __func__));
   axis_dominant_v3_to_m3_negate(axis_mat, no);
   for (int j = 0; j < flen; ++j) {
@@ -2054,7 +2048,7 @@ static Array<Face *> polyfill_triangulate_poly(Face *f, IMeshArena *arena)
   /* Put tessellation triangles into Face form. Record original edges where they exist. */
   Array<Face *> ans(totfilltri);
   for (int t = 0; t < totfilltri; ++t) {
-    unsigned int *tri = tris[t];
+    uint *tri = tris[t];
     int eo[3];
     const Vert *v[3];
     for (int k = 0; k < 3; k++) {
@@ -2331,7 +2325,7 @@ class TriOverlaps {
   BVHTree *tree_b_{nullptr};
   BVHTreeOverlap *overlap_{nullptr};
   Array<int> first_overlap_;
-  uint overlap_tot_{0};
+  uint overlap_num_{0};
 
   struct CBData {
     const IMesh &tm;
@@ -2393,16 +2387,16 @@ class TriOverlaps {
     if (two_trees_no_self) {
       BLI_bvhtree_balance(tree_b_);
       /* Don't expect a lot of trivial intersects in this case. */
-      overlap_ = BLI_bvhtree_overlap(tree_, tree_b_, &overlap_tot_, nullptr, nullptr);
+      overlap_ = BLI_bvhtree_overlap(tree_, tree_b_, &overlap_num_, nullptr, nullptr);
     }
     else {
       CBData cbdata{tm, shape_fn, nshapes, use_self};
       if (nshapes == 1) {
-        overlap_ = BLI_bvhtree_overlap(tree_, tree_, &overlap_tot_, nullptr, nullptr);
+        overlap_ = BLI_bvhtree_overlap(tree_, tree_, &overlap_num_, nullptr, nullptr);
       }
       else {
         overlap_ = BLI_bvhtree_overlap(
-            tree_, tree_, &overlap_tot_, only_different_shapes, &cbdata);
+            tree_, tree_, &overlap_num_, only_different_shapes, &cbdata);
       }
     }
     /* The rest of the code is simpler and easier to parallelize if, in the two-trees case,
@@ -2410,23 +2404,23 @@ class TriOverlaps {
      * in the repeated part, sorting will then bring things with indexB together. */
     if (two_trees_no_self) {
       overlap_ = static_cast<BVHTreeOverlap *>(
-          MEM_reallocN(overlap_, 2 * overlap_tot_ * sizeof(overlap_[0])));
-      for (uint i = 0; i < overlap_tot_; ++i) {
-        overlap_[overlap_tot_ + i].indexA = overlap_[i].indexB;
-        overlap_[overlap_tot_ + i].indexB = overlap_[i].indexA;
+          MEM_reallocN(overlap_, 2 * overlap_num_ * sizeof(overlap_[0])));
+      for (uint i = 0; i < overlap_num_; ++i) {
+        overlap_[overlap_num_ + i].indexA = overlap_[i].indexB;
+        overlap_[overlap_num_ + i].indexB = overlap_[i].indexA;
       }
-      overlap_tot_ += overlap_tot_;
+      overlap_num_ += overlap_num_;
     }
     /* Sort the overlaps to bring all the intersects with a given indexA together. */
-    std::sort(overlap_, overlap_ + overlap_tot_, bvhtreeverlap_cmp);
+    std::sort(overlap_, overlap_ + overlap_num_, bvhtreeverlap_cmp);
     if (dbg_level > 0) {
-      std::cout << overlap_tot_ << " overlaps found:\n";
+      std::cout << overlap_num_ << " overlaps found:\n";
       for (BVHTreeOverlap ov : overlap()) {
         std::cout << "A: " << ov.indexA << ", B: " << ov.indexB << "\n";
       }
     }
     first_overlap_ = Array<int>(tm.face_size(), -1);
-    for (int i = 0; i < static_cast<int>(overlap_tot_); ++i) {
+    for (int i = 0; i < int(overlap_num_); ++i) {
       int t = overlap_[i].indexA;
       if (first_overlap_[t] == -1) {
         first_overlap_[t] = i;
@@ -2449,7 +2443,7 @@ class TriOverlaps {
 
   Span<BVHTreeOverlap> overlap() const
   {
-    return Span<BVHTreeOverlap>(overlap_, overlap_tot_);
+    return Span<BVHTreeOverlap>(overlap_, overlap_num_);
   }
 
   int first_overlap_index(int t) const
@@ -2458,7 +2452,7 @@ class TriOverlaps {
   }
 
  private:
-  static bool only_different_shapes(void *userdata, int index_a, int index_b, int UNUSED(thread))
+  static bool only_different_shapes(void *userdata, int index_a, int index_b, int /*thread*/)
   {
     CBData *cbdata = static_cast<CBData *>(userdata);
     return cbdata->tm.face(index_a)->orig != cbdata->tm.face(index_b)->orig;
@@ -2494,7 +2488,7 @@ static std::pair<int, int> canon_int_pair(int a, int b)
 
 static void calc_overlap_itts_range_func(void *__restrict userdata,
                                          const int iter,
-                                         const TaskParallelTLS *__restrict UNUSED(tls))
+                                         const TaskParallelTLS *__restrict /*tls*/)
 {
   constexpr int dbg_level = 0;
   OverlapIttsData *data = static_cast<OverlapIttsData *>(userdata);
@@ -2564,13 +2558,13 @@ static void calc_subdivided_non_cluster_tris(Array<IMesh> &r_tri_subdivided,
     int len;
   };
   Vector<OverlapTriRange> overlap_tri_range;
-  int overlap_tot = overlap.size();
-  overlap_tri_range.reserve(overlap_tot);
+  int overlap_num = overlap.size();
+  overlap_tri_range.reserve(overlap_num);
   int overlap_index = 0;
-  while (overlap_index < overlap_tot) {
+  while (overlap_index < overlap_num) {
     int t = overlap[overlap_index].indexA;
     int i = overlap_index;
-    while (i + 1 < overlap_tot && overlap[i + 1].indexA == t) {
+    while (i + 1 < overlap_num && overlap[i + 1].indexA == t) {
       ++i;
     }
     /* Now overlap[overlap_index] to overlap[i] have indexA == t.
@@ -2588,8 +2582,8 @@ static void calc_subdivided_non_cluster_tris(Array<IMesh> &r_tri_subdivided,
     }
     overlap_index = i + 1;
   }
-  int overlap_tri_range_tot = overlap_tri_range.size();
-  Array<CDT_data> cd_data(overlap_tri_range_tot);
+  int overlap_tri_range_num = overlap_tri_range.size();
+  Array<CDT_data> cd_data(overlap_tri_range_num);
   int grain_size = 64;
   threading::parallel_for(overlap_tri_range.index_range(), grain_size, [&](IndexRange range) {
     for (int otr_index : range) {
@@ -2689,7 +2683,7 @@ static CDT_data calc_cluster_subdivided(const CoplanarClusterInfo &clinfo,
                                         const IMesh &tm,
                                         const TriOverlaps &ov,
                                         const Map<std::pair<int, int>, ITT_value> &itt_map,
-                                        IMeshArena *UNUSED(arena))
+                                        IMeshArena * /*arena*/)
 {
   constexpr int dbg_level = 0;
   BLI_assert(c < clinfo.tot_cluster());
@@ -2896,7 +2890,7 @@ static void degenerate_range_func(void *__restrict userdata,
   chunk_data->has_degenerate_tri |= is_degenerate;
 }
 
-static void degenerate_reduce(const void *__restrict UNUSED(userdata),
+static void degenerate_reduce(const void *__restrict /*userdata*/,
                               void *__restrict chunk_join,
                               void *__restrict chunk)
 {
@@ -2938,7 +2932,7 @@ static IMesh remove_degenerate_tris(const IMesh &tm_in)
 IMesh trimesh_self_intersect(const IMesh &tm_in, IMeshArena *arena)
 {
   return trimesh_nary_intersect(
-      tm_in, 1, [](int UNUSED(t)) { return 0; }, true, arena);
+      tm_in, 1, [](int /*t*/) { return 0; }, true, arena);
 }
 
 IMesh trimesh_nary_intersect(const IMesh &tm_in,

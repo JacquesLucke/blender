@@ -15,7 +15,7 @@ ViewerNode::ViewerNode(bNode *editor_node) : Node(editor_node)
 void ViewerNode::convert_to_operations(NodeConverter &converter,
                                        const CompositorContext &context) const
 {
-  bNode *editor_node = this->get_bnode();
+  const bNode *editor_node = this->get_bnode();
   bool do_output = (editor_node->flag & NODE_DO_OUTPUT_RECALC || context.is_rendering()) &&
                    (editor_node->flag & NODE_DO_OUTPUT);
   bool ignore_alpha = (editor_node->custom2 & CMP_NODE_OUTPUT_IGNORE_ALPHA) != 0;
@@ -37,8 +37,9 @@ void ViewerNode::convert_to_operations(NodeConverter &converter,
   viewer_operation->set_render_data(context.get_render_data());
   viewer_operation->set_view_name(context.get_view_name());
 
-  viewer_operation->set_view_settings(context.get_view_settings());
-  viewer_operation->set_display_settings(context.get_display_settings());
+  Scene *scene = context.get_scene();
+  viewer_operation->set_view_settings(&scene->view_settings);
+  viewer_operation->set_display_settings(&scene->display_settings);
 
   viewer_operation->set_canvas_input_index(0);
   if (!image_socket->is_linked()) {

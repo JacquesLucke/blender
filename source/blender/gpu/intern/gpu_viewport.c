@@ -9,18 +9,16 @@
 
 #include <string.h>
 
-#include "BLI_listbase.h"
 #include "BLI_math_vector.h"
-#include "BLI_memblock.h"
 #include "BLI_rect.h"
 
 #include "BKE_colortools.h"
 
 #include "IMB_colormanagement.h"
 
-#include "DNA_userdef_types.h"
 #include "DNA_vec_types.h"
 
+#include "GPU_capabilities.h"
 #include "GPU_framebuffer.h"
 #include "GPU_immediate.h"
 #include "GPU_matrix.h"
@@ -122,29 +120,41 @@ static void gpu_viewport_textures_create(GPUViewport *viewport)
 {
   int *size = viewport->size;
   float empty_pixel[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+  eGPUTextureUsage usage = GPU_TEXTURE_USAGE_SHADER_READ | GPU_TEXTURE_USAGE_ATTACHMENT;
 
   if (viewport->color_render_tx[0] == NULL) {
-    viewport->color_render_tx[0] = GPU_texture_create_2d(
-        "dtxl_color", UNPACK2(size), 1, GPU_RGBA16F, NULL);
-    GPU_texture_clear(viewport->color_render_tx[0], GPU_DATA_FLOAT, empty_pixel);
-    viewport->color_overlay_tx[0] = GPU_texture_create_2d(
-        "dtxl_color_overlay", UNPACK2(size), 1, GPU_SRGB8_A8, NULL);
-    GPU_texture_clear(viewport->color_overlay_tx[0], GPU_DATA_FLOAT, empty_pixel);
+
+    viewport->color_render_tx[0] = GPU_texture_create_2d_ex(
+        "dtxl_color", UNPACK2(size), 1, GPU_RGBA16F, usage, NULL);
+    viewport->color_overlay_tx[0] = GPU_texture_create_2d_ex(
+        "dtxl_color_overlay", UNPACK2(size), 1, GPU_SRGB8_A8, usage, NULL);
+
+    if (GPU_clear_viewport_workaround()) {
+      GPU_texture_clear(viewport->color_render_tx[0], GPU_DATA_FLOAT, empty_pixel);
+      GPU_texture_clear(viewport->color_overlay_tx[0], GPU_DATA_FLOAT, empty_pixel);
+    }
   }
 
   if ((viewport->flag & GPU_VIEWPORT_STEREO) != 0 && viewport->color_render_tx[1] == NULL) {
-    viewport->color_render_tx[1] = GPU_texture_create_2d(
-        "dtxl_color_stereo", UNPACK2(size), 1, GPU_RGBA16F, NULL);
-    GPU_texture_clear(viewport->color_render_tx[1], GPU_DATA_FLOAT, empty_pixel);
-    viewport->color_overlay_tx[1] = GPU_texture_create_2d(
-        "dtxl_color_overlay_stereo", UNPACK2(size), 1, GPU_SRGB8_A8, NULL);
-    GPU_texture_clear(viewport->color_overlay_tx[1], GPU_DATA_FLOAT, empty_pixel);
+    viewport->color_render_tx[1] = GPU_texture_create_2d_ex(
+        "dtxl_color_stereo", UNPACK2(size), 1, GPU_RGBA16F, usage, NULL);
+    viewport->color_overlay_tx[1] = GPU_texture_create_2d_ex(
+        "dtxl_color_overlay_stereo", UNPACK2(size), 1, GPU_SRGB8_A8, usage, NULL);
+
+    if (GPU_clear_viewport_workaround()) {
+      GPU_texture_clear(viewport->color_render_tx[1], GPU_DATA_FLOAT, empty_pixel);
+      GPU_texture_clear(viewport->color_overlay_tx[1], GPU_DATA_FLOAT, empty_pixel);
+    }
   }
 
   /* Can be shared with GPUOffscreen. */
   if (viewport->depth_tx == NULL) {
-    viewport->depth_tx = GPU_texture_create_2d(
-        "dtxl_depth", UNPACK2(size), 1, GPU_DEPTH24_STENCIL8, NULL);
+    viewport->depth_tx = GPU_texture_create_2d_ex(
+        "dtxl_depth", UNPACK2(size), 1, GPU_DEPTH24_STENCIL8, usage, NULL);
+    if (GPU_clear_viewport_workaround()) {
+      static int depth_clear = 0;
+      GPU_texture_clear(viewport->depth_tx, GPU_DATA_UINT_24_8, &depth_clear);
+    }
   }
 
   if (!viewport->depth_tx || !viewport->color_render_tx[0] || !viewport->color_overlay_tx[0]) {
@@ -197,7 +207,7 @@ void GPU_viewport_bind_from_offscreen(GPUViewport *viewport,
   /* XR surfaces will already check for texture size changes and free if necessary (see
    * #wm_xr_session_surface_offscreen_ensure()), so don't free here as it has a significant
    * performance impact (leads to texture re-creation in #gpu_viewport_textures_create() every VR
-   * drawing iteration).*/
+   * drawing iteration). */
   if (!is_xr_surface) {
     gpu_viewport_textures_free(viewport);
   }
@@ -262,12 +272,15 @@ void GPU_viewport_stereo_composite(GPUViewport *viewport, Stereo3dFormat *stereo
     return;
   }
   /* The composite framebuffer object needs to be created in the window context. */
-  GPU_framebuffer_ensure_config(&viewport->stereo_comp_fb,
-                                {
-                                    GPU_ATTACHMENT_NONE,
-                                    GPU_ATTACHMENT_TEXTURE(viewport->color_overlay_tx[0]),
-                                    GPU_ATTACHMENT_TEXTURE(viewport->color_render_tx[0]),
-                                });
+  GPU_framebuffer_ensure_config(
+      &viewport->stereo_comp_fb,
+      {
+          GPU_ATTACHMENT_NONE,
+          /* We need the sRGB attachment to be first for GL_FRAMEBUFFER_SRGB to be turned on.
+           * Note that this is the opposite of what the texture binding is. */
+          GPU_ATTACHMENT_TEXTURE(viewport->color_overlay_tx[0]),
+          GPU_ATTACHMENT_TEXTURE(viewport->color_render_tx[0]),
+      });
 
   GPUVertFormat *vert_format = immVertexFormat();
   uint pos = GPU_vertformat_attr_add(vert_format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
@@ -277,8 +290,6 @@ void GPU_viewport_stereo_composite(GPUViewport *viewport, Stereo3dFormat *stereo
   GPU_matrix_identity_set();
   GPU_matrix_identity_projection_set();
   immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_OVERLAYS_STEREO_MERGE);
-  immUniform1i("overlayTexture", 0);
-  immUniform1i("imageTexture", 1);
   int settings = stereo_format->display_mode;
   if (settings == S3D_DISPLAY_ANAGLYPH) {
     switch (stereo_format->anaglyph_type) {
@@ -432,8 +443,6 @@ static void gpu_viewport_draw_colormanaged(GPUViewport *viewport,
     GPU_batch_program_set_builtin(batch, GPU_SHADER_2D_IMAGE_OVERLAYS_MERGE);
     GPU_batch_uniform_1i(batch, "overlay", do_overlay_merge);
     GPU_batch_uniform_1i(batch, "display_transform", display_colorspace);
-    GPU_batch_uniform_1i(batch, "image_texture", 0);
-    GPU_batch_uniform_1i(batch, "overlays_texture", 1);
   }
 
   GPU_texture_bind(color, 0);
@@ -509,7 +518,9 @@ void GPU_viewport_unbind_from_offscreen(GPUViewport *viewport,
                                         bool display_colorspace,
                                         bool do_overlay_merge)
 {
-  if (viewport->color_render_tx == NULL) {
+  const int view = 0;
+
+  if (viewport->color_render_tx[view] == NULL) {
     return;
   }
 
@@ -531,7 +542,7 @@ void GPU_viewport_unbind_from_offscreen(GPUViewport *viewport,
   };
 
   gpu_viewport_draw_colormanaged(
-      viewport, 0, &pos_rect, &uv_rect, display_colorspace, do_overlay_merge);
+      viewport, view, &pos_rect, &uv_rect, display_colorspace, do_overlay_merge);
 
   /* This one is from the offscreen. Don't free it with the viewport. */
   viewport->depth_tx = NULL;

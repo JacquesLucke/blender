@@ -11,9 +11,12 @@
 
 #include "outliner_intern.hh"
 
-/* ************************** registration **********************************/
+namespace blender::ed::outliner {
+/* -------------------------------------------------------------------- */
+/** \name Registration
+ * \{ */
 
-void outliner_operatortypes(void)
+void outliner_operatortypes()
 {
   WM_operatortype_append(OUTLINER_OT_highlight_update);
   WM_operatortype_append(OUTLINER_OT_item_activate);
@@ -27,6 +30,8 @@ void outliner_operatortypes(void)
   WM_operatortype_append(OUTLINER_OT_object_operation);
   WM_operatortype_append(OUTLINER_OT_lib_operation);
   WM_operatortype_append(OUTLINER_OT_lib_relocate);
+  WM_operatortype_append(OUTLINER_OT_liboverride_operation);
+  WM_operatortype_append(OUTLINER_OT_liboverride_troubleshoot_operation);
   WM_operatortype_append(OUTLINER_OT_id_operation);
   WM_operatortype_append(OUTLINER_OT_id_delete);
   WM_operatortype_append(OUTLINER_OT_id_remap);
@@ -97,3 +102,7 @@ void outliner_keymap(wmKeyConfig *keyconf)
 {
   WM_keymap_ensure(keyconf, "Outliner", SPACE_OUTLINER, 0);
 }
+
+/** \} */
+
+}  // namespace blender::ed::outliner

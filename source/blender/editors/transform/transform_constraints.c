@@ -177,7 +177,7 @@ static void axisProjection(const TransInfo *t,
                            const float in[3],
                            float out[3])
 {
-  float norm[3], vec[3], factor, angle;
+  float vec[3], factor, angle;
   float t_con_center[3];
 
   if (is_zero_v3(in)) {
@@ -214,7 +214,7 @@ static void axisProjection(const TransInfo *t,
   }
   else {
     float v[3];
-    float norm_center[3];
+    float norm[3], norm_center[3];
     float plane[3];
 
     view_vector_calc(t, t_con_center, norm_center);
@@ -270,12 +270,12 @@ static void axisProjection(const TransInfo *t,
 static void constraint_snap_plane_to_edge(const TransInfo *t, const float plane[4], float r_out[3])
 {
   float lambda;
-  const float *edge_snap_point = t->tsnap.snapPoint;
+  const float *edge_snap_point = t->tsnap.snap_target;
   const float *edge_dir = t->tsnap.snapNormal;
   bool is_aligned = fabsf(dot_v3v3(edge_dir, plane)) < CONSTRAIN_EPSILON;
   if (!is_aligned && isect_ray_plane_v3(edge_snap_point, edge_dir, plane, &lambda, false)) {
     madd_v3_v3v3fl(r_out, edge_snap_point, edge_dir, lambda);
-    sub_v3_v3(r_out, t->tsnap.snapTarget);
+    sub_v3_v3(r_out, t->tsnap.snap_source);
   }
 }
 
@@ -284,13 +284,13 @@ static void UNUSED_FUNCTION(constraint_snap_plane_to_face(const TransInfo *t,
                                                           float r_out[3]))
 {
   float face_plane[4], isect_orig[3], isect_dir[3];
-  const float *face_snap_point = t->tsnap.snapPoint;
+  const float *face_snap_point = t->tsnap.snap_target;
   const float *face_normal = t->tsnap.snapNormal;
   plane_from_point_normal_v3(face_plane, face_snap_point, face_normal);
   bool is_aligned = fabsf(dot_v3v3(plane, face_plane)) > (1.0f - CONSTRAIN_EPSILON);
   if (!is_aligned && isect_plane_plane_v3(plane, face_plane, isect_orig, isect_dir)) {
     closest_to_ray_v3(r_out, face_snap_point, isect_orig, isect_dir);
-    sub_v3_v3(r_out, t->tsnap.snapTarget);
+    sub_v3_v3(r_out, t->tsnap.snap_source);
   }
 }
 
@@ -299,11 +299,11 @@ void transform_constraint_snap_axis_to_edge(const TransInfo *t,
                                             float r_out[3])
 {
   float lambda;
-  const float *edge_snap_point = t->tsnap.snapPoint;
+  const float *edge_snap_point = t->tsnap.snap_target;
   const float *edge_dir = t->tsnap.snapNormal;
   bool is_aligned = fabsf(dot_v3v3(axis, edge_dir)) > (1.0f - CONSTRAIN_EPSILON);
   if (!is_aligned &&
-      isect_ray_ray_v3(t->tsnap.snapTarget, axis, edge_snap_point, edge_dir, &lambda, NULL)) {
+      isect_ray_ray_v3(t->tsnap.snap_source, axis, edge_snap_point, edge_dir, &lambda, NULL)) {
     mul_v3_v3fl(r_out, axis, lambda);
   }
 }
@@ -314,11 +314,11 @@ void transform_constraint_snap_axis_to_face(const TransInfo *t,
 {
   float lambda;
   float face_plane[4];
-  const float *face_snap_point = t->tsnap.snapPoint;
+  const float *face_snap_point = t->tsnap.snap_target;
   const float *face_normal = t->tsnap.snapNormal;
   plane_from_point_normal_v3(face_plane, face_snap_point, face_normal);
   bool is_aligned = fabsf(dot_v3v3(axis, face_plane)) < CONSTRAIN_EPSILON;
-  if (!is_aligned && isect_ray_plane_v3(t->tsnap.snapTarget, axis, face_plane, &lambda, false)) {
+  if (!is_aligned && isect_ray_plane_v3(t->tsnap.snap_source, axis, face_plane, &lambda, false)) {
     mul_v3_v3fl(r_out, axis, lambda);
   }
 }
@@ -337,25 +337,20 @@ static bool isPlaneProjectionViewAligned(const TransInfo *t, const float plane[4
   return fabsf(factor) < eps;
 }
 
-static void planeProjection(const TransInfo *t, const float in[3], float out[3])
+static void planeProjection(const TransInfo *t,
+                            const float plane[4],
+                            const float in[3],
+                            float out[3])
 {
-  float vec[3], factor, norm[3];
 
-  add_v3_v3v3(vec, in, t->center_global);
-  view_vector_calc(t, vec, norm);
+  float pos[3], view_vec[3], factor;
 
-  sub_v3_v3v3(vec, out, in);
+  add_v3_v3v3(pos, in, t->center_global);
+  view_vector_calc(t, pos, view_vec);
 
-  factor = dot_v3v3(vec, norm);
-  if (factor == 0.0f) {
-    return; /* prevent divide by zero */
+  if (isect_ray_plane_v3(pos, view_vec, plane, &factor, false)) {
+    madd_v3_v3v3fl(out, in, view_vec, factor);
   }
-  factor = dot_v3v3(vec, vec) / factor;
-
-  copy_v3_v3(vec, norm);
-  mul_v3_fl(vec, factor);
-
-  add_v3_v3v3(out, in, vec);
 }
 
 static short transform_orientation_or_default(const TransInfo *t)
@@ -397,12 +392,11 @@ static void applyAxisConstraintVec(const TransInfo *t,
   copy_v3_v3(out, in);
   if (!td && t->con.mode & CON_APPLY) {
     bool is_snap_to_point = false, is_snap_to_edge = false, is_snap_to_face = false;
-    mul_m3_v3(t->con.pmtx, out);
 
-    if (activeSnap(t)) {
+    if (transform_snap_is_active(t)) {
       if (validSnap(t)) {
         is_snap_to_edge = (t->tsnap.snapElem & SCE_SNAP_MODE_EDGE) != 0;
-        is_snap_to_face = (t->tsnap.snapElem & SCE_SNAP_MODE_FACE) != 0;
+        is_snap_to_face = (t->tsnap.snapElem & SCE_SNAP_MODE_FACE_RAYCAST) != 0;
         is_snap_to_point = !is_snap_to_edge && !is_snap_to_face;
       }
       else if (t->tsnap.snapElem & SCE_SNAP_MODE_GRID) {
@@ -410,8 +404,13 @@ static void applyAxisConstraintVec(const TransInfo *t,
       }
     }
 
-    /* With snap points, a projection is alright, no adjustments needed. */
-    if (!is_snap_to_point || is_snap_to_edge || is_snap_to_face) {
+    /* Fallback for when axes are aligned. */
+    mul_m3_v3(t->con.pmtx, out);
+
+    if (is_snap_to_point) {
+      /* Pass. With snap points, a projection is alright, no adjustments needed. */
+    }
+    else {
       const int dims = getConstraintSpaceDimension(t);
       if (dims == 2) {
         if (!is_zero_v3(out)) {
@@ -425,11 +424,9 @@ static void applyAxisConstraintVec(const TransInfo *t,
             /* Disabled, as it has not proven to be really useful. (See T82386). */
             // constraint_snap_plane_to_face(t, plane, out);
           }
-          else {
+          else if (!isPlaneProjectionViewAligned(t, plane)) {
             /* View alignment correction. */
-            if (!isPlaneProjectionViewAligned(t, plane)) {
-              planeProjection(t, in, out);
-            }
+            planeProjection(t, plane, in, out);
           }
         }
       }
@@ -701,12 +698,12 @@ void setLocalConstraint(TransInfo *t, int mode, const char text[])
   }
 }
 
-void setUserConstraint(TransInfo *t, int mode, const char ftext[])
+void setUserConstraint(TransInfo *t, int mode, const char text_[])
 {
   char text[256];
   const short orientation = transform_orientation_or_default(t);
   const char *spacename = transform_orientations_spacename_get(t, orientation);
-  BLI_snprintf(text, sizeof(text), ftext, spacename);
+  BLI_snprintf(text, sizeof(text), text_, spacename);
 
   switch (orientation) {
     case V3D_ORIENT_LOCAL:
@@ -783,7 +780,7 @@ void drawConstraint(TransInfo *t)
       immUniform1i("colors_len", 0); /* "simple" mode */
       immUniformColor4f(1.0f, 1.0f, 1.0f, 1.0f);
       immUniform1f("dash_width", 2.0f);
-      immUniform1f("dash_factor", 0.5f);
+      immUniform1f("udash_factor", 0.5f);
 
       immBegin(GPU_PRIM_LINES, 2);
       immVertex3fv(shdr_pos, t->center_global);
@@ -996,19 +993,10 @@ void selectConstraint(TransInfo *t)
 
 void postSelectConstraint(TransInfo *t)
 {
-  if (!(t->con.mode & CON_SELECT)) {
-    return;
-  }
-
-  t->con.mode &= ~CON_AXIS0;
-  t->con.mode &= ~CON_AXIS1;
-  t->con.mode &= ~CON_AXIS2;
   t->con.mode &= ~CON_SELECT;
-
-  setNearestAxis(t);
-
-  startConstraint(t);
-  t->redraw = TREDRAW_HARD;
+  if (!(t->con.mode & (CON_AXIS0 | CON_AXIS1 | CON_AXIS2))) {
+    t->con.mode &= ~CON_APPLY;
+  }
 }
 
 static void setNearestAxis2d(TransInfo *t)
@@ -1041,8 +1029,7 @@ static void setNearestAxis3d(TransInfo *t)
    * and to overflow the short integers.
    * The formula used is a bit stupid, just a simplification of the subtraction
    * of two 2D points 30 pixels apart (that's the last factor in the formula) after
-   * projecting them with ED_view3d_win_to_delta and then get the length of that vector.
-   */
+   * projecting them with #ED_view3d_win_to_delta and then get the length of that vector. */
   zfac = mul_project_m4_v3_zfac(t->persmat, t->center_global);
   zfac = len_v3(t->persinv[0]) * 2.0f / t->region->winx * zfac * 30.0f;
 

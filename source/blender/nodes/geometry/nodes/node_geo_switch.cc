@@ -59,13 +59,13 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Image>(N_("False"), "False_011");
   b.add_input<decl::Image>(N_("True"), "True_011");
 
-  b.add_output<decl::Float>(N_("Output")).dependent_field();
-  b.add_output<decl::Int>(N_("Output"), "Output_001").dependent_field();
-  b.add_output<decl::Bool>(N_("Output"), "Output_002").dependent_field();
-  b.add_output<decl::Vector>(N_("Output"), "Output_003").dependent_field();
-  b.add_output<decl::Color>(N_("Output"), "Output_004").dependent_field();
-  b.add_output<decl::String>(N_("Output"), "Output_005").dependent_field();
-  b.add_output<decl::Geometry>(N_("Output"), "Output_006");
+  b.add_output<decl::Float>(N_("Output")).dependent_field().reference_pass_all();
+  b.add_output<decl::Int>(N_("Output"), "Output_001").dependent_field().reference_pass_all();
+  b.add_output<decl::Bool>(N_("Output"), "Output_002").dependent_field().reference_pass_all();
+  b.add_output<decl::Vector>(N_("Output"), "Output_003").dependent_field().reference_pass_all();
+  b.add_output<decl::Color>(N_("Output"), "Output_004").dependent_field().reference_pass_all();
+  b.add_output<decl::String>(N_("Output"), "Output_005").dependent_field().reference_pass_all();
+  b.add_output<decl::Geometry>(N_("Output"), "Output_006").propagate_all();
   b.add_output<decl::Object>(N_("Output"), "Output_007");
   b.add_output<decl::Collection>(N_("Output"), "Output_008");
   b.add_output<decl::Texture>(N_("Output"), "Output_009");
@@ -73,12 +73,12 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Image>(N_("Output"), "Output_011");
 }
 
-static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "input_type", 0, "", ICON_NONE);
 }
 
-static void node_init(bNodeTree *UNUSED(tree), bNode *node)
+static void node_init(bNodeTree * /*tree*/, bNode *node)
 {
   NodeSwitch *data = MEM_cnew<NodeSwitch>(__func__);
   data->input_type = SOCK_GEOMETRY;
@@ -89,8 +89,8 @@ static void node_update(bNodeTree *ntree, bNode *node)
 {
   const NodeSwitch &storage = node_storage(*node);
   int index = 0;
-  bNodeSocket *field_switch = (bNodeSocket *)node->inputs.first;
-  bNodeSocket *non_field_switch = (bNodeSocket *)field_switch->next;
+  bNodeSocket *field_switch = static_cast<bNodeSocket *>(node->inputs.first);
+  bNodeSocket *non_field_switch = static_cast<bNodeSocket *>(field_switch->next);
 
   const bool fields_type = ELEM(
       storage.input_type, SOCK_FLOAT, SOCK_INT, SOCK_BOOLEAN, SOCK_VECTOR, SOCK_RGBA, SOCK_STRING);
@@ -120,53 +120,34 @@ static void node_gather_link_searches(GatherLinkSearchOpParams &params)
     });
   }
   else {
+    /* Make sure the switch input comes first in the search for boolean sockets. */
+    int true_false_weights = 0;
     if (params.other_socket().type == SOCK_BOOLEAN) {
       params.add_item(IFACE_("Switch"), [](LinkSearchOpParams &params) {
         bNode &node = params.add_node("GeometryNodeSwitch");
-        params.connect_available_socket(node, "Start");
+        params.update_and_connect_available_socket(node, "Switch");
       });
+      true_false_weights--;
     }
-    params.add_item(IFACE_("False"), [](LinkSearchOpParams &params) {
-      bNode &node = params.add_node("GeometryNodeSwitch");
-      node_storage(node).input_type = params.socket.type;
-      params.update_and_connect_available_socket(node, "False");
-    });
-    params.add_item(IFACE_("True"), [](LinkSearchOpParams &params) {
-      bNode &node = params.add_node("GeometryNodeSwitch");
-      node_storage(node).input_type = params.socket.type;
-      params.update_and_connect_available_socket(node, "True");
-    });
+
+    params.add_item(
+        IFACE_("False"),
+        [](LinkSearchOpParams &params) {
+          bNode &node = params.add_node("GeometryNodeSwitch");
+          node_storage(node).input_type = params.socket.type;
+          params.update_and_connect_available_socket(node, "False");
+        },
+        true_false_weights);
+    params.add_item(
+        IFACE_("True"),
+        [](LinkSearchOpParams &params) {
+          bNode &node = params.add_node("GeometryNodeSwitch");
+          node_storage(node).input_type = params.socket.type;
+          params.update_and_connect_available_socket(node, "True");
+        },
+        true_false_weights);
   }
 }
-
-template<typename T> class SwitchFieldsFunction : public fn::MultiFunction {
- public:
-  SwitchFieldsFunction()
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Switch"};
-    signature.single_input<bool>("Switch");
-    signature.single_input<T>("False");
-    signature.single_input<T>("True");
-    signature.single_output<T>("Output");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<bool> &switches = params.readonly_single_input<bool>(0, "Switch");
-    const VArray<T> &falses = params.readonly_single_input<T>(1, "False");
-    const VArray<T> &trues = params.readonly_single_input<T>(2, "True");
-    MutableSpan<T> values = params.uninitialized_single_output_if_required<T>(3, "Output");
-    for (int64_t i : mask) {
-      new (&values[i]) T(switches[i] ? trues[i] : falses[i]);
-    }
-  }
-};
 
 template<typename T> void switch_fields(GeoNodeExecParams &params, const StringRef suffix)
 {
@@ -190,7 +171,11 @@ template<typename T> void switch_fields(GeoNodeExecParams &params, const StringR
     Field<T> falses_field = params.extract_input<Field<T>>(name_false);
     Field<T> trues_field = params.extract_input<Field<T>>(name_true);
 
-    auto switch_fn = std::make_unique<SwitchFieldsFunction<T>>();
+    static auto switch_fn = mf::build::SI3_SO<bool, T, T, T>(
+        "Switch", [](bool condition, const T &false_value, const T &true_value) {
+          return condition ? true_value : false_value;
+        });
+
     auto switch_op = std::make_shared<FieldOperation>(FieldOperation(
         std::move(switch_fn),
         {std::move(switches_field), std::move(falses_field), std::move(trues_field)}));
@@ -247,7 +232,7 @@ template<typename T> void switch_no_fields(GeoNodeExecParams &params, const Stri
 static void node_geo_exec(GeoNodeExecParams params)
 {
   const NodeSwitch &storage = node_storage(params.node());
-  const eNodeSocketDatatype data_type = static_cast<eNodeSocketDatatype>(storage.input_type);
+  const eNodeSocketDatatype data_type = eNodeSocketDatatype(storage.input_type);
 
   switch (data_type) {
 
@@ -315,8 +300,8 @@ void register_node_type_geo_switch()
 
   geo_node_type_base(&ntype, GEO_NODE_SWITCH, "Switch", NODE_CLASS_CONVERTER);
   ntype.declare = file_ns::node_declare;
-  node_type_init(&ntype, file_ns::node_init);
-  node_type_update(&ntype, file_ns::node_update);
+  ntype.initfunc = file_ns::node_init;
+  ntype.updatefunc = file_ns::node_update;
   node_type_storage(&ntype, "NodeSwitch", node_free_standard_storage, node_copy_standard_storage);
   ntype.geometry_node_execute = file_ns::node_geo_exec;
   ntype.geometry_node_execute_supports_laziness = true;

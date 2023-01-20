@@ -25,6 +25,7 @@
 
 #include "RNA_access.h"
 #include "RNA_enum_types.h"
+#include "RNA_prototypes.h"
 #include "RNA_types.h"
 
 #include "bpy_rna.h"
@@ -313,6 +314,8 @@ PyDoc_STRVAR(
     "\n"
     "   Assigns callbacks to a gizmos property.\n"
     "\n"
+    "   :arg target: Target property name.\n"
+    "   :type target: string\n"
     "   :arg get: Function that returns the value for this property (single value or sequence).\n"
     "   :type get: callable\n"
     "   :arg set: Function that takes a single value argument and applies it.\n"
@@ -335,7 +338,17 @@ static PyObject *bpy_gizmo_target_set_handler(PyObject *UNUSED(self), PyObject *
    * 'Gizmo.target_set_prop & target_set_operator'
    * (see: rna_wm_gizmo_api.c). conventions should match. */
   static const char *const _keywords[] = {"self", "target", "get", "set", "range", NULL};
-  static _PyArg_Parser _parser = {"O&O&|$OOO:target_set_handler", _keywords, 0};
+  static _PyArg_Parser _parser = {
+      "O&" /* `self` */
+      "O&" /* `target` */
+      "|$" /* Optional keyword only arguments. */
+      "O"  /* `get` */
+      "O"  /* `set` */
+      "O"  /* `range` */
+      ":target_set_handler",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(args,
                                         kw,
                                         &_parser,
@@ -422,7 +435,13 @@ static PyObject *bpy_gizmo_target_get_value(PyObject *UNUSED(self), PyObject *ar
   };
 
   static const char *const _keywords[] = {"self", "target", NULL};
-  static _PyArg_Parser _parser = {"O&O&:target_get_value", _keywords, 0};
+  static _PyArg_Parser _parser = {
+      "O&" /* `self` */
+      "O&" /* `target` */
+      ":target_get_value",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(args,
                                         kw,
                                         &_parser,
@@ -480,7 +499,14 @@ static PyObject *bpy_gizmo_target_set_value(PyObject *UNUSED(self), PyObject *ar
   };
 
   static const char *const _keywords[] = {"self", "target", "value", NULL};
-  static _PyArg_Parser _parser = {"O&O&O:target_set_value", _keywords, 0};
+  static _PyArg_Parser _parser = {
+      "O&" /* `self` */
+      "O&" /* `target` */
+      "O"  /* `value` */
+      ":target_set_value",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(args,
                                         kw,
                                         &_parser,
@@ -549,7 +575,13 @@ static PyObject *bpy_gizmo_target_get_range(PyObject *UNUSED(self), PyObject *ar
   };
 
   static const char *const _keywords[] = {"self", "target", NULL};
-  static _PyArg_Parser _parser = {"O&O&:target_get_range", _keywords, 0};
+  static _PyArg_Parser _parser = {
+      "O&" /* `self` */
+      "O&" /* `target` */
+      ":target_get_range",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(args,
                                         kw,
                                         &_parser,

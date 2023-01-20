@@ -30,7 +30,7 @@ static std::string get_mesh_active_uvlayer_name(const Object *ob)
 
   const Mesh *me = static_cast<Mesh *>(ob->data);
 
-  const char *name = CustomData_get_active_layer_name(&me->ldata, CD_MLOOPUV);
+  const char *name = CustomData_get_active_layer_name(&me->ldata, CD_PROP_FLOAT2);
 
   return name ? name : "";
 }
@@ -45,6 +45,11 @@ USDAbstractWriter::USDAbstractWriter(const USDExporterContext &usd_export_contex
 bool USDAbstractWriter::is_supported(const HierarchyContext * /*context*/) const
 {
   return true;
+}
+
+std::string USDAbstractWriter::get_export_file_path() const
+{
+  return usd_export_context_.hierarchy_iterator->get_export_file_path();
 }
 
 pxr::UsdTimeCode USDAbstractWriter::get_export_time_code() const

@@ -24,22 +24,23 @@ static void node_declare(NodeDeclarationBuilder &b)
       .subtype(PROP_FACTOR);
   b.add_input<decl::Vector>(N_("Normal")).hide_value();
   b.add_input<decl::Vector>(N_("Tangent")).hide_value();
+  b.add_input<decl::Float>(N_("Weight")).unavailable();
   b.add_output<decl::Shader>(N_("BSDF"));
 }
 
-static void node_shader_buts_anisotropic(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_shader_buts_anisotropic(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "distribution", UI_ITEM_R_SPLIT_EMPTY_NAME, "", ICON_NONE);
 }
 
-static void node_shader_init_anisotropic(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_anisotropic(bNodeTree * /*ntree*/, bNode *node)
 {
   node->custom1 = SHD_GLOSSY_GGX;
 }
 
 static int node_shader_gpu_bsdf_anisotropic(GPUMaterial *mat,
                                             bNode *node,
-                                            bNodeExecData *UNUSED(execdata),
+                                            bNodeExecData * /*execdata*/,
                                             GPUNodeStack *in,
                                             GPUNodeStack *out)
 {
@@ -51,13 +52,8 @@ static int node_shader_gpu_bsdf_anisotropic(GPUMaterial *mat,
 
   float use_multi_scatter = (node->custom1 == SHD_GLOSSY_MULTI_GGX) ? 1.0f : 0.0f;
 
-  return GPU_stack_link(mat,
-                        node,
-                        "node_bsdf_anisotropic",
-                        in,
-                        out,
-                        GPU_constant(&use_multi_scatter),
-                        GPU_constant(&node->ssr_id));
+  return GPU_stack_link(
+      mat, node, "node_bsdf_anisotropic", in, out, GPU_constant(&use_multi_scatter));
 }
 
 }  // namespace blender::nodes::node_shader_bsdf_anisotropic_cc
@@ -73,8 +69,8 @@ void register_node_type_sh_bsdf_anisotropic()
   ntype.declare = file_ns::node_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_anisotropic;
   node_type_size_preset(&ntype, NODE_SIZE_MIDDLE);
-  node_type_init(&ntype, file_ns::node_shader_init_anisotropic);
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_bsdf_anisotropic);
+  ntype.initfunc = file_ns::node_shader_init_anisotropic;
+  ntype.gpu_fn = file_ns::node_shader_gpu_bsdf_anisotropic;
 
   nodeRegisterType(&ntype);
 }

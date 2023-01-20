@@ -18,6 +18,7 @@ class Version:
     Version class that extracts the major, minor and build from
     a version string
     """
+
     def __init__(self, version: str):
         self.version = version
         v = version.split(".")
@@ -27,6 +28,7 @@ class Version:
 
     def __str__(self) -> str:
         return self.version
+
 
 def get_download_file_names(version: Version):
     yield f"blender-{version}-linux-x64.tar.xz"
@@ -39,7 +41,7 @@ def get_download_url(version: Version, file_name: str) -> str:
     """
     Get the download url for the given version and file_name
     """
-    return (f"https://www.blender.org/download/Blender{version.major}"
+    return (f"https://www.blender.org/download/release/Blender{version.major}"
             f".{version.minor}/{file_name}")
 
 

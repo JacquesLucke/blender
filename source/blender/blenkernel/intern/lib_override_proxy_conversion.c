@@ -39,10 +39,11 @@ bool BKE_lib_override_library_proxy_convert(Main *bmain,
   /* `proxy_group`, if defined, is the empty instantiating the collection from which the proxy is
    * coming. */
   Object *ob_proxy_group = ob_proxy->proxy_group;
-  const bool is_override_instancing_object = ob_proxy_group != NULL;
+  const bool is_override_instancing_object = (ob_proxy_group != NULL) &&
+                                             (ob_proxy_group->instance_collection != NULL);
   ID *id_root = is_override_instancing_object ? &ob_proxy_group->instance_collection->id :
                                                 &ob_proxy->proxy->id;
-  ID *id_reference = is_override_instancing_object ? &ob_proxy_group->id : &ob_proxy->id;
+  ID *id_instance_hint = is_override_instancing_object ? &ob_proxy_group->id : &ob_proxy->id;
 
   /* In some cases the instance collection of a proxy object may be local (see e.g. T83875). Not
    * sure this is a valid state, but for now just abort the overriding process. */
@@ -62,6 +63,7 @@ bool BKE_lib_override_library_proxy_convert(Main *bmain,
   ob_proxy->proxy->id.tag |= LIB_TAG_DOIT;
   ob_proxy->proxy->id.newid = &ob_proxy->id;
   BKE_lib_override_library_init(&ob_proxy->id, &ob_proxy->proxy->id);
+  ob_proxy->id.override_library->flag &= ~IDOVERRIDE_LIBRARY_FLAG_SYSTEM_DEFINED;
 
   ob_proxy->proxy->proxy_from = NULL;
   ob_proxy->proxy = ob_proxy->proxy_group = NULL;
@@ -81,7 +83,7 @@ bool BKE_lib_override_library_proxy_convert(Main *bmain,
   FOREACH_MAIN_ID_END;
 
   return BKE_lib_override_library_create(
-      bmain, scene, view_layer, ob_proxy->id.lib, id_root, id_reference, NULL);
+      bmain, scene, view_layer, ob_proxy->id.lib, id_root, id_root, id_instance_hint, NULL, false);
 }
 
 static void lib_override_library_proxy_convert_do(Main *bmain,

@@ -123,7 +123,7 @@ AbstractHierarchyWriter *EnsuredWriter::operator->()
 
 bool AbstractHierarchyWriter::check_is_animated(const HierarchyContext &context) const
 {
-  const Object *object = context.object;
+  Object *object = context.object;
 
   if (BKE_animdata_id_is_animated(static_cast<ID *>(object->data))) {
     return true;
@@ -161,8 +161,8 @@ bool AbstractHierarchyWriter::check_has_deforming_physics(const HierarchyContext
   return rbo != nullptr && rbo->type == RBO_TYPE_ACTIVE && (rbo->flag & RBO_FLAG_USE_DEFORM) != 0;
 }
 
-AbstractHierarchyIterator::AbstractHierarchyIterator(Depsgraph *depsgraph)
-    : depsgraph_(depsgraph), export_subset_({true, true})
+AbstractHierarchyIterator::AbstractHierarchyIterator(Main *bmain, Depsgraph *depsgraph)
+    : bmain_(bmain), depsgraph_(depsgraph), export_subset_({true, true})
 {
 }
 
@@ -267,10 +267,16 @@ void AbstractHierarchyIterator::export_graph_construct()
 {
   Scene *scene = DEG_get_evaluated_scene(depsgraph_);
 
-  DEG_OBJECT_ITER_BEGIN (depsgraph_,
-                         object,
-                         DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
-                             DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET) {
+  /* Add a "null" root node with no children immediately for the case where the top-most node in
+   * the scene is not being exported and a root node otherwise wouldn't get added. */
+  ExportGraph::key_type root_node_id = ObjectIdentifier::for_real_object(nullptr);
+  export_graph_[root_node_id] = ExportChildren();
+
+  DEGObjectIterSettings deg_iter_settings{};
+  deg_iter_settings.depsgraph = depsgraph_;
+  deg_iter_settings.flags = DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
+                            DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET;
+  DEG_OBJECT_ITER_BEGIN (&deg_iter_settings, object) {
     /* Non-instanced objects always have their object-parent as export-parent. */
     const bool weak_export = mark_as_weak_export(object);
     visit_object(object, object->parent, weak_export);
@@ -410,7 +416,7 @@ void AbstractHierarchyIterator::visit_object(Object *object,
   context->original_export_path = "";
   context->higher_up_export_path = "";
 
-  copy_m4_m4(context->matrix_world, object->obmat);
+  copy_m4_m4(context->matrix_world, object->object_to_world);
 
   ExportGraph::key_type graph_index = determine_graph_index_object(context);
   context_update_for_graph_index(context, graph_index);

@@ -6,6 +6,7 @@
  */
 
 #include "BLI_math.h"
+#include "BLI_rect.h"
 #include "BLI_utildefines.h"
 
 #include "IMB_filter.h"
@@ -47,7 +48,7 @@ static void clear_dither_context(DitherContext *di)
 /** \name Generic Buffer Conversion
  * \{ */
 
-MINLINE void ushort_to_byte_v4(uchar b[4], const unsigned short us[4])
+MINLINE void ushort_to_byte_v4(uchar b[4], const ushort us[4])
 {
   b[0] = unit_ushort_to_uchar(us[0]);
   b[1] = unit_ushort_to_uchar(us[1]);
@@ -55,13 +56,13 @@ MINLINE void ushort_to_byte_v4(uchar b[4], const unsigned short us[4])
   b[3] = unit_ushort_to_uchar(us[3]);
 }
 
-MINLINE unsigned char ftochar(float value)
+MINLINE uchar ftochar(float value)
 {
   return unit_float_to_uchar_clamp(value);
 }
 
 MINLINE void ushort_to_byte_dither_v4(
-    uchar b[4], const unsigned short us[4], DitherContext *di, float s, float t)
+    uchar b[4], const ushort us[4], DitherContext *di, float s, float t)
 {
 #define USHORTTOFLOAT(val) ((float)val / 65535.0f)
   float dither_value = dither_random_value(s, t) * 0.0033f * di->dither;
@@ -191,7 +192,7 @@ void IMB_buffer_byte_from_float(uchar *rect_to,
       }
       else if (profile_to == IB_PROFILE_SRGB) {
         /* convert from linear to sRGB */
-        unsigned short us[4];
+        ushort us[4];
         float straight[4];
 
         if (dither && predivide) {
@@ -694,9 +695,6 @@ void IMB_buffer_byte_from_byte(uchar *rect_to,
 
 void IMB_rect_from_float(ImBuf *ibuf)
 {
-  float *buffer;
-  const char *from_colorspace;
-
   /* verify we have a float buffer */
   if (ibuf->rect_float == NULL) {
     return;
@@ -709,24 +707,21 @@ void IMB_rect_from_float(ImBuf *ibuf)
     }
   }
 
-  if (ibuf->float_colorspace == NULL) {
-    from_colorspace = IMB_colormanagement_role_colorspace_name_get(COLOR_ROLE_SCENE_LINEAR);
-  }
-  else {
-    from_colorspace = ibuf->float_colorspace->name;
-  }
+  const char *from_colorspace = (ibuf->float_colorspace == NULL) ?
+                                    IMB_colormanagement_role_colorspace_name_get(
+                                        COLOR_ROLE_SCENE_LINEAR) :
+                                    ibuf->float_colorspace->name;
+  const char *to_colorspace = (ibuf->rect_colorspace == NULL) ?
+                                  IMB_colormanagement_role_colorspace_name_get(
+                                      COLOR_ROLE_DEFAULT_BYTE) :
+                                  ibuf->rect_colorspace->name;
 
-  buffer = MEM_dupallocN(ibuf->rect_float);
+  float *buffer = MEM_dupallocN(ibuf->rect_float);
 
   /* first make float buffer in byte space */
   const bool predivide = IMB_alpha_affects_rgb(ibuf);
-  IMB_colormanagement_transform(buffer,
-                                ibuf->x,
-                                ibuf->y,
-                                ibuf->channels,
-                                from_colorspace,
-                                ibuf->rect_colorspace->name,
-                                predivide);
+  IMB_colormanagement_transform(
+      buffer, ibuf->x, ibuf->y, ibuf->channels, from_colorspace, to_colorspace, predivide);
 
   /* convert from float's premul alpha to byte's straight alpha */
   if (IMB_alpha_affects_rgb(ibuf)) {
@@ -734,7 +729,7 @@ void IMB_rect_from_float(ImBuf *ibuf)
   }
 
   /* convert float to byte */
-  IMB_buffer_byte_from_float((unsigned char *)ibuf->rect,
+  IMB_buffer_byte_from_float((uchar *)ibuf->rect,
                              buffer,
                              ibuf->channels,
                              ibuf->dither,
@@ -750,6 +745,61 @@ void IMB_rect_from_float(ImBuf *ibuf)
 
   /* ensure user flag is reset */
   ibuf->userflags &= ~IB_RECT_INVALID;
+}
+
+void IMB_float_from_rect_ex(struct ImBuf *dst,
+                            const struct ImBuf *src,
+                            const rcti *region_to_update)
+{
+  BLI_assert_msg(dst->rect_float != NULL,
+                 "Destination buffer should have a float buffer assigned.");
+  BLI_assert_msg(src->rect != NULL, "Source buffer should have a byte buffer assigned.");
+  BLI_assert_msg(dst->x == src->x, "Source and destination buffer should have the same dimension");
+  BLI_assert_msg(dst->y == src->y, "Source and destination buffer should have the same dimension");
+  BLI_assert_msg(dst->channels = 4, "Destination buffer should have 4 channels.");
+  BLI_assert_msg(region_to_update->xmin >= 0,
+                 "Region to update should be clipped to the given buffers.");
+  BLI_assert_msg(region_to_update->ymin >= 0,
+                 "Region to update should be clipped to the given buffers.");
+  BLI_assert_msg(region_to_update->xmax <= dst->x,
+                 "Region to update should be clipped to the given buffers.");
+  BLI_assert_msg(region_to_update->ymax <= dst->y,
+                 "Region to update should be clipped to the given buffers.");
+
+  float *rect_float = dst->rect_float;
+  rect_float += (region_to_update->xmin + region_to_update->ymin * dst->x) * 4;
+  uchar *rect = (uchar *)src->rect;
+  rect += (region_to_update->xmin + region_to_update->ymin * dst->x) * 4;
+  const int region_width = BLI_rcti_size_x(region_to_update);
+  const int region_height = BLI_rcti_size_y(region_to_update);
+
+  /* Convert byte buffer to float buffer without color or alpha conversion. */
+  IMB_buffer_float_from_byte(rect_float,
+                             rect,
+                             IB_PROFILE_SRGB,
+                             IB_PROFILE_SRGB,
+                             false,
+                             region_width,
+                             region_height,
+                             src->x,
+                             dst->x);
+
+  /* Perform color space conversion from rect color space to linear. */
+  float *float_ptr = rect_float;
+  for (int i = 0; i < region_height; i++) {
+    IMB_colormanagement_colorspace_to_scene_linear(
+        float_ptr, region_width, 1, dst->channels, src->rect_colorspace, false);
+    float_ptr += 4 * dst->x;
+  }
+
+  /* Perform alpha conversion. */
+  if (IMB_alpha_affects_rgb(src)) {
+    float_ptr = rect_float;
+    for (int i = 0; i < region_height; i++) {
+      IMB_premultiply_rect_float(float_ptr, dst->channels, region_width, 1);
+      float_ptr += 4 * dst->x;
+    }
+  }
 }
 
 void IMB_float_from_rect(ImBuf *ibuf)
@@ -775,33 +825,14 @@ void IMB_float_from_rect(ImBuf *ibuf)
     }
 
     ibuf->channels = 4;
-  }
-
-  /* first, create float buffer in non-linear space */
-  IMB_buffer_float_from_byte(rect_float,
-                             (unsigned char *)ibuf->rect,
-                             IB_PROFILE_SRGB,
-                             IB_PROFILE_SRGB,
-                             false,
-                             ibuf->x,
-                             ibuf->y,
-                             ibuf->x,
-                             ibuf->x);
-
-  /* then make float be in linear space */
-  IMB_colormanagement_colorspace_to_scene_linear(
-      rect_float, ibuf->x, ibuf->y, ibuf->channels, ibuf->rect_colorspace, false);
-
-  /* byte buffer is straight alpha, float should always be premul */
-  if (IMB_alpha_affects_rgb(ibuf)) {
-    IMB_premultiply_rect_float(rect_float, ibuf->channels, ibuf->x, ibuf->y);
-  }
-
-  if (ibuf->rect_float == NULL) {
     ibuf->rect_float = rect_float;
     ibuf->mall |= IB_rectfloat;
     ibuf->flags |= IB_rectfloat;
   }
+
+  rcti region_to_update;
+  BLI_rcti_init(&region_to_update, 0, ibuf->x, 0, ibuf->y);
+  IMB_float_from_rect_ex(ibuf, ibuf, &region_to_update);
 }
 
 /** \} */
@@ -858,7 +889,7 @@ void IMB_buffer_float_premultiply(float *buf, int width, int height)
 void IMB_saturation(ImBuf *ibuf, float sat)
 {
   size_t i;
-  unsigned char *rct = (unsigned char *)ibuf->rect;
+  uchar *rct = (uchar *)ibuf->rect;
   float *rct_fl = ibuf->rect_float;
   float hsv[3];
 

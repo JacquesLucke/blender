@@ -36,19 +36,19 @@ getopt \
 -o s:i:t:h \
 --long source:,install:,tmp:,info:,threads:,help,show-deps,no-sudo,no-build,no-confirm,\
 with-all,with-opencollada,with-jack,with-pulseaudio,with-embree,with-oidn,with-nanovdb,\
-ver-ocio:,ver-oiio:,ver-llvm:,ver-osl:,ver-osd:,ver-openvdb:,ver-xr-openxr:,\
+ver-ocio:,ver-oiio:,ver-llvm:,ver-osl:,ver-osd:,ver-openvdb:,ver-xr-openxr:,ver-level-zero:\
 force-all,force-python,force-boost,force-tbb,\
-force-ocio,force-openexr,force-oiio,force-llvm,force-osl,force-osd,force-openvdb,\
-force-ffmpeg,force-opencollada,force-alembic,force-embree,force-oidn,force-usd,\
-force-xr-openxr,\
+force-ocio,force-imath,force-openexr,force-oiio,force-llvm,force-osl,force-osd,force-openvdb,\
+force-ffmpeg,force-opencollada,force-alembic,force-embree,force-oidn,force-materialx,force-usd,\
+force-xr-openxr,force-level-zero,force-openpgl,\
 build-all,build-python,build-boost,build-tbb,\
-build-ocio,build-openexr,build-oiio,build-llvm,build-osl,build-osd,build-openvdb,\
-build-ffmpeg,build-opencollada,build-alembic,build-embree,build-oidn,build-usd,\
-build-xr-openxr,\
+build-ocio,build-imath,build-openexr,build-oiio,build-llvm,build-osl,build-osd,build-openvdb,\
+build-ffmpeg,build-opencollada,build-alembic,build-embree,build-oidn,build-materialx,build-usd,\
+build-xr-openxr,build-level-zero,build-openpgl,\
 skip-python,skip-boost,skip-tbb,\
-skip-ocio,skip-openexr,skip-oiio,skip-llvm,skip-osl,skip-osd,skip-openvdb,\
-skip-ffmpeg,skip-opencollada,skip-alembic,skip-embree,skip-oidn,skip-usd,\
-skip-xr-openxr \
+skip-ocio,skip-imath,skip-openexr,skip-oiio,skip-llvm,skip-osl,skip-osd,skip-openvdb,\
+skip-ffmpeg,skip-opencollada,skip-alembic,skip-embree,skip-oidn,skip-materialx,skip-usd,\
+skip-xr-openxr,skip-level-zero,skip-openpgl \
 -- "$@" \
 )
 
@@ -165,6 +165,9 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
     --ver-xr-openxr=<ver>
         Force version of OpenXR-SDK.
 
+    --ver-level-zero=<ver>
+        Force version of OneAPI Level Zero library.
+
     Note about the --ver-foo options:
         It may not always work as expected (some libs are actually checked out from a git rev...), yet it might help
         to fix some build issues (like LLVM mismatch with the version used by your graphic system).
@@ -183,6 +186,9 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
 
     --build-ocio
         Force the build of OpenColorIO.
+
+    --build-imath
+        Force the build of Imath.
 
     --build-openexr
         Force the build of OpenEXR.
@@ -217,11 +223,20 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
     --build-ffmpeg
         Force the build of FFMpeg.
 
+    --build-materialx
+        Force the build of MaterialX.
+
     --build-usd
         Force the build of Universal Scene Description.
 
     --build-xr-openxr
         Force the build of OpenXR-SDK.
+
+    --build-level-zero=<ver>
+        Force the build of OneAPI Level Zero library.
+
+    --build-openpgl
+        Force the build of OpenPGL library.
 
     Note about the --build-foo options:
         * They force the script to prefer building dependencies rather than using available packages.
@@ -247,6 +262,9 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
 
     --force-ocio
         Force the rebuild of OpenColorIO.
+
+    --force-imath
+        Force the rebuild of Imath.
 
     --force-openexr
         Force the rebuild of OpenEXR.
@@ -281,11 +299,20 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
     --force-ffmpeg
         Force the rebuild of FFMpeg.
 
+    --force-materialx
+        Force the rebuild of MaterialX.
+
     --force-usd
         Force the rebuild of Universal Scene Description.
 
     --force-xr-openxr
         Force the rebuild of OpenXR-SDK.
+
+    --force-level-zero=<ver>
+        Force the rebuild of OneAPI Level Zero library.
+
+    --force-openpgl
+        Force the rebuild of OpenPGL library.
 
     Note about the --force-foo options:
         * They obviously only have an effect if those libraries are built by this script
@@ -304,6 +331,9 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
 
     --skip-ocio
         Unconditionally skip OpenColorIO installation/building.
+
+    --skip-imath
+        Unconditionally skip IMath installation/building.
 
     --skip-openexr
         Unconditionally skip OpenEXR installation/building.
@@ -338,11 +368,20 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
     --skip-ffmpeg
         Unconditionally skip FFMpeg installation/building.
 
+    --skip-materialx
+        Unconditionally skip MaterialX installation/building.
+
     --skip-usd
         Unconditionally skip Universal Scene Description installation/building.
 
     --skip-xr-openxr
-        Unconditionally skip OpenXR-SDK installation/building.\""
+        Unconditionally skip OpenXR-SDK installation/building.
+
+    --skip-level-zero=<ver>
+        Unconditionally skip OneAPI Level Zero installation/building.
+
+    --skip-openpgl
+        Unconditionally skip OpenPGL installation/building.\""
 
 # ----------------------------------------------------------------------------
 # Main Vars
@@ -364,14 +403,15 @@ CLANG_FORMAT_VERSION="10.0"
 CLANG_FORMAT_VERSION_MIN="6.0"
 CLANG_FORMAT_VERSION_MEX="14.0"
 
-PYTHON_VERSION="3.10.2"
+PYTHON_VERSION="3.10.9"
 PYTHON_VERSION_SHORT="3.10"
-PYTHON_VERSION_MIN="3.9"
+PYTHON_VERSION_MIN="3.10"
 PYTHON_VERSION_MEX="3.12"
 PYTHON_VERSION_INSTALLED=$PYTHON_VERSION_SHORT
 PYTHON_FORCE_BUILD=false
 PYTHON_FORCE_REBUILD=false
 PYTHON_SKIP=false
+_with_built_python=false
 
 # Additional Python modules.
 PYTHON_IDNA_VERSION="3.3"
@@ -404,7 +444,7 @@ PYTHON_ZSTANDARD_VERSION_MIN="0.15.2"
 PYTHON_ZSTANDARD_VERSION_MEX="0.20.0"
 PYTHON_ZSTANDARD_NAME="zstandard"
 
-PYTHON_NUMPY_VERSION="1.22.0"
+PYTHON_NUMPY_VERSION="1.23.5"
 PYTHON_NUMPY_VERSION_MIN="1.14"
 PYTHON_NUMPY_VERSION_MEX="2.0"
 PYTHON_NUMPY_NAME="numpy"
@@ -432,44 +472,55 @@ PYTHON_MODULES_PIP=(
 )
 
 
-BOOST_VERSION="1.73.0"
-BOOST_VERSION_SHORT="1.73"
+BOOST_VERSION="1.80.0"
+BOOST_VERSION_SHORT="1.80"
 BOOST_VERSION_MIN="1.49"
 BOOST_VERSION_MEX="2.0"
-BOOST_FORCE_BUILD=false
+# XXX Boost currently has an issue with python/tbb, see rB019b930 for details and patch used to fix it.
+# So for now it has to be built, system packages are not usable. :(
+BOOST_FORCE_BUILD=true
 BOOST_FORCE_REBUILD=false
 BOOST_SKIP=false
 
 TBB_VERSION="2020"
 TBB_VERSION_SHORT="2020"
-TBB_VERSION_UPDATE="_U2"  # Used for source packages...
+TBB_VERSION_UPDATE="_U3"  # Used for source packages...
 TBB_VERSION_MIN="2018"
-TBB_VERSION_MEX="2022"
+TBB_VERSION_MEX="2021"  # 2021 introduces 'oneTBB', which has lots of compatibility breakage with previous versions
 TBB_FORCE_BUILD=false
 TBB_FORCE_REBUILD=false
 TBB_SKIP=false
 
-OCIO_VERSION="2.0.0"
-OCIO_VERSION_SHORT="2.0"
+OCIO_VERSION="2.2.0"
+OCIO_VERSION_SHORT="2.2"
 OCIO_VERSION_MIN="2.0"
 OCIO_VERSION_MEX="3.0"
 OCIO_FORCE_BUILD=false
 OCIO_FORCE_REBUILD=false
 OCIO_SKIP=false
 
-OPENEXR_VERSION="2.5.5"
-OPENEXR_VERSION_SHORT="2.5"
-OPENEXR_VERSION_MIN="2.4"
-OPENEXR_VERSION_MEX="3.0"
+IMATH_VERSION="3.1.5"
+IMATH_VERSION_SHORT="3.1"
+IMATH_VERSION_MIN="3.0"
+IMATH_VERSION_MEX="4.0"
+IMATH_FORCE_BUILD=false
+IMATH_FORCE_REBUILD=false
+IMATH_SKIP=false
+_with_built_imath=false
+
+OPENEXR_VERSION="3.1.5"
+OPENEXR_VERSION_SHORT="3.1"
+OPENEXR_VERSION_MIN="3.0"
+OPENEXR_VERSION_MEX="4.0"
 OPENEXR_FORCE_BUILD=false
 OPENEXR_FORCE_REBUILD=false
 OPENEXR_SKIP=false
 _with_built_openexr=false
 
-OIIO_VERSION="2.2.15.1"
-OIIO_VERSION_SHORT="2.2"
-OIIO_VERSION_MIN="2.1.12"
-OIIO_VERSION_MEX="2.3.0"
+OIIO_VERSION="2.4.6.0"
+OIIO_VERSION_SHORT="2.4"
+OIIO_VERSION_MIN="2.2.0"
+OIIO_VERSION_MEX="2.5.0"
 OIIO_FORCE_BUILD=false
 OIIO_FORCE_REBUILD=false
 OIIO_SKIP=false
@@ -484,8 +535,8 @@ LLVM_FORCE_REBUILD=false
 LLVM_SKIP=false
 
 # OSL needs to be compiled for now!
-OSL_VERSION="1.11.17.0"
-OSL_VERSION_SHORT="1.11"
+OSL_VERSION="1.13.0.2"
+OSL_VERSION_SHORT="1.13"
 OSL_VERSION_MIN="1.11"
 OSL_VERSION_MEX="2.0"
 OSL_FORCE_BUILD=false
@@ -493,38 +544,46 @@ OSL_FORCE_REBUILD=false
 OSL_SKIP=false
 
 # OpenSubdiv needs to be compiled for now
-OSD_VERSION="3.4.3"
-OSD_VERSION_SHORT="3.4"
-OSD_VERSION_MIN="3.4"
+OSD_VERSION="3.5.0"
+OSD_VERSION_SHORT="3.5"
+OSD_VERSION_MIN="3.5"
 OSD_VERSION_MEX="4.0"
 OSD_FORCE_BUILD=false
 OSD_FORCE_REBUILD=false
 OSD_SKIP=false
 
 # OpenVDB needs to be compiled for now
-OPENVDB_BLOSC_VERSION="1.5.0"
+OPENVDB_BLOSC_VERSION="1.21.1"
 
-OPENVDB_VERSION="8.0.1"
-OPENVDB_VERSION_SHORT="8.0"
-OPENVDB_VERSION_MIN="8.0"
-OPENVDB_VERSION_MEX="8.1"
+OPENVDB_VERSION="10.0.0"
+OPENVDB_VERSION_SHORT="10.0"
+OPENVDB_VERSION_MIN="10.0"
+OPENVDB_VERSION_MEX="11.0"
 OPENVDB_FORCE_BUILD=false
 OPENVDB_FORCE_REBUILD=false
 OPENVDB_SKIP=false
 
 # Alembic needs to be compiled for now
-ALEMBIC_VERSION="1.7.16"
-ALEMBIC_VERSION_SHORT="1.7"
+ALEMBIC_VERSION="1.8.3"
+ALEMBIC_VERSION_SHORT="1.8"
 ALEMBIC_VERSION_MIN="1.7"
 ALEMBIC_VERSION_MEX="2.0"
 ALEMBIC_FORCE_BUILD=false
 ALEMBIC_FORCE_REBUILD=false
 ALEMBIC_SKIP=false
 
-USD_VERSION="21.02"
-USD_VERSION_SHORT="21.02"
+MATERIALX_VERSION="1.38.6"
+MATERIALX_VERSION_SHORT="1.38"
+MATERIALX_VERSION_MIN="1.38"
+MATERIALX_VERSION_MEX="1.40"
+MATERIALX_FORCE_BUILD=false
+MATERIALX_FORCE_REBUILD=false
+MATERIALX_SKIP=false
+
+USD_VERSION="22.11"
+USD_VERSION_SHORT="22.11"
 USD_VERSION_MIN="20.05"
-USD_VERSION_MEX="22.00"
+USD_VERSION_MEX="23.00"
 USD_FORCE_BUILD=false
 USD_FORCE_REBUILD=false
 USD_SKIP=false
@@ -537,15 +596,15 @@ OPENCOLLADA_FORCE_BUILD=false
 OPENCOLLADA_FORCE_REBUILD=false
 OPENCOLLADA_SKIP=false
 
-EMBREE_VERSION="3.10.0"
-EMBREE_VERSION_SHORT="3.10"
-EMBREE_VERSION_MIN="3.10"
+EMBREE_VERSION="3.13.4"
+EMBREE_VERSION_SHORT="3.13"
+EMBREE_VERSION_MIN="3.13"
 EMBREE_VERSION_MEX="4.0"
 EMBREE_FORCE_BUILD=false
 EMBREE_FORCE_REBUILD=false
 EMBREE_SKIP=false
 
-OIDN_VERSION="1.4.1"
+OIDN_VERSION="1.4.3"
 OIDN_VERSION_SHORT="1.4"
 OIDN_VERSION_MIN="1.4.0"
 OIDN_VERSION_MEX="1.5"
@@ -553,16 +612,23 @@ OIDN_FORCE_BUILD=false
 OIDN_FORCE_REBUILD=false
 OIDN_SKIP=false
 
-ISPC_VERSION="1.16.0"
+ISPC_VERSION="1.17.0"
 
-FFMPEG_VERSION="4.4"
-FFMPEG_VERSION_SHORT="4.4"
-FFMPEG_VERSION_MIN="3.0"
-FFMPEG_VERSION_MEX="5.0"
-FFMPEG_FORCE_BUILD=false
-FFMPEG_FORCE_REBUILD=false
-FFMPEG_SKIP=false
-_ffmpeg_list_sep=";"
+LEVEL_ZERO_VERSION="1.7.15"
+LEVEL_ZERO_VERSION_SHORT="1.7"
+LEVEL_ZERO_VERSION_MIN="1.7"
+LEVEL_ZERO_VERSION_MEX="2.0"
+LEVEL_ZERO_FORCE_BUILD=false
+LEVEL_ZERO_FORCE_REBUILD=false
+LEVEL_ZERO_SKIP=false
+
+OPENPGL_VERSION="0.4.1"
+OPENPGL_VERSION_SHORT="0.4"
+OPENPGL_VERSION_MIN="0.4.1"
+OPENPGL_VERSION_MEX="0.5"
+OPENPGL_FORCE_BUILD=false
+OPENPGL_FORCE_REBUILD=false
+OPENPGL_SKIP=false
 
 XR_OPENXR_VERSION="1.0.22"
 XR_OPENXR_VERSION_SHORT="1.0"
@@ -571,6 +637,15 @@ XR_OPENXR_VERSION_MEX="2.0"
 XR_OPENXR_FORCE_BUILD=false
 XR_OPENXR_FORCE_REBUILD=false
 XR_OPENXR_SKIP=false
+
+FFMPEG_VERSION="5.1.2"
+FFMPEG_VERSION_SHORT="5.1"
+FFMPEG_VERSION_MIN="4.0"
+FFMPEG_VERSION_MEX="6.0"
+FFMPEG_FORCE_BUILD=false
+FFMPEG_FORCE_REBUILD=false
+FFMPEG_SKIP=false
+_ffmpeg_list_sep=";"
 
 # FFMPEG optional libs.
 VORBIS_USE=false
@@ -584,9 +659,14 @@ XVID_DEV=""
 X264_USE=false
 X264_DEV=""
 X264_VERSION_MIN=0.118
+WEBP_USE=false
+WEBP_DEV=""
 VPX_USE=false
 VPX_VERSION_MIN=0.9.7
 VPX_DEV=""
+AOM_USE=false
+AOM_VERSION_MIN=3.3.0
+AOM_DEV=""
 OPUS_USE=false
 OPUS_VERSION_MIN=1.1.1
 OPUS_DEV=""
@@ -594,9 +674,6 @@ MP3LAME_USE=false
 MP3LAME_DEV=""
 OPENJPEG_USE=false
 OPENJPEG_DEV=""
-
-# Whether to use system GLEW or not (OpenSubDiv needs recent glew to work).
-NO_SYSTEM_GLEW=false
 
 # Switch to english language, else some things (like check_package_DEB()) won't work!
 LANG_BACK=$LANG
@@ -761,11 +838,18 @@ while true; do
       XR_OPENXR_VERSION_SHORT=$XR_OPENXR_VERSION
       shift; shift; continue
     ;;
+    --ver-level-zero)
+      LEVEL_ZERO_VERSION="$2"
+      LEVEL_ZERO_VERSION_MIN=$LEVEL_ZERO_VERSION
+      LEVEL_ZERO_VERSION_SHORT=$LEVEL_ZERO_VERSION
+      shift; shift; continue
+    ;;
     --build-all)
       PYTHON_FORCE_BUILD=true
       BOOST_FORCE_BUILD=true
       TBB_FORCE_BUILD=true
       OCIO_FORCE_BUILD=true
+      IMATH_FORCE_BUILD=true
       OPENEXR_FORCE_BUILD=true
       OIIO_FORCE_BUILD=true
       LLVM_FORCE_BUILD=true
@@ -779,6 +863,8 @@ while true; do
       ALEMBIC_FORCE_BUILD=true
       USD_FORCE_BUILD=true
       XR_OPENXR_FORCE_BUILD=true
+      LEVEL_ZERO_FORCE_BUILD=true
+      OPENPGL_FORCE_BUILD=true
       shift; continue
     ;;
     --build-python)
@@ -793,6 +879,9 @@ while true; do
     ;;
     --build-ocio)
       OCIO_FORCE_BUILD=true; shift; continue
+    ;;
+    --build-imath)
+      IMATH_FORCE_BUILD=true; shift; continue
     ;;
     --build-openexr)
       OPENEXR_FORCE_BUILD=true; shift; continue
@@ -827,17 +916,27 @@ while true; do
     --build-alembic)
       ALEMBIC_FORCE_BUILD=true; shift; continue
     ;;
+    --build-materialx)
+      MATERIALX_FORCE_BUILD=true; shift; continue
+    ;;
     --build-usd)
       USD_FORCE_BUILD=true; shift; continue
     ;;
     --build-xr-openxr)
       XR_OPENXR_FORCE_BUILD=true; shift; continue
     ;;
+    --build-level-zero)
+      LEVEL_ZERO_FORCE_BUILD=true; shift; continue
+    ;;
+    --build-openpgl)
+      OPENPGL_FORCE_BUILD=true; shift; continue
+    ;;
     --force-all)
       PYTHON_FORCE_REBUILD=true
       BOOST_FORCE_REBUILD=true
       TBB_FORCE_REBUILD=true
       OCIO_FORCE_REBUILD=true
+      IMATH_FORCE_REBUILD=true
       OPENEXR_FORCE_REBUILD=true
       OIIO_FORCE_REBUILD=true
       LLVM_FORCE_REBUILD=true
@@ -849,8 +948,11 @@ while true; do
       OIDN_FORCE_REBUILD=true
       FFMPEG_FORCE_REBUILD=true
       ALEMBIC_FORCE_REBUILD=true
+      MATERIALX_FORCE_REBUILD=true
       USD_FORCE_REBUILD=true
       XR_OPENXR_FORCE_REBUILD=true
+      LEVEL_ZERO_FORCE_REBUILD=true
+      OPENPGL_FORCE_REBUILD=true
       shift; continue
     ;;
     --force-python)
@@ -865,6 +967,9 @@ while true; do
     ;;
     --force-ocio)
       OCIO_FORCE_REBUILD=true; shift; continue
+    ;;
+    --force-imath)
+      IMATH_FORCE_REBUILD=true; shift; continue
     ;;
     --force-openexr)
       OPENEXR_FORCE_REBUILD=true; shift; continue
@@ -899,11 +1004,20 @@ while true; do
     --force-alembic)
       ALEMBIC_FORCE_REBUILD=true; shift; continue
     ;;
+    --force-materialx)
+      MATERIALX_FORCE_REBUILD=true; shift; continue
+    ;;
     --force-usd)
       USD_FORCE_REBUILD=true; shift; continue
     ;;
     --force-xr-openxr)
       XR_OPENXR_FORCE_REBUILD=true; shift; continue
+    ;;
+    --force-level-zero)
+      LEVEL_ZERO_FORCE_REBUILD=true; shift; continue
+    ;;
+    --force-openpgl)
+      OPENPGL_FORCE_REBUILD=true; shift; continue
     ;;
     --skip-python)
       PYTHON_SKIP=true; shift; continue
@@ -916,6 +1030,9 @@ while true; do
     ;;
     --skip-ocio)
       OCIO_SKIP=true; shift; continue
+    ;;
+    --skip-imath)
+      IMATH_SKIP=true; shift; continue
     ;;
     --skip-openexr)
       OPENEXR_SKIP=true; shift; continue
@@ -953,8 +1070,17 @@ while true; do
     --skip-usd)
       USD_SKIP=true; shift; continue
     ;;
+    --skip-materialx)
+      MATERIALX_SKIP=true; shift; continue
+    ;;
     --skip-xr-openxr)
       XR_OPENXR_SKIP=true; shift; continue
+    ;;
+    --skip-level-zero)
+      LEVEL_ZERO_SKIP=true; shift; continue
+    ;;
+    --skip-openpgl)
+      OPENPGL_SKIP=true; shift; continue
     ;;
     --)
       # no more arguments to parse
@@ -1012,7 +1138,9 @@ PYTHON_SOURCE=( "https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHO
 
 _boost_version_nodots=`echo "$BOOST_VERSION" | sed -r 's/\./_/g'`
 BOOST_SOURCE=( "https://boostorg.jfrog.io/artifactory/main/release/$BOOST_VERSION/source/boost_$_boost_version_nodots.tar.bz2" )
-BOOST_BUILD_MODULES="--with-system --with-filesystem --with-thread --with-regex --with-locale --with-date_time --with-wave --with-iostreams --with-python --with-program_options --with-serialization --with-atomic"
+BOOST_BUILD_MODULES="--with-filesystem --with-locale --with-thread --with-regex --with-system --with-date_time --with-wave --with-atomic --with-serialization --with-program_options --with-iostreams --with-python"
+# Used by debian distros.
+BOOST_DEB_PACKAGE_MODULES=( "libboost-filesystem" "libboost-locale" "libboost-thread" "libboost-regex" "libboost-system" "libboost-date-time" "libboost-wave" "libboost-atomic" "libboost-serialization" "libboost-program-options" "libboost-iostreams" "libboost-python" "libboost-numpy" )
 
 TBB_SOURCE=( "https://github.com/oneapi-src/oneTBB/archive/$TBB_VERSION$TBB_VERSION_UPDATE.tar.gz" )
 TBB_SOURCE_CMAKE=( "https://raw.githubusercontent.com/wjakob/tbb/master/CMakeLists.txt" )
@@ -1022,6 +1150,11 @@ OCIO_SOURCE=( "https://github.com/AcademySoftwareFoundation/OpenColorIO/archive/
 #~ OCIO_SOURCE_REPO=( "https://github.com/imageworks/OpenColorIO.git" )
 #~ OCIO_SOURCE_REPO_UID="6de971097c7f552300f669ed69ca0b6cf5a70843"
 
+IMATH_USE_REPO=false
+IMATH_SOURCE=( "https://github.com/AcademySoftwareFoundation/Imath/archive/refs/tags/v$OPENEXR_VERSION.tar.gz" )
+IMATH_SOURCE_REPO=( "https://github.com/AcademySoftwareFoundation/Imath.git" )
+IMATH_SOURCE_REPO_UID="42ad7e94ea0ddb9a1b420698bedebba9f5a99ac5"
+
 OPENEXR_USE_REPO=false
 OPENEXR_SOURCE=( "https://github.com/AcademySoftwareFoundation/openexr/archive/v$OPENEXR_VERSION.tar.gz" )
 OPENEXR_SOURCE_REPO=( "https://github.com/AcademySoftwareFoundation/openexr.git" )
@@ -1029,7 +1162,7 @@ OPENEXR_SOURCE_REPO_UID="0ac2ea34c8f3134148a5df4052e40f155b76f6fb"
 #~ OPENEXR_SOURCE=( "https://github.com/openexr/openexr/archive/$OPENEXR_SOURCE_REPO_UID.tar.gz" )
 
 OIIO_USE_REPO=false
-OIIO_SOURCE=( "https://github.com/OpenImageIO/oiio/archive/Release-$OIIO_VERSION.tar.gz" )
+OIIO_SOURCE=( "https://github.com/OpenImageIO/oiio/archive/refs/tags/v$OIIO_VERSION.tar.gz" )
 #~ OIIO_SOURCE_REPO=( "https://github.com/OpenImageIO/oiio.git" )
 #~ OIIO_SOURCE_REPO_UID="c9e67275a0b248ead96152f6d2221cc0c0f278a4"
 
@@ -1037,17 +1170,11 @@ _LLVM_SOURCE_ROOT="https://github.com/llvm/llvm-project/releases/download/llvmor
 LLVM_SOURCE=( "$_LLVM_SOURCE_ROOT/llvm-$LLVM_VERSION.src.tar.xz" )
 LLVM_CLANG_SOURCE=( "$_LLVM_SOURCE_ROOT/clang-$LLVM_VERSION.src.tar.xz" "$_LLVM_SOURCE_ROOT/cfe-$LLVM_VERSION.src.tar.xz" )
 
-OSL_USE_REPO=false
-OSL_SOURCE=( "https://github.com/imageworks/OpenShadingLanguage/archive/Release-$OSL_VERSION.tar.gz" )
-#~ OSL_SOURCE_REPO=( "https://github.com/imageworks/OpenShadingLanguage.git" )
-#~ OSL_SOURCE_REPO_BRANCH="master"
-#~ OSL_SOURCE_REPO_UID="85179714e1bc69cd25ecb6bb711c1a156685d395"
-#~ OSL_SOURCE=( "https://github.com/Nazg-Gul/OpenShadingLanguage/archive/Release-1.5.11.tar.gz" )
-#~ OSL_SOURCE_REPO=( "https://github.com/mont29/OpenShadingLanguage.git" )
-#~ OSL_SOURCE_REPO_UID="85179714e1bc69cd25ecb6bb711c1a156685d395"
-#~ OSL_SOURCE_REPO=( "https://github.com/Nazg-Gul/OpenShadingLanguage.git" )
-#~ OSL_SOURCE_REPO_UID="7d40ff5fe8e47b030042afb92d0e955f5aa96f48"
-#~ OSL_SOURCE_REPO_BRANCH="blender-fixes"
+OSL_USE_REPO=true
+OSL_SOURCE=( "https://github.com/imageworks/OpenShadingLanguage/archive/v$OSL_VERSION.tar.gz" )
+OSL_SOURCE_REPO=( "https://github.com/AcademySoftwareFoundation/OpenShadingLanguage.git" )
+OSL_SOURCE_REPO_BRANCH="main"
+OSL_SOURCE_REPO_UID="1a7670600c8b08c2443a78d03c8c27e9a1149140"
 
 OSD_USE_REPO=false
 # Script foo to make the version string compliant with the archive name:
@@ -1059,20 +1186,18 @@ OSD_SOURCE=( "https://github.com/PixarAnimationStudios/OpenSubdiv/archive/v${OSD
 
 OPENVDB_USE_REPO=false
 OPENVDB_BLOSC_SOURCE=( "https://github.com/Blosc/c-blosc/archive/v${OPENVDB_BLOSC_VERSION}.tar.gz" )
-OPENVDB_SOURCE=( "https://github.com/AcademySoftwareFoundation/openvdb/archive/v${OPENVDB_VERSION}.tar.gz" )
+OPENVDB_SOURCE=( "https://github.com/AcademySoftwareFoundation/openvdb/archive/refs/tags/v${OPENVDB_VERSION}.tar.gz" )
 #~ OPENVDB_SOURCE_REPO=( "https://github.com/AcademySoftwareFoundation/openvdb.git" )
 #~ OPENVDB_SOURCE_REPO_UID="404659fffa659da075d1c9416e4fc939139a84ee"
 #~ OPENVDB_SOURCE_REPO_BRANCH="dev"
-
-NANOVDB_USE_REPO=false
-NANOVDB_SOURCE_REPO_UID="dc37d8a631922e7bef46712947dc19b755f3e841"
-NANOVDB_SOURCE=( "https://github.com/AcademySoftwareFoundation/openvdb/archive/${NANOVDB_SOURCE_REPO_UID}.tar.gz" )
 
 ALEMBIC_USE_REPO=false
 ALEMBIC_SOURCE=( "https://github.com/alembic/alembic/archive/${ALEMBIC_VERSION}.tar.gz" )
 # ALEMBIC_SOURCE_REPO=( "https://github.com/alembic/alembic.git" )
 # ALEMBIC_SOURCE_REPO_UID="e6c90d4faa32c4550adeaaf3f556dad4b73a92bb"
 # ALEMBIC_SOURCE_REPO_BRANCH="master"
+
+MATERIALX_SOURCE=( "https://github.com/AcademySoftwareFoundation/MaterialX/archive/refs/tags/v${MATERIALX_VERSION}.tar.gz" )
 
 USD_SOURCE=( "https://github.com/PixarAnimationStudios/USD/archive/v${USD_VERSION}.tar.gz" )
 
@@ -1096,13 +1221,18 @@ OIDN_SOURCE=( "https://github.com/OpenImageDenoise/oidn/releases/download/v${OID
 
 ISPC_BINARY=( "https://github.com/ispc/ispc/releases/download/v${ISPC_VERSION}/ispc-v${ISPC_VERSION}-linux.tar.gz" )
 
-FFMPEG_SOURCE=( "http://ffmpeg.org/releases/ffmpeg-$FFMPEG_VERSION.tar.bz2" )
-
 XR_OPENXR_USE_REPO=false
 XR_OPENXR_SOURCE=("https://github.com/KhronosGroup/OpenXR-SDK/archive/release-${XR_OPENXR_VERSION}.tar.gz")
 XR_OPENXR_SOURCE_REPO=("https://github.com/KhronosGroup/OpenXR-SDK.git")
 XR_OPENXR_REPO_UID="458984d7f59d1ae6dc1b597d94b02e4f7132eaba"
 XR_OPENXR_REPO_BRANCH="master"
+
+LEVEL_ZERO_SOURCE=("https://github.com/oneapi-src/level-zero/archive/refs/tags/v${LEVEL_ZERO_VERSION}.tar.gz")
+
+OPENPGL_USE_REPO=false
+OPENPGL_SOURCE=( "https://github.com/OpenPathGuidingLibrary/openpgl/archive/refs/tags/v${OPENPGL_VERSION}-beta.tar.gz" )
+
+FFMPEG_SOURCE=( "http://ffmpeg.org/releases/ffmpeg-$FFMPEG_VERSION.tar.bz2" )
 
 # C++11 is required now
 CXXFLAGS_BACK=$CXXFLAGS
@@ -1120,9 +1250,11 @@ Those libraries should be available as packages in all recent distributions (opt
     * Basics of dev environment (cmake, gcc, svn , git, ...).
     * libjpeg, libpng, libtiff, [openjpeg2], [libopenal].
     * libx11, libxcursor, libxi, libxrandr, libxinerama (and other libx... as needed).
-    * libwayland-client0, libwayland-cursor0, libwayland-egl1, libxkbcommon0, libdbus-1-3, libegl1 (Wayland)
-    * libsqlite3, libzstd, libbz2, libssl, libfftw3, libxml2, libtinyxml, yasm, libyaml-cpp, flex.
-    * libsdl2, libglew, libpugixml, libpotrace, [libgmp], [libglewmx], fontconfig, [libharu/libhpdf].\""
+    * libwayland-client0, libdecor, libwayland-cursor0, libwayland-egl1, libxkbcommon0, libdbus-1-3, libegl1 (Wayland)
+    * libsqlite3, libzstd, libbz2, libssl, libfftw3, libxml2, libtinyxml, yasm, libyaml-cpp, flex, pybind11.
+    * libsdl2, libepoxy, libpugixml, libpotrace, [libgmp], fontconfig, [libharu/libhpdf].
+    * [libvulkan/vulkan-loader].
+    * [libfribidi], [libharfbuzz].\""
 
 DEPS_SPECIFIC_INFO="\"BUILDABLE DEPENDENCIES:
 
@@ -1141,9 +1273,9 @@ You may also want to build them yourself (optional ones are [between brackets]):
     ** [NumPy $PYTHON_NUMPY_VERSION] (use pip).
     * Boost $BOOST_VERSION (from $BOOST_SOURCE, modules: $BOOST_BUILD_MODULES).
     * TBB $TBB_VERSION (from $TBB_SOURCE).
-    * [FFMpeg $FFMPEG_VERSION (needs libvorbis, libogg, libtheora, libx264, libmp3lame, libxvidcore, libvpx, ...)] (from $FFMPEG_SOURCE).
+    * [FFMpeg $FFMPEG_VERSION (needs libvorbis, libogg, libtheora, libx264, libmp3lame, libxvidcore, libvpx, libaom, libwebp, ...)] (from $FFMPEG_SOURCE).
     * [OpenColorIO $OCIO_VERSION] (from $OCIO_SOURCE).
-    * ILMBase $OPENEXR_VERSION (from $OPENEXR_SOURCE).
+    * Imath $IMATH_VERSION (from $IMATH_SOURCE).
     * OpenEXR $OPENEXR_VERSION (from $OPENEXR_SOURCE).
     * OpenImageIO $OIIO_VERSION (from $OIIO_SOURCE).
     * [LLVM $LLVM_VERSION (with clang)] (from $LLVM_SOURCE, and $LLVM_CLANG_SOURCE).
@@ -1155,7 +1287,9 @@ You may also want to build them yourself (optional ones are [between brackets]):
     * [OpenImageDenoise $OIDN_VERSION] (from $OIDN_SOURCE).
     * [Alembic $ALEMBIC_VERSION] (from $ALEMBIC_SOURCE).
     * [Universal Scene Description $USD_VERSION] (from $USD_SOURCE).
-    * [OpenXR-SDK $XR_OPENXR_VERSION] (from $XR_OPENXR_SOURCE).\""
+    * [OpenXR-SDK $XR_OPENXR_VERSION] (from $XR_OPENXR_SOURCE).
+    * [OneAPI Level Zero $LEVEL_ZERO_VERSION] (from $LEVEL_ZERO_SOURCE).
+    * [OpenPGL $OPENPGL_VERSION] (from $OPENPGL_SOURCE).\""
 
 if [ "$DO_SHOW_DEPS" = true ]; then
   PRINT ""
@@ -1381,9 +1515,17 @@ _init_python() {
 _update_deps_python() {
   if [ "$1" = true ]; then
     BOOST_FORCE_BUILD=true
+    OCIO_FORCE_BUILD=true
+    OIIO_FORCE_BUILD=true
+    OPENVDB_FORCE_BUILD=true
+    USD_FORCE_BUILD=true
   fi
   if [ "$2" = true ]; then
     BOOST_FORCE_REBUILD=true
+    OCIO_FORCE_REBUILD=true
+    OIIO_FORCE_REBUILD=true
+    OPENVDB_FORCE_REBUILD=true
+    USD_FORCE_REBUILD=true
   fi
 }
 
@@ -1469,6 +1611,9 @@ compile_Python() {
     PRINT ""
     $_python -m pip install $module --no-binary :all:
   done
+
+  _with_built_python=true
+  _with_built_python_execpath="$INST/python-$PYTHON_VERSION_SHORT/bin/python3"
 }
 
 # ----------------------------------------------------------------------------
@@ -1487,12 +1632,14 @@ _update_deps_boost() {
     OSL_FORCE_BUILD=true
     OPENVDB_FORCE_BUILD=true
     ALEMBIC_FORCE_BUILD=true
+    USD_FORCE_BUILD=true
   fi
   if [ "$2" = true ]; then
     OIIO_FORCE_REBUILD=true
     OSL_FORCE_REBUILD=true
     OPENVDB_FORCE_REBUILD=true
     ALEMBIC_FORCE_REBUILD=true
+    USD_FORCE_REBUILD=true
   fi
 }
 
@@ -1512,7 +1659,7 @@ compile_Boost() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  boost_magic=14
+  boost_magic=15
 
   _init_boost
 
@@ -1538,11 +1685,13 @@ compile_Boost() {
       mkdir -p $SRC
       download BOOST_SOURCE[@] $_src.tar.bz2
       tar -C $SRC --transform "s,\w*,boost-$BOOST_VERSION,x" -xf $_src.tar.bz2
+
+      patch -d $_src -p1 < $SCRIPT_DIR/patches/boost.diff
     fi
 
     cd $_src
     if [ ! -f $_src/b2 ]; then
-      if [ -d $INST/python-$PYTHON_VERSION_INSTALLED ]; then
+      if [ -d $_with_built_python ]; then
         ./bootstrap.sh --with-python-root="$INST/python-$PYTHON_VERSION_INSTALLED"
       else
         ./bootstrap.sh
@@ -1589,6 +1738,7 @@ _update_deps_tbb() {
     USD_FORCE_BUILD=true
     EMBREE_FORCE_BUILD=true
     OIDN_FORCE_BUILD=true
+    OPENPGL_FORCE_BUILD=true
   fi
   if [ "$2" = true ]; then
     OSD_FORCE_REBUILD=true
@@ -1596,6 +1746,7 @@ _update_deps_tbb() {
     USD_FORCE_REBUILD=true
     EMBREE_FORCE_REBUILD=true
     OIDN_FORCE_REBUILD=true
+    OPENPGL_FORCE_REBUILD=true
   fi
 }
 
@@ -1615,7 +1766,7 @@ compile_TBB() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  tbb_magic=0
+  tbb_magic=1
   _init_tbb
 
   # Force having own builds for the dependencies.
@@ -1735,7 +1886,7 @@ compile_OCIO() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  ocio_magic=3
+  ocio_magic=5
   _init_ocio
 
   # Force having own builds for the dependencies.
@@ -1790,8 +1941,12 @@ compile_OCIO() {
     cmake_d="$cmake_d -D CMAKE_PREFIX_PATH=$_inst"
     cmake_d="$cmake_d -D CMAKE_INSTALL_PREFIX=$_inst"
     cmake_d="$cmake_d -D OCIO_BUILD_APPS=OFF"
-    cmake_d="$cmake_d -D OCIO_BUILD_PYTHON=OFF"
+    cmake_d="$cmake_d -D OCIO_BUILD_PYTHON=ON"
     cmake_d="$cmake_d -D OCIO_BUILD_GPU_TESTS=OFF"
+
+    if [ "$_with_built_python" = true ]; then
+      cmake_d="$cmake_d -D Python_EXECUTABLE=$_with_built_python_execpath"
+    fi
 
     if [ $(uname -m) == "aarch64" ]; then
       cmake_d="$cmake_d -D OCIO_USE_SSE=OFF"
@@ -1838,7 +1993,137 @@ compile_OCIO() {
 }
 
 # ----------------------------------------------------------------------------
-# Build OpenEXR (and ILMBase).
+# Build Imath.
+
+_init_imath() {
+  _src=$SRC/Imath-$IMATH_VERSION
+  _git=false
+  _inst=$INST/imath-$IMATH_VERSION_SHORT
+  _inst_shortcut=$INST/imath
+}
+
+_update_deps_imath() {
+  if [ "$1" = true ]; then
+    OPENEXR_FORCE_BUILD=true
+  fi
+  if [ "$2" = true ]; then
+    OPENEXR_FORCE_REBUILD=true
+  fi
+}
+
+clean_IMATH() {
+  _init_imath
+  if [ -d $_inst ]; then
+    # Force rebuilding the dependencies if needed.
+    _update_deps_imath false true
+  fi
+  _clean
+}
+
+compile_IMATH() {
+  if [ "$NO_BUILD" = true ]; then
+    WARNING "--no-build enabled, Imath will not be compiled!"
+    return
+  fi
+
+  # To be changed each time we make edits that would modify the compiled result!
+  imath_magic=1
+  _init_imath
+
+  # Force having own builds for the dependencies.
+  _update_deps_imath true false
+
+  # Clean install if needed!
+  magic_compile_check imath-$IMATH_VERSION $imath_magic
+  if [ $? -eq 1 -o "$IMATH_FORCE_REBUILD" = true ]; then
+    clean_IMATH
+  fi
+
+  PRINT ""
+
+  if [ ! -d $_inst ]; then
+    INFO "Building Imath-$IMATH_VERSION"
+
+    # Force rebuilding the dependencies.
+    _update_deps_imath true true
+
+    prepare_inst
+
+    if [ ! -d $_src ]; then
+      INFO "Downloading Imath-$IMATH_VERSION"
+      mkdir -p $SRC
+
+      if [ "$IMATH_USE_REPO" = true ]; then
+        git clone ${IMATH_SOURCE_REPO[0]} $_src
+      else
+        download IMATH_SOURCE[@] $_src.tar.gz
+        INFO "Unpacking Imath-$IMATH_VERSION"
+        tar -C $SRC --transform "s,(.*/?)imath[^/]*(.*),\1Imath-$IMATH_VERSION\2,x" -xf $_src.tar.gz
+      fi
+
+    fi
+
+    cd $_src
+
+    if [ "$IMATH_USE_REPO" = true ]; then
+      # XXX For now, always update from latest repo...
+      git pull origin master
+      git checkout $IMATH_SOURCE_REPO_UID
+      git reset --hard
+      imath_src_path="../Imath"
+    else
+      imath_src_path=".."
+    fi
+
+    # Always refresh the whole build!
+    if [ -d build ]; then
+      rm -rf build
+    fi
+    mkdir build
+    cd build
+
+    cmake_d="$cmake_d -D CMAKE_INSTALL_PREFIX=$_inst"
+    cmake_d="$cmake_d -D CMAKE_INSTALL_DOCDIR=/dev/null"  # Hack, there is no option to disable that currently...
+    cmake_d="$cmake_d -D BUILD_SHARED_LIBS=ON"
+    cmake_d="$cmake_d -D BUILD_TESTING=OFF"
+    cmake_d="$cmake_d -D PYIMATH_ENABLE=OFF"
+
+    if file /bin/cp | grep -q '32-bit'; then
+      cflags="-fPIC -m32 -march=i686"
+    else
+      cflags="-fPIC"
+    fi
+
+    cmake $cmake_d -D CMAKE_BUILD_TYPE=Release -D CMAKE_CXX_FLAGS="$cflags" -D CMAKE_EXE_LINKER_FLAGS="-lgcc_s -lgcc" $imath_src_path
+
+    make -j$THREADS && make install
+
+    make clean
+
+    if [ ! -d $_inst ]; then
+      ERROR "Imath-$IMATH_VERSION failed to compile, exiting"
+      exit 1
+    fi
+
+    magic_compile_set imath-$IMATH_VERSION $imath_magic
+
+    cd $CWD
+    INFO "Done compiling Imath-$imath_VERSION!"
+  else
+    INFO "Own Imath-$IMATH_VERSION is up to date, nothing to do!"
+    INFO "If you want to force rebuild of this lib, use the --force-imath option."
+  fi
+
+  _with_built_imath=true
+
+  if [ -d $_inst ]; then
+    _create_inst_shortcut
+  fi
+  run_ldconfig "openexr"
+}
+
+# ----------------------------------------------------------------------------
+# Build OpenEXR.
 
 _init_openexr() {
   _src=$SRC/OpenEXR-$OPENEXR_VERSION
@@ -1850,11 +2135,15 @@ _init_openexr() {
 _update_deps_openexr() {
   if [ "$1" = true ]; then
     OIIO_FORCE_BUILD=true
+    OPENVDB_FORCE_BUILD=true
     ALEMBIC_FORCE_BUILD=true
+    USD_FORCE_BUILD=true
   fi
   if [ "$2" = true ]; then
     OIIO_FORCE_REBUILD=true
+    OPENVDB_FORCE_REBUILD=true
     ALEMBIC_FORCE_REBUILD=true
+    USD_FORCE_REBUILD=true
   fi
 }
 
@@ -1874,7 +2163,7 @@ compile_OPENEXR() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  openexr_magic=15
+  openexr_magic=16
   _init_openexr
 
   # Force having own builds for the dependencies.
@@ -1889,7 +2178,7 @@ compile_OPENEXR() {
   PRINT ""
 
   if [ ! -d $_inst ]; then
-    INFO "Building ILMBase-$OPENEXR_VERSION and OpenEXR-$OPENEXR_VERSION"
+    INFO "Building OpenEXR-$OPENEXR_VERSION"
 
     # Force rebuilding the dependencies.
     _update_deps_openexr true true
@@ -1905,7 +2194,7 @@ compile_OPENEXR() {
       else
         download OPENEXR_SOURCE[@] $_src.tar.gz
         INFO "Unpacking OpenEXR-$OPENEXR_VERSION"
-        tar -C $SRC --transform "s,(.*/?)openexr[^/]*(.*),\1OpenEXR-$OPENEXR_VERSION\2,x" -xf $_src.tar.gz
+        tar -C $SRC --transform "s,([^/]*/?)openexr[^/]*(.*),\1OpenEXR-$OPENEXR_VERSION\2,x" -xf $_src.tar.gz
       fi
 
     fi
@@ -1930,12 +2219,11 @@ compile_OPENEXR() {
     cd build
 
     cmake_d="$cmake_d -D CMAKE_INSTALL_PREFIX=$_inst"
-    cmake_d="$cmake_d -D CMAKE_INSTALL_DOCDIR=/dev/null"  # Hack, there is no option to disable that currently...
+    #cmake_d="$cmake_d -D CMAKE_INSTALL_DOCDIR=/dev/null"  # Hack, there is no option to disable that currently...
     cmake_d="$cmake_d -D BUILD_SHARED_LIBS=ON"
     cmake_d="$cmake_d -D BUILD_TESTING=OFF"
-    cmake_d="$cmake_d -D OPENEXR_BUILD_UTILS=OFF"
-    cmake_d="$cmake_d -D PYILMBASE_ENABLE=OFF"
-    cmake_d="$cmake_d -D OPENEXR_VIEWERS_ENABLE=OFF"
+    cmake_d="$cmake_d -D DOCS=OFF"
+    cmake_d="$cmake_d -D PYTHON=OFF"
 
     if file /bin/cp | grep -q '32-bit'; then
       cflags="-fPIC -m32 -march=i686"
@@ -1984,9 +2272,11 @@ _init_oiio() {
 _update_deps_oiio() {
   if [ "$1" = true ]; then
     OSL_FORCE_BUILD=true
+    USD_FORCE_BUILD=true
   fi
   if [ "$2" = true ]; then
     OSL_FORCE_REBUILD=true
+    USD_FORCE_REBUILD=true
   fi
 }
 
@@ -2006,7 +2296,7 @@ compile_OIIO() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  oiio_magic=18
+  oiio_magic=20
   _init_oiio
 
   # Force having own builds for the dependencies.
@@ -2034,7 +2324,7 @@ compile_OIIO() {
       else
         download OIIO_SOURCE[@] "$_src.tar.gz"
         INFO "Unpacking OpenImageIO-$OIIO_VERSION"
-        tar -C $SRC --transform "s,(.*/?)oiio-Release-[^/]*(.*),\1OpenImageIO-$OIIO_VERSION\2,x" -xf $_src.tar.gz
+        tar -C $SRC --transform "s,(.*/?)oiio-[^/]*(.*),\1OpenImageIO-$OIIO_VERSION\2,x" -xf $_src.tar.gz
       fi
     fi
 
@@ -2060,6 +2350,7 @@ compile_OIIO() {
     cmake_d="$cmake_d -D CMAKE_INSTALL_PREFIX=$_inst"
     cmake_d="$cmake_d -D STOP_ON_WARNING=OFF"
     cmake_d="$cmake_d -D LINKSTATIC=OFF"
+    cmake_d="$cmake_d -D BUILD_SHARED_LIBS=ON"
 
     if [ $(uname -m) != "aarch64" ]; then
       cmake_d="$cmake_d -D USE_SIMD=sse2"
@@ -2067,27 +2358,45 @@ compile_OIIO() {
 
     cmake_d="$cmake_d -D OPENEXR_VERSION=$OPENEXR_VERSION"
 
+    if [ "$_with_built_imath" = true ]; then
+      cmake_d="$cmake_d -D Imath_ROOT=$INST/imath"
+      INFO "Ilmbase_ROOT=$INST/imath"
+    fi
     if [ "$_with_built_openexr" = true ]; then
-      cmake_d="$cmake_d -D ILMBASE_ROOT=$INST/openexr"
-      cmake_d="$cmake_d -D OPENEXR_ROOT=$INST/openexr"
-      INFO "Ilmbase_ROOT=$INST/openexr"
+      cmake_d="$cmake_d -D OpenEXR_ROOT=$INST/openexr"
     fi
 
-    # ptex is only needed when nicholas bishop is ready
-    cmake_d="$cmake_d -D USE_PTEX=OFF"
+    cmake_d="$cmake_d -D USE_PYTHON=ON"
+    if [ "$_with_built_python" = true ]; then
+      cmake_d="$cmake_d -D Python_EXECUTABLE=$_with_built_python_execpath"
+    fi
 
     # Optional tests and cmd tools
     cmake_d="$cmake_d -D USE_QT=OFF"
-    cmake_d="$cmake_d -D USE_PYTHON=OFF"
+    cmake_d="$cmake_d -D USE_QT5=OFF"
+    cmake_d="$cmake_d -D USE_OPENGL=OFF"
+    cmake_d="$cmake_d -D USE_TBB=OFF"
+    cmake_d="$cmake_d -D USE_BZIP2=OFF"
+    cmake_d="$cmake_d -D USE_FREETYPE=OFF"
+    cmake_d="$cmake_d -D USE_OPENCOLORIO=OFF"
+
+    cmake_d="$cmake_d -D USE_WEBP=ON"
+    cmake_d="$cmake_d -D USE_OPENJPEG=ON"
+
     cmake_d="$cmake_d -D USE_FFMPEG=OFF"
     cmake_d="$cmake_d -D USE_OPENCV=OFF"
     cmake_d="$cmake_d -D USE_OPENVDB=OFF"
+    cmake_d="$cmake_d -D USE_NUKE=OFF"
+    cmake_d="$cmake_d -D USE_DCMTK=OFF"
+    cmake_d="$cmake_d -D USE_LIBHEIF=OFF"
+    cmake_d="$cmake_d -D USE_GIF=OFF"
+    cmake_d="$cmake_d -D USE_LIBRAW=OFF"
+    cmake_d="$cmake_d -D USE_LIBSQUISH=OFF"
+
     cmake_d="$cmake_d -D BUILD_TESTING=OFF"
     cmake_d="$cmake_d -D OIIO_BUILD_TESTS=OFF"
-    cmake_d="$cmake_d -D OIIO_BUILD_TOOLS=OFF"
+    cmake_d="$cmake_d -D OIIO_BUILD_TOOLS=ON"
     cmake_d="$cmake_d -D TXT2MAN="
-    #cmake_d="$cmake_d -D CMAKE_EXPORT_COMPILE_COMMANDS=ON"
-    #cmake_d="$cmake_d -D CMAKE_VERBOSE_MAKEFILE=ON"
 
     if [ -d $INST/boost ]; then
       cmake_d="$cmake_d -D BOOST_ROOT=$INST/boost -D Boost_NO_SYSTEM_PATHS=ON -D Boost_NO_BOOST_CMAKE=ON"
@@ -2165,7 +2474,7 @@ compile_LLVM() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  llvm_magic=3
+  llvm_magic=4
   _init_llvm
 
   # Force having own builds for the dependencies.
@@ -2214,9 +2523,9 @@ compile_LLVM() {
     mkdir build
     cd build
 
-    LLVM_TARGETS="X86"
+    LLVM_TARGETS="X86;NVPTX"
     if [ $(uname -m) == "aarch64" ]; then
-      LLVM_TARGETS="AArch64"
+      LLVM_TARGETS="AArch64;NVPTX"
     fi
 
     cmake_d="-D CMAKE_BUILD_TYPE=Release"
@@ -2283,7 +2592,7 @@ compile_OSL() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  osl_magic=21
+  osl_magic=22
   _init_osl
 
   # Force having own builds for the dependencies.
@@ -2314,8 +2623,9 @@ compile_OSL() {
         INFO "Unpacking OpenShadingLanguage-$OSL_VERSION"
         tar -C $SRC --transform "s,(.*/?)OpenShadingLanguage-[^/]*(.*),\1OpenShadingLanguage-$OSL_VERSION\2,x" \
             -xf $_src.tar.gz
+
+        patch -d $_src -p1 < $SCRIPT_DIR/patches/osl.diff
       fi
-      patch -d $_src -p1 < $SCRIPT_DIR/patches/osl.diff
     fi
 
     cd $_src
@@ -2327,6 +2637,8 @@ compile_OSL() {
       # Stick to same rev as windows' libs...
       git checkout $OSL_SOURCE_REPO_UID
       git reset --hard
+
+      patch -d $_src -p1 < $SCRIPT_DIR/patches/osl.diff
     fi
 
     # Always refresh the whole build!
@@ -2356,13 +2668,14 @@ compile_OSL() {
 
     cmake_d="$cmake_d -D CMAKE_CXX_STANDARD=14"
 
-    #~ cmake_d="$cmake_d -D ILMBASE_VERSION=$ILMBASE_VERSION"
+    #~ cmake_d="$cmake_d -D IMATH_VERSION=$IMATH_VERSION"
 
+    if [ "$_with_built_imath" = true ]; then
+      cmake_d="$cmake_d -D Imath_ROOT=$INST/imath"
+      INFO "Imath_ROOT=$INST/imath"
+    fi
     if [ "$_with_built_openexr" = true ]; then
-      cmake_d="$cmake_d -D ILMBASE_ROOT=$INST/openexr"
-      cmake_d="$cmake_d -D OPENEXR_ROOT=$INST/openexr"
-      INFO "Ilmbase_ROOT=$INST/openexr"
-      # XXX Temp workaround... sigh, ILMBase really messed the things up by defining their custom names ON by default :(
+      cmake_d="$cmake_d -D OpenEXR_ROOT=$INST/openexr"
     fi
 
     if [ -d $INST/boost ]; then
@@ -2490,14 +2803,13 @@ compile_OSD() {
     mkdir build
     cd build
 
-    if [ -d $INST/tbb ]; then
-      cmake_d="$cmake_d $cmake_d -D TBB_LOCATION=$INST/tbb"
-    fi
     cmake_d="-D CMAKE_BUILD_TYPE=Release"
+    if [ -d $INST/tbb ]; then
+      cmake_d="$cmake_d -D TBB_LOCATION=$INST/tbb"
+    fi
     cmake_d="$cmake_d -D CMAKE_INSTALL_PREFIX=$_inst"
-    # ptex is only needed when nicholas bishop is ready
     cmake_d="$cmake_d -D NO_PTEX=1"
-    cmake_d="$cmake_d -D NO_CLEW=1 -D NO_CUDA=1 -D NO_OPENCL=1"
+    cmake_d="$cmake_d -D NO_CLEW=1 -D NO_CUDA=1 -D NO_OPENCL=1 -D NO_GLEW=1"
     # maya plugin, docs, tutorials, regression tests and examples are not needed
     cmake_d="$cmake_d -D NO_MAYA=1 -D NO_DOC=1 -D NO_TUTORIALS=1 -D NO_REGRESSION=1 -DNO_EXAMPLES=1"
 
@@ -2634,123 +2946,20 @@ compile_BLOSC() {
 # ----------------------------------------------------------------------------
 # Build OpenVDB
 
-_init_nanovdb() {
-  _src=$SRC/openvdb-$OPENVDB_VERSION/nanovdb
-  _inst=$INST/nanovdb-$OPENVDB_VERSION_SHORT
-  _inst_shortcut=$INST/nanovdb
-}
-
-_update_deps_nanovdb() {
-  :
-}
-
-clean_nanovdb() {
-  _init_nanovdb
-  if [ -d $_inst ]; then
-    # Force rebuilding the dependencies if needed.
-    _update_deps_nanovdb false true
-  fi
-  _git=true  # Mere trick to prevent clean from removing $_src...
-  _clean
-}
-
-install_NanoVDB() {
-  # To be changed each time we make edits that would modify the compiled results!
-  nanovdb_magic=1
-  _init_nanovdb
-
-  # Force having own builds for the dependencies.
-  _update_deps_nanovdb true false
-
-  # Clean install if needed!
-  magic_compile_check nanovdb-$OPENVDB_VERSION $nanovdb_magic
-  if [ $? -eq 1 ]; then
-    clean_nanovdb
-  fi
-
-  if [ ! -d $_inst ]; then
-    INFO "Installing NanoVDB v$OPENVDB_VERSION"
-
-    # Force rebuilding the dependencies.
-    _update_deps_nanovdb true true
-
-    prepare_inst
-
-    if [ ! -d $_src ]; then
-      ERROR "NanoVDB not found in openvdb-$OPENVDB_VERSION ($_src), exiting"
-      exit 1
-    fi
-
-    # Always refresh the whole build!
-    if [ -d build ]; then
-      rm -rf build
-    fi
-    mkdir build
-    cd build
-
-    cmake_d="-D CMAKE_BUILD_TYPE=Release"
-    cmake_d="$cmake_d -D CMAKE_INSTALL_PREFIX=$_inst"
-
-    # NanoVDB is header-only, so only need the install target
-    cmake_d="$cmake_d -D NANOVDB_BUILD_UNITTESTS=OFF"
-    cmake_d="$cmake_d -D NANOVDB_BUILD_EXAMPLES=OFF"
-    cmake_d="$cmake_d -D NANOVDB_BUILD_BENCHMARK=OFF"
-    cmake_d="$cmake_d -D NANOVDB_BUILD_DOCS=OFF"
-    cmake_d="$cmake_d -D NANOVDB_BUILD_TOOLS=OFF"
-    cmake_d="$cmake_d -D NANOVDB_CUDA_KEEP_PTX=OFF"
-
-    # Do not need to include any of the dependencies because of this
-    cmake_d="$cmake_d -D NANOVDB_USE_OPENVDB=OFF"
-    cmake_d="$cmake_d -D NANOVDB_USE_OPENGL=OFF"
-    cmake_d="$cmake_d -D NANOVDB_USE_OPENCL=OFF"
-    cmake_d="$cmake_d -D NANOVDB_USE_CUDA=OFF"
-    cmake_d="$cmake_d -D NANOVDB_USE_TBB=OFF"
-    cmake_d="$cmake_d -D NANOVDB_USE_BLOSC=OFF"
-    cmake_d="$cmake_d -D NANOVDB_USE_ZLIB=OFF"
-    cmake_d="$cmake_d -D NANOVDB_USE_OPTIX=OFF"
-    cmake_d="$cmake_d -D NANOVDB_ALLOW_FETCHCONTENT=OFF"
-
-    cmake $cmake_d $_src
-
-    make -j$THREADS install
-    make clean
-
-    #~ mkdir -p $_inst
-    #~ cp -r $_src/include $_inst/include
-
-    if [ ! -d $_inst ]; then
-      ERROR "NanoVDB-v$OPENVDB_VERSION failed to install, exiting"
-      exit 1
-    fi
-
-    magic_compile_set nanovdb-$OPENVDB_VERSION $nanovdb_magic
-
-    cd $CWD
-    INFO "Done compiling NanoVDB-v$OPENVDB_VERSION!"
-  else
-    INFO "Own NanoVDB-v$OPENVDB_VERSION is up to date, nothing to do!"
-  fi
-
-  if [ -d $_inst ]; then
-    _create_inst_shortcut
-  fi
-}
-
-
 _init_openvdb() {
   _src=$SRC/openvdb-$OPENVDB_VERSION
   _git=false
   _inst=$INST/openvdb-$OPENVDB_VERSION_SHORT
   _inst_shortcut=$INST/openvdb
-
-  _openvdb_source=$OPENVDB_SOURCE
-  if [ "$WITH_NANOVDB" = true ]; then
-    _openvdb_source=$NANOVDB_SOURCE
-  fi
 }
 
 _update_deps_openvdb() {
-  :
+  if [ "$1" = true ]; then
+    USD_FORCE_BUILD=true
+  fi
+  if [ "$2" = true ]; then
+    USD_FORCE_REBUILD=true
+  fi
 }
 
 clean_OPENVDB() {
@@ -2772,7 +2981,7 @@ compile_OPENVDB() {
   PRINT ""
 
   # To be changed each time we make edits that would modify the compiled result!
-  openvdb_magic=2
+  openvdb_magic=5
   _init_openvdb
 
   # Force having own builds for the dependencies.
@@ -2794,15 +3003,10 @@ compile_OPENVDB() {
 
     if [ ! -d $_src ]; then
       mkdir -p $SRC
-      download _openvdb_source[@] "$_src.tar.gz"
+      download OPENVDB_SOURCE[@] "$_src.tar.gz"
 
       INFO "Unpacking OpenVDB-$OPENVDB_VERSION"
-      if [ "$WITH_NANOVDB" = true ]; then
-        tar -C $SRC --transform "s,(.*/?)openvdb-$NANOVDB_SOURCE_REPO_UID[^/]*(.*),\1openvdb-$OPENVDB_VERSION\2,x" \
-            -xf $_src.tar.gz
-      else
-        tar -C $SRC -xf $_src.tar.gz
-      fi
+      tar -C $SRC -xf $_src.tar.gz
     fi
 
     cd $_src
@@ -2826,7 +3030,19 @@ compile_OPENVDB() {
     cmake_d="-D CMAKE_BUILD_TYPE=Release"
     cmake_d="$cmake_d -D CMAKE_INSTALL_PREFIX=$_inst"
     cmake_d="$cmake_d -D USE_STATIC_DEPENDENCIES=OFF"
+    cmake_d="$cmake_d -D OPENVDB_CORE_SHARED=ON"
+    cmake_d="$cmake_d -D OPENVDB_CORE_STATIC=OFF"
     cmake_d="$cmake_d -D OPENVDB_BUILD_BINARIES=OFF"
+
+    if [ "$WITH_NANOVDB" = true ]; then
+      cmake_d="$cmake_d -D USE_NANOVDB=ON"
+      cmake_d="$cmake_d -D OPENVDB_BUILD_NANOVDB=ON"
+      cmake_d="$cmake_d -D NANOVDB_BUILD_TOOLS=OFF"
+    else
+      cmake_d="$cmake_d -D USE_NANOVDB=OFF"
+      cmake_d="$cmake_d -D OPENVDB_BUILD_NANOVDB=OFF"
+      cmake_d="$cmake_d -D NANOVDB_BUILD_TOOLS=OFF"
+    fi
 
     if [ -d $INST/boost ]; then
       cmake_d="$cmake_d -D BOOST_ROOT=$INST/boost"
@@ -2837,15 +3053,27 @@ compile_OPENVDB() {
     fi
     if [ -d $INST/tbb ]; then
       cmake_d="$cmake_d -D TBB_ROOT=$INST/tbb"
+      # Work around until we use oneTBB, otherwise OpenVDB forcefully
+      # uses oneTBB if it can find it on the system.
+      cmake_d="$cmake_d -D Tbb_INCLUDE_DIR=$INST/tbb/include"
     fi
 
+    if [ "$_with_built_imath" = true ]; then
+      cmake_d="$cmake_d -D Imath_ROOT=$INST/imath"
+    fi
     if [ "$_with_built_openexr" = true ]; then
-      cmake_d="$cmake_d -D IlmBase_ROOT=$INST/openexr"
       cmake_d="$cmake_d -D OpenEXR_ROOT=$INST/openexr"
     fi
 
     if [ -d $INST/blosc ]; then
       cmake_d="$cmake_d -D Blosc_ROOT=$INST/blosc"
+    fi
+
+    cmake_d="$cmake_d -D OPENVDB_BUILD_PYTHON_MODULE=ON"
+    cmake_d="$cmake_d -D OPENVDB_PYTHON_WRAP_ALL_GRID_TYPES=ON"
+    cmake_d="$cmake_d -D USE_NUMPY=ON"
+    if [ "$_with_built_python" = true ]; then
+      cmake_d="$cmake_d -D Python_EXECUTABLE=$_with_built_python_execpath"
     fi
 
     cmake $cmake_d ..
@@ -2871,10 +3099,6 @@ compile_OPENVDB() {
     _create_inst_shortcut
   fi
   run_ldconfig "openvdb"
-
-  if [ "$WITH_NANOVDB" = true ]; then
-    install_NanoVDB
-  fi
 }
 
 # ----------------------------------------------------------------------------
@@ -2907,7 +3131,7 @@ compile_ALEMBIC() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  alembic_magic=2
+  alembic_magic=3
   _init_alembic
 
   # Force having own builds for the dependencies.
@@ -2948,19 +3172,21 @@ compile_ALEMBIC() {
       cmake_d="$cmake_d -D USE_STATIC_BOOST=OFF"
     fi
 
+    if [ "$_with_built_imath" = true ]; then
+      cmake_d="$cmake_d -D Imath_ROOT=$INST/imath"
+      cmake_d="$cmake_d -D ALEMBIC_IMATH_LINK_STATIC=OFF"
+      INFO "Imath_ROOT=$INST/imath"
+    fi
     if [ "$_with_built_openexr" = true ]; then
-      cmake_d="$cmake_d -D ILMBASE_ROOT=$INST/openexr"
       cmake_d="$cmake_d -D USE_ARNOLD=OFF"
-      cmake_d="$cmake_d -D USE_BINARIES=OFF"
+      cmake_d="$cmake_d -D USE_BINARIES=ON"  # Tests use some Alembic binaries...
       cmake_d="$cmake_d -D USE_EXAMPLES=OFF"
       cmake_d="$cmake_d -D USE_HDF5=OFF"
       cmake_d="$cmake_d -D USE_MAYA=OFF"
       cmake_d="$cmake_d -D USE_PRMAN=OFF"
       cmake_d="$cmake_d -D USE_PYALEMBIC=OFF"
       cmake_d="$cmake_d -D USE_STATIC_HDF5=OFF"
-      cmake_d="$cmake_d -D ALEMBIC_ILMBASE_LINK_STATIC=OFF"
       cmake_d="$cmake_d -D ALEMBIC_SHARED_LIBS=OFF"
-      INFO "ILMBASE_ROOT=$INST/openexr"
     fi
 
     cmake $cmake_d ./
@@ -2985,6 +3211,103 @@ compile_ALEMBIC() {
     _create_inst_shortcut
   fi
   run_ldconfig "alembic"
+}
+
+#### Build materialX ####
+_init_materialx() {
+  _src=$SRC/MaterialX-$MATERIALX_VERSION
+  _git=false
+  _inst=$INST/materialx-$MATERIALX_VERSION_SHORT
+  _inst_shortcut=$INST/materialx
+}
+
+_update_deps_materialx() {
+  :
+}
+
+clean_MATERIALX() {
+  _init_materialx
+  if [ -d $_inst ]; then
+    # Force rebuilding the dependencies if needed.
+    _update_deps_materialx false true
+  fi
+  _clean
+}
+
+compile_MATERIALX() {
+  if [ "$NO_BUILD" = true ]; then
+    WARNING "--no-build enabled, MaterialX will not be compiled!"
+    return
+  fi
+
+  # To be changed each time we make edits that would modify the compiled result!
+  materialx_magic=1
+  _init_materialx
+
+  # Force having own builds for the dependencies.
+  _update_deps_materialx true false
+
+  # Clean install if needed!
+  magic_compile_check materialx-$MATERIALX_VERSION $materialx_magic
+  if [ $? -eq 1 -o "$MATERIALX_FORCE_REBUILD" = true ]; then
+    clean_MATERIALX
+  fi
+
+  if [ ! -d $_inst ]; then
+    INFO "Building MaterialX-$MATERIALX_VERSION"
+
+    # Force rebuilding the dependencies.
+    _update_deps_materialx true true
+
+    prepare_inst
+
+    if [ ! -d $_src ]; then
+      mkdir -p $SRC
+      download MATERIALX_SOURCE[@] "$_src.tar.gz"
+
+      INFO "Unpacking MaterialX-$MATERIALX_VERSION"
+      tar -C $SRC -xf $_src.tar.gz
+
+      patch -d $_src -p1 < $SCRIPT_DIR/patches/materialx.diff
+    fi
+
+    cd $_src
+
+    cmake_d="-D CMAKE_INSTALL_PREFIX=$_inst"
+
+    cmake_d="$cmake_d -DMATERIALX_BUILD_SHARED_LIBS=ON"
+    cmake_d="$cmake_d -DCMAKE_DEBUG_POSTFIX=_d"
+
+    cmake_d="$cmake_d -DMATERIALX_BUILD_RENDER=OFF"
+
+    cmake_d="$cmake_d -DMATERIALX_BUILD_PYTHON=ON"
+    cmake_d="$cmake_d -DMATERIALX_INSTALL_PYTHON=OFF"
+    if [ "$_with_built_python" = true ]; then
+      cmake_d="$cmake_d -D Python_EXECUTABLE=$_with_built_python_execpath"
+    fi
+
+    cmake $cmake_d ./
+    make -j$THREADS install
+    make clean
+
+    if [ ! -d $_inst ]; then
+      ERROR "MaterialX-$MATERIALX_VERSION failed to compile, exiting"
+      exit 1
+    fi
+
+    magic_compile_set materialx-$MATERIALX_VERSION $materialx_magic
+
+    cd $CWD
+    INFO "Done compiling MaterialX-$MATERIALX_VERSION!"
+  else
+    INFO "Own MaterialX-$MATERIALX_VERSION is up to date, nothing to do!"
+    INFO "If you want to force rebuild of this lib, use the --force-materialx option."
+  fi
+
+  if [ -d $_inst ]; then
+    _create_inst_shortcut
+  fi
+  run_ldconfig "materialx"
 }
 
 #### Build USD ####
@@ -3015,7 +3338,7 @@ compile_USD() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  usd_magic=1
+  usd_magic=2
   _init_usd
 
   # Force having own builds for the dependencies.
@@ -3049,19 +3372,46 @@ compile_USD() {
     cmake_d="-D CMAKE_INSTALL_PREFIX=$_inst"
     # For the reasoning behind these options, please see usd.cmake.
     if [ -d $INST/boost ]; then
-      cmake_d="$cmake_d $cmake_d -D BOOST_ROOT=$INST/boost"
+      cmake_d="$cmake_d -DBOOST_ROOT=$INST/boost"
     fi
 
     if [ -d $INST/tbb ]; then
-      cmake_d="$cmake_d $cmake_d -D TBB_ROOT_DIR=$INST/tbb"
+      cmake_d="$cmake_d -DTBB_ROOT_DIR=$INST/tbb"
     fi
-    cmake_d="$cmake_d -DPXR_SET_INTERNAL_NAMESPACE=usdBlender"
-    cmake_d="$cmake_d -DPXR_ENABLE_PYTHON_SUPPORT=OFF"
-    cmake_d="$cmake_d -DPXR_BUILD_IMAGING=OFF"
+
+    cmake_d="$cmake_d -DPXR_ENABLE_PYTHON_SUPPORT=ON"
+    cmake_d="$cmake_d -DPXR_USE_PYTHON_3=ON"
+    if [ "$_with_built_python" = true ]; then
+      cmake_d="$cmake_d -D PYTHON_EXECUTABLE=$_with_built_python_execpath"
+    fi
+
+    cmake_d="$cmake_d -DPXR_BUILD_IMAGING=ON"
+    cmake_d="$cmake_d -DPXR_BUILD_OPENIMAGEIO_PLUGIN=ON"
+    if [ -d $INST/openexr ]; then
+      cmake_d="$cmake_d -DOPENEXR_LOCATION=$INST/openexr"
+    fi
+    if [ -d $INST/oiio ]; then
+      cmake_d="$cmake_d -DOpenImageIO_ROOT=$INST/oiio"
+    fi
+
+    cmake_d="$cmake_d -DPXR_ENABLE_OPENVDB_SUPPORT=ON"
+    if [ -d $INST/openvdb ]; then
+      cmake_d="$cmake_d -DOPENVDB_LOCATION=$INST/openvdb"
+    fi
+
+    cmake_d="$cmake_d -DPXR_ENABLE_GL_SUPPORT=ON"
+
     cmake_d="$cmake_d -DPXR_BUILD_TESTS=OFF"
-    cmake_d="$cmake_d -DBUILD_SHARED_LIBS=ON"
-    cmake_d="$cmake_d -DPXR_BUILD_MONOLITHIC=ON"
+    cmake_d="$cmake_d -DPXR_BUILD_EXAMPLES=OFF"
+    cmake_d="$cmake_d -DPXR_BUILD_TUTORIALS=OFF"
+
     cmake_d="$cmake_d -DPXR_BUILD_USD_TOOLS=OFF"
+    cmake_d="$cmake_d -DPXR_ENABLE_HDF5_SUPPORT=OFF"
+    cmake_d="$cmake_d -DPXR_ENABLE_MATERIALX_SUPPORT=OFF"
+    cmake_d="$cmake_d -DPXR_BUILD_USDVIEW=OFF"
+
+    cmake_d="$cmake_d -DPXR_BUILD_MONOLITHIC=ON"
+    cmake_d="$cmake_d -DBUILD_SHARED_LIBS=ON"
     cmake_d="$cmake_d -DCMAKE_DEBUG_POSTFIX=_d"
 
     cmake $cmake_d ./
@@ -3208,7 +3558,12 @@ _init_embree() {
 }
 
 _update_deps_embree() {
-  :
+  if [ "$1" = true ]; then
+    OPENPGL_FORCE_BUILD=true
+  fi
+  if [ "$2" = true ]; then
+    OPENPGL_FORCE_REBUILD=true
+  fi
 }
 
 clean_Embree() {
@@ -3227,7 +3582,7 @@ compile_Embree() {
   fi
 
   # To be changed each time we make edits that would modify the compiled results!
-  embree_magic=10
+  embree_magic=12
   _init_embree
 
   # Force having own builds for the dependencies.
@@ -3287,7 +3642,7 @@ compile_Embree() {
 
     cmake_d="$cmake_d -D EMBREE_TASKING_SYSTEM=TBB"
     if [ -d $INST/tbb ]; then
-      make_d="$make_d EMBREE_TBB_ROOT=$INST/tbb"
+      cmake_d="$cmake_d -D EMBREE_TBB_ROOT=$INST/tbb"
     fi
 
     cmake $cmake_d ../
@@ -3426,7 +3781,7 @@ compile_OIDN() {
   install_ISPC
 
   # To be changed each time we make edits that would modify the compiled results!
-  oidn_magic=9
+  oidn_magic=10
   _init_oidn
 
   # Force having own builds for the dependencies.
@@ -3482,7 +3837,7 @@ compile_OIDN() {
     cmake_d="$cmake_d -D ISPC_DIR_HINT=$_ispc_path_bin"
 
     if [ -d $INST/tbb ]; then
-      make_d="$make_d TBB_ROOT=$INST/tbb"
+      cmake_d="$cmake_d -D TBB_ROOT=$INST/tbb"
     fi
 
     cmake $cmake_d ../
@@ -3539,7 +3894,7 @@ compile_FFmpeg() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  ffmpeg_magic=5
+  ffmpeg_magic=6
   _init_ffmpeg
 
   # Force having own builds for the dependencies.
@@ -3590,6 +3945,14 @@ compile_FFmpeg() {
 
     if [ "$VPX_USE" = true ]; then
       extra="$extra --enable-libvpx"
+    fi
+
+    if [ "$AOM_USE" = true ]; then
+      extra="$extra --enable-libaom"
+    fi
+
+    if [ "$WEBP_USE" = true ]; then
+      extra="$extra --enable-libwebp"
     fi
 
     if [ "$OPUS_USE" = true ]; then
@@ -3760,6 +4123,209 @@ compile_XR_OpenXR_SDK() {
 
 
 # ----------------------------------------------------------------------------
+# Build OneAPI Level Zero library.
+
+_init_level_zero() {
+  _src=$SRC/level-zero-$LEVEL_ZERO_VERSION
+  _git=false
+  _inst=$INST/level-zero-$LEVEL_ZERO_VERSION_SHORT
+  _inst_shortcut=$INST/level-zero
+}
+
+_update_deps_level_zero() {
+  :
+}
+
+clean_Level_Zero() {
+  _init_level_zero
+  if [ -d $_inst ]; then
+    # Force rebuilding the dependencies if needed.
+    _update_deps_level_zero false true
+  fi
+  _clean
+}
+
+compile_Level_Zero() {
+  if [ "$NO_BUILD" = true ]; then
+    WARNING "--no-build enabled, Level Zero will not be compiled!"
+    return
+  fi
+
+  # To be changed each time we make edits that would modify the compiled result!
+  level_zero_magic=1
+  _init_level_zero
+
+  # Force having own builds for the dependencies.
+  _update_deps_level_zero true false
+
+  # Clean install if needed!
+  magic_compile_check level-zero-$LEVEL_ZERO_VERSION $level_zero_magic
+  if [ $? -eq 1 -o "$LEVEL_ZERO_FORCE_REBUILD" = true ]; then
+    clean_Level_Zero
+  fi
+
+  if [ ! -d $_inst ]; then
+    INFO "Building Level-Zero-$LEVEL_ZERO_VERSION"
+
+    # Force rebuilding the dependencies.
+    _update_deps_level_zero true true
+
+    prepare_inst
+
+    if [ ! -d $_src ]; then
+      mkdir -p $SRC
+
+      download LEVEL_ZERO_SOURCE[@] "$_src.tar.gz"
+      INFO "Unpacking Level-Zero-$LEVEL_ZERO_VERSION"
+      tar -C $SRC -xf $_src.tar.gz
+    fi
+
+    cd $_src
+
+    # Always refresh the whole build!
+    if [ -d build ]; then
+      rm -rf build
+    fi
+    mkdir build
+    cd build
+
+    # Keep flags in sync with LEVEL_ZERO_EXTRA_ARGS in level-zero.cmake!
+    cmake_d="-D CMAKE_BUILD_TYPE=Release"
+    cmake_d="$cmake_d -D CMAKE_INSTALL_PREFIX=$_inst"
+
+    cmake $cmake_d ..
+
+    make -j$THREADS && make install
+    make clean
+
+    if [ ! -d $_inst ]; then
+      ERROR "Level-Zero-$LEVEL_ZERO_VERSION failed to compile, exiting"
+      exit 1
+    fi
+
+    magic_compile_set level-zero-$LEVEL_ZERO_VERSION $level_zero_magic
+
+    cd $CWD
+    INFO "Done compiling Level-Zero-$LEVEL_ZERO_VERSION!"
+  else
+    INFO "Own Level-Zero-$LEVEL_ZERO_VERSION is up to date, nothing to do!"
+    INFO "If you want to force rebuild of this lib, use the --force-level-zero option."
+  fi
+
+  if [ -d $_inst ]; then
+    _create_inst_shortcut
+  fi
+  run_ldconfig "level-zero"
+}
+
+
+# ----------------------------------------------------------------------------
+# Build OpenPGL
+
+_init_openpgl() {
+  _src=$SRC/openpgl-$OPENPGL_VERSION
+  _git=false
+  _inst=$INST/openpgl-$OPENPGL_VERSION_SHORT
+  _inst_shortcut=$INST/openpgl
+}
+
+_update_deps_openpgl() {
+  :
+}
+
+clean_OpenPGL() {
+  _init_openpgl
+  if [ -d $_inst ]; then
+    # Force rebuilding the dependencies if needed.
+    _update_deps_openpgl false true
+  fi
+  _clean
+}
+
+compile_OpenPGL() {
+  if [ "$NO_BUILD" = true ]; then
+    WARNING "--no-build enabled, OpenPGL will not be compiled!"
+    return
+  fi
+
+  # To be changed each time we make edits that would modify the compiled results!
+  openpgl_magic=1
+  _init_openpgl
+
+  # Force having own builds for the dependencies.
+  _update_deps_openpgl true false
+
+  # Clean install if needed!
+  magic_compile_check openpgl-$OPENPGL_VERSION $openpgl_magic
+  if [ $? -eq 1 -o "$OPENPGL_FORCE_REBUILD" = true ]; then
+    clean_OpenPGL
+  fi
+
+  if [ ! -d $_inst ]; then
+    INFO "Building OpenPGL-$OPENPGL_VERSION"
+
+    # Force rebuilding the dependencies.
+    _update_deps_openpgl true true
+
+    prepare_inst
+
+    if [ ! -d $_src ]; then
+      mkdir -p $SRC
+      download OPENPGL_SOURCE[@] "$_src.tar.gz"
+      INFO "Unpacking OpenPGL-$OPENPGL_VERSION"
+      tar -C $SRC --transform "s,(.*/?)openpgl-$OPENPGL_VERSION-beta[^/]*(.*),\1openpgl-$OPENPGL_VERSION\2,x" \
+          -xf $_src.tar.gz
+    fi
+
+    cd $_src
+
+    INFO "$_src"
+
+    # Always refresh the whole build!
+    if [ -d build ]; then
+      rm -rf build
+    fi
+    mkdir build
+    cd build
+
+    cmake_d="-D CMAKE_BUILD_TYPE=Release"
+    cmake_d="$cmake_d -D CMAKE_INSTALL_PREFIX=$_inst"
+    cmake_d="$cmake_d -D OPENPGL_BUILD_STATIC=OFF"
+    cmake_d="$cmake_d -D OPENPGL_BUILD_PYTHON=OFF"
+    cmake_d="$cmake_d -D EMBREE_ISPC_SUPPORT=OFF"
+    if [ -d $INST/tbb ]; then
+      cmake_d="$cmake_d -D OPENPGL_TBB_ROOT=$INST/tbb"
+      cmake_d="$cmake_d -D TBB_ROOT=$INST/tbb"
+    fi
+
+    cmake $cmake_d ../
+
+    make -j$THREADS && make install
+    make clean
+
+    if [ ! -d $_inst ]; then
+      ERROR "OpenPGL-$OPENPGL_VERSION failed to compile, exiting"
+      exit 1
+    fi
+
+    magic_compile_set openpgl-$OPENPGL_VERSION $openpgl_magic
+
+    cd $CWD
+    INFO "Done compiling OpenPGL-$OPENPGL_VERSION!"
+  else
+    INFO "Own OpenPGL-$OPENPGL_VERSION is up to date, nothing to do!"
+    INFO "If you want to force rebuild of this lib, use the --force-openpgl option."
+  fi
+
+  if [ -d $_inst ]; then
+    _create_inst_shortcut
+  fi
+
+  run_ldconfig "openpgl"
+}
+
+
+# ----------------------------------------------------------------------------
 # Install on DEB-like
 
 get_package_version_DEB() {
@@ -3857,12 +4423,13 @@ install_DEB() {
   _packages="gawk cmake cmake-curses-gui build-essential libjpeg-dev libpng-dev libtiff-dev \
              git libfreetype6-dev libfontconfig-dev libx11-dev flex bison libxxf86vm-dev \
              libxcursor-dev libxi-dev wget libsqlite3-dev libxrandr-dev libxinerama-dev \
-             libwayland-dev wayland-protocols libegl-dev libxkbcommon-dev libdbus-1-dev linux-libc-dev \
+             libwayland-dev libdecor-0-dev wayland-protocols libegl-dev libxkbcommon-dev libdbus-1-dev linux-libc-dev \
+             libvulkan-dev libshaderc-dev \
              libbz2-dev libncurses5-dev libssl-dev liblzma-dev libreadline-dev \
-             libopenal-dev libglew-dev yasm $THEORA_DEV $VORBIS_DEV $OGG_DEV \
+             libopenal-dev libepoxy-dev yasm pybind11-dev \
              libsdl2-dev libfftw3-dev patch bzip2 libxml2-dev libtinyxml-dev libjemalloc-dev \
-             libgmp-dev libpugixml-dev libpotrace-dev libhpdf-dev libzstd-dev"
-             # libglewmx-dev  (broken in deb testing currently...)
+             libgmp-dev libpugixml-dev libpotrace-dev libhpdf-dev libzstd-dev libpystring-dev \
+             libglfw3-dev libfribidi-dev libharfbuzz-dev"
 
   VORBIS_USE=true
   OGG_USE=true
@@ -3932,49 +4499,50 @@ install_DEB() {
     install_packages_DEB $LIBSNDFILE_DEV
   fi
 
-  PRINT ""
   X264_DEV="libx264-dev"
   check_package_version_ge_DEB $X264_DEV $X264_VERSION_MIN
   if [ $? -eq 0 ]; then
-    install_packages_DEB $X264_DEV
     X264_USE=true
   fi
 
-  if [ "$WITH_ALL" = true ]; then
-    PRINT ""
-    XVID_DEV="libxvidcore-dev"
-    check_package_DEB $XVID_DEV
-    if [ $? -eq 0 ]; then
-      install_packages_DEB $XVID_DEV
-      XVID_USE=true
-    fi
-
-    PRINT ""
-    MP3LAME_DEV="libmp3lame-dev"
-    check_package_DEB $MP3LAME_DEV
-    if [ $? -eq 0 ]; then
-      install_packages_DEB $MP3LAME_DEV
-      MP3LAME_USE=true
-    fi
-
-    PRINT ""
-    VPX_DEV="libvpx-dev"
-    check_package_version_ge_DEB $VPX_DEV $VPX_VERSION_MIN
-    if [ $? -eq 0 ]; then
-      install_packages_DEB $VPX_DEV
-      VPX_USE=true
-    fi
-
-    PRINT ""
-    OPUS_DEV="libopus-dev"
-    check_package_version_ge_DEB $OPUS_DEV $OPUS_VERSION_MIN
-    if [ $? -eq 0 ]; then
-      install_packages_DEB $OPUS_DEV
-      OPUS_USE=true
-    fi
+  WEBP_DEV="libwebp-dev"
+  check_package_DEB $WEBP_DEV
+  if [ $? -eq 0 ]; then
+    install_packages_DEB $WEBP_DEV
+    WEBP_USE=true
   fi
 
-  # Check cmake/glew versions and disable features for older distros.
+  XVID_DEV="libxvidcore-dev"
+  check_package_DEB $XVID_DEV
+  if [ $? -eq 0 ]; then
+    XVID_USE=true
+  fi
+
+  MP3LAME_DEV="libmp3lame-dev"
+  check_package_DEB $MP3LAME_DEV
+  if [ $? -eq 0 ]; then
+    MP3LAME_USE=true
+  fi
+
+  VPX_DEV="libvpx-dev"
+  check_package_version_ge_DEB $VPX_DEV $VPX_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    VPX_USE=true
+  fi
+
+  AOM_DEV="libaom-dev"
+  check_package_version_ge_DEB $AOM_DEV $AOM_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    AOM_USE=true
+  fi
+
+  OPUS_DEV="libopus-dev"
+  check_package_version_ge_DEB $OPUS_DEV $OPUS_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    OPUS_USE=true
+  fi
+
+  # Check cmake version and disable features for older distros.
   # This is so Blender can at least compile.
   PRINT ""
   _cmake=`get_package_version_DEB cmake`
@@ -3990,28 +4558,6 @@ install_DEB() {
       OPENVDB_SKIP=true
     fi
   fi
-
-  PRINT ""
-  _glew=`get_package_version_DEB libglew-dev`
-  if [ -z $_glew ]; then
-    # Stupid virtual package in Ubuntu 12.04 doesn't show version number...
-    _glew=`apt-cache showpkg libglew-dev|tail -n1|awk '{print $2}'|sed 's/-.*//'`
-  fi
-  version_ge $_glew "1.9.0"
-  if [ $? -eq 1 ]; then
-    version_ge $_glew "1.7.0"
-    if [ $? -eq 1 ]; then
-      WARNING "OpenSubdiv disabled because GLEW-$_glew is not enough"
-      WARNING "Blender will not use system GLEW library"
-      OSD_SKIP=true
-      NO_SYSTEM_GLEW=true
-    else
-      WARNING "OpenSubdiv will compile with GLEW-$_glew but with limited capability"
-      WARNING "Blender will not use system GLEW library"
-      NO_SYSTEM_GLEW=true
-    fi
-  fi
-
 
   PRINT ""
   _do_compile_python=false
@@ -4067,7 +4613,7 @@ install_DEB() {
 
       boost_version=$(echo `get_package_version_DEB libboost-dev` | sed -r 's/^([0-9]+\.[0-9]+).*/\1/')
 
-      install_packages_DEB libboost-{filesystem,iostreams,locale,regex,system,thread,wave,program-options}$boost_version-dev
+      install_packages_DEB ${BOOST_DEB_PACKAGE_MODULES[@]/%/$boost_version-dev}
       clean_Boost
     else
       compile_Boost
@@ -4108,25 +4654,39 @@ install_DEB() {
     fi
   fi
 
+  PRINT ""
+  if [ "$IMATH_SKIP" = true ]; then
+    WARNING "Skipping Imath installation, as requested..."
+  elif [ "$IMATH_FORCE_BUILD" = true ]; then
+    INFO "Forced Imath building, as requested..."
+    compile_IMATH
+  else
+    check_package_version_ge_lt_DEB libimath-dev $IMATH_VERSION_MIN $IMATH_VERSION_MEX
+    if [ $? -eq 0 ]; then
+      install_packages_DEB libimath-dev
+      IMATH_VERSION=`get_package_version_DEB libimath-dev`
+      clean_IMATH
+    else
+      compile_IMATH
+    fi
+  fi
 
   PRINT ""
   if [ "$OPENEXR_SKIP" = true ]; then
-    WARNING "Skipping ILMBase/OpenEXR installation, as requested..."
+    WARNING "Skipping OpenEXR installation, as requested..."
   elif [ "$OPENEXR_FORCE_BUILD" = true ]; then
-    INFO "Forced ILMBase/OpenEXR building, as requested..."
+    INFO "Forced OpenEXR building, as requested..."
     compile_OPENEXR
   else
     check_package_version_ge_lt_DEB libopenexr-dev $OPENEXR_VERSION_MIN $OPENEXR_VERSION_MEX
-    if [ $? -eq 0 ]; then
+    if [ $? -eq 0 -a "$_with_built_imath" = false ]; then
       install_packages_DEB libopenexr-dev
       OPENEXR_VERSION=`get_package_version_DEB libopenexr-dev`
-      ILMBASE_VERSION=$OPENEXR_VERSION
       clean_OPENEXR
     else
       compile_OPENEXR
     fi
   fi
-
 
   PRINT ""
   # Debian OIIO includes again libopencv, without even properly dealing with this dependency...
@@ -4246,6 +4806,16 @@ install_DEB() {
   fi
 
   PRINT ""
+  if [ "$MATERIALX_SKIP" = true ]; then
+    WARNING "Skipping MaterialX installation, as requested..."
+  elif [ "$MATERIALX_FORCE_BUILD" = true ]; then
+    INFO "Forced MaterialX building, as requested..."
+    compile_MATERIALX
+  else
+    compile_MATERIALX
+  fi
+
+  PRINT ""
   if [ "$USD_SKIP" = true ]; then
     WARNING "Skipping USD installation, as requested..."
   elif [ "$USD_FORCE_BUILD" = true ]; then
@@ -4321,11 +4891,12 @@ install_DEB() {
   fi
 
   PRINT ""
+  _do_compile_ffmpeg=false
   if [ "$FFMPEG_SKIP" = true ]; then
     WARNING "Skipping FFMpeg installation, as requested..."
   elif [ "$FFMPEG_FORCE_BUILD" = true ]; then
     INFO "Forced FFMpeg building, as requested..."
-    compile_FFmpeg
+    _do_compile_ffmpeg=true
   else
     # XXX Debian Testing / Ubuntu 16.04 finally includes FFmpeg, so check as usual
     check_package_DEB ffmpeg
@@ -4335,11 +4906,44 @@ install_DEB() {
         install_packages_DEB libavdevice-dev
         clean_FFmpeg
       else
-        compile_FFmpeg
+        _do_compile_ffmpeg=true
       fi
     else
-      compile_FFmpeg
+      _do_compile_ffmpeg=true
     fi
+  fi
+  if [ "$_do_compile_ffmpeg" = true ]; then
+    _packages=""
+    if [ "$VORBIS_USE" = true ]; then
+      _packages="$_packages $VORBIS_DEV"
+    fi
+    if [ "$THEORA_USE" = true ]; then
+      _packages="$_packages $THEORA_DEV"
+    fi
+    if [ "$OGG_USE" = true ]; then
+      _packages="$_packages $OGG_DEV"
+    fi
+    if [ "$XVID_USE" = true ]; then
+      _packages="$_packages $XVID_DEV"
+    fi
+    if [ "$X264_USE" = true ]; then
+      _packages="$_packages $X264_DEV"
+    fi
+    if [ "$VPX_USE" = true ]; then
+      _packages="$_packages $VPX_DEV"
+    fi
+    if [ "$AOM_USE" = true ]; then
+      _packages="$_packages $AOM_DEV"
+    fi
+    if [ "$OPUS_USE" = true ]; then
+      _packages="$_packages $OPUS_DEV"
+    fi
+    if [ "$MP3LAME_USE" = true ]; then
+      _packages="$_packages $MP3LAME_DEV"
+    fi
+    install_packages_DEB $_packages
+
+    compile_FFmpeg
   fi
 
   PRINT ""
@@ -4352,6 +4956,30 @@ install_DEB() {
     # No package currently!
     PRINT ""
     compile_XR_OpenXR_SDK
+  fi
+
+  PRINT ""
+  if [ "$LEVEL_ZERO_SKIP" = true ]; then
+    WARNING "Skipping Level Zero installation, as requested..."
+  elif [ "$LEVEL_ZERO_FORCE_BUILD" = true ]; then
+    INFO "Forced Level Zero building, as requested..."
+    compile_Level_Zero
+  else
+    # No package currently!
+    PRINT ""
+    compile_Level_Zero
+  fi
+
+  PRINT ""
+  if [ "$OPENPGL_SKIP" = true ]; then
+    WARNING "Skipping OpenPGL installation, as requested..."
+  elif [ "$OPENPGL_FORCE_BUILD" = true ]; then
+    INFO "Forced OpenPGL building, as requested..."
+    compile_OpenPGL
+  else
+    # No package currently!
+    PRINT ""
+    compile_OpenPGL
   fi
 }
 
@@ -4529,11 +5157,13 @@ install_RPM() {
   _packages="gcc gcc-c++ git make cmake tar bzip2 xz findutils flex bison fontconfig-devel \
              libtiff-devel libjpeg-devel libpng-devel sqlite-devel fftw-devel SDL2-devel \
              libX11-devel libXi-devel libXcursor-devel libXrandr-devel libXinerama-devel \
-             wayland-devel wayland-protocols-devel mesa-libEGL-devel libxkbcommon-devel dbus-devel kernel-headers \
+             wayland-devel libdecor-devel wayland-protocols-devel mesa-libEGL-devel libxkbcommon-devel dbus-devel kernel-headers \
+             vulkan-loader-devel libshaderc-devel \
              wget ncurses-devel readline-devel $OPENJPEG_DEV openal-soft-devel \
-             glew-devel yasm $THEORA_DEV $VORBIS_DEV $OGG_DEV patch \
+             libepoxy-devel yasm patch pybind11-devel \
              libxml2-devel yaml-cpp-devel tinyxml-devel jemalloc-devel \
-             gmp-devel pugixml-devel potrace-devel libharu-devel libzstd-devel"
+             gmp-devel pugixml-devel potrace-devel libharu-devel libzstd-devel pystring-devel \
+             fribidi-devel harfbuzz-devel"
 
   OPENJPEG_USE=true
   VORBIS_USE=true
@@ -4554,28 +5184,22 @@ install_RPM() {
     PRINT ""
     install_packages_RPM $_packages
 
-    PRINT ""
     X264_DEV="x264-devel"
     check_package_version_ge_RPM $X264_DEV $X264_VERSION_MIN
     if [ $? -eq 0 ]; then
-      install_packages_RPM $X264_DEV
       X264_USE=true
     fi
 
     if [ "$WITH_ALL" = true ]; then
-      PRINT ""
       XVID_DEV="xvidcore-devel"
       check_package_RPM $XVID_DEV
       if [ $? -eq 0 ]; then
-        install_packages_RPM $XVID_DEV
         XVID_USE=true
       fi
 
-      PRINT ""
       MP3LAME_DEV="lame-devel"
       check_package_RPM $MP3LAME_DEV
       if [ $? -eq 0 ]; then
-        install_packages_RPM $MP3LAME_DEV
         MP3LAME_USE=true
       fi
     fi
@@ -4583,35 +5207,29 @@ install_RPM() {
   elif [ "$RPM" = "SUSE" ]; then
     _packages="$_packages freetype2-devel"
 
-    PRINT ""
-    install_packages_RPM $_packages
-
-    PRINT ""
-    X264_DEV="libx264-devel"
-    check_package_version_ge_RPM $X264_DEV $X264_VERSION_MIN
-    if [ $? -eq 0 ]; then
-      install_packages_RPM $X264_DEV
-      X264_USE=true
-    fi
-
     if [ "$WITH_PULSEAUDIO" = true ]; then
       _packages="$_packages libpulse-devel"
     fi
 
+    PRINT ""
+    install_packages_RPM $_packages
+
+    X264_DEV="libx264-devel"
+    check_package_version_ge_RPM $X264_DEV $X264_VERSION_MIN
+    if [ $? -eq 0 ]; then
+      X264_USE=true
+    fi
+
     if [ "$WITH_ALL" = true ]; then
-      PRINT ""
       XVID_DEV="libxvidcore-devel"
       check_package_RPM $XVID_DEV
       if [ $? -eq 0 ]; then
-        install_packages_RPM $XVID_DEV
         XVID_USE=true
       fi
 
-      PRINT ""
       MP3LAME_DEV="libmp3lame-devel"
       check_package_RPM $MP3LAME_DEV
       if [ $? -eq 0 ]; then
-        install_packages_RPM $MP3LAME_DEV
         MP3LAME_USE=true
       fi
     fi
@@ -4624,25 +5242,34 @@ install_RPM() {
     install_packages_RPM $LIBSNDFILE_DEV
   fi
 
+  WEBP_DEV="libwebp-devel"
+  check_package_RPM $WEBP_DEV
+  if [ $? -eq 0 ]; then
+    install_packages_RPM $WEBP_DEV
+    WEBP_USE=true
+  fi
+
+  VPX_DEV="libvpx-devel"
+  check_package_version_ge_RPM $VPX_DEV $VPX_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    VPX_USE=true
+  fi
+
+  AOM_DEV="libaom-devel"
+  check_package_version_ge_RPM $AOM_DEV $AOM_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    AOM_USE=true
+  fi
+
+  OPUS_DEV="libopus-devel"
+  check_package_version_ge_RPM $OPUS_DEV $OPUS_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    OPUS_USE=true
+  fi
+
   if [ "$WITH_ALL" = true ]; then
     PRINT ""
-    VPX_DEV="libvpx-devel"
-    check_package_version_ge_RPM $VPX_DEV $VPX_VERSION_MIN
-    if [ $? -eq 0 ]; then
-      install_packages_RPM $VPX_DEV
-      VPX_USE=true
-    fi
-
-    PRINT ""
     install_packages_RPM libspnav-devel
-
-    PRINT ""
-    OPUS_DEV="libopus-devel"
-    check_package_version_ge_RPM $OPUS_DEV $OPUS_VERSION_MIN
-    if [ $? -eq 0 ]; then
-      install_packages_RPM $OPUS_DEV
-      OPUS_USE=true
-    fi
   fi
 
   PRINT ""
@@ -4763,17 +5390,33 @@ install_RPM() {
   fi
 
   PRINT ""
+  if [ "$IMATH_SKIP" = true ]; then
+    WARNING "Skipping Imath installation, as requested..."
+  elif [ "$IMATH_FORCE_BUILD" = true ]; then
+    INFO "Forced Imath building, as requested..."
+    compile_IMATH
+  else
+    check_package_version_ge_lt_RPM imath-devel $IMATH_VERSION_MIN $IMATH_VERSION_MEX
+    if [ $? -eq 0 ]; then
+      install_packages_RPM imath-devel
+      IMATH_VERSION=`get_package_version_RPM imath-devel`
+      clean_IMATH
+    else
+      compile_IMATH
+    fi
+  fi
+
+  PRINT ""
   if [ "$OPENEXR_SKIP" = true ]; then
-    WARNING "Skipping ILMBase/OpenEXR installation, as requested..."
+    WARNING "Skipping OpenEXR installation, as requested..."
   elif [ "$OPENEXR_FORCE_BUILD" = true ]; then
-    INFO "Forced ILMBase/OpenEXR building, as requested..."
+    INFO "Forced OpenEXR building, as requested..."
     compile_OPENEXR
   else
     check_package_version_ge_lt_RPM openexr-devel $OPENEXR_VERSION_MIN $OPENEXR_VERSION_MEX
-    if [ $? -eq 0 ]; then
+    if [ $? -eq 0 -a $_with_built_imath == false ]; then
       install_packages_RPM openexr-devel
       OPENEXR_VERSION=`get_package_version_RPM openexr-devel`
-      ILMBASE_VERSION=$OPENEXR_VERSION
       clean_OPENEXR
     else
       compile_OPENEXR
@@ -4902,6 +5545,16 @@ install_RPM() {
   fi
 
   PRINT ""
+  if [ "$MATERIALX_SKIP" = true ]; then
+    WARNING "Skipping MaterialX installation, as requested..."
+  elif [ "$MATERIALX_FORCE_BUILD" = true ]; then
+    INFO "Forced MaterialX building, as requested..."
+    compile_MATERIALX
+  else
+    compile_MATERIALX
+  fi
+
+  PRINT ""
   if [ "$USD_SKIP" = true ]; then
     WARNING "Skipping USD installation, as requested..."
   elif [ "$USD_FORCE_BUILD" = true ]; then
@@ -4976,19 +5629,53 @@ install_RPM() {
   fi
 
   PRINT ""
+  _do_compile_ffmpeg=false
   if [ "$FFMPEG_SKIP" = true ]; then
     WARNING "Skipping FFMpeg installation, as requested..."
   elif [ "$FFMPEG_FORCE_BUILD" = true ]; then
     INFO "Forced FFMpeg building, as requested..."
-    compile_FFmpeg
+    _do_compile_ffmpeg=true
   else
     check_package_version_ge_lt_RPM ffmpeg-devel $FFMPEG_VERSION_MIN $FFMPEG_VERSION_MEX
     if [ $? -eq 0 ]; then
       install_packages_RPM ffmpeg ffmpeg-devel
       clean_FFmpeg
     else
-      compile_FFmpeg
+      _do_compile_ffmpeg=true
     fi
+  fi
+  if [ "$_do_compile_ffmpeg" = true ]; then
+    _packages=""
+    if [ "$VORBIS_USE" = true ]; then
+      _packages="$_packages $VORBIS_DEV"
+    fi
+    if [ "$THEORA_USE" = true ]; then
+      _packages="$_packages $THEORA_DEV"
+    fi
+    if [ "$OGG_USE" = true ]; then
+      _packages="$_packages $OGG_DEV"
+    fi
+    if [ "$XVID_USE" = true ]; then
+      _packages="$_packages $XVID_DEV"
+    fi
+    if [ "$X264_USE" = true ]; then
+      _packages="$_packages $X264_DEV"
+    fi
+    if [ "$VPX_USE" = true ]; then
+      _packages="$_packages $VPX_DEV"
+    fi
+    if [ "$AOM_USE" = true ]; then
+      _packages="$_packages $AOM_DEV"
+    fi
+    if [ "$OPUS_USE" = true ]; then
+      _packages="$_packages $OPUS_DEV"
+    fi
+    if [ "$MP3LAME_USE" = true ]; then
+      _packages="$_packages $MP3LAME_DEV"
+    fi
+    install_packages_RPM $_packages
+
+    compile_FFmpeg
   fi
 
   PRINT ""
@@ -5000,6 +5687,30 @@ install_RPM() {
   else
     # No package currently!
     compile_XR_OpenXR_SDK
+  fi
+
+  PRINT ""
+  if [ "$LEVEL_ZERO_SKIP" = true ]; then
+    WARNING "Skipping Level Zero installation, as requested..."
+  elif [ "$LEVEL_ZERO_FORCE_BUILD" = true ]; then
+    INFO "Forced Level Zero building, as requested..."
+    compile_Level_Zero
+  else
+    # No package currently!
+    PRINT ""
+    compile_Level_Zero
+  fi
+
+  PRINT ""
+  if [ "$OPENPGL_SKIP" = true ]; then
+    WARNING "Skipping OpenPGL installation, as requested..."
+  elif [ "$OPENPGL_FORCE_BUILD" = true ]; then
+    INFO "Forced OpenPGL building, as requested..."
+    compile_OpenPGL
+  else
+    # No package currently!
+    PRINT ""
+    compile_OpenPGL
   fi
 }
 
@@ -5112,10 +5823,11 @@ install_ARCH() {
   fi
 
   _packages="$BASE_DEVEL git cmake fontconfig flex \
-             libxi libxcursor libxrandr libxinerama glew libpng libtiff wget openal \
-             $OPENJPEG_DEV $VORBIS_DEV $OGG_DEV $THEORA_DEV yasm sdl2 fftw \
+             libxi libxcursor libxrandr libxinerama libepoxy libdecor libpng libtiff wget openal \
+             vulkan-icd-loader vulkan-headers shaderc \
+             $OPENJPEG_DEV yasm sdl2 fftw pybind11 \
              libxml2 yaml-cpp tinyxml python-requests jemalloc gmp potrace pugixml libharu \
-             zstd"
+             zstd pystring fribidi harfbuzz"
 
   OPENJPEG_USE=true
   VORBIS_USE=true
@@ -5144,46 +5856,47 @@ install_ARCH() {
     install_packages_ARCH $LIBSNDFILE_DEV
   fi
 
-  PRINT ""
   X264_DEV="x264"
   check_package_version_ge_ARCH $X264_DEV $X264_VERSION_MIN
   if [ $? -eq 0 ]; then
-    install_packages_ARCH $X264_DEV
     X264_USE=true
   fi
 
-  if [ "$WITH_ALL" = true ]; then
-    PRINT ""
-    XVID_DEV="xvidcore"
-    check_package_ARCH $XVID_DEV
-    if [ $? -eq 0 ]; then
-      install_packages_ARCH $XVID_DEV
-      XVID_USE=true
-    fi
+  WEBP_DEV="libwebp"
+  check_package_ARCH $WEBP_DEV
+  if [ $? -eq 0 ]; then
+    install_packages_ARCH $WEBP_DEV
+    WEBP_USE=true
+  fi
 
-    PRINT ""
-    MP3LAME_DEV="lame"
-    check_package_ARCH $MP3LAME_DEV
-    if [ $? -eq 0 ]; then
-      install_packages_ARCH $MP3LAME_DEV
-      MP3LAME_USE=true
-    fi
+  XVID_DEV="xvidcore"
+  check_package_ARCH $XVID_DEV
+  if [ $? -eq 0 ]; then
+    XVID_USE=true
+  fi
 
-    PRINT ""
-    VPX_DEV="libvpx"
-    check_package_version_ge_ARCH $VPX_DEV $VPX_VERSION_MIN
-    if [ $? -eq 0 ]; then
-      install_packages_ARCH $VPX_DEV
-      VPX_USE=true
-    fi
+  MP3LAME_DEV="lame"
+  check_package_ARCH $MP3LAME_DEV
+  if [ $? -eq 0 ]; then
+    MP3LAME_USE=true
+  fi
 
-    PRINT ""
-    OPUS_DEV="opus"
-    check_package_version_ge_ARCH $OPUS_DEV $OPUS_VERSION_MIN
-    if [ $? -eq 0 ]; then
-      install_packages_ARCH $OPUS_DEV
-      OPUS_USE=true
-    fi
+  VPX_DEV="libvpx"
+  check_package_version_ge_ARCH $VPX_DEV $VPX_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    VPX_USE=true
+  fi
+
+  AOM_DEV="libaom"
+  check_package_version_ge_ARCH $AOM_DEV $AOM_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    AOM_USE=true
+  fi
+
+  OPUS_DEV="opus"
+  check_package_version_ge_ARCH $OPUS_DEV $OPUS_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    OPUS_USE=true
   fi
 
 
@@ -5290,19 +6003,35 @@ install_ARCH() {
     fi
   fi
 
+  PRINT ""
+  if [ "$IMATH_SKIP" = true ]; then
+    WARNING "Skipping Imath installation, as requested..."
+  elif [ "$IMATH_FORCE_BUILD" = true ]; then
+    INFO "Forced Imath building, as requested..."
+    compile_IMATH
+  else
+    check_package_version_ge_lt_ARCH imath $IMATH_VERSION_MIN $IMATH_VERSION_MEX
+    if [ $? -eq 0 ]; then
+      install_packages_ARCH imath
+      IMATH_VERSION=`get_package_version_ARCH imath`
+      clean_IMATH
+    else
+      compile_IMATH
+    fi
+  fi
 
   PRINT ""
   if [ "$OPENEXR_SKIP" = true ]; then
-    WARNING "Skipping ILMBase/OpenEXR installation, as requested..."
+    WARNING "Skipping OpenEXR installation, as requested..."
   elif [ "$OPENEXR_FORCE_BUILD" = true ]; then
-    INFO "Forced ILMBase/OpenEXR building, as requested..."
+    INFO "Forced OpenEXR building, as requested..."
     compile_OPENEXR
   else
     check_package_version_ge_lt_ARCH openexr $OPENEXR_VERSION_MIN $OPENEXR_VERSION_MEX
     if [ $? -eq 0 ]; then
       install_packages_ARCH openexr
       OPENEXR_VERSION=`get_package_version_ARCH openexr`
-      ILMBASE_VERSION=$OPENEXR_VERSION
+      IMATH_VERSION=$OPENEXR_VERSION
       clean_OPENEXR
     else
       compile_OPENEXR
@@ -5431,6 +6160,16 @@ install_ARCH() {
   fi
 
   PRINT ""
+  if [ "$MATERIALX_SKIP" = true ]; then
+    WARNING "Skipping MaterialX installation, as requested..."
+  elif [ "$MATERIALX_FORCE_BUILD" = true ]; then
+    INFO "Forced MaterialX building, as requested..."
+    compile_MATERIALX
+  else
+    compile_MATERIALX
+  fi
+
+  PRINT ""
   if [ "$USD_SKIP" = true ]; then
     WARNING "Skipping USD installation, as requested..."
   elif [ "$USD_FORCE_BUILD" = true ]; then
@@ -5510,19 +6249,52 @@ install_ARCH() {
   fi
 
   PRINT ""
+  _do_compile_ffmpeg=false
   if [ "$FFMPEG_SKIP" = true ]; then
     WARNING "Skipping FFMpeg installation, as requested..."
   elif [ "$FFMPEG_FORCE_BUILD" = true ]; then
     INFO "Forced FFMpeg building, as requested..."
-    compile_FFmpeg
+    _do_compile_ffmpeg=true
   else
     check_package_version_ge_lt_ARCH ffmpeg $FFMPEG_VERSION_MIN $FFMPEG_VERSION_MEX
     if [ $? -eq 0 ]; then
       install_packages_ARCH ffmpeg
       clean_FFmpeg
     else
-      compile_FFmpeg
+      _do_compile_ffmpeg=true
     fi
+  fi
+  if [ "$_do_compile_ffmpeg" = true ]; then
+    _packages=""
+    if [ "$VORBIS_USE" = true ]; then
+      _packages="$_packages $VORBIS_DEV"
+    fi
+    if [ "$THEORA_USE" = true ]; then
+      _packages="$_packages $THEORA_DEV"
+    fi
+    if [ "$OGG_USE" = true ]; then
+      _packages="$_packages $OGG_DEV"
+    fi
+    if [ "$XVID_USE" = true ]; then
+      _packages="$_packages $XVID_DEV"
+    fi
+    if [ "$X264_USE" = true ]; then
+      _packages="$_packages $X264_DEV"
+    fi
+    if [ "$VPX_USE" = true ]; then
+      _packages="$_packages $VPX_DEV"
+    fi
+    if [ "$AOM_USE" = true ]; then
+      _packages="$_packages $AOM_DEV"
+    fi
+    if [ "$OPUS_USE" = true ]; then
+      _packages="$_packages $OPUS_DEV"
+    fi
+    if [ "$MP3LAME_USE" = true ]; then
+      _packages="$_packages $MP3LAME_DEV"
+    fi
+
+    compile_FFmpeg
   fi
 
   PRINT ""
@@ -5534,6 +6306,30 @@ install_ARCH() {
   else
     # No package currently!
     compile_XR_OpenXR_SDK
+  fi
+
+  PRINT ""
+  if [ "$LEVEL_ZERO_SKIP" = true ]; then
+    WARNING "Skipping Level Zero installation, as requested..."
+  elif [ "$LEVEL_ZERO_FORCE_BUILD" = true ]; then
+    INFO "Forced Level Zero building, as requested..."
+    compile_Level_Zero
+  else
+    # No package currently!
+    PRINT ""
+    compile_Level_Zero
+  fi
+
+  PRINT ""
+  if [ "$OPENPGL_SKIP" = true ]; then
+    WARNING "Skipping OpenPGL installation, as requested..."
+  elif [ "$OPENPGL_FORCE_BUILD" = true ]; then
+    INFO "Forced OpenPGL building, as requested..."
+    compile_OpenPGL
+  else
+    # No package currently!
+    PRINT ""
+    compile_OpenPGL
   fi
 }
 
@@ -5604,10 +6400,18 @@ install_OTHER() {
 
 
   PRINT ""
+  if [ "$IMATH_SKIP" = true ]; then
+    WARNING "Skipping Imath installation, as requested..."
+  elif [ "$IMATH_FORCE_BUILD" = true ]; then
+    INFO "Forced Imath building, as requested..."
+    compile_IMATH
+  fi
+
+  PRINT ""
   if [ "$OPENEXR_SKIP" = true ]; then
-    WARNING "Skipping ILMBase/OpenEXR installation, as requested..."
+    WARNING "Skipping OpenEXR installation, as requested..."
   elif [ "$OPENEXR_FORCE_BUILD" = true ]; then
-    INFO "Forced ILMBase/OpenEXR building, as requested..."
+    INFO "Forced OpenEXR building, as requested..."
     compile_OPENEXR
   fi
 
@@ -5656,6 +6460,27 @@ install_OTHER() {
   fi
 
 
+  PRINT ""
+  if [ "$MATERIALX_SKIP" = true ]; then
+    WARNING "Skipping MaterialX installation, as requested..."
+  elif [ "$MATERIALX_FORCE_BUILD" = true ]; then
+    INFO "Forced MaterialX building, as requested..."
+    compile_MATERIALX
+  else
+    compile_MATERIALX
+  fi
+
+  PRINT ""
+  if [ "$USD_SKIP" = true ]; then
+    WARNING "Skipping USD installation, as requested..."
+  elif [ "$USD_FORCE_BUILD" = true ]; then
+    INFO "Forced USD building, as requested..."
+    compile_USD
+  else
+    compile_USD
+  fi
+
+
   if [ "$WITH_OPENCOLLADA" = true ]; then
     PRINT ""
     if [ "$OPENCOLLADA_SKIP" = true ]; then
@@ -5701,6 +6526,22 @@ install_OTHER() {
     INFO "Forced OpenXR-SDK building, as requested..."
     compile_XR_OpenXR_SDK
   fi
+
+  PRINT ""
+  if [ "$LEVEL_ZERO_SKIP" = true ]; then
+    WARNING "Skipping Level Zero installation, as requested..."
+  elif [ "$LEVEL_ZERO_FORCE_BUILD" = true ]; then
+    INFO "Forced Level Zero building, as requested..."
+    compile_Level_Zero
+  fi
+
+  PRINT ""
+  if [ "$OPENPGL_SKIP" = true ]; then
+    WARNING "Skipping OpenPGL installation, as requested..."
+  elif [ "$OPENPGL_FORCE_BUILD" = true ]; then
+    INFO "Forced OpenPGL building, as requested..."
+    compile_OpenPGL
+  fi
 }
 
 # ----------------------------------------------------------------------------
@@ -5717,8 +6558,9 @@ print_info() {
 
   _buildargs="-U *SNDFILE* -U PYTHON* -U *BOOST* -U *Boost* -U *TBB*"
   _buildargs="$_buildargs -U *OPENCOLORIO* -U *OPENEXR* -U *OPENIMAGEIO* -U *LLVM* -U *CLANG* -U *CYCLES*"
-  _buildargs="$_buildargs -U *OPENSUBDIV* -U *OPENVDB*  -U *BLOSC* -U *COLLADA* -U *FFMPEG* -U *ALEMBIC* -U *USD*"
-  _buildargs="$_buildargs -U *EMBREE* -U *OPENIMAGEDENOISE* -U *OPENXR*"
+  _buildargs="$_buildargs -U *OPENSUBDIV* -U *OPENVDB*  -U *BLOSC* -U *COLLADA* -U *FFMPEG* -U *ALEMBIC*"
+  _buildargs="$_buildargs -U *MATERIALX* -U *USD*"
+  _buildargs="$_buildargs -U *EMBREE* -U *OPENIMAGEDENOISE* -U *OPENXR* -U *OPENPGL*"
 
   _1="-D WITH_CODEC_SNDFILE=ON"
   PRINT "  $_1"
@@ -5758,6 +6600,12 @@ print_info() {
       PRINT "  $_1"
       _buildargs="$_buildargs $_1"
     fi
+  fi
+
+  if [ "$WEBP_USE" = true ]; then
+    _1="-D WITH_IMAGE_WEBP=ON"
+    PRINT "  $_1"
+    _buildargs="$_buildargs $_1"
   fi
 
   if [ -d $INST/openexr ]; then
@@ -5898,6 +6746,17 @@ print_info() {
     fi
   fi
 
+  if [ "$MATERIALX_SKIP" = false ]; then
+    _1="-D WITH_MATERIALX=ON"
+    PRINT "  $_1"
+    _buildargs="$_buildargs $_1"
+    if [ -d $INST/materialx ]; then
+      _1="-D MaterialX_DIR=$INST/materialx/lib/cmake/MaterialX"
+      PRINT "  $_1"
+      _buildargs="$_buildargs $_1"
+    fi
+  fi
+
   if [ "$USD_SKIP" = false ]; then
     _1="-D WITH_USD=ON"
     PRINT "  $_1"
@@ -5907,12 +6766,6 @@ print_info() {
       PRINT "  $_1"
       _buildargs="$_buildargs $_1"
     fi
-  fi
-
-  if [ "$NO_SYSTEM_GLEW" = true ]; then
-    _1="-D WITH_SYSTEM_GLEW=OFF"
-    PRINT "  $_1"
-    _buildargs="$_buildargs $_1"
   fi
 
   if [ "$FFMPEG_SKIP" = false ]; then
@@ -5934,6 +6787,28 @@ print_info() {
       _1="-D XR_OPENXR_SDK_ROOT_DIR=$INST/xr-openxr-sdk"
       PRINT "  $_1"
       _buildargs="$_buildargs $_1"
+    fi
+  fi
+
+  # Not yet available in Blender.
+  #~ if [ "$LEVEL_ZERO_SKIP" = false ]; then
+    #~ _1="-D WITH_LEVEL_ZERO=ON"
+    #~ PRINT "  $_1"
+    #~ _buildargs="$_buildargs $_1"
+    #~ if [ -d $INST/level-zero ]; then
+      #~ _1="-D LEVEL_ZERO_ROOT_DIR=$INST/level-zero"
+      #~ PRINT "  $_1"
+      #~ _buildargs="$_buildargs $_1"
+    #~ fi
+  #~ fi
+
+  if [ "$OPENPGL_SKIP" = false ]; then
+    if [ -d $INST/openpgl ]; then
+      _1="-D openpgl_DIR=$INST/openpgl/lib/cmake/openpgl-$OPENPGL_VERSION"
+      _2="-D WITH_CYCLES_PATH_GUIDING=ON"
+      PRINT "  $_1"
+      PRINT "  $_2"
+      _buildargs="$_buildargs $_1 $_2"
     fi
   fi
 

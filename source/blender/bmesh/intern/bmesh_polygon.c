@@ -234,9 +234,9 @@ float BM_face_calc_area_uv(const BMFace *f, int cd_loop_uv_offset)
   /* The Trapezium Area Rule */
   float cross = 0.0f;
   do {
-    const MLoopUV *luv = BM_ELEM_CD_GET_VOID_P(l_iter, cd_loop_uv_offset);
-    const MLoopUV *luv_next = BM_ELEM_CD_GET_VOID_P(l_iter->next, cd_loop_uv_offset);
-    cross += (luv_next->uv[0] - luv->uv[0]) * (luv_next->uv[1] + luv->uv[1]);
+    const float *luv = BM_ELEM_CD_GET_FLOAT_P(l_iter, cd_loop_uv_offset);
+    const float *luv_next = BM_ELEM_CD_GET_FLOAT_P(l_iter->next, cd_loop_uv_offset);
+    cross += (luv_next[0] - luv[0]) * (luv_next[1] + luv[1]);
   } while ((l_iter = l_iter->next) != l_first);
   return fabsf(cross * 0.5f);
 }
@@ -415,7 +415,7 @@ void BM_face_calc_tangent_edge_diagonal(const BMFace *f, float r_tangent[3])
   /* In case of degenerate faces. */
   zero_v3(r_tangent);
 
-  /* warning: O(n^2) loop here, take care! */
+  /* WARNING: O(n^2) loop here, take care! */
   float dist_max_sq = 0.0f;
   do {
     BMLoop *l_iter_other = l_iter->next;
@@ -447,7 +447,7 @@ void BM_face_calc_tangent_vert_diagonal(const BMFace *f, float r_tangent[3])
   /* In case of degenerate faces. */
   zero_v3(r_tangent);
 
-  /* warning: O(n^2) loop here, take care! */
+  /* WARNING: O(n^2) loop here, take care! */
   float dist_max_sq = 0.0f;
   do {
     BMLoop *l_iter_other = l_iter->next;

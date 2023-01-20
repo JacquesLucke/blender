@@ -291,6 +291,7 @@ static EdgeLoopPair *edbm_ripsel_looptag_helper(BMesh *bm)
     BM_edge_loop_pair(e_last, &lp->l_a, &lp->l_b);
 
     BLI_assert(tot == uid_end - uid_start);
+    UNUSED_VARS_NDEBUG(tot);
 
 #if 0
     printf("%s: found contiguous edge loop of (%d)\n", __func__, uid_end - uid_start);
@@ -326,7 +327,7 @@ static BMVert *edbm_ripsel_edloop_pair_start_vert(BMEdge *e)
 {
   /* try step in a direction, if it fails we know do go the other way */
   BMVert *v_test = e->v1;
-  return (edbm_ripsel_edge_uid_step(e, &v_test)) ? e->v1 : e->v2;
+  return edbm_ripsel_edge_uid_step(e, &v_test) ? e->v1 : e->v2;
 }
 
 static void edbm_ripsel_deselect_helper(BMesh *bm,
@@ -914,7 +915,7 @@ static int edbm_rip_invoke__edge(bContext *C, const wmEvent *event, Object *obed
       /* NOTE: if the case of 3 edges has one change in loop stepping,
        * if this becomes more involved we may be better off splitting
        * the 3 edge case into its own else-if branch */
-      if ((ELEM(totedge_manifold, 4, 3)) || (all_manifold == false)) {
+      if (ELEM(totedge_manifold, 4, 3) || (all_manifold == false)) {
         BMLoop *l_a = e_best->l;
         BMLoop *l_b = l_a->radial_next;
 
@@ -987,10 +988,11 @@ static int edbm_rip_invoke__edge(bContext *C, const wmEvent *event, Object *obed
 /* based on mouse cursor position, it defines how is being ripped */
 static int edbm_rip_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
+  const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   uint objects_len = 0;
   Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
-      view_layer, CTX_wm_view3d(C), &objects_len);
+      scene, view_layer, CTX_wm_view3d(C), &objects_len);
   const bool do_fill = RNA_boolean_get(op->ptr, "use_fill");
 
   bool no_vertex_selected = true;
@@ -1017,7 +1019,7 @@ static int edbm_rip_invoke(bContext *C, wmOperator *op, const wmEvent *event)
     if (bm->totfacesel) {
       /* highly nifty but hard to support since the operator can fail and we're left
        * with modified selection */
-      // WM_operator_name_call(C, "MESH_OT_region_to_loop", WM_OP_INVOKE_DEFAULT, NULL);
+      // WM_operator_name_call(C, "MESH_OT_region_to_loop", WM_OP_INVOKE_DEFAULT, NULL, event);
       continue;
     }
     error_face_selected = false;
