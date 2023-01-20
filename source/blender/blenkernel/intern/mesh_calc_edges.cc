@@ -241,7 +241,9 @@ void BKE_mesh_calc_edges(Mesh *mesh, bool keep_existing_edges, const bool select
   /* Free old CustomData and assign new one. */
   CustomData_free(&mesh->edata, mesh->totedge);
   CustomData_reset(&mesh->edata);
-  CustomData_add_layer(&mesh->edata, CD_MEDGE, CD_ASSIGN, new_edges.data(), new_totedge);
+  CustomDataLayerSource edge_layer_source{};
+  edge_layer_source.data = new_edges.data();
+  CustomData_add_layer(&mesh->edata, CD_MEDGE, CD_ASSIGN, &edge_layer_source, new_totedge);
   mesh->totedge = new_totedge;
 
   if (select_new_edges) {

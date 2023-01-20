@@ -234,7 +234,10 @@ void BKE_mesh_calc_edges_legacy(Mesh *me, const bool use_old)
     return;
   }
 
-  medge = (MEdge *)CustomData_add_layer(&me->edata, CD_MEDGE, CD_ASSIGN, medge, totedge);
+  CustomDataLayerSource edge_layer_source{};
+  edge_layer_source.data = medge;
+  medge = (MEdge *)CustomData_add_layer(
+      &me->edata, CD_MEDGE, CD_ASSIGN, &edge_layer_source, totedge);
   me->totedge = totedge;
 
   BKE_mesh_tag_topology_changed(me);
@@ -1156,11 +1159,15 @@ static int mesh_tessface_calc(Mesh &mesh,
                                             sizeof(*mface_to_poly_map) * size_t(totface));
   }
 
-  CustomData_add_layer(fdata, CD_MFACE, CD_ASSIGN, mface, totface);
+  CustomDataLayerSource mface_layer_source{};
+  mface_layer_source.data = mface;
+  CustomData_add_layer(fdata, CD_MFACE, CD_ASSIGN, &mface_layer_source, totface);
 
   /* #CD_ORIGINDEX will contain an array of indices from tessellation-faces to the polygons
    * they are directly tessellated from. */
-  CustomData_add_layer(fdata, CD_ORIGINDEX, CD_ASSIGN, mface_to_poly_map, totface);
+  CustomDataLayerSource mface_to_poly_map_layer_source{};
+  mface_to_poly_map_layer_source.data = mface_to_poly_map;
+  CustomData_add_layer(fdata, CD_ORIGINDEX, CD_ASSIGN, &mface_to_poly_map_layer_source, totface);
   add_mface_layers(mesh, fdata, ldata, totface);
 
   /* NOTE: quad detection issue - fourth vertidx vs fourth loopidx:
@@ -1675,30 +1682,42 @@ void BKE_mesh_legacy_convert_uvs_to_generic(Mesh *mesh)
     });
 
     CustomData_free_layer_named(&mesh->ldata, name.c_str(), mesh->totloop);
-    CustomData_add_layer_named(
-        &mesh->ldata, CD_PROP_FLOAT2, CD_ASSIGN, coords, mesh->totloop, name.c_str());
+    CustomDataLayerSource coords_layer_source{};
+    coords_layer_source.data = coords;
+    CustomData_add_layer_named(&mesh->ldata,
+                               CD_PROP_FLOAT2,
+                               CD_ASSIGN,
+                               &coords_layer_source,
+                               mesh->totloop,
+                               name.c_str());
     char buffer[MAX_CUSTOMDATA_LAYER_NAME];
     if (vert_selection) {
+      CustomDataLayerSource vert_selection_layer_source{};
+      vert_selection_layer_source.data = vert_selection;
       CustomData_add_layer_named(&mesh->ldata,
                                  CD_PROP_BOOL,
                                  CD_ASSIGN,
-                                 vert_selection,
+                                 &vert_selection_layer_source,
                                  mesh->totloop,
                                  BKE_uv_map_vert_select_name_get(name.c_str(), buffer));
     }
     if (edge_selection) {
+      CustomDataLayerSource edge_selection_layer_source{};
+      edge_selection_layer_source.data = edge_selection;
       CustomData_add_layer_named(&mesh->ldata,
                                  CD_PROP_BOOL,
                                  CD_ASSIGN,
-                                 edge_selection,
+                                 &edge_selection_layer_source,
                                  mesh->totloop,
                                  BKE_uv_map_edge_select_name_get(name.c_str(), buffer));
     }
     if (pin) {
+      CustomDataLayerSource pin_layer_source{};
+      pin_layer_source.data = pin;
       CustomData_add_layer_named(&mesh->ldata,
                                  CD_PROP_BOOL,
                                  CD_ASSIGN,
-                                 pin,
+                                 &pin_layer_source,
                                  mesh->totloop,
                                  BKE_uv_map_pin_name_get(name.c_str(), buffer));
     }

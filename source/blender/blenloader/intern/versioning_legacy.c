@@ -273,19 +273,24 @@ static void customdata_version_242(Mesh *me)
   int a, mtfacen, mcoln;
 
   if (!me->vdata.totlayer) {
-    CustomData_add_layer(&me->vdata, CD_MVERT, CD_ASSIGN, me->mvert, me->totvert);
+    CustomDataLayerSource mvert_layer_source = {me->mvert};
+    CustomData_add_layer(&me->vdata, CD_MVERT, CD_ASSIGN, &mvert_layer_source, me->totvert);
 
     if (me->dvert) {
-      CustomData_add_layer(&me->vdata, CD_MDEFORMVERT, CD_ASSIGN, me->dvert, me->totvert);
+      CustomDataLayerSource dvert_layer_source = {me->dvert};
+      CustomData_add_layer(
+          &me->vdata, CD_MDEFORMVERT, CD_ASSIGN, &dvert_layer_source, me->totvert);
     }
   }
 
   if (!me->edata.totlayer) {
-    CustomData_add_layer(&me->edata, CD_MEDGE, CD_ASSIGN, me->medge, me->totedge);
+    CustomDataLayerSource medge_layer_source = {me->medge};
+    CustomData_add_layer(&me->edata, CD_MEDGE, CD_ASSIGN, &medge_layer_source, me->totedge);
   }
 
   if (!me->fdata.totlayer) {
-    CustomData_add_layer(&me->fdata, CD_MFACE, CD_ASSIGN, me->mface, me->totface);
+    CustomDataLayerSource mface_layer_source = {me->mface};
+    CustomData_add_layer(&me->fdata, CD_MFACE, CD_ASSIGN, &mface_layer_source, me->totface);
 
     if (me->tface) {
       if (me->mcol) {
@@ -308,7 +313,8 @@ static void customdata_version_242(Mesh *me)
       me->tface = NULL;
     }
     else if (me->mcol) {
-      me->mcol = CustomData_add_layer(&me->fdata, CD_MCOL, CD_ASSIGN, me->mcol, me->totface);
+      CustomDataLayerSource layer_source = {me->mcol};
+      me->mcol = CustomData_add_layer(&me->fdata, CD_MCOL, CD_ASSIGN, &layer_source, me->totface);
     }
   }
 
