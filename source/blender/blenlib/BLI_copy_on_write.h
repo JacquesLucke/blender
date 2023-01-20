@@ -6,8 +6,8 @@
  * \ingroup bli
  */
 
-#include "BLI_assert.h"
 #include "BLI_compiler_attrs.h"
+#include "BLI_utildefines.h"
 #include "BLI_utility_mixins.hh"
 
 #include "DNA_copy_on_write.h"

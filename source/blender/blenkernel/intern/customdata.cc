@@ -2382,7 +2382,9 @@ static void customData_free_layer__internal(CustomDataLayer *layer, const int to
   const LayerTypeInfo *typeInfo;
 
   if (layer->anonymous_id != nullptr) {
-    layer->anonymous_id->cow().user_remove();
+    if (layer->anonymous_id->cow().user_remove()) {
+      layer->anonymous_id->cow_delete_self();
+    }
     layer->anonymous_id = nullptr;
   }
   if (!(layer->flag & CD_FLAG_NOFREE) && layer->data) {
