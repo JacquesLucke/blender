@@ -43,9 +43,8 @@ class GeometryComponent;
 
 /**
  * This is the base class for specialized geometry component types. A geometry component handles
- * a user count to allow avoiding duplication when it is wrapped with #bCopyOnWrite. It also
- * handles the attribute API, which generalizes storing and modifying generic information on a
- * geometry.
+ * a user count to allow avoiding duplication when it is wrapped with #UserCounter. It also handles
+ * the attribute API, which generalizes storing and modifying generic information on a geometry.
  */
 class GeometryComponent {
  private:
