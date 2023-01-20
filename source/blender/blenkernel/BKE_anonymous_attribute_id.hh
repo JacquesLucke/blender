@@ -56,7 +56,7 @@ class AnonymousAttributeID {
 
   void cow_delete_self() const
   {
-    delete this;
+    MEM_delete(this);
   }
 };
 
