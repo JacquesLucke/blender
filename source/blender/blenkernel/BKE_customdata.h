@@ -123,11 +123,6 @@ bool CustomData_has_interp(const struct CustomData *data);
 bool CustomData_bmesh_has_free(const struct CustomData *data);
 
 /**
- * Checks if any of the custom-data layers is referenced.
- */
-bool CustomData_has_referenced(const struct CustomData *data);
-
-/**
  * Copies the "value" (e.g. mloopuv uv or mloopcol colors) from one block to
  * another, while not overwriting anything else (e.g. flags).  probably only
  * implemented for mloopuv/mloopcol, for now.

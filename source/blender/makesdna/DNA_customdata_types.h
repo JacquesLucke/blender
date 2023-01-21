@@ -249,8 +249,7 @@ typedef struct CustomData_MeshMasks {
 enum {
   /* Indicates layer should not be copied by CustomData_from_template or CustomData_copy_data */
   CD_FLAG_NOCOPY = (1 << 0),
-  /* Indicates layer should not be freed (for layers backed by external data) */
-  CD_FLAG_NOFREE = (1 << 1),
+  CD_FLAG_UNUSED = (1 << 1),
   /* Indicates the layer is only temporary, also implies no copy */
   CD_FLAG_TEMPORARY = ((1 << 2) | CD_FLAG_NOCOPY),
   /* Indicates the layer is stored in an external file */

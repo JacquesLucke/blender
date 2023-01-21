@@ -2359,20 +2359,7 @@ void CustomData_realloc(CustomData *data, const int old_size, const int new_size
 
     const int64_t old_size_in_bytes = int64_t(old_size) * typeInfo->size;
     const int64_t new_size_in_bytes = int64_t(new_size) * typeInfo->size;
-    if (layer->flag & CD_FLAG_NOFREE) {
-      const void *old_data = layer->data;
-      layer->data = MEM_malloc_arrayN(new_size, typeInfo->size, __func__);
-      if (typeInfo->copy) {
-        typeInfo->copy(old_data, layer->data, std::min(old_size, new_size));
-      }
-      else {
-        std::memcpy(layer->data, old_data, std::min(old_size_in_bytes, new_size_in_bytes));
-      }
-      layer->flag &= ~CD_FLAG_NOFREE;
-    }
-    else {
-      layer->data = MEM_reallocN(layer->data, new_size_in_bytes);
-    }
+    layer->data = MEM_reallocN(layer->data, new_size_in_bytes);
 
     if (new_size > old_size) {
       /* Initialize new values for non-trivial types. */
@@ -2420,7 +2407,7 @@ static void customData_free_layer__internal(CustomDataLayer *layer, const int to
     }
     layer->anonymous_id = nullptr;
   }
-  if (!(layer->flag & CD_FLAG_NOFREE) && layer->data) {
+  if (layer->data) {
     typeInfo = layerType_getInfo(layer->type);
 
     if (typeInfo->free) {
@@ -3087,27 +3074,6 @@ static void *customData_duplicate_referenced_layer_index(CustomData *data,
   }
 
   CustomDataLayer *layer = &data->layers[layer_index];
-
-  if (layer->flag & CD_FLAG_NOFREE) {
-    /* MEM_dupallocN won't work in case of complex layers, like e.g.
-     * CD_MDEFORMVERT, which has pointers to allocated data...
-     * So in case a custom copy function is defined, use it!
-     */
-    const LayerTypeInfo *typeInfo = layerType_getInfo(layer->type);
-
-    if (typeInfo->copy) {
-      void *dst_data = MEM_malloc_arrayN(
-          size_t(totelem), typeInfo->size, "CD duplicate ref layer");
-      typeInfo->copy(layer->data, dst_data, totelem);
-      layer->data = dst_data;
-    }
-    else {
-      layer->data = MEM_dupallocN(layer->data);
-    }
-
-    layer->flag &= ~CD_FLAG_NOFREE;
-  }
-
   return layer->data;
 }
 
@@ -3288,14 +3254,12 @@ void CustomData_copy_layer_type_data(const CustomData *source,
 void CustomData_free_elem(CustomData *data, const int index, const int count)
 {
   for (int i = 0; i < data->totlayer; i++) {
-    if (!(data->layers[i].flag & CD_FLAG_NOFREE)) {
-      const LayerTypeInfo *typeInfo = layerType_getInfo(data->layers[i].type);
+    const LayerTypeInfo *typeInfo = layerType_getInfo(data->layers[i].type);
 
-      if (typeInfo->free) {
-        size_t offset = size_t(index) * typeInfo->size;
+    if (typeInfo->free) {
+      size_t offset = size_t(index) * typeInfo->size;
 
-        typeInfo->free(POINTER_OFFSET(data->layers[i].data, offset), count, typeInfo->size);
-      }
+      typeInfo->free(POINTER_OFFSET(data->layers[i].data, offset), count, typeInfo->size);
     }
   }
 }
@@ -3684,13 +3648,11 @@ void CustomData_bmesh_free_block(CustomData *data, void **block)
   }
 
   for (int i = 0; i < data->totlayer; i++) {
-    if (!(data->layers[i].flag & CD_FLAG_NOFREE)) {
-      const LayerTypeInfo *typeInfo = layerType_getInfo(data->layers[i].type);
+    const LayerTypeInfo *typeInfo = layerType_getInfo(data->layers[i].type);
 
-      if (typeInfo->free) {
-        int offset = data->layers[i].offset;
-        typeInfo->free(POINTER_OFFSET(*block, offset), 1, typeInfo->size);
-      }
+    if (typeInfo->free) {
+      int offset = data->layers[i].offset;
+      typeInfo->free(POINTER_OFFSET(*block, offset), 1, typeInfo->size);
     }
   }
 
@@ -3707,12 +3669,10 @@ void CustomData_bmesh_free_block_data(CustomData *data, void *block)
     return;
   }
   for (int i = 0; i < data->totlayer; i++) {
-    if (!(data->layers[i].flag & CD_FLAG_NOFREE)) {
-      const LayerTypeInfo *typeInfo = layerType_getInfo(data->layers[i].type);
-      if (typeInfo->free) {
-        const size_t offset = data->layers[i].offset;
-        typeInfo->free(POINTER_OFFSET(block, offset), 1, typeInfo->size);
-      }
+    const LayerTypeInfo *typeInfo = layerType_getInfo(data->layers[i].type);
+    if (typeInfo->free) {
+      const size_t offset = data->layers[i].offset;
+      typeInfo->free(POINTER_OFFSET(block, offset), 1, typeInfo->size);
     }
   }
   if (data->totsize) {
@@ -3745,10 +3705,8 @@ void CustomData_bmesh_free_block_data_exclude_by_type(CustomData *data,
     if ((CD_TYPE_AS_MASK(data->layers[i].type) & mask_exclude) == 0) {
       const LayerTypeInfo *typeInfo = layerType_getInfo(data->layers[i].type);
       const size_t offset = data->layers[i].offset;
-      if (!(data->layers[i].flag & CD_FLAG_NOFREE)) {
-        if (typeInfo->free) {
-          typeInfo->free(POINTER_OFFSET(block, offset), 1, typeInfo->size);
-        }
+      if (typeInfo->free) {
+        typeInfo->free(POINTER_OFFSET(block, offset), 1, typeInfo->size);
       }
       memset(POINTER_OFFSET(block, offset), 0, typeInfo->size);
     }
@@ -3917,11 +3875,9 @@ bool CustomData_has_math(const CustomData *data)
 bool CustomData_bmesh_has_free(const CustomData *data)
 {
   for (int i = 0; i < data->totlayer; i++) {
-    if (!(data->layers[i].flag & CD_FLAG_NOFREE)) {
-      const LayerTypeInfo *typeInfo = layerType_getInfo(data->layers[i].type);
-      if (typeInfo->free) {
-        return true;
-      }
+    const LayerTypeInfo *typeInfo = layerType_getInfo(data->layers[i].type);
+    if (typeInfo->free) {
+      return true;
     }
   }
   return false;
@@ -3936,16 +3892,6 @@ bool CustomData_has_interp(const CustomData *data)
     }
   }
 
-  return false;
-}
-
-bool CustomData_has_referenced(const CustomData *data)
-{
-  for (int i = 0; i < data->totlayer; i++) {
-    if (data->layers[i].flag & CD_FLAG_NOFREE) {
-      return true;
-    }
-  }
   return false;
 }
 
@@ -5232,8 +5178,6 @@ void CustomData_blend_read(BlendDataReader *reader, CustomData *data, const int 
     if (layer->flag & CD_FLAG_EXTERNAL) {
       layer->flag &= ~CD_FLAG_IN_MEMORY;
     }
-
-    layer->flag &= ~CD_FLAG_NOFREE;
 
     if (CustomData_verify_versions(data, i)) {
       BLO_read_data_address(reader, &layer->data);
