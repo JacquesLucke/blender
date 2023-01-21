@@ -120,6 +120,44 @@ template<size_t... Indices> struct SomeSpanOrSingle {
 
 namespace detail {
 
+/**
+ * Executes #element_fn for all indices in the mask with the arguments at that index.
+ */
+template<typename MaskT, typename... Args, typename ElementFn>
+/* Perform additional optimizations on this loop because it is a very hot loop. For example, the
+ * math node in geometry nodes is processed here.  */
+#if (defined(__GNUC__) && !defined(__clang__))
+[[gnu::optimize("-funroll-loops")]] [[gnu::optimize("O3")]]
+#endif
+inline void
+call_function_for_each_index(ElementFn element_fn,
+                             MaskT mask,
+                             /* Use restrict to tell the compiler that pointer inputs do not alias
+                              * each other. This is important for some compiler optimizations. */
+                             Args &&__restrict... args)
+{
+  if constexpr (std::is_integral_v<MaskT>) {
+    /* Having this explicit loop is necessary for MSVC to be able to vectorize this. */
+    const int64_t end = int64_t(mask);
+    for (int64_t i = 0; i < end; i++) {
+      element_fn(args[i]...);
+    }
+  }
+  else if constexpr (std::is_same_v<std::decay_t<MaskT>, IndexRange>) {
+    /* Having this explicit loop is necessary for MSVC to be able to vectorize this. */
+    const int64_t start = mask.start();
+    const int64_t end = mask.one_after_last();
+    for (int64_t i = start; i < end; i++) {
+      element_fn(args[i]...);
+    }
+  }
+  else {
+    for (const int64_t i : mask) {
+      element_fn(args[i]...);
+    }
+  }
+}
+
 template<typename ElementFn, typename ExecPreset, typename... ParamTags, size_t... I>
 inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
                                                  const ExecPreset exec_preset,
@@ -154,8 +192,7 @@ inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
         TypeSequence<ParamTags...>(), std::index_sequence<I...>(), mask, loaded_params);
     executed_devirtualized = call_with_devirtualized_parameters(
         devirtualizers, [&](auto &&...args) {
-          array_function_evaluation::call_function_for_each_index(
-              element_fn, std::forward<decltype(args)>(args)...);
+          call_function_for_each_index(element_fn, std::forward<decltype(args)>(args)...);
         });
   }
 
@@ -165,27 +202,34 @@ inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
     /* The materialized method is most common because it avoids most virtual function overhead but
      * still instantiates the function only once. */
     if constexpr (ExecPreset::fallback_mode == exec_presets::FallbackMode::Materialized) {
-      array_function_evaluation::execute_element_fn_chunked(element_fn, mask, [&]() {
-        /* Use `typedef` instead of `using` to work around a compiler bug. */
-        typedef ParamTags ParamTag;
-        typedef typename ParamTag::base_type T;
-        if constexpr (ParamTag::category == ParamCategory::SingleInput) {
-          const GVArrayImpl &varray_impl = *std::get<I>(loaded_params);
-          return MaterializeGVArrayInput<T>{varray_impl, varray_impl.common_info()};
-        }
-        else if constexpr (ParamTag::category == ParamCategory::SingleMutable) {
-          T *ptr = std::get<I>(loaded_params);
-          return array_function_evaluation::ArrayMutable<T>{ptr};
-        }
-        else if constexpr (ParamTag::category == ParamCategory::SingleOutput) {
-          T *ptr = std::get<I>(loaded_params);
-          return array_function_evaluation::ArrayOutput<T>{ptr};
-        }
-      }()...);
+      array_function_evaluation::execute_chunked(
+          mask,
+          /* Called for every chunk. */
+          [&](const int64_t chunk_size, auto &&...args) {
+            call_function_for_each_index(
+                element_fn, chunk_size, std::forward<decltype(args)>(args)...);
+          },
+          [&]() {
+            /* Use `typedef` instead of `using` to work around a compiler bug. */
+            typedef ParamTags ParamTag;
+            typedef typename ParamTag::base_type T;
+            if constexpr (ParamTag::category == ParamCategory::SingleInput) {
+              const GVArrayImpl &varray_impl = *std::get<I>(loaded_params);
+              return MaterializeGVArrayInput<T>{varray_impl, varray_impl.common_info()};
+            }
+            else if constexpr (ParamTag::category == ParamCategory::SingleMutable) {
+              T *ptr = std::get<I>(loaded_params);
+              return array_function_evaluation::ArrayMutable<T>{ptr};
+            }
+            else if constexpr (ParamTag::category == ParamCategory::SingleOutput) {
+              T *ptr = std::get<I>(loaded_params);
+              return array_function_evaluation::ArrayOutput<T>{ptr};
+            }
+          }()...);
     }
     else {
       /* This fallback is slower because it uses virtual method calls for every element. */
-      array_function_evaluation::call_function_for_each_index(element_fn, mask, [&]() {
+      call_function_for_each_index(element_fn, mask, [&]() {
         /* Use `typedef` instead of `using` to work around a compiler bug. */
         typedef ParamTags ParamTag;
         typedef typename ParamTag::base_type T;

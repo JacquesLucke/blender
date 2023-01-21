@@ -6,44 +6,6 @@
 
 namespace blender::array_function_evaluation {
 
-/**
- * Executes #element_fn for all indices in the mask with the arguments at that index.
- */
-template<typename MaskT, typename... Args, typename ElementFn>
-/* Perform additional optimizations on this loop because it is a very hot loop. For example, the
- * math node in geometry nodes is processed here.  */
-#if (defined(__GNUC__) && !defined(__clang__))
-[[gnu::optimize("-funroll-loops")]] [[gnu::optimize("O3")]]
-#endif
-inline void
-call_function_for_each_index(ElementFn element_fn,
-                             MaskT mask,
-                             /* Use restrict to tell the compiler that pointer inputs do not alias
-                              * each other. This is important for some compiler optimizations. */
-                             Args &&__restrict... args)
-{
-  if constexpr (std::is_integral_v<MaskT>) {
-    /* Having this explicit loop is necessary for MSVC to be able to vectorize this. */
-    const int64_t end = int64_t(mask);
-    for (int64_t i = 0; i < end; i++) {
-      element_fn(args[i]...);
-    }
-  }
-  else if constexpr (std::is_same_v<std::decay_t<MaskT>, IndexRange>) {
-    /* Having this explicit loop is necessary for MSVC to be able to vectorize this. */
-    const int64_t start = mask.start();
-    const int64_t end = mask.one_after_last();
-    for (int64_t i = start; i < end; i++) {
-      element_fn(args[i]...);
-    }
-  }
-  else {
-    for (const int64_t i : mask) {
-      element_fn(args[i]...);
-    }
-  }
-}
-
 enum class IOType {
   Input,
   Mutable,
@@ -105,8 +67,8 @@ template<typename Param> struct MaterializeArgInfo {
  * a range and reduces virtual method call overhead when virtual arrays are used as inputs.
  */
 template<typename ChunkFn, size_t... I, typename... Params>
-inline void execute_chunked_internal(const ChunkFn &chunk_fn,
-                                     const IndexMask mask,
+inline void execute_chunked_internal(const IndexMask mask,
+                                     const ChunkFn &chunk_fn,
                                      std::index_sequence<I...> /* indices */,
                                      Params &&...params)
 {
@@ -352,17 +314,11 @@ template<typename T> struct ArrayMutable : public ArrayParam<T, IOType::Mutable>
   }
 };
 
-template<typename ElementFn, typename... Params>
-inline void execute_element_fn_chunked(const ElementFn &element_fn,
-                                       const IndexMask mask,
-                                       Params &&...params)
+template<typename ChunkFn, typename... Params>
+inline void execute_chunked(const IndexMask mask, const ChunkFn &chunk_fn, Params &&...params)
 {
-  const auto chunk_fn = [&](auto &&...args) {
-    call_function_for_each_index(element_fn, std::forward<decltype(args)>(args)...);
-  };
-
-  execute_chunked_internal(chunk_fn,
-                           mask,
+  execute_chunked_internal(mask,
+                           chunk_fn,
                            std::make_index_sequence<sizeof...(Params)>(),
                            std::forward<Params>(params)...);
 }

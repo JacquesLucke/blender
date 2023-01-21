@@ -12,10 +12,15 @@ TEST(array_function_evaluation, Test)
   std::array<int, 5> inputs = {1, 2, 3, 4, 5};
   std::array<int, 5> outputs;
 
-  execute_element_fn_chunked([](const int a, int &b) { b = a + 10; },
-                             IndexRange(5),
-                             ArrayInput<int>(inputs.data()),
-                             ArrayOutput<int>(outputs.data()));
+  execute_chunked(
+      IndexRange(5),
+      [](int size, const int *a, int *b) {
+        for (const int i : IndexRange(size)) {
+          b[i] = a[i] + 10;
+        }
+      },
+      ArrayInput<int>(inputs.data()),
+      ArrayOutput<int>(outputs.data()));
 
   EXPECT_EQ(outputs[0], 11);
   EXPECT_EQ(outputs[1], 12);
