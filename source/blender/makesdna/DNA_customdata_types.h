@@ -20,9 +20,6 @@ extern "C" {
 namespace blender::bke {
 class AnonymousAttributeID;
 }  // namespace blender::bke
-namespace blender {
-struct bCopyOnWrite;
-}
 using AnonymousAttributeIDHandle = blender::bke::AnonymousAttributeID;
 #else
 typedef struct AnonymousAttributeIDHandle AnonymousAttributeIDHandle;

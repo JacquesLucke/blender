@@ -35,7 +35,7 @@ bool BLI_cow_user_remove(const bCopyOnWrite *cow) ATTR_WARN_UNUSED_RESULT;
 
 namespace blender {
 
-class bCopyOnWrite : public ::bCopyOnWrite, private NonCopyable, NonMovable {
+struct bCopyOnWrite : public ::bCopyOnWrite, private NonCopyable, NonMovable {
  public:
   bCopyOnWrite()
   {
