@@ -135,7 +135,7 @@ static void add_new_edges(Mesh &mesh,
 
   CustomData_free(&mesh.edata, mesh.totedge);
   mesh.totedge = new_edges.size();
-  CustomData_add_layer(&mesh.edata, CD_MEDGE, CD_CONSTRUCT, nullptr, mesh.totedge);
+  CustomData_add_layer(&mesh.edata, CD_MEDGE, CD_CONSTRUCT, mesh.totedge);
   mesh.edges_for_write().copy_from(new_edges);
 
   if (new_orig_indices != nullptr) {

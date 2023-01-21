@@ -1920,7 +1920,7 @@ static void mesh_set_custom_normals(Mesh *mesh, float (*r_custom_nors)[3], const
   }
   else {
     clnors = (short(*)[2])CustomData_add_layer(
-        &mesh->ldata, CD_CUSTOMLOOPNORMAL, CD_SET_DEFAULT, nullptr, numloops);
+        &mesh->ldata, CD_CUSTOMLOOPNORMAL, CD_SET_DEFAULT, numloops);
   }
   const Span<float3> positions = mesh->vert_positions();
   MutableSpan<MEdge> edges = mesh->edges_for_write();

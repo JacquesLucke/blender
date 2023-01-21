@@ -245,11 +245,7 @@ typedef struct CustomDataLayerSource {
  * backed by an external data array. the different allocation types are
  * defined above. returns the data of the layer.
  */
-void *CustomData_add_layer(struct CustomData *data,
-                           int type,
-                           eCDAllocType alloctype,
-                           CustomDataLayerSource *layer_source,
-                           int totelem);
+void *CustomData_add_layer(struct CustomData *data, int type, eCDAllocType alloctype, int totelem);
 const void *CustomData_add_layer_with_existing_data(struct CustomData *data,
                                                     int type,
                                                     int totelem,
@@ -259,12 +255,8 @@ const void *CustomData_add_layer_with_existing_data(struct CustomData *data,
 /**
  * Same as above but accepts a name.
  */
-void *CustomData_add_layer_named(struct CustomData *data,
-                                 int type,
-                                 eCDAllocType alloctype,
-                                 CustomDataLayerSource *layer_source,
-                                 int totelem,
-                                 const char *name);
+void *CustomData_add_layer_named(
+    struct CustomData *data, int type, eCDAllocType alloctype, int totelem, const char *name);
 const void *CustomData_add_layer_named_with_existing_data(struct CustomData *data,
                                                           int type,
                                                           const char *name,
@@ -274,7 +266,6 @@ const void *CustomData_add_layer_named_with_existing_data(struct CustomData *dat
 void *CustomData_add_layer_anonymous(struct CustomData *data,
                                      int type,
                                      eCDAllocType alloctype,
-                                     CustomDataLayerSource *layer_source,
                                      int totelem,
                                      const AnonymousAttributeIDHandle *anonymous_id);
 const void *CustomData_add_layer_anonymous_with_existing_data(

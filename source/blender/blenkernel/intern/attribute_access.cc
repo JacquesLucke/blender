@@ -178,18 +178,15 @@ static bool add_builtin_type_custom_data_layer_from_init(CustomData &custom_data
 {
   switch (initializer.type) {
     case AttributeInit::Type::Construct: {
-      void *data = CustomData_add_layer(
-          &custom_data, data_type, CD_CONSTRUCT, nullptr, domain_num);
+      void *data = CustomData_add_layer(&custom_data, data_type, CD_CONSTRUCT, domain_num);
       return data != nullptr;
     }
     case AttributeInit::Type::DefaultValue: {
-      void *data = CustomData_add_layer(
-          &custom_data, data_type, CD_SET_DEFAULT, nullptr, domain_num);
+      void *data = CustomData_add_layer(&custom_data, data_type, CD_SET_DEFAULT, domain_num);
       return data != nullptr;
     }
     case AttributeInit::Type::VArray: {
-      void *data = CustomData_add_layer(
-          &custom_data, data_type, CD_CONSTRUCT, nullptr, domain_num);
+      void *data = CustomData_add_layer(&custom_data, data_type, CD_CONSTRUCT, domain_num);
       if (data == nullptr) {
         return false;
       }
@@ -226,11 +223,11 @@ static void *add_generic_custom_data_layer(CustomData &custom_data,
     char attribute_name_c[MAX_CUSTOMDATA_LAYER_NAME];
     attribute_id.name().copy(attribute_name_c);
     return CustomData_add_layer_named(
-        &custom_data, data_type, alloctype, nullptr, domain_num, attribute_name_c);
+        &custom_data, data_type, alloctype, domain_num, attribute_name_c);
   }
   const AnonymousAttributeID &anonymous_id = attribute_id.anonymous_id();
   return CustomData_add_layer_anonymous(
-      &custom_data, data_type, alloctype, nullptr, domain_num, &anonymous_id);
+      &custom_data, data_type, alloctype, domain_num, &anonymous_id);
 }
 
 static const void *add_generic_custom_data_layer_with_existing_data(

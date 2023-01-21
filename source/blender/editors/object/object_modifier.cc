@@ -595,10 +595,9 @@ bool ED_object_modifier_convert_psys_to_mesh(ReportList * /*reports*/,
   me->totvert = verts_num;
   me->totedge = edges_num;
 
-  CustomData_add_layer_named(
-      &me->vdata, CD_PROP_FLOAT3, CD_CONSTRUCT, nullptr, verts_num, "position");
-  CustomData_add_layer(&me->edata, CD_MEDGE, CD_SET_DEFAULT, nullptr, edges_num);
-  CustomData_add_layer(&me->fdata, CD_MFACE, CD_SET_DEFAULT, nullptr, 0);
+  CustomData_add_layer_named(&me->vdata, CD_PROP_FLOAT3, CD_CONSTRUCT, verts_num, "position");
+  CustomData_add_layer(&me->edata, CD_MEDGE, CD_SET_DEFAULT, edges_num);
+  CustomData_add_layer(&me->fdata, CD_MFACE, CD_SET_DEFAULT, 0);
 
   blender::MutableSpan<float3> positions = me->vert_positions_for_write();
   blender::MutableSpan<MEdge> edges = me->edges_for_write();
@@ -2887,7 +2886,7 @@ static Object *modifier_skin_armature_create(Depsgraph *depsgraph, Main *bmain, 
   const Span<float3> positions_eval = me_eval_deform->vert_positions();
 
   /* add vertex weights to original mesh */
-  CustomData_add_layer(&me->vdata, CD_MDEFORMVERT, CD_SET_DEFAULT, nullptr, me->totvert);
+  CustomData_add_layer(&me->vdata, CD_MDEFORMVERT, CD_SET_DEFAULT, me->totvert);
 
   Scene *scene = DEG_get_input_scene(depsgraph);
   ViewLayer *view_layer = DEG_get_input_view_layer(depsgraph);

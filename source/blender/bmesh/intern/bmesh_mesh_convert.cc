@@ -158,22 +158,19 @@ void BM_mesh_bm_from_me(BMesh *bm, const Mesh *me, const struct BMeshFromMeshPar
     BKE_uv_map_vert_select_name_get(
         CustomData_get_layer_name(&mesh_ldata, CD_PROP_FLOAT2, layer_index), name);
     if (CustomData_get_named_layer_index(&mesh_ldata, CD_PROP_BOOL, name) < 0) {
-      CustomData_add_layer_named(
-          &mesh_ldata, CD_PROP_BOOL, CD_SET_DEFAULT, nullptr, me->totloop, name);
+      CustomData_add_layer_named(&mesh_ldata, CD_PROP_BOOL, CD_SET_DEFAULT, me->totloop, name);
       temporary_layers_to_delete.append(std::string(name));
     }
     BKE_uv_map_edge_select_name_get(
         CustomData_get_layer_name(&mesh_ldata, CD_PROP_FLOAT2, layer_index), name);
     if (CustomData_get_named_layer_index(&mesh_ldata, CD_PROP_BOOL, name) < 0) {
-      CustomData_add_layer_named(
-          &mesh_ldata, CD_PROP_BOOL, CD_SET_DEFAULT, nullptr, me->totloop, name);
+      CustomData_add_layer_named(&mesh_ldata, CD_PROP_BOOL, CD_SET_DEFAULT, me->totloop, name);
       temporary_layers_to_delete.append(std::string(name));
     }
     BKE_uv_map_pin_name_get(CustomData_get_layer_name(&mesh_ldata, CD_PROP_FLOAT2, layer_index),
                             name);
     if (CustomData_get_named_layer_index(&mesh_ldata, CD_PROP_BOOL, name) < 0) {
-      CustomData_add_layer_named(
-          &mesh_ldata, CD_PROP_BOOL, CD_SET_DEFAULT, nullptr, me->totloop, name);
+      CustomData_add_layer_named(&mesh_ldata, CD_PROP_BOOL, CD_SET_DEFAULT, me->totloop, name);
       temporary_layers_to_delete.append(std::string(name));
     }
   }
@@ -270,7 +267,7 @@ void BM_mesh_bm_from_me(BMesh *bm, const Mesh *me, const struct BMeshFromMeshPar
 
   if (is_new) {
     if (tot_shape_keys || params->add_key_index) {
-      CustomData_add_layer(&bm->vdata, CD_SHAPE_KEYINDEX, CD_SET_DEFAULT, nullptr, 0);
+      CustomData_add_layer(&bm->vdata, CD_SHAPE_KEYINDEX, CD_SET_DEFAULT, 0);
     }
   }
 
@@ -303,8 +300,7 @@ void BM_mesh_bm_from_me(BMesh *bm, const Mesh *me, const struct BMeshFromMeshPar
     for (i = 0, block = static_cast<KeyBlock *>(me->key->block.first); i < tot_shape_keys;
          block = block->next, i++) {
       if (is_new) {
-        CustomData_add_layer_named(
-            &bm->vdata, CD_SHAPEKEY, CD_SET_DEFAULT, nullptr, 0, block->name);
+        CustomData_add_layer_named(&bm->vdata, CD_SHAPEKEY, CD_SET_DEFAULT, 0, block->name);
         int j = CustomData_get_layer_index_n(&bm->vdata, CD_SHAPEKEY, i);
         bm->vdata.layers[j].uid = block->uid;
       }
@@ -1056,11 +1052,10 @@ void BM_mesh_bm_to_me(Main *bmain, BMesh *bm, Mesh *me, const struct BMeshToMesh
     CustomData_copy_without_data(&bm->pdata, &me->pdata, mask.pmask, CD_SET_DEFAULT, me->totpoly);
   }
 
-  CustomData_add_layer_named(
-      &me->vdata, CD_PROP_FLOAT3, CD_CONSTRUCT, nullptr, me->totvert, "position");
-  CustomData_add_layer(&me->edata, CD_MEDGE, CD_SET_DEFAULT, nullptr, me->totedge);
-  CustomData_add_layer(&me->ldata, CD_MLOOP, CD_SET_DEFAULT, nullptr, me->totloop);
-  CustomData_add_layer(&me->pdata, CD_MPOLY, CD_SET_DEFAULT, nullptr, me->totpoly);
+  CustomData_add_layer_named(&me->vdata, CD_PROP_FLOAT3, CD_CONSTRUCT, me->totvert, "position");
+  CustomData_add_layer(&me->edata, CD_MEDGE, CD_SET_DEFAULT, me->totedge);
+  CustomData_add_layer(&me->ldata, CD_MLOOP, CD_SET_DEFAULT, me->totloop);
+  CustomData_add_layer(&me->pdata, CD_MPOLY, CD_SET_DEFAULT, me->totpoly);
   MutableSpan<float3> positions = me->vert_positions_for_write();
   MutableSpan<MEdge> medge = me->edges_for_write();
   MutableSpan<MPoly> mpoly = me->polys_for_write();
@@ -1311,12 +1306,11 @@ void BM_mesh_bm_to_me_for_eval(BMesh *bm, Mesh *me, const CustomData_MeshMasks *
   me->totpoly = bm->totface;
 
   if (!CustomData_get_layer_named(&me->vdata, CD_PROP_FLOAT3, "position")) {
-    CustomData_add_layer_named(
-        &me->vdata, CD_PROP_FLOAT3, CD_CONSTRUCT, nullptr, bm->totvert, "position");
+    CustomData_add_layer_named(&me->vdata, CD_PROP_FLOAT3, CD_CONSTRUCT, bm->totvert, "position");
   }
-  CustomData_add_layer(&me->edata, CD_MEDGE, CD_SET_DEFAULT, nullptr, bm->totedge);
-  CustomData_add_layer(&me->ldata, CD_MLOOP, CD_SET_DEFAULT, nullptr, bm->totloop);
-  CustomData_add_layer(&me->pdata, CD_MPOLY, CD_SET_DEFAULT, nullptr, bm->totface);
+  CustomData_add_layer(&me->edata, CD_MEDGE, CD_SET_DEFAULT, bm->totedge);
+  CustomData_add_layer(&me->ldata, CD_MLOOP, CD_SET_DEFAULT, bm->totloop);
+  CustomData_add_layer(&me->pdata, CD_MPOLY, CD_SET_DEFAULT, bm->totface);
 
   /* Don't process shape-keys, we only feed them through the modifier stack as needed,
    * e.g. for applying modifiers or the like. */

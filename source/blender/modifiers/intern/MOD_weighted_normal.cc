@@ -620,8 +620,8 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
    * it helps when generating clnor spaces and default normals. */
   const bool has_clnors = clnors != nullptr;
   if (!clnors) {
-    clnors = static_cast<short(*)[2]>(CustomData_add_layer(
-        &result->ldata, CD_CUSTOMLOOPNORMAL, CD_SET_DEFAULT, nullptr, loops_num));
+    clnors = static_cast<short(*)[2]>(
+        CustomData_add_layer(&result->ldata, CD_CUSTOMLOOPNORMAL, CD_SET_DEFAULT, loops_num));
   }
 
   const MDeformVert *dvert;

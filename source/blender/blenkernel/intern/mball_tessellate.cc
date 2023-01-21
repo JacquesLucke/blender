@@ -1470,9 +1470,9 @@ Mesh *BKE_mball_polygonize(Depsgraph *depsgraph, Scene *scene, Object *ob)
 
   mesh->totpoly = int(process.curindex);
   MPoly *mpoly = static_cast<MPoly *>(
-      CustomData_add_layer(&mesh->pdata, CD_MPOLY, CD_CONSTRUCT, nullptr, mesh->totpoly));
+      CustomData_add_layer(&mesh->pdata, CD_MPOLY, CD_CONSTRUCT, mesh->totpoly));
   MLoop *mloop = static_cast<MLoop *>(
-      CustomData_add_layer(&mesh->ldata, CD_MLOOP, CD_CONSTRUCT, nullptr, mesh->totpoly * 4));
+      CustomData_add_layer(&mesh->ldata, CD_MLOOP, CD_CONSTRUCT, mesh->totpoly * 4));
 
   int loop_offset = 0;
   for (int i = 0; i < mesh->totpoly; i++) {
