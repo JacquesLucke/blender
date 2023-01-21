@@ -16,11 +16,11 @@ template<typename MaskT, typename... Args, typename ElementFn>
 [[gnu::optimize("-funroll-loops")]] [[gnu::optimize("O3")]]
 #endif
 inline void
-execute_array(ElementFn element_fn,
-              MaskT mask,
-              /* Use restrict to tell the compiler that pointer inputs do not alias
-               * each other. This is important for some compiler optimizations. */
-              Args &&__restrict... args)
+call_function_for_each_index(ElementFn element_fn,
+                             MaskT mask,
+                             /* Use restrict to tell the compiler that pointer inputs do not alias
+                              * each other. This is important for some compiler optimizations. */
+                             Args &&__restrict... args)
 {
   if constexpr (std::is_integral_v<MaskT>) {
     /* Having this explicit loop is necessary for MSVC to be able to vectorize this. */
@@ -358,7 +358,7 @@ inline void execute_element_fn_chunked(const ElementFn &element_fn,
                                        Params &&...params)
 {
   const auto chunk_fn = [&](auto &&...args) {
-    execute_array(element_fn, std::forward<decltype(args)>(args)...);
+    call_function_for_each_index(element_fn, std::forward<decltype(args)>(args)...);
   };
 
   execute_chunked_internal(chunk_fn,

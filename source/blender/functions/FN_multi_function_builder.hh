@@ -154,8 +154,8 @@ inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
         TypeSequence<ParamTags...>(), std::index_sequence<I...>(), mask, loaded_params);
     executed_devirtualized = call_with_devirtualized_parameters(
         devirtualizers, [&](auto &&...args) {
-          array_function_evaluation::execute_array(element_fn,
-                                                   std::forward<decltype(args)>(args)...);
+          array_function_evaluation::call_function_for_each_index(
+              element_fn, std::forward<decltype(args)>(args)...);
         });
   }
 
@@ -185,7 +185,7 @@ inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
     }
     else {
       /* This fallback is slower because it uses virtual method calls for every element. */
-      array_function_evaluation::execute_array(element_fn, mask, [&]() {
+      array_function_evaluation::call_function_for_each_index(element_fn, mask, [&]() {
         /* Use `typedef` instead of `using` to work around a compiler bug. */
         typedef ParamTags ParamTag;
         typedef typename ParamTag::base_type T;
