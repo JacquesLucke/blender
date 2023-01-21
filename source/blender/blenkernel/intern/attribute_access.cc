@@ -198,13 +198,15 @@ static bool add_builtin_type_custom_data_layer_from_init(CustomData &custom_data
       return true;
     }
     case AttributeInit::Type::MoveArray: {
-      CustomDataLayerSource layer_source{};
-      layer_source.data = static_cast<const AttributeInitMoveArray &>(initializer).data;
-      void *data = CustomData_add_layer(
-          &custom_data, data_type, CD_ASSIGN, &layer_source, domain_num);
-      if (data == nullptr) {
-        MEM_freeN(layer_source.data);
+      void *src_data = static_cast<const AttributeInitMoveArray &>(initializer).data;
+      const void *stored_data = CustomData_add_layer_with_existing_data(
+          &custom_data, data_type, domain_num, src_data, nullptr);
+      if (stored_data == nullptr) {
         return false;
+      }
+      if (stored_data != src_data) {
+        MEM_freeN(src_data);
+        return true;
       }
       return true;
     }

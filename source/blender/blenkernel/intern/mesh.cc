@@ -1366,9 +1366,7 @@ void BKE_mesh_orco_ensure(Object *ob, Mesh *mesh)
   /* Orcos are stored in normalized 0..1 range by convention. */
   float(*orcodata)[3] = BKE_mesh_orco_verts_get(ob);
   BKE_mesh_orco_verts_transform(mesh, orcodata, mesh->totvert, false);
-  CustomDataLayerSource layer_source{};
-  layer_source.data = orcodata;
-  CustomData_add_layer(&mesh->vdata, CD_ORCO, CD_ASSIGN, &layer_source, mesh->totvert);
+  CustomData_add_layer_with_existing_data(&mesh->vdata, CD_ORCO, mesh->totvert, orcodata, nullptr);
 }
 
 Mesh *BKE_mesh_from_object(Object *ob)

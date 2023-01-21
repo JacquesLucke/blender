@@ -2871,6 +2871,13 @@ void *CustomData_add_layer(CustomData *data,
   return nullptr;
 }
 
+const void *CustomData_add_layer_with_existing_data(
+    CustomData *data, const int type, const int totelem, void *layer_data, const bCopyOnWrite *cow)
+{
+  CustomDataLayerSource layer_source{layer_data, cow};
+  return CustomData_add_layer(data, type, CD_ASSIGN, &layer_source, totelem);
+}
+
 void *CustomData_add_layer_named(CustomData *data,
                                  const int type,
                                  const eCDAllocType alloctype,
@@ -2887,6 +2894,17 @@ void *CustomData_add_layer_named(CustomData *data,
   }
 
   return nullptr;
+}
+
+const void *CustomData_add_layer_named_with_existing_data(CustomData *data,
+                                                          int type,
+                                                          const char *name,
+                                                          int totelem,
+                                                          void *layer_data,
+                                                          const bCopyOnWrite *cow)
+{
+  CustomDataLayerSource layer_source{layer_data, cow};
+  return CustomData_add_layer_named(data, type, CD_ASSIGN, &layer_source, totelem, name);
 }
 
 void *CustomData_add_layer_anonymous(CustomData *data,

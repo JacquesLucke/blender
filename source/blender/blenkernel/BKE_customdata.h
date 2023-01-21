@@ -250,6 +250,11 @@ void *CustomData_add_layer(struct CustomData *data,
                            eCDAllocType alloctype,
                            CustomDataLayerSource *layer_source,
                            int totelem);
+const void *CustomData_add_layer_with_existing_data(struct CustomData *data,
+                                                    int type,
+                                                    int totelem,
+                                                    void *layer_data,
+                                                    const struct bCopyOnWrite *cow);
 
 /**
  * Same as above but accepts a name.
@@ -260,6 +265,12 @@ void *CustomData_add_layer_named(struct CustomData *data,
                                  CustomDataLayerSource *layer_source,
                                  int totelem,
                                  const char *name);
+const void *CustomData_add_layer_named_with_existing_data(struct CustomData *data,
+                                                          int type,
+                                                          const char *name,
+                                                          int totelem,
+                                                          void *layer_data,
+                                                          const struct bCopyOnWrite *cow);
 void *CustomData_add_layer_anonymous(struct CustomData *data,
                                      int type,
                                      eCDAllocType alloctype,
