@@ -2436,13 +2436,17 @@ static void customData_free_layer__internal(CustomDataLayer *layer, const int to
     }
     layer->anonymous_id = nullptr;
   }
-  if (layer->data) {
-    const eCustomDataType type = eCustomDataType(layer->type);
-    if (layer->cow == nullptr) {
+  const eCustomDataType type = eCustomDataType(layer->type);
+  if (layer->cow == nullptr) {
+    if (layer->data) {
       free_layer_data(type, layer->data, totelem);
     }
-    else if (BLI_cow_user_remove(layer->cow)) {
-      free_layer_data(type, layer->data, totelem);
+  }
+  else {
+    if (BLI_cow_user_remove(layer->cow)) {
+      if (layer->data) {
+        free_layer_data(type, layer->data, totelem);
+      }
       BLI_cow_free(layer->cow);
     }
   }
