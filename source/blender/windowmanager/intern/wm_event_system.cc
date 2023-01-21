@@ -77,6 +77,7 @@
 #include "wm_event_types.h"
 #include "wm_surface.h"
 #include "wm_window.h"
+#include "wm_window_private.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -423,10 +424,11 @@ void wm_event_do_depsgraph(bContext *C, bool is_after_open_file)
   /* Combine data-masks so one window doesn't disable UVs in another T26448. */
   CustomData_MeshMasks win_combine_v3d_datamask = {0};
   LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
-    const ViewLayer *view_layer = WM_window_get_active_view_layer(win);
+    const Scene *scene = WM_window_get_active_scene(win);
+    ViewLayer *view_layer = WM_window_get_active_view_layer(win);
     const bScreen *screen = WM_window_get_active_screen(win);
 
-    ED_view3d_screen_datamask(view_layer, screen, &win_combine_v3d_datamask);
+    ED_view3d_screen_datamask(scene, view_layer, screen, &win_combine_v3d_datamask);
   }
   /* Update all the dependency graphs of visible view layers. */
   LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
@@ -703,6 +705,8 @@ void wm_event_do_notifiers(bContext *C)
 
   /* Auto-run warning. */
   wm_test_autorun_warning(C);
+  /* Deprecation warning. */
+  wm_test_opengl_deprecation_warning(C);
 
   GPU_render_end();
 }
@@ -2665,7 +2669,9 @@ static int wm_handler_fileselect_do(bContext *C,
 
             wm_window_close(C, wm, win);
 
-            CTX_wm_window_set(C, root_win); /* #wm_window_close() nullptrs. */
+            /* #wm_window_close() sets the context's window to null. */
+            CTX_wm_window_set(C, root_win);
+
             /* Some operators expect a drawable context (for #EVT_FILESELECT_EXEC). */
             wm_window_make_drawable(wm, root_win);
             /* Ensure correct cursor position, otherwise, popups may close immediately after
@@ -5585,7 +5591,7 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, void 
           }
           else if (event.keymodifier == EVT_UNKNOWNKEY) {
             /* This case happens with an external number-pad, and also when using 'dead keys'
-             * (to compose complex latin characters e.g.), it's not really clear why.
+             * (to compose complex Latin characters e.g.), it's not really clear why.
              * Since it's impossible to map a key modifier to an unknown key,
              * it shouldn't harm to clear it. */
             event_state->keymodifier = event.keymodifier = 0;

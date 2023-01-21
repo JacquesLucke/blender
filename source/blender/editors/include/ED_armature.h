@@ -31,7 +31,6 @@ struct SelectPick_Params;
 struct UndoType;
 struct View3D;
 struct ViewLayer;
-struct bAction;
 struct bArmature;
 struct bContext;
 struct bPoseChannel;
@@ -360,7 +359,7 @@ void ED_pose_bone_select_tag_update(struct Object *ob);
  */
 void ED_pose_bone_select(struct Object *ob, struct bPoseChannel *pchan, bool select);
 
-/* meshlaplacian.c */
+/* meshlaplacian.cc */
 
 void ED_mesh_deform_bind_callback(struct Object *object,
                                   struct MeshDeformModifierData *mmd,

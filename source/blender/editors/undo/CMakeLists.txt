@@ -14,6 +14,9 @@ set(INC
   ../../bmesh
 )
 
+set(INC_SYS
+)
+
 set(SRC
   ed_undo.c
   memfile_undo.c
@@ -26,6 +29,7 @@ set(LIB
   bf_blenkernel
   bf_blenlib
   bf_editor_curve
+  bf_editor_curves
   bf_editor_lattice
   bf_editor_mesh
   bf_editor_metaball

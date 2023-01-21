@@ -75,7 +75,8 @@ typedef struct ViewContext {
 
 typedef struct ViewDepths {
   unsigned short w, h;
-  short x, y; /* only for temp use for sub-rects, added to region->winx/y */
+  /* only for temp use for sub-rectangles, added to `region->winx/winy`. */
+  short x, y;
   float *depths;
   double depth_range[2];
 } ViewDepths;
@@ -1104,13 +1105,15 @@ char ED_view3d_lock_view_from_index(int index);
 char ED_view3d_axis_view_opposite(char view);
 bool ED_view3d_lock(struct RegionView3D *rv3d);
 
-void ED_view3d_datamask(const struct ViewLayer *view_layer,
+void ED_view3d_datamask(const struct Scene *scene,
+                        struct ViewLayer *view_layer,
                         const struct View3D *v3d,
                         struct CustomData_MeshMasks *r_cddata_masks);
 /**
  * Goes over all modes and view3d settings.
  */
-void ED_view3d_screen_datamask(const struct ViewLayer *view_layer,
+void ED_view3d_screen_datamask(const struct Scene *scene,
+                               struct ViewLayer *view_layer,
                                const struct bScreen *screen,
                                struct CustomData_MeshMasks *r_cddata_masks);
 

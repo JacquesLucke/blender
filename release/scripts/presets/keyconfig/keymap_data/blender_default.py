@@ -5615,6 +5615,14 @@ def km_curves(params):
         {"items": items},
     )
 
+    items.extend([
+        ("curves.set_selection_domain", {"type": 'ONE', "value": 'PRESS'}, {"properties": [("domain", 'POINT')]}),
+        ("curves.set_selection_domain", {"type": 'TWO', "value": 'PRESS'}, {"properties": [("domain", 'CURVE')]}),
+        ("curves.disable_selection", {"type": 'ONE', "value": 'PRESS', "alt": True}, None),
+        ("curves.disable_selection", {"type": 'TWO', "value": 'PRESS', "alt": True}, None),
+        *_template_items_select_actions(params, "curves.select_all"),
+    ])
+
     return keymap
 
 
@@ -6269,6 +6277,7 @@ def km_sculpt_expand_modal(_params):
         ("CANCEL", {"type": 'ESC', "value": 'PRESS', "any": True}, None),
         ("CANCEL", {"type": 'RIGHTMOUSE', "value": 'PRESS', "any": True}, None),
         ("CONFIRM", {"type": 'LEFTMOUSE', "value": 'PRESS', "any": True}, None),
+        ("CONFIRM", {"type": 'LEFTMOUSE', "value": 'RELEASE', "any": True}, None),
         ("INVERT", {"type": 'F', "value": 'PRESS', "any": True}, None),
         ("PRESERVE", {"type": 'E', "value": 'PRESS', "any": True}, None),
         ("GRADIENT", {"type": 'G', "value": 'PRESS', "any": True}, None),
