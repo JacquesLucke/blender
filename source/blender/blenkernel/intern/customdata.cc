@@ -2838,6 +2838,10 @@ static CustomDataLayer *customData_add_layer__internal(CustomData *data,
     }
   }
 
+  if (new_layer.data != nullptr && new_layer.cow == nullptr) {
+    new_layer.cow = BLI_cow_new(1);
+  }
+
   new_layer.type = type;
   new_layer.flag = flag;
 
@@ -5211,10 +5215,9 @@ void CustomData_blend_read(BlendDataReader *reader, CustomData *data, const int 
       layer->flag &= ~CD_FLAG_IN_MEMORY;
     }
 
-    // layer->cow = BLI_cow_new(1);
-
     if (CustomData_verify_versions(data, i)) {
       BLO_read_data_address(reader, &layer->data);
+      layer->cow = BLI_cow_new(1);
       if (CustomData_layer_ensure_data_exists(layer, count)) {
         /* Under normal operations, this shouldn't happen, but...
          * For a CD_PROP_BOOL example, see T84935.
