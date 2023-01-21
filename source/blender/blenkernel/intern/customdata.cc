@@ -2361,11 +2361,31 @@ CustomData CustomData_shallow_copy_remove_non_bmesh_attributes(const CustomData 
   return dst;
 }
 
+static void ensure_layer_data_is_mutable(CustomDataLayer &layer, const int totelem)
+{
+  if (layer.cow == nullptr) {
+    /* Can not be shared without cow data. */
+    return;
+  }
+  if (BLI_cow_is_shared(layer.cow)) {
+    const eCustomDataType type = eCustomDataType(layer.type);
+    const void *old_data = layer.data;
+    layer.data = copy_layer_data(type, old_data, totelem);
+    if (BLI_cow_user_remove(layer.cow)) {
+      free_layer_data(type, old_data, totelem);
+      BLI_cow_free(layer.cow);
+    }
+    layer.cow = BLI_cow_new(1);
+  }
+}
+
 void CustomData_realloc(CustomData *data, const int old_size, const int new_size)
 {
   BLI_assert(new_size >= 0);
   for (int i = 0; i < data->totlayer; i++) {
     CustomDataLayer *layer = &data->layers[i];
+    /* TODO: Just copy to the resized buffer directly instead of doing a COW copy here. */
+    ensure_layer_data_is_mutable(*layer, old_size);
     const LayerTypeInfo *typeInfo = layerType_getInfo(layer->type);
 
     const int64_t old_size_in_bytes = int64_t(old_size) * typeInfo->size;
@@ -2423,7 +2443,7 @@ static void customData_free_layer__internal(CustomDataLayer *layer, const int to
     }
     else if (BLI_cow_user_remove(layer->cow)) {
       free_layer_data(type, layer->data, totelem);
-      MEM_delete(layer->cow);
+      BLI_cow_free(layer->cow);
     }
   }
 }
@@ -3071,24 +3091,6 @@ int CustomData_number_of_layers_typemask(const CustomData *data, const eCustomDa
   }
 
   return number;
-}
-
-static void ensure_layer_data_is_mutable(CustomDataLayer &layer, const int totelem)
-{
-  if (layer.cow == nullptr) {
-    /* Can not be shared without cow data. */
-    return;
-  }
-  if (BLI_cow_is_shared(layer.cow)) {
-    const eCustomDataType type = eCustomDataType(layer.type);
-    const void *old_data = layer.data;
-    layer.data = copy_layer_data(type, old_data, totelem);
-    if (BLI_cow_user_remove(layer.cow)) {
-      free_layer_data(type, old_data, totelem);
-      BLI_cow_free(layer.cow);
-    }
-    layer.cow = MEM_new<blender::bCopyOnWrite>(__func__);
-  }
 }
 
 void CustomData_free_temporary(CustomData *data, const int totelem)
@@ -5204,6 +5206,8 @@ void CustomData_blend_read(BlendDataReader *reader, CustomData *data, const int 
     if (layer->flag & CD_FLAG_EXTERNAL) {
       layer->flag &= ~CD_FLAG_IN_MEMORY;
     }
+
+    // layer->cow = BLI_cow_new(1);
 
     if (CustomData_verify_versions(data, i)) {
       BLO_read_data_address(reader, &layer->data);
