@@ -104,11 +104,11 @@ template<typename Param> struct MaterializeArgInfo {
  * separately, processing happens in chunks. This allows for vectorization even if the mask is not
  * a range and reduces virtual method call overhead when virtual arrays are used as inputs.
  */
-template<typename ElementFn, size_t... I, typename... Params>
-inline void execute_materialized(const ElementFn element_fn,
-                                 const IndexMask mask,
-                                 std::index_sequence<I...> /* indices */,
-                                 Params &&...params)
+template<typename ChunkFn, size_t... I, typename... Params>
+inline void execute_chunked_internal(const ChunkFn &chunk_fn,
+                                     const IndexMask mask,
+                                     std::index_sequence<I...> /* indices */,
+                                     Params &&...params)
 {
 
   /* In theory, all elements could be processed in one chunk. However, that has the disadvantage
@@ -168,8 +168,8 @@ inline void execute_materialized(const ElementFn element_fn,
         }(),
         ...);
 
-    array_function_evaluation::execute_array(
-        element_fn,
+    chunk_fn(
+        /* Pass the size of the prepared contiguous arrays. */
         chunk_size,
         /* Prepare every parameter for this chunk. */
         [&] {
@@ -180,12 +180,13 @@ inline void execute_materialized(const ElementFn element_fn,
           const Param &param = params;
           if constexpr (Param::io == IOType::Input) {
             if (arg_info.mode == MaterializeArgMode::Single) {
-              /* The single value has been filled into a buffer already reused for every chunk. */
+              /* The single value has been filled into a buffer already reused for every
+               * chunk. */
               return const_cast<const T *>(tmp_buffer);
             }
             if (sliced_mask_is_range && param.is_span()) {
-              /* In this case we can just use an existing span instead of "compressing" it into
-               * a new temporary buffer. */
+              /* In this case we can just use an existing span instead of "compressing" it
+               * into a new temporary buffer. */
               arg_info.mode = MaterializeArgMode::Span;
               return param.get_span_begin() + mask_start;
             }
@@ -197,7 +198,8 @@ inline void execute_materialized(const ElementFn element_fn,
             return const_cast<const T *>(tmp_buffer);
           }
           else {
-            /* For outputs, just pass a pointer. This is important so that `__restrict` works. */
+            /* For outputs, just pass a pointer. This is important so that `__restrict` works.
+             */
             if (sliced_mask_is_range && param.is_span()) {
               return param.get_span_begin() + mask_start;
             }
@@ -351,12 +353,18 @@ template<typename T> struct ArrayMutable : public ArrayParam<T, IOType::Mutable>
 };
 
 template<typename ElementFn, typename... Params>
-inline void execute_chunked(const ElementFn element_fn, const IndexMask mask, Params &&...params)
+inline void execute_element_fn_chunked(const ElementFn &element_fn,
+                                       const IndexMask mask,
+                                       Params &&...params)
 {
-  execute_materialized(element_fn,
-                       mask,
-                       std::make_index_sequence<sizeof...(Params)>(),
-                       std::forward<Params>(params)...);
+  const auto chunk_fn = [&](auto &&...args) {
+    execute_array(element_fn, std::forward<decltype(args)>(args)...);
+  };
+
+  execute_chunked_internal(chunk_fn,
+                           mask,
+                           std::make_index_sequence<sizeof...(Params)>(),
+                           std::forward<Params>(params)...);
 }
 
 }  // namespace blender::array_function_evaluation

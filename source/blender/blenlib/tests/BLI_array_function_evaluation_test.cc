@@ -12,11 +12,10 @@ TEST(array_function_evaluation, Test)
   std::array<int, 5> inputs = {1, 2, 3, 4, 5};
   std::array<int, 5> outputs;
 
-  execute_materialized([](const int a, int &b) { b = a + 10; },
-                       IndexRange(5),
-                       std::make_index_sequence<2>(),
-                       ArrayInput<int>(inputs.data()),
-                       ArrayOutput<int>(outputs.data()));
+  execute_element_fn_chunked([](const int a, int &b) { b = a + 10; },
+                             IndexRange(5),
+                             ArrayInput<int>(inputs.data()),
+                             ArrayOutput<int>(outputs.data()));
 
   EXPECT_EQ(outputs[0], 11);
   EXPECT_EQ(outputs[1], 12);

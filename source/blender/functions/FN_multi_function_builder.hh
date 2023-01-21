@@ -165,7 +165,7 @@ inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
     /* The materialized method is most common because it avoids most virtual function overhead but
      * still instantiates the function only once. */
     if constexpr (ExecPreset::fallback_mode == exec_presets::FallbackMode::Materialized) {
-      execute_materialized(element_fn, mask, std::index_sequence<I...>(), [&]() {
+      array_function_evaluation::execute_element_fn_chunked(element_fn, mask, [&]() {
         /* Use `typedef` instead of `using` to work around a compiler bug. */
         typedef ParamTags ParamTag;
         typedef typename ParamTag::base_type T;
