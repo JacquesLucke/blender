@@ -20,10 +20,15 @@ extern "C" {
 namespace blender::bke {
 class AnonymousAttributeID;
 }  // namespace blender::bke
+namespace blender {
+struct bCopyOnWrite;
+}
 using AnonymousAttributeIDHandle = blender::bke::AnonymousAttributeID;
 #else
 typedef struct AnonymousAttributeIDHandle AnonymousAttributeIDHandle;
 #endif
+
+struct bCopyOnWrite;
 
 /** Descriptor and storage for a custom data layer. */
 typedef struct CustomDataLayer {
@@ -53,6 +58,7 @@ typedef struct CustomDataLayer {
    * attribute was created.
    */
   const AnonymousAttributeIDHandle *anonymous_id;
+  const struct bCopyOnWrite *cow;
 } CustomDataLayer;
 
 #define MAX_CUSTOMDATA_LAYER_NAME 68

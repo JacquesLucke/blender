@@ -299,10 +299,10 @@ int ED_mesh_uv_add(
     }
 
     if (CustomData_has_layer(&me->ldata, CD_PROP_FLOAT2) && do_init) {
-      CustomDataLayerSource layer_source = {const_cast<float2 *>(
-          static_cast<const float2 *>(CustomData_get_layer(&me->ldata, CD_PROP_FLOAT2)))};
+      CustomDataLayerSource layer_source = {
+          MEM_dupallocN(CustomData_get_layer(&me->ldata, CD_PROP_FLOAT2))};
       CustomData_add_layer_named(
-          &me->ldata, CD_PROP_FLOAT2, CD_DUPLICATE, &layer_source, me->totloop, unique_name);
+          &me->ldata, CD_PROP_FLOAT2, CD_ASSIGN, &layer_source, me->totloop, unique_name);
 
       is_init = true;
     }

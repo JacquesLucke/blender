@@ -78,10 +78,6 @@ typedef enum eCDAllocType {
   CD_ASSIGN = 0,
   /** Allocate and set to default, which is usually just zeroed memory. */
   CD_SET_DEFAULT = 2,
-  /** Use data pointers, set layer flag NOFREE. */
-  CD_REFERENCE = 3,
-  /** Do a full copy of all layers, only allowed if source has same number of elements. */
-  CD_DUPLICATE = 4,
   /**
    * Default construct new layer values. Does nothing for trivial types. This should be used
    * if all layer values will be set by the caller after creating the layer.
@@ -241,7 +237,7 @@ void CustomData_free_temporary(struct CustomData *data, int totelem);
 
 typedef struct CustomDataLayerSource {
   void *data;
-  struct bCopyOnWrite *cow;
+  const struct bCopyOnWrite *cow;
 } CustomDataLayerSource;
 
 /**
