@@ -240,9 +240,12 @@ void CustomData_free_temporary(struct CustomData *data, int totelem);
  * backed by an external data array. the different allocation types are
  * defined above. returns the data of the layer.
  */
-void *CustomData_add_layer(struct CustomData *data, int type, eCDAllocType alloctype, int totelem);
+void *CustomData_add_layer(struct CustomData *data,
+                           eCustomDataType type,
+                           eCDAllocType alloctype,
+                           int totelem);
 const void *CustomData_add_layer_with_existing_data(struct CustomData *data,
-                                                    int type,
+                                                    eCustomDataType type,
                                                     int totelem,
                                                     void *layer_data,
                                                     const struct bCopyOnWrite *cow);
@@ -250,22 +253,25 @@ const void *CustomData_add_layer_with_existing_data(struct CustomData *data,
 /**
  * Same as above but accepts a name.
  */
-void *CustomData_add_layer_named(
-    struct CustomData *data, int type, eCDAllocType alloctype, int totelem, const char *name);
+void *CustomData_add_layer_named(struct CustomData *data,
+                                 eCustomDataType type,
+                                 eCDAllocType alloctype,
+                                 int totelem,
+                                 const char *name);
 const void *CustomData_add_layer_named_with_existing_data(struct CustomData *data,
-                                                          int type,
+                                                          eCustomDataType type,
                                                           const char *name,
                                                           int totelem,
                                                           void *layer_data,
                                                           const struct bCopyOnWrite *cow);
 void *CustomData_add_layer_anonymous(struct CustomData *data,
-                                     int type,
+                                     eCustomDataType type,
                                      eCDAllocType alloctype,
                                      int totelem,
                                      const AnonymousAttributeIDHandle *anonymous_id);
 const void *CustomData_add_layer_anonymous_with_existing_data(
     struct CustomData *data,
-    int type,
+    eCustomDataType type,
     const AnonymousAttributeIDHandle *anonymous_id,
     int totelem,
     void *layer_data,

@@ -389,8 +389,10 @@ void BKE_remesh_reproject_vertex_paint(Mesh *target, const Mesh *source)
     if (layer_i == -1) {
       int elem_num = domain == ATTR_DOMAIN_POINT ? target->totvert : target->totloop;
 
-      CustomData_add_layer_named(target_cdata, layer->type, CD_SET_DEFAULT, elem_num, layer->name);
-      layer_i = CustomData_get_named_layer_index(target_cdata, layer->type, layer->name);
+      CustomData_add_layer_named(
+          target_cdata, eCustomDataType(layer->type), CD_SET_DEFAULT, elem_num, layer->name);
+      layer_i = CustomData_get_named_layer_index(
+          target_cdata, eCustomDataType(layer->type), layer->name);
     }
 
     size_t data_size = CustomData_sizeof(layer->type);

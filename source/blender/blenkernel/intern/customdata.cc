@@ -2856,14 +2856,14 @@ static CustomDataLayer *customData_add_layer__internal(CustomData *data,
 }
 
 void *CustomData_add_layer(CustomData *data,
-                           const int type,
+                           const eCustomDataType type,
                            eCDAllocType alloctype,
                            const int totelem)
 {
   const LayerTypeInfo *typeInfo = layerType_getInfo(type);
 
   CustomDataLayer *layer = customData_add_layer__internal(
-      data, eCustomDataType(type), alloctype, nullptr, nullptr, totelem, typeInfo->defaultname);
+      data, type, alloctype, nullptr, nullptr, totelem, typeInfo->defaultname);
   CustomData_update_typemap(data);
 
   if (layer) {
@@ -2873,13 +2873,16 @@ void *CustomData_add_layer(CustomData *data,
   return nullptr;
 }
 
-const void *CustomData_add_layer_with_existing_data(
-    CustomData *data, const int type, const int totelem, void *layer_data, const bCopyOnWrite *cow)
+const void *CustomData_add_layer_with_existing_data(CustomData *data,
+                                                    const eCustomDataType type,
+                                                    const int totelem,
+                                                    void *layer_data,
+                                                    const bCopyOnWrite *cow)
 {
   const LayerTypeInfo *typeInfo = layerType_getInfo(type);
 
   CustomDataLayer *layer = customData_add_layer__internal(
-      data, eCustomDataType(type), CD_ASSIGN, layer_data, cow, totelem, typeInfo->defaultname);
+      data, type, CD_ASSIGN, layer_data, cow, totelem, typeInfo->defaultname);
   CustomData_update_typemap(data);
 
   if (layer) {
@@ -2890,13 +2893,13 @@ const void *CustomData_add_layer_with_existing_data(
 }
 
 void *CustomData_add_layer_named(CustomData *data,
-                                 const int type,
+                                 const eCustomDataType type,
                                  const eCDAllocType alloctype,
                                  const int totelem,
                                  const char *name)
 {
   CustomDataLayer *layer = customData_add_layer__internal(
-      data, eCustomDataType(type), alloctype, nullptr, nullptr, totelem, name);
+      data, type, alloctype, nullptr, nullptr, totelem, name);
   CustomData_update_typemap(data);
 
   if (layer) {
@@ -2906,14 +2909,14 @@ void *CustomData_add_layer_named(CustomData *data,
 }
 
 const void *CustomData_add_layer_named_with_existing_data(CustomData *data,
-                                                          int type,
+                                                          eCustomDataType type,
                                                           const char *name,
                                                           int totelem,
                                                           void *layer_data,
                                                           const bCopyOnWrite *cow)
 {
   CustomDataLayer *layer = customData_add_layer__internal(
-      data, eCustomDataType(type), CD_ASSIGN, layer_data, cow, totelem, name);
+      data, type, CD_ASSIGN, layer_data, cow, totelem, name);
   CustomData_update_typemap(data);
 
   if (layer) {
@@ -2923,14 +2926,14 @@ const void *CustomData_add_layer_named_with_existing_data(CustomData *data,
 }
 
 void *CustomData_add_layer_anonymous(CustomData *data,
-                                     const int type,
+                                     const eCustomDataType type,
                                      const eCDAllocType alloctype,
                                      const int totelem,
                                      const AnonymousAttributeIDHandle *anonymous_id)
 {
   const char *name = anonymous_id->name().c_str();
   CustomDataLayer *layer = customData_add_layer__internal(
-      data, eCustomDataType(type), alloctype, nullptr, nullptr, totelem, name);
+      data, type, alloctype, nullptr, nullptr, totelem, name);
   CustomData_update_typemap(data);
 
   if (layer == nullptr) {
@@ -2944,7 +2947,7 @@ void *CustomData_add_layer_anonymous(CustomData *data,
 
 const void *CustomData_add_layer_anonymous_with_existing_data(
     CustomData *data,
-    const int type,
+    const eCustomDataType type,
     const AnonymousAttributeIDHandle *anonymous_id,
     const int totelem,
     void *layer_data,
@@ -2952,7 +2955,7 @@ const void *CustomData_add_layer_anonymous_with_existing_data(
 {
   const char *name = anonymous_id->name().c_str();
   CustomDataLayer *layer = customData_add_layer__internal(
-      data, eCustomDataType(type), CD_ASSIGN, layer_data, cow, totelem, name);
+      data, type, CD_ASSIGN, layer_data, cow, totelem, name);
   CustomData_update_typemap(data);
 
   if (layer == nullptr) {

@@ -510,7 +510,7 @@ static void add_orco_mesh(Object *ob, BMEditMesh *em, Mesh *mesh, Mesh *mesh_orc
     layerorco = (float(*)[3])CustomData_get_layer_for_write(&mesh->vdata, layer, mesh->totvert);
     if (!layerorco) {
       layerorco = (float(*)[3])CustomData_add_layer(
-          &mesh->vdata, layer, CD_SET_DEFAULT, mesh->totvert);
+          &mesh->vdata, eCustomDataType(layer), CD_SET_DEFAULT, mesh->totvert);
     }
 
     memcpy(layerorco, orco, sizeof(float[3]) * totvert);

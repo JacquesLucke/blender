@@ -554,7 +554,8 @@ static bool data_transfer_layersmapping_cdlayers_multisrc_to_dst(ListBase *r_map
         if (use_create) {
           /* Create as much data layers as necessary! */
           for (; idx_dst < idx_src; idx_dst++) {
-            CustomData_add_layer(cd_dst, cddata_type, CD_SET_DEFAULT, num_elem_dst);
+            CustomData_add_layer(
+                cd_dst, eCustomDataType(cddata_type), CD_SET_DEFAULT, num_elem_dst);
           }
         }
         else {
@@ -607,7 +608,8 @@ static bool data_transfer_layersmapping_cdlayers_multisrc_to_dst(ListBase *r_map
 
         if ((idx_dst = CustomData_get_named_layer(cd_dst, cddata_type, name)) == -1) {
           if (use_create) {
-            CustomData_add_layer_named(cd_dst, cddata_type, CD_SET_DEFAULT, num_elem_dst, name);
+            CustomData_add_layer_named(
+                cd_dst, eCustomDataType(cddata_type), CD_SET_DEFAULT, num_elem_dst, name);
             idx_dst = CustomData_get_named_layer(cd_dst, cddata_type, name);
           }
           else {
@@ -686,7 +688,8 @@ static bool data_transfer_layersmapping_cdlayers(ListBase *r_map,
       if (!use_create) {
         return true;
       }
-      data_dst = CustomData_add_layer(cd_dst, cddata_type, CD_SET_DEFAULT, num_elem_dst);
+      data_dst = CustomData_add_layer(
+          cd_dst, eCustomDataType(cddata_type), CD_SET_DEFAULT, num_elem_dst);
     }
 
     if (r_map) {
@@ -726,7 +729,8 @@ static bool data_transfer_layersmapping_cdlayers(ListBase *r_map,
         if (!use_create) {
           return true;
         }
-        data_dst = CustomData_add_layer(cd_dst, cddata_type, CD_SET_DEFAULT, num_elem_dst);
+        data_dst = CustomData_add_layer(
+            cd_dst, eCustomDataType(cddata_type), CD_SET_DEFAULT, num_elem_dst);
       }
       else {
         data_dst = CustomData_get_layer_n_for_write(cd_dst, cddata_type, idx_dst, num_elem_dst);
@@ -741,7 +745,7 @@ static bool data_transfer_layersmapping_cdlayers(ListBase *r_map,
         }
         /* Create as much data layers as necessary! */
         for (; num <= idx_dst; num++) {
-          CustomData_add_layer(cd_dst, cddata_type, CD_SET_DEFAULT, num_elem_dst);
+          CustomData_add_layer(cd_dst, eCustomDataType(cddata_type), CD_SET_DEFAULT, num_elem_dst);
         }
       }
       data_dst = CustomData_get_layer_n_for_write(cd_dst, cddata_type, idx_dst, num_elem_dst);
@@ -752,7 +756,8 @@ static bool data_transfer_layersmapping_cdlayers(ListBase *r_map,
         if (!use_create) {
           return true;
         }
-        CustomData_add_layer_named(cd_dst, cddata_type, CD_SET_DEFAULT, num_elem_dst, name);
+        CustomData_add_layer_named(
+            cd_dst, eCustomDataType(cddata_type), CD_SET_DEFAULT, num_elem_dst, name);
         idx_dst = CustomData_get_named_layer(cd_dst, cddata_type, name);
       }
       data_dst = CustomData_get_layer_n_for_write(cd_dst, cddata_type, idx_dst, num_elem_dst);
