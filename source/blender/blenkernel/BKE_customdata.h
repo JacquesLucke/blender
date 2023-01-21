@@ -235,11 +235,6 @@ void CustomData_free_typemask(struct CustomData *data, int totelem, eCustomDataM
  */
 void CustomData_free_temporary(struct CustomData *data, int totelem);
 
-typedef struct CustomDataLayerSource {
-  void *data;
-  const struct bCopyOnWrite *cow;
-} CustomDataLayerSource;
-
 /**
  * Adds a data layer of the given type to the #CustomData object, optionally
  * backed by an external data array. the different allocation types are
