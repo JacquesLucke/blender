@@ -2204,6 +2204,10 @@ static bool customdata_merge_internal(const CustomData *source,
   bool changed = false;
 
   int last_type = -1;
+  int last_active = 0;
+  int last_render = 0;
+  int last_clone = 0;
+  int last_mask = 0;
   int current_type_layer_count = 0;
   int max_current_type_layer_count = -1;
 
@@ -2217,6 +2221,10 @@ static bool customdata_merge_internal(const CustomData *source,
     if (type != last_type) {
       current_type_layer_count = 0;
       max_current_type_layer_count = CustomData_layertype_layers_max(type);
+      last_active = src_layer.active;
+      last_render = src_layer.active_rnd;
+      last_clone = src_layer.active_clone;
+      last_mask = src_layer.active_mask;
       last_type = type;
     }
     else {
@@ -2268,6 +2276,10 @@ static bool customdata_merge_internal(const CustomData *source,
 
     new_layer->uid = src_layer.uid;
     new_layer->flag |= src_layer_flag & (CD_FLAG_EXTERNAL | CD_FLAG_IN_MEMORY);
+    new_layer->active = last_active;
+    new_layer->active_rnd = last_render;
+    new_layer->active_clone = last_clone;
+    new_layer->active_mask = last_mask;
     changed = true;
 
     if (src_layer.anonymous_id != nullptr) {
