@@ -2875,7 +2875,17 @@ const void *CustomData_add_layer_with_existing_data(
     CustomData *data, const int type, const int totelem, void *layer_data, const bCopyOnWrite *cow)
 {
   CustomDataLayerSource layer_source{layer_data, cow};
-  return CustomData_add_layer(data, type, CD_ASSIGN, &layer_source, totelem);
+  const LayerTypeInfo *typeInfo = layerType_getInfo(type);
+
+  CustomDataLayer *layer = customData_add_layer__internal(
+      data, type, CD_ASSIGN, &layer_source, totelem, typeInfo->defaultname);
+  CustomData_update_typemap(data);
+
+  if (layer) {
+    return layer->data;
+  }
+
+  return nullptr;
 }
 
 void *CustomData_add_layer_named(CustomData *data,
@@ -2892,7 +2902,6 @@ void *CustomData_add_layer_named(CustomData *data,
   if (layer) {
     return layer->data;
   }
-
   return nullptr;
 }
 
@@ -2904,7 +2913,14 @@ const void *CustomData_add_layer_named_with_existing_data(CustomData *data,
                                                           const bCopyOnWrite *cow)
 {
   CustomDataLayerSource layer_source{layer_data, cow};
-  return CustomData_add_layer_named(data, type, CD_ASSIGN, &layer_source, totelem, name);
+  CustomDataLayer *layer = customData_add_layer__internal(
+      data, type, CD_ASSIGN, &layer_source, totelem, name);
+  CustomData_update_typemap(data);
+
+  if (layer) {
+    return layer->data;
+  }
+  return nullptr;
 }
 
 void *CustomData_add_layer_anonymous(CustomData *data,
@@ -2937,8 +2953,17 @@ const void *CustomData_add_layer_anonymous_with_existing_data(
     const bCopyOnWrite *cow)
 {
   CustomDataLayerSource layer_source{layer_data, cow};
-  return CustomData_add_layer_anonymous(
-      data, type, CD_ASSIGN, &layer_source, totelem, anonymous_id);
+  const char *name = anonymous_id->name().c_str();
+  CustomDataLayer *layer = customData_add_layer__internal(
+      data, type, CD_ASSIGN, &layer_source, totelem, name);
+  CustomData_update_typemap(data);
+
+  if (layer == nullptr) {
+    return nullptr;
+  }
+  anonymous_id->cow().user_add();
+  layer->anonymous_id = anonymous_id;
+  return layer->data;
 }
 
 bool CustomData_free_layer(CustomData *data, const int type, const int totelem, const int index)
