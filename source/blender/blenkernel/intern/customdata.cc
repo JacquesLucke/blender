@@ -2928,6 +2928,19 @@ void *CustomData_add_layer_anonymous(CustomData *data,
   return layer->data;
 }
 
+const void *CustomData_add_layer_anonymous_with_existing_data(
+    CustomData *data,
+    const int type,
+    const AnonymousAttributeIDHandle *anonymous_id,
+    const int totelem,
+    void *layer_data,
+    const bCopyOnWrite *cow)
+{
+  CustomDataLayerSource layer_source{layer_data, cow};
+  return CustomData_add_layer_anonymous(
+      data, type, CD_ASSIGN, &layer_source, totelem, anonymous_id);
+}
+
 bool CustomData_free_layer(CustomData *data, const int type, const int totelem, const int index)
 {
   const int index_first = CustomData_get_layer_index(data, type);

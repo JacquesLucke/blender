@@ -219,7 +219,6 @@ static bool add_builtin_type_custom_data_layer_from_init(CustomData &custom_data
 static void *add_generic_custom_data_layer(CustomData &custom_data,
                                            const eCustomDataType data_type,
                                            const eCDAllocType alloctype,
-                                           CustomDataLayerSource *layer_source,
                                            const int domain_num,
                                            const AttributeIDRef &attribute_id)
 {
@@ -227,11 +226,30 @@ static void *add_generic_custom_data_layer(CustomData &custom_data,
     char attribute_name_c[MAX_CUSTOMDATA_LAYER_NAME];
     attribute_id.name().copy(attribute_name_c);
     return CustomData_add_layer_named(
-        &custom_data, data_type, alloctype, layer_source, domain_num, attribute_name_c);
+        &custom_data, data_type, alloctype, nullptr, domain_num, attribute_name_c);
   }
   const AnonymousAttributeID &anonymous_id = attribute_id.anonymous_id();
   return CustomData_add_layer_anonymous(
-      &custom_data, data_type, alloctype, layer_source, domain_num, &anonymous_id);
+      &custom_data, data_type, alloctype, nullptr, domain_num, &anonymous_id);
+}
+
+static const void *add_generic_custom_data_layer_with_existing_data(
+    CustomData &custom_data,
+    const eCustomDataType data_type,
+    const AttributeIDRef &attribute_id,
+    const int domain_size,
+    void *layer_data,
+    const bCopyOnWrite *cow)
+{
+  if (attribute_id.is_anonymous()) {
+    const AnonymousAttributeID &anonymous_id = attribute_id.anonymous_id();
+    return CustomData_add_layer_anonymous_with_existing_data(
+        &custom_data, data_type, &anonymous_id, domain_size, layer_data, cow);
+  }
+  char attribute_name_c[MAX_CUSTOMDATA_LAYER_NAME];
+  attribute_id.name().copy(attribute_name_c);
+  return CustomData_add_layer_named_with_existing_data(
+      &custom_data, data_type, attribute_name_c, domain_size, layer_data, cow);
 }
 
 static bool add_custom_data_layer_from_attribute_init(const AttributeIDRef &attribute_id,
@@ -244,17 +262,17 @@ static bool add_custom_data_layer_from_attribute_init(const AttributeIDRef &attr
   switch (initializer.type) {
     case AttributeInit::Type::Construct: {
       add_generic_custom_data_layer(
-          custom_data, data_type, CD_CONSTRUCT, nullptr, domain_num, attribute_id);
+          custom_data, data_type, CD_CONSTRUCT, domain_num, attribute_id);
       break;
     }
     case AttributeInit::Type::DefaultValue: {
       add_generic_custom_data_layer(
-          custom_data, data_type, CD_SET_DEFAULT, nullptr, domain_num, attribute_id);
+          custom_data, data_type, CD_SET_DEFAULT, domain_num, attribute_id);
       break;
     }
     case AttributeInit::Type::VArray: {
       void *data = add_generic_custom_data_layer(
-          custom_data, data_type, CD_CONSTRUCT, nullptr, domain_num, attribute_id);
+          custom_data, data_type, CD_CONSTRUCT, domain_num, attribute_id);
       if (data != nullptr) {
         const GVArray &varray = static_cast<const AttributeInitVArray &>(initializer).varray;
         varray.materialize_to_uninitialized(varray.index_range(), data);
@@ -262,10 +280,9 @@ static bool add_custom_data_layer_from_attribute_init(const AttributeIDRef &attr
       break;
     }
     case AttributeInit::Type::MoveArray: {
-      CustomDataLayerSource layer_source{};
-      layer_source.data = static_cast<const AttributeInitMoveArray &>(initializer).data;
-      add_generic_custom_data_layer(
-          custom_data, data_type, CD_ASSIGN, &layer_source, domain_num, attribute_id);
+      void *data = static_cast<const AttributeInitMoveArray &>(initializer).data;
+      add_generic_custom_data_layer_with_existing_data(
+          custom_data, data_type, attribute_id, domain_num, data, nullptr);
       break;
     }
   }
@@ -637,18 +654,7 @@ bool CustomDataAttributes::create(const AttributeIDRef &attribute_id,
                                   const eCustomDataType data_type)
 {
   void *result = add_generic_custom_data_layer(
-      data, data_type, CD_SET_DEFAULT, nullptr, size_, attribute_id);
-  return result != nullptr;
-}
-
-bool CustomDataAttributes::create_by_move(const AttributeIDRef &attribute_id,
-                                          const eCustomDataType data_type,
-                                          void *buffer)
-{
-  CustomDataLayerSource layer_source{};
-  layer_source.data = buffer;
-  void *result = add_generic_custom_data_layer(
-      data, data_type, CD_ASSIGN, &layer_source, size_, attribute_id);
+      data, data_type, CD_SET_DEFAULT, size_, attribute_id);
   return result != nullptr;
 }
 

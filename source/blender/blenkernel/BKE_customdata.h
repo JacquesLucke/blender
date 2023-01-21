@@ -277,6 +277,13 @@ void *CustomData_add_layer_anonymous(struct CustomData *data,
                                      CustomDataLayerSource *layer_source,
                                      int totelem,
                                      const AnonymousAttributeIDHandle *anonymous_id);
+const void *CustomData_add_layer_anonymous_with_existing_data(
+    struct CustomData *data,
+    int type,
+    const AnonymousAttributeIDHandle *anonymous_id,
+    int totelem,
+    void *layer_data,
+    const struct bCopyOnWrite *cow);
 
 /**
  * Frees the active or first data layer with the give type.
