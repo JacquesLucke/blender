@@ -2,6 +2,7 @@
 
 set(INC
   ../include
+  ../../asset_system
   ../../blenkernel
   ../../blenlib
   ../../blenloader
@@ -18,7 +19,7 @@ set(INC_SYS
 )
 
 set(SRC
-  ed_undo.c
+  ed_undo.cc
   memfile_undo.cc
   undo_system_types.c
 
