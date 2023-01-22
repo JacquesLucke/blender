@@ -12,6 +12,8 @@ enum class IOType {
   Output,
 };
 
+namespace detail {
+
 enum class ArgMode {
   Unknown,
   Single,
@@ -29,10 +31,10 @@ template<typename Param> struct ArgInfo {
  * a range and reduces virtual method call overhead when virtual arrays are used as inputs.
  */
 template<typename ChunkFn, size_t... I, typename... Params>
-inline void execute_chunked_internal(const IndexMask mask,
-                                     const ChunkFn &chunk_fn,
-                                     std::index_sequence<I...> /* indices */,
-                                     Params &&...params)
+inline void execute_in_contiguous_chunks_internal(const IndexMask mask,
+                                                  const ChunkFn &chunk_fn,
+                                                  std::index_sequence<I...> /* indices */,
+                                                  Params &&...params)
 {
 
   /* In theory, all elements could be processed in one chunk. However, that has the disadvantage
@@ -176,6 +178,7 @@ inline void execute_chunked_internal(const IndexMask mask,
       }(),
       ...);
 }
+}  // namespace detail
 
 template<typename T> struct SingleInput {
   using value_type = T;
@@ -210,6 +213,7 @@ template<typename T> struct SingleInput {
   }
 };
 
+namespace detail {
 template<typename T, IOType IO> struct ArrayParam {
   using value_type = std::decay_t<T>;
   static constexpr IOType io = IO;
@@ -257,32 +261,35 @@ template<typename T, IOType IO> struct ArrayParam {
     }
   }
 };
+}  // namespace detail
 
-template<typename T> struct ArrayInput : public ArrayParam<const T, IOType::Input> {
-  ArrayInput(const T *ptr) : ArrayParam<const T, IOType::Input>(ptr)
+template<typename T> struct ArrayInput : public detail::ArrayParam<const T, IOType::Input> {
+  ArrayInput(const T *ptr) : detail::ArrayParam<const T, IOType::Input>(ptr)
   {
   }
 };
 
-template<typename T> struct ArrayOutput : public ArrayParam<T, IOType::Output> {
-  ArrayOutput(T *ptr) : ArrayParam<T, IOType::Output>(ptr)
+template<typename T> struct ArrayOutput : public detail::ArrayParam<T, IOType::Output> {
+  ArrayOutput(T *ptr) : detail::ArrayParam<T, IOType::Output>(ptr)
   {
   }
 };
 
-template<typename T> struct ArrayMutable : public ArrayParam<T, IOType::Mutable> {
-  ArrayMutable(T *ptr) : ArrayParam<T, IOType::Mutable>(ptr)
+template<typename T> struct ArrayMutable : public detail::ArrayParam<T, IOType::Mutable> {
+  ArrayMutable(T *ptr) : detail::ArrayParam<T, IOType::Mutable>(ptr)
   {
   }
 };
 
 template<typename ChunkFn, typename... Params>
-inline void execute_chunked(const IndexMask mask, const ChunkFn &chunk_fn, Params &&...params)
+inline void execute_in_contiguous_chunks(const IndexMask mask,
+                                         const ChunkFn &chunk_fn,
+                                         Params &&...params)
 {
-  execute_chunked_internal(mask,
-                           chunk_fn,
-                           std::make_index_sequence<sizeof...(Params)>(),
-                           std::forward<Params>(params)...);
+  detail::execute_in_contiguous_chunks_internal(mask,
+                                                chunk_fn,
+                                                std::make_index_sequence<sizeof...(Params)>(),
+                                                std::forward<Params>(params)...);
 }
 
 }  // namespace blender::chunked_array_parameters
