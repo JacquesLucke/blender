@@ -15,8 +15,8 @@ def _run(args):
     measured_times = []
 
     min_measurements = 5
-    max_measurements = 1000
-    timeout = 10
+    max_measurements = 100
+    timeout = 5
 
     while True:
         # Tag all objects with geometry nodes modifiers to be recalculated.
