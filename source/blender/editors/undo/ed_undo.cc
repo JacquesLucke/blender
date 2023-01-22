@@ -832,7 +832,8 @@ void ED_undo_object_editmode_restore_helper(struct bContext *C,
     ((ID *)bases[i]->object->data)->tag |= LIB_TAG_DOIT;
   }
   Object **ob_p = object_array;
-  for (uint i = 0; i < object_array_len; i++, ob_p = POINTER_OFFSET(ob_p, object_array_stride)) {
+  for (uint i = 0; i < object_array_len;
+       i++, ob_p = static_cast<Object **>(POINTER_OFFSET(ob_p, object_array_stride))) {
     Object *obedit = *ob_p;
     ED_object_editmode_enter_ex(bmain, scene, obedit, EM_NO_CONTEXT);
     ((ID *)obedit->data)->tag &= ~LIB_TAG_DOIT;
