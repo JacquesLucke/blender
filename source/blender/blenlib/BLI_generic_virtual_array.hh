@@ -818,12 +818,18 @@ template<typename T, bool UseSingle, bool UseSpan> struct GVArrayDevirtualizer {
   }
 };
 
-template<typename T> struct MaterializeGVArrayInput {
+namespace chunked_array_parameters {
+template<typename T> struct GVArrayInput {
   using value_type = T;
   static constexpr chunked_array_parameters::IOType io = chunked_array_parameters::IOType::Input;
 
   const GVArrayImpl &varray_impl;
   CommonVArrayInfo varray_info;
+
+  GVArrayInput(const GVArrayImpl &varray_impl)
+      : varray_impl(varray_impl), varray_info(varray_impl.common_info())
+  {
+  }
 
   bool is_span() const
   {
@@ -852,6 +858,7 @@ template<typename T> struct MaterializeGVArrayInput {
     this->varray_impl.materialize_compressed_to_uninitialized(mask, dst);
   }
 };
+}  // namespace chunked_array_parameters
 
 /* -------------------------------------------------------------------- */
 /** \name Inline methods for #GVArray.

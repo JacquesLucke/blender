@@ -215,7 +215,7 @@ inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
             typedef typename ParamTag::base_type T;
             if constexpr (ParamTag::category == ParamCategory::SingleInput) {
               const GVArrayImpl &varray_impl = *std::get<I>(loaded_params);
-              return MaterializeGVArrayInput<T>{varray_impl, varray_impl.common_info()};
+              return chunked_array_parameters::GVArrayInput<T>{varray_impl};
             }
             else if constexpr (ParamTag::category == ParamCategory::SingleMutable) {
               T *ptr = std::get<I>(loaded_params);

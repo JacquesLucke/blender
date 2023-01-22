@@ -1256,14 +1256,15 @@ template<typename T, bool UseSingle, bool UseSpan> struct VArrayDevirtualizer {
   }
 };
 
-template<typename T> struct MaterializeVArrayInput {
+namespace chunked_array_parameters {
+template<typename T> struct VArrayInput {
   using value_type = T;
   static constexpr chunked_array_parameters::IOType io = chunked_array_parameters::IOType::Input;
 
   const VArrayImpl<T> &varray_impl;
   CommonVArrayInfo varray_info;
 
-  MaterializeVArrayInput(const VArray<T> &varray)
+  VArrayInput(const VArray<T> &varray)
       : varray_impl(*varray.get_implementation()), varray_info(varray_impl.common_info())
   {
   }
@@ -1295,6 +1296,7 @@ template<typename T> struct MaterializeVArrayInput {
     this->varray_impl.materialize_compressed_to_uninitialized(mask, dst);
   }
 };
+}  // namespace chunked_array_parameters
 
 /**
  * Generate multiple versions of the given function optimized for different virtual arrays.
