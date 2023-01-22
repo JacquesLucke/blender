@@ -202,7 +202,7 @@ inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
     /* The materialized method is most common because it avoids most virtual function overhead but
      * still instantiates the function only once. */
     if constexpr (ExecPreset::fallback_mode == exec_presets::FallbackMode::Materialized) {
-      chunked_array_parameters::execute_in_contiguous_chunks(
+      chunked_array_parameters::execute_in_contiguous_chunks<64>(
           mask,
           /* Called for every chunk. */
           [&](const int64_t chunk_size, auto &&...args) {

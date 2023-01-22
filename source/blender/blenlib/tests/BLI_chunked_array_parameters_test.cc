@@ -12,7 +12,7 @@ TEST(chunked_array_parameters, Test)
   std::array<int, 5> inputs = {1, 2, 3, 4, 5};
   std::array<int, 5> outputs = {-1, -1, -1, -1, -1};
 
-  execute_in_contiguous_chunks(
+  execute_in_contiguous_chunks<64>(
       IndexMask({0, 2, 3}),
       [](int size, const int *a, int *b) {
         for (const int i : IndexRange(size)) {

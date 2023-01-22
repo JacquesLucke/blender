@@ -30,18 +30,20 @@ template<typename Param> struct ArgInfo {
  * separately, processing happens in chunks. This allows for vectorization even if the mask is not
  * a range and reduces virtual method call overhead when virtual arrays are used as inputs.
  */
-template<typename ChunkFn, size_t... I, typename... Params>
+template<
+    /* In theory, all elements could be processed in one chunk. However, that has the disadvantage
+     * that large temporary arrays are needed. Using small chunks allows using small arrays, which
+     * are reused multiple times, which improves cache efficiency. The chunk size also shouldn't be
+     * too small, because then overhead of the outer loop over chunks becomes significant again. */
+    int64_t MaxChunkSize,
+    typename ChunkFn,
+    size_t... I,
+    typename... Params>
 inline void execute_in_contiguous_chunks_internal(const IndexMask mask,
                                                   const ChunkFn &chunk_fn,
                                                   std::index_sequence<I...> /* indices */,
                                                   Params &&...params)
 {
-
-  /* In theory, all elements could be processed in one chunk. However, that has the disadvantage
-   * that large temporary arrays are needed. Using small chunks allows using small arrays, which
-   * are reused multiple times, which improves cache efficiency. The chunk size also shouldn't be
-   * too small, because then overhead of the outer loop over chunks becomes significant again. */
-  static constexpr int64_t MaxChunkSize = 64;
   const int64_t mask_size = mask.size();
   const int64_t tmp_buffer_size = std::min(mask_size, MaxChunkSize);
 
@@ -180,6 +182,18 @@ inline void execute_in_contiguous_chunks_internal(const IndexMask mask,
 }
 }  // namespace detail
 
+template<int64_t MaxChunkSize, typename ChunkFn, typename... Params>
+inline void execute_in_contiguous_chunks(const IndexMask mask,
+                                         const ChunkFn &chunk_fn,
+                                         Params &&...params)
+{
+  detail::execute_in_contiguous_chunks_internal<MaxChunkSize>(
+      mask,
+      chunk_fn,
+      std::make_index_sequence<sizeof...(Params)>(),
+      std::forward<Params>(params)...);
+}
+
 template<typename T> struct SingleInput {
   using value_type = T;
   static constexpr IOType io = IOType::Input;
@@ -280,17 +294,6 @@ template<typename T> struct ArrayMutable : public detail::ArrayParam<T, IOType::
   {
   }
 };
-
-template<typename ChunkFn, typename... Params>
-inline void execute_in_contiguous_chunks(const IndexMask mask,
-                                         const ChunkFn &chunk_fn,
-                                         Params &&...params)
-{
-  detail::execute_in_contiguous_chunks_internal(mask,
-                                                chunk_fn,
-                                                std::make_index_sequence<sizeof...(Params)>(),
-                                                std::forward<Params>(params)...);
-}
 
 }  // namespace blender::chunked_array_parameters
 
