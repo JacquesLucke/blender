@@ -89,7 +89,7 @@ set(SRC
   intern/cachefile.c
   intern/callbacks.c
   intern/camera.c
-  intern/cdderivedmesh.c
+  intern/cdderivedmesh.cc
   intern/cloth.cc
   intern/collection.c
   intern/collision.c
@@ -119,9 +119,9 @@ set(SRC
   intern/customdata.cc
   intern/customdata_file.c
   intern/data_transfer.cc
-  intern/deform.c
+  intern/deform.cc
   intern/displist.cc
-  intern/dynamicpaint.c
+  intern/dynamicpaint.cc
   intern/editlattice.c
   intern/editmesh.cc
   intern/editmesh_bvh.c
@@ -131,7 +131,7 @@ set(SRC
   intern/fcurve.c
   intern/fcurve_cache.c
   intern/fcurve_driver.c
-  intern/fluid.c
+  intern/fluid.cc
   intern/fmodifier.c
   intern/freestyle.c
   intern/geometry_component_curves.cc
