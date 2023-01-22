@@ -41,7 +41,7 @@
 
 #include "../blenloader/BLO_undofile.h"
 
-#include "undo_intern.h"
+#include "undo_intern.hh"
 
 #include <stdio.h>
 

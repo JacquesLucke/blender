@@ -10,15 +10,7 @@
 
 struct UndoType;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/* memfile_undo.c */
+/* memfile_undo.cc */
 
 /** Export for ED_undo_sys. */
 void ED_memfile_undosys_type(struct UndoType *ut);
-
-#ifdef __cplusplus
-}
-#endif

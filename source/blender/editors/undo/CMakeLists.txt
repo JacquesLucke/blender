@@ -23,7 +23,7 @@ set(SRC
   memfile_undo.cc
   undo_system_types.cc
 
-  undo_intern.h
+  undo_intern.hh
 )
 
 set(LIB
