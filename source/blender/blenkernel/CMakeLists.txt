@@ -296,7 +296,7 @@ set(SRC
   intern/tracking_stabilize.c
   intern/tracking_util.c
   intern/type_conversions.cc
-  intern/undo_system.c
+  intern/undo_system.cc
   intern/unit.c
   intern/vfont.c
   intern/vfontdata_freetype.c
