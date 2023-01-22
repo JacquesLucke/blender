@@ -820,7 +820,7 @@ template<typename T, bool UseSingle, bool UseSpan> struct GVArrayDevirtualizer {
 
 template<typename T> struct MaterializeGVArrayInput {
   using value_type = T;
-  static constexpr array_function_evaluation::IOType io = array_function_evaluation::IOType::Input;
+  static constexpr chunked_array_parameters::IOType io = chunked_array_parameters::IOType::Input;
 
   const GVArrayImpl &varray_impl;
   CommonVArrayInfo varray_info;

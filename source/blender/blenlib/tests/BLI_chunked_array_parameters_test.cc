@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "BLI_array_function_evaluation.hh"
+#include "BLI_chunked_array_parameters.hh"
 #include <array>
 
 #include "testing/testing.h"
 
-namespace blender::array_function_evaluation::tests {
+namespace blender::chunked_array_parameters::tests {
 
-TEST(array_function_evaluation, Test)
+TEST(chunked_array_parameters, Test)
 {
   std::array<int, 5> inputs = {1, 2, 3, 4, 5};
   std::array<int, 5> outputs;
@@ -29,4 +29,4 @@ TEST(array_function_evaluation, Test)
   EXPECT_EQ(outputs[4], 15);
 }
 
-}  // namespace blender::array_function_evaluation::tests
+}  // namespace blender::chunked_array_parameters::tests

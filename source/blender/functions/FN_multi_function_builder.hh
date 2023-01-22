@@ -8,7 +8,7 @@
  * This file contains several utilities to create multi-functions with less redundant code.
  */
 
-#include "BLI_array_function_evaluation.hh"
+#include "BLI_chunked_array_parameters.hh"
 
 #include "FN_multi_function.hh"
 
@@ -202,7 +202,7 @@ inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
     /* The materialized method is most common because it avoids most virtual function overhead but
      * still instantiates the function only once. */
     if constexpr (ExecPreset::fallback_mode == exec_presets::FallbackMode::Materialized) {
-      array_function_evaluation::execute_chunked(
+      chunked_array_parameters::execute_chunked(
           mask,
           /* Called for every chunk. */
           [&](const int64_t chunk_size, auto &&...args) {
@@ -219,11 +219,11 @@ inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
             }
             else if constexpr (ParamTag::category == ParamCategory::SingleMutable) {
               T *ptr = std::get<I>(loaded_params);
-              return array_function_evaluation::ArrayMutable<T>{ptr};
+              return chunked_array_parameters::ArrayMutable<T>{ptr};
             }
             else if constexpr (ParamTag::category == ParamCategory::SingleOutput) {
               T *ptr = std::get<I>(loaded_params);
-              return array_function_evaluation::ArrayOutput<T>{ptr};
+              return chunked_array_parameters::ArrayOutput<T>{ptr};
             }
           }()...);
     }

@@ -169,7 +169,7 @@ set(SRC
   BLI_any.hh
   BLI_array.h
   BLI_array.hh
-  BLI_array_function_evaluation.hh
+  BLI_chunked_array_parameters.hh
   BLI_array_store.h
   BLI_array_store_utils.h
   BLI_array_utils.h
@@ -453,7 +453,7 @@ blender_add_lib(bf_blenlib "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 if(WITH_GTESTS)
   set(TEST_SRC
     tests/BLI_any_test.cc
-    tests/BLI_array_function_evaluation_test.cc
+    tests/BLI_chunked_array_parameters_test.cc
     tests/BLI_array_store_test.cc
     tests/BLI_array_test.cc
     tests/BLI_array_utils_test.cc

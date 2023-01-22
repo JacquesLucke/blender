@@ -4,7 +4,7 @@
 
 #include "BLI_index_mask.hh"
 
-namespace blender::array_function_evaluation {
+namespace blender::chunked_array_parameters {
 
 enum class IOType {
   Input,
@@ -12,53 +12,15 @@ enum class IOType {
   Output,
 };
 
-/* The code in this block just shows the expected interface, its not executed. */
-#if 0
-
-struct InputParam {
-  static constexpr IOType io = IOType::Input;
-  using value_type = int;
-
-  bool is_single() const;
-  bool is_span() const;
-  const value_type &get_single() const;
-  const value_type *get_span_begin() const;
-
-  void load_to_span(IndexMask mask, value_type *dst) const;
-};
-
-struct MutableParam {
-  static constexpr IOType io = IOType::Mutable;
-  using value_type = int;
-
-  bool is_span() const;
-  value_type *get_span_begin() const;
-
-  void load_to_span(IndexMask mask, value_type *dst);
-  void relocate_from_span(IndexMask mask, value_type *src);
-};
-
-struct OutputParam {
-  static constexpr IOType io = IOType::Output;
-  using value_type = int;
-
-  bool is_span() const;
-  value_type *get_span_begin() const;
-
-  void relocate_from_span(IndexMask mask, value_type *src);
-};
-
-#endif
-
-enum class MaterializeArgMode {
+enum class ArgMode {
   Unknown,
   Single,
   Span,
   Materialized,
 };
 
-template<typename Param> struct MaterializeArgInfo {
-  MaterializeArgMode mode = MaterializeArgMode::Unknown;
+template<typename Param> struct ArgInfo {
+  ArgMode mode = ArgMode::Unknown;
 };
 
 /**
@@ -85,7 +47,7 @@ inline void execute_chunked_internal(const IndexMask mask,
   std::tuple<TypedBuffer<typename Params::value_type, MaxChunkSize>...> temporary_buffers;
 
   /* Information about every parameter. */
-  std::tuple<MaterializeArgInfo<Params>...> args_info;
+  std::tuple<ArgInfo<Params>...> args_info;
 
   (
       /* Setup information for all parameters. */
@@ -93,14 +55,14 @@ inline void execute_chunked_internal(const IndexMask mask,
         /* Use `typedef` instead of `using` to work around a compiler bug. */
         typedef Params Param;
         typedef typename Param::value_type T;
-        [[maybe_unused]] MaterializeArgInfo<Params> &arg_info = std::get<I>(args_info);
+        [[maybe_unused]] ArgInfo<Params> &arg_info = std::get<I>(args_info);
         const Param &param = params;
         if constexpr (Param::io == IOType::Input) {
           if (param.is_single()) {
             const T &in_single = param.get_single();
             T *tmp_buffer = std::get<I>(temporary_buffers).ptr();
             uninitialized_fill_n<T>(tmp_buffer, tmp_buffer_size, in_single);
-            arg_info.mode = MaterializeArgMode::Single;
+            arg_info.mode = ArgMode::Single;
           }
         }
       }(),
@@ -137,11 +99,11 @@ inline void execute_chunked_internal(const IndexMask mask,
         [&] {
           using Param = Params;
           using T = typename Param::value_type;
-          [[maybe_unused]] MaterializeArgInfo<Params> &arg_info = std::get<I>(args_info);
+          [[maybe_unused]] ArgInfo<Params> &arg_info = std::get<I>(args_info);
           T *tmp_buffer = std::get<I>(temporary_buffers);
           const Param &param = params;
           if constexpr (Param::io == IOType::Input) {
-            if (arg_info.mode == MaterializeArgMode::Single) {
+            if (arg_info.mode == ArgMode::Single) {
               /* The single value has been filled into a buffer already reused for every
                * chunk. */
               return const_cast<const T *>(tmp_buffer);
@@ -149,14 +111,14 @@ inline void execute_chunked_internal(const IndexMask mask,
             if (sliced_mask_is_range && param.is_span()) {
               /* In this case we can just use an existing span instead of "compressing" it
                * into a new temporary buffer. */
-              arg_info.mode = MaterializeArgMode::Span;
+              arg_info.mode = ArgMode::Span;
               return param.get_span_begin() + mask_start;
             }
 
             param.load_to_span(sliced_mask, tmp_buffer);
             /* Remember that this parameter has been materialized, so that the values are
              * destructed properly when the chunk is done. */
-            arg_info.mode = MaterializeArgMode::Materialized;
+            arg_info.mode = ArgMode::Materialized;
             return const_cast<const T *>(tmp_buffer);
           }
           else {
@@ -179,9 +141,9 @@ inline void execute_chunked_internal(const IndexMask mask,
           typedef Params Param;
           typedef typename Param::value_type T;
           if constexpr (Param::io == IOType::Input) {
-            MaterializeArgInfo<Params> &arg_info = std::get<I>(args_info);
+            ArgInfo<Params> &arg_info = std::get<I>(args_info);
             /* Destruct non-single materialized inputs. */
-            if (arg_info.mode == MaterializeArgMode::Materialized) {
+            if (arg_info.mode == ArgMode::Materialized) {
               T *tmp_buffer = std::get<I>(temporary_buffers).ptr();
               destruct_n(tmp_buffer, chunk_size);
             }
@@ -205,8 +167,8 @@ inline void execute_chunked_internal(const IndexMask mask,
         typedef typename Param::value_type T;
         if constexpr (Param::io == IOType::Input) {
           /* Destruct buffers for single value inputs. */
-          MaterializeArgInfo<Params> &arg_info = std::get<I>(args_info);
-          if (arg_info.mode == MaterializeArgMode::Single) {
+          ArgInfo<Params> &arg_info = std::get<I>(args_info);
+          if (arg_info.mode == ArgMode::Single) {
             T *tmp_buffer = std::get<I>(temporary_buffers).ptr();
             destruct_n(tmp_buffer, tmp_buffer_size);
           }
@@ -323,4 +285,42 @@ inline void execute_chunked(const IndexMask mask, const ChunkFn &chunk_fn, Param
                            std::forward<Params>(params)...);
 }
 
-}  // namespace blender::array_function_evaluation
+}  // namespace blender::chunked_array_parameters
+
+/* The code in this block just shows the expected interface, its not executed. */
+#if 0
+
+struct InputParam {
+  static constexpr IOType io = IOType::Input;
+  using value_type = int;
+
+  bool is_single() const;
+  bool is_span() const;
+  const value_type &get_single() const;
+  const value_type *get_span_begin() const;
+
+  void load_to_span(IndexMask mask, value_type *dst) const;
+};
+
+struct MutableParam {
+  static constexpr IOType io = IOType::Mutable;
+  using value_type = int;
+
+  bool is_span() const;
+  value_type *get_span_begin() const;
+
+  void load_to_span(IndexMask mask, value_type *dst);
+  void relocate_from_span(IndexMask mask, value_type *src);
+};
+
+struct OutputParam {
+  static constexpr IOType io = IOType::Output;
+  using value_type = int;
+
+  bool is_span() const;
+  value_type *get_span_begin() const;
+
+  void relocate_from_span(IndexMask mask, value_type *src);
+};
+
+#endif

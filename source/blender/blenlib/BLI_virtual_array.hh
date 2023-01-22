@@ -27,7 +27,7 @@
 
 #include "BLI_any.hh"
 #include "BLI_array.hh"
-#include "BLI_array_function_evaluation.hh"
+#include "BLI_chunked_array_parameters.hh"
 #include "BLI_devirtualize_parameters.hh"
 #include "BLI_index_mask.hh"
 #include "BLI_span.hh"
@@ -1258,7 +1258,7 @@ template<typename T, bool UseSingle, bool UseSpan> struct VArrayDevirtualizer {
 
 template<typename T> struct MaterializeVArrayInput {
   using value_type = T;
-  static constexpr array_function_evaluation::IOType io = array_function_evaluation::IOType::Input;
+  static constexpr chunked_array_parameters::IOType io = chunked_array_parameters::IOType::Input;
 
   const VArrayImpl<T> &varray_impl;
   CommonVArrayInfo varray_info;
