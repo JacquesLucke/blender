@@ -105,6 +105,10 @@ set(LIB
   bf_sequencer
 )
 
+if(WIN32)
+  add_definitions(-DNOMINMAX)
+endif()
+
 if(WITH_AUDASPACE)
   list(APPEND INC_SYS
     ${AUDASPACE_C_INCLUDE_DIRS}
