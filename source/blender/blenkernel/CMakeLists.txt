@@ -80,7 +80,7 @@ set(SRC
   intern/blender_copybuffer.c
   intern/blender_undo.cc
   intern/blender_user_menu.c
-  intern/blendfile.c
+  intern/blendfile.cc
   intern/blendfile_link_append.c
   intern/boids.c
   intern/bpath.c
