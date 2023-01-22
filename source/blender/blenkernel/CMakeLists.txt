@@ -78,7 +78,7 @@ set(SRC
   intern/autoexec.c
   intern/blender.c
   intern/blender_copybuffer.c
-  intern/blender_undo.c
+  intern/blender_undo.cc
   intern/blender_user_menu.c
   intern/blendfile.c
   intern/blendfile_link_append.c
