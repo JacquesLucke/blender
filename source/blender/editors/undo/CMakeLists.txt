@@ -21,7 +21,7 @@ set(INC_SYS
 set(SRC
   ed_undo.cc
   memfile_undo.cc
-  undo_system_types.c
+  undo_system_types.cc
 
   undo_intern.h
 )
