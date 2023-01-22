@@ -436,7 +436,7 @@ void WM_exit_ex(bContext *C, const bool do_python)
 
   /* first wrap up running stuff, we assume only the active WM is running */
   /* modal handlers are on window level freed, others too? */
-  /* NOTE: same code copied in `wm_files.c`. */
+  /* NOTE: same code copied in `wm_files.cc`. */
   if (C && wm) {
     if (!G.background) {
       struct MemFile *undo_memfile = wm->undo_stack ?

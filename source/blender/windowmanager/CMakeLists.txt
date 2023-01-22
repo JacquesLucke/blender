@@ -41,7 +41,7 @@ set(SRC
   intern/wm_draw.c
   intern/wm_event_query.c
   intern/wm_event_system.cc
-  intern/wm_files.c
+  intern/wm_files.cc
   intern/wm_files_link.c
   intern/wm_gesture.c
   intern/wm_gesture_ops.c
