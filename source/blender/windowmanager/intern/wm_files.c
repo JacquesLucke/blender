@@ -185,7 +185,7 @@ static void wm_window_match_init(bContext *C, ListBase *wmlist)
   wmWindow *active_win = CTX_wm_window(C);
 
   /* first wrap up running stuff */
-  /* code copied from wm_init_exit.c */
+  /* code copied from wm_init_exit.cc */
   LISTBASE_FOREACH (wmWindowManager *, wm, wmlist) {
     WM_jobs_kill_all(wm);
 
