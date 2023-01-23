@@ -32,6 +32,10 @@
 #include "DNA_windowmanager_types.h" /* for eReportType */
 
 #ifdef __cplusplus
+#  include <functional>
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -42,6 +46,7 @@ typedef struct BlendWriter BlendWriter;
 
 struct BlendFileReadReport;
 struct Main;
+struct bCopyOnWrite;
 
 /* -------------------------------------------------------------------- */
 /** \name Blend Write API
@@ -175,6 +180,18 @@ void BLO_write_string(BlendWriter *writer, const char *data_ptr);
 
 /* Misc. */
 
+#ifdef __cplusplus
+/**
+ * Give (shared) ownership of the data to the undo system so that the data does not have to be
+ * copied. A free-function has to be provided, which is called when the undo step is freed and no
+ * one else references the data anymore.
+ */
+void BLO_write_cow(BlendWriter *writer,
+                   const bCopyOnWrite *cow,
+                   const void *cow_data,
+                   std::function<void(void *data)> free_data_fn);
+#endif
+
 /**
  * Sometimes different data is written depending on whether the file is saved to disk or used for
  * undo. This function returns true when the current file-writing is done for undo.
@@ -235,6 +252,13 @@ void BLO_read_float_array(BlendDataReader *reader, int array_size, float **ptr_p
 void BLO_read_float3_array(BlendDataReader *reader, int array_size, float **ptr_p);
 void BLO_read_double_array(BlendDataReader *reader, int array_size, double **ptr_p);
 void BLO_read_pointer_array(BlendDataReader *reader, void **ptr_p);
+
+/**
+ * True when the pointer refers to valid data and can still be used. In order to take
+ * (shared) ownership of the data, the user count of the corresponding #bCopyOnWrite should be
+ * increased.
+ */
+bool BLO_read_is_cow_data(BlendDataReader *reader, const void *cow_data);
 
 /* Misc. */
 

@@ -48,7 +48,21 @@ void BLO_memfile_free(MemFile *memfile)
     }
     MEM_freeN(chunk);
   }
+  if (memfile->cow_storage) {
+    MEM_delete(memfile->cow_storage);
+    memfile->cow_storage = nullptr;
+  }
   memfile->size = 0;
+}
+
+MemFileCowStorage::~MemFileCowStorage()
+{
+  for (auto item : this->map.items()) {
+    if (BLI_cow_user_remove(item.value.first)) {
+      item.value.second(const_cast<void *>(item.key));
+      BLI_cow_free(item.value.first);
+    }
+  }
 }
 
 void BLO_memfile_merge(MemFile *first, MemFile *second)

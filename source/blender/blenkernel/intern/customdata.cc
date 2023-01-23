@@ -5100,6 +5100,13 @@ void CustomData_blend_write(BlendWriter *writer,
       writer, CustomDataLayer, data->totlayer, data->layers, layers_to_write.data());
 
   for (const CustomDataLayer &layer : layers_to_write) {
+    if (BLO_write_is_undo(writer) && layer.cow != nullptr) {
+      BLO_write_cow(
+          writer, layer.cow, layer.data, [type = eCustomDataType(layer.type), count](void *data) {
+            free_layer_data(type, data, count);
+          });
+      continue;
+    }
     switch (layer.type) {
       case CD_MDEFORMVERT:
         BKE_defvert_blend_write(writer, count, static_cast<const MDeformVert *>(layer.data));
@@ -5216,6 +5223,11 @@ void CustomData_blend_read(BlendDataReader *reader, CustomData *data, const int 
     }
 
     if (CustomData_verify_versions(data, i)) {
+      if (BLO_read_is_cow_data(reader, layer->data)) {
+        BLI_assert(layer->cow != nullptr);
+        BLI_cow_user_add(layer->cow);
+        continue;
+      }
       BLO_read_data_address(reader, &layer->data);
       layer->cow = BLI_cow_new(1);
       if (CustomData_layer_ensure_data_exists(layer, count)) {

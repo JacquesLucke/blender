@@ -5124,4 +5124,20 @@ void BLO_expand_id(BlendExpander *expander, ID *id)
   expand_doit(expander->fd, expander->main, id);
 }
 
+bool BLO_read_is_cow_data(BlendDataReader *reader, const void *cow_data)
+{
+  if (!BLO_read_data_is_undo(reader)) {
+    return false;
+  }
+  if (!(reader->fd->flags & FD_FLAGS_IS_MEMFILE)) {
+    return false;
+  }
+  UndoReader *undo_reader = reinterpret_cast<UndoReader *>(reader->fd->file);
+  MemFile &memfile = *undo_reader->memfile;
+  if (memfile.cow_storage == nullptr) {
+    return false;
+  }
+  return memfile.cow_storage->map.contains(cow_data);
+}
+
 /** \} */

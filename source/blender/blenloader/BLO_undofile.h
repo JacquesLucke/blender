@@ -29,9 +29,24 @@ typedef struct {
   uint id_session_uuid;
 } MemFileChunk;
 
+#ifdef __cplusplus
+#  include <functional>
+
+#  include "BLI_copy_on_write.h"
+#  include "BLI_map.hh"
+struct MemFileCowStorage {
+  blender::Map<const void *, std::pair<const bCopyOnWrite *, std::function<void(void *)>>> map;
+
+  ~MemFileCowStorage();
+};
+#else
+typedef struct MemFileCowStorage MemFileCowStorage;
+#endif
+
 typedef struct MemFile {
   ListBase chunks;
   size_t size;
+  MemFileCowStorage *cow_storage;
 } MemFile;
 
 typedef struct MemFileWriteData {
