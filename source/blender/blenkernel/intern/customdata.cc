@@ -5223,6 +5223,7 @@ void CustomData_blend_read(BlendDataReader *reader, CustomData *data, const int 
     }
 
     if (CustomData_verify_versions(data, i)) {
+      i++;
       if (BLO_read_is_cow_data(reader, layer->data)) {
         BLI_assert(layer->cow != nullptr);
         BLI_cow_user_add(layer->cow);
@@ -5249,7 +5250,6 @@ void CustomData_blend_read(BlendDataReader *reader, CustomData *data, const int 
       else if (layer->type == CD_MDEFORMVERT) {
         BKE_defvert_blend_read(reader, count, static_cast<MDeformVert *>(layer->data));
       }
-      i++;
     }
   }
 
