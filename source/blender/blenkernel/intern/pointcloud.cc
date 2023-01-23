@@ -71,7 +71,10 @@ static void pointcloud_init_data(ID *id)
   pointcloud->runtime = new blender::bke::PointCloudRuntime();
 }
 
-static void pointcloud_copy_data(Main * /*bmain*/, ID *id_dst, const ID *id_src, const int flag)
+static void pointcloud_copy_data(Main * /*bmain*/,
+                                 ID *id_dst,
+                                 const ID *id_src,
+                                 const int /*flag*/)
 {
   PointCloud *pointcloud_dst = (PointCloud *)id_dst;
   const PointCloud *pointcloud_src = (const PointCloud *)id_src;

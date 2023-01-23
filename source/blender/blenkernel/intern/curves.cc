@@ -62,7 +62,7 @@ static void curves_init_data(ID *id)
   new (&curves->geometry) blender::bke::CurvesGeometry();
 }
 
-static void curves_copy_data(Main * /*bmain*/, ID *id_dst, const ID *id_src, const int flag)
+static void curves_copy_data(Main * /*bmain*/, ID *id_dst, const ID *id_src, const int /*flag*/)
 {
   using namespace blender;
 
