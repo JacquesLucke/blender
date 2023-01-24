@@ -348,34 +348,48 @@ BLI_NOINLINE static void compute_attribute_outputs(const Mesh &mesh,
         attribute_outputs.rotation_id.get(), ATTR_DOMAIN_POINT);
   }
 
+  Array<float3> corner_normals(mesh.totloop);
+  if (normals || rotations) {
+    BKE_mesh_calc_normals_split_ex(
+        const_cast<Mesh *>(&mesh), nullptr, reinterpret_cast<float(*)[3]>(corner_normals.data()));
+  }
+
   const Span<float3> positions = mesh.vert_positions();
   const Span<MLoop> loops = mesh.loops();
   const Span<MLoopTri> looptris = mesh.looptris();
 
-  for (const int i : bary_coords.index_range()) {
-    const int looptri_index = looptri_indices[i];
-    const MLoopTri &looptri = looptris[looptri_index];
-    const float3 &bary_coord = bary_coords[i];
-
-    const int v0_index = loops[looptri.tri[0]].v;
-    const int v1_index = loops[looptri.tri[1]].v;
-    const int v2_index = loops[looptri.tri[2]].v;
-    const float3 v0_pos = positions[v0_index];
-    const float3 v1_pos = positions[v1_index];
-    const float3 v2_pos = positions[v2_index];
-
-    ids.span[i] = noise::hash(noise::hash_float(bary_coord), looptri_index);
-
-    float3 normal;
-    if (!normals.span.is_empty() || !rotations.span.is_empty()) {
-      normal_tri_v3(normal, v0_pos, v1_pos, v2_pos);
+  threading::parallel_for(bary_coords.index_range(), 1024, [&](const IndexRange range) {
+    for (const int i : range) {
+      const int looptri_index = looptri_indices[i];
+      const float3 &bary_coord = bary_coords[i];
+      ids.span[i] = noise::hash(noise::hash_float(bary_coord), looptri_index);
     }
-    if (!normals.span.is_empty()) {
-      normals.span[i] = normal;
-    }
-    if (!rotations.span.is_empty()) {
-      rotations.span[i] = normal_to_euler_rotation(normal);
-    }
+  });
+  if (normals) {
+    threading::parallel_for(bary_coords.index_range(), 512, [&](const IndexRange range) {
+      for (const int i : range) {
+        const int looptri_index = looptri_indices[i];
+        const MLoopTri &looptri = looptris[looptri_index];
+        const float3 &bary_coord = bary_coords[i];
+
+        const float3 &normal0 = corner_normals[looptri.tri[0]];
+        const float3 &normal1 = corner_normals[looptri.tri[1]];
+        const float3 &normal2 = corner_normals[looptri.tri[2]];
+
+        const float3 normal = math::normalize(
+            attribute_math::mix3(bary_coord, normal0, normal1, normal2));
+        normals.span[i] = normal;
+      }
+    });
+  }
+  if (rotations) {
+    BLI_assert(normals);
+    threading::parallel_for(bary_coords.index_range(), 512, [&](const IndexRange range) {
+      for (const int i : range) {
+        const float3 &normal = normals.span[i];
+        rotations.span[i] = normal_to_euler_rotation(normal);
+      }
+    });
   }
 
   ids.finish();
@@ -521,8 +535,9 @@ static void node_geo_exec(GeoNodeExecParams params)
   const Field<bool> selection_field = params.extract_input<Field<bool>>("Selection");
 
   AttributeOutputs attribute_outputs;
-  attribute_outputs.normal_id = params.get_output_anonymous_attribute_id_if_needed("Normal");
   attribute_outputs.rotation_id = params.get_output_anonymous_attribute_id_if_needed("Rotation");
+  attribute_outputs.normal_id = params.get_output_anonymous_attribute_id_if_needed(
+      "Normal", bool(attribute_outputs.rotation_id));
 
   lazy_threading::send_hint();
 
