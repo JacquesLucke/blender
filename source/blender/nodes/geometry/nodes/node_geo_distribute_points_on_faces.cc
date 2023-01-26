@@ -366,10 +366,51 @@ static void compute_normal_and_rotation_outputs(const Mesh &mesh,
   }
   if (use_rotations) {
     BLI_assert(use_normals);
-    threading::parallel_for(bary_coords.index_range(), 512, [&](const IndexRange range) {
+    const Span<float3> positions = mesh.vert_positions();
+    const Span<MPoly> polys = mesh.polys();
+    const Span<MLoop> loops = mesh.loops();
+    threading::parallel_for(bary_coords.index_range(), 256, [&](const IndexRange range) {
       for (const int i : range) {
+        const int looptri_index = looptri_indices[i];
+        const MLoopTri &looptri = looptris[looptri_index];
+        const MPoly &poly = polys[looptri.poly];
+
+        /* This may not be the true normal, it can also be smoothed or based on custom normals. */
         const float3 &normal = r_normals[i];
-        r_rotations[i] = normal_to_euler_rotation(normal);
+
+        /* Take the first non-zero-length edge that is not aligned with the normal as tangent
+         * guess. Typically that is just the first edge. Such an edge has to exist if the polygon
+         * area is larger than zero. If it is zero, there won't be any points distributed in the
+         * polygon anyway. */
+        float3 third_axis;
+        for (const int poly_edge_i : IndexRange(poly.totloop)) {
+          const bool is_last = poly_edge_i == poly.totloop - 1;
+          const int v0 = loops[poly.loopstart + poly_edge_i].v;
+          const int v1 = loops[poly.loopstart + (is_last ? 0 : poly_edge_i + 1)].v;
+          const float3 &pos0 = positions[v0];
+          const float3 &pos1 = positions[v1];
+          const float3 tangent_guess = pos1 - pos0;
+          if (math::is_zero(tangent_guess)) {
+            continue;
+          }
+          third_axis = math::normalize(math::cross(normal, tangent_guess));
+          if (math::is_zero(third_axis)) {
+            continue;
+          }
+          break;
+        }
+
+        const float3 tangent = math::cross(third_axis, normal);
+
+        float mat[3][3];
+        copy_v3_v3(mat[0], tangent);
+        copy_v3_v3(mat[1], third_axis);
+        copy_v3_v3(mat[2], normal);
+
+        BLI_assert(is_orthonormal_m3(mat));
+        BLI_assert(std::abs(determinant_m3_array(mat) - 1.0f) < 0.0001f);
+
+        mat3_normalized_to_eul(r_rotations[i], mat);
       }
     });
   }
