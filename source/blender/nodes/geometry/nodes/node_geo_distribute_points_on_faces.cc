@@ -330,6 +330,51 @@ struct AttributeOutputs {
 };
 }  // namespace
 
+static void compute_normal_and_rotation_outputs(const Mesh &mesh,
+                                                const Span<float3> bary_coords,
+                                                const Span<int> looptri_indices,
+                                                MutableSpan<float3> r_normals,
+                                                MutableSpan<float3> r_rotations)
+{
+  const bool use_normals = !r_normals.is_empty();
+  const bool use_rotations = !r_rotations.is_empty();
+
+  Array<float3> corner_normals(mesh.totloop);
+  if (use_normals || use_rotations) {
+    BKE_mesh_calc_normals_split_ex(
+        const_cast<Mesh *>(&mesh), nullptr, reinterpret_cast<float(*)[3]>(corner_normals.data()));
+  }
+
+  const Span<MLoopTri> looptris = mesh.looptris();
+
+  if (use_normals) {
+    threading::parallel_for(bary_coords.index_range(), 512, [&](const IndexRange range) {
+      for (const int i : range) {
+        const int looptri_index = looptri_indices[i];
+        const MLoopTri &looptri = looptris[looptri_index];
+        const float3 &bary_coord = bary_coords[i];
+
+        const float3 &normal0 = corner_normals[looptri.tri[0]];
+        const float3 &normal1 = corner_normals[looptri.tri[1]];
+        const float3 &normal2 = corner_normals[looptri.tri[2]];
+
+        const float3 normal = math::normalize(
+            attribute_math::mix3(bary_coord, normal0, normal1, normal2));
+        r_normals[i] = normal;
+      }
+    });
+  }
+  if (use_rotations) {
+    BLI_assert(use_normals);
+    threading::parallel_for(bary_coords.index_range(), 512, [&](const IndexRange range) {
+      for (const int i : range) {
+        const float3 &normal = r_normals[i];
+        r_rotations[i] = normal_to_euler_rotation(normal);
+      }
+    });
+  }
+}
+
 static void compute_legacy_normal_and_rotation_outputs(const Mesh &mesh,
                                                        const Span<float3> bary_coords,
                                                        const Span<int> looptri_indices,
@@ -343,7 +388,6 @@ static void compute_legacy_normal_and_rotation_outputs(const Mesh &mesh,
   for (const int i : bary_coords.index_range()) {
     const int looptri_index = looptri_indices[i];
     const MLoopTri &looptri = looptris[looptri_index];
-    const float3 &bary_coord = bary_coords[i];
 
     const int v0_index = loops[looptri.tri[0]].v;
     const int v1_index = loops[looptri.tri[1]].v;
@@ -397,45 +441,12 @@ BLI_NOINLINE static void compute_attribute_outputs(const Mesh &mesh,
     }
   });
 
-  if (!use_legacy_normal_and_rotation) {
-    Array<float3> corner_normals(mesh.totloop);
-    if (normals || rotations) {
-      BKE_mesh_calc_normals_split_ex(const_cast<Mesh *>(&mesh),
-                                     nullptr,
-                                     reinterpret_cast<float(*)[3]>(corner_normals.data()));
-    }
-
-    const Span<MLoopTri> looptris = mesh.looptris();
-
-    if (normals) {
-      threading::parallel_for(bary_coords.index_range(), 512, [&](const IndexRange range) {
-        for (const int i : range) {
-          const int looptri_index = looptri_indices[i];
-          const MLoopTri &looptri = looptris[looptri_index];
-          const float3 &bary_coord = bary_coords[i];
-
-          const float3 &normal0 = corner_normals[looptri.tri[0]];
-          const float3 &normal1 = corner_normals[looptri.tri[1]];
-          const float3 &normal2 = corner_normals[looptri.tri[2]];
-
-          const float3 normal = math::normalize(
-              attribute_math::mix3(bary_coord, normal0, normal1, normal2));
-          normals.span[i] = normal;
-        }
-      });
-    }
-    if (rotations) {
-      BLI_assert(normals);
-      threading::parallel_for(bary_coords.index_range(), 512, [&](const IndexRange range) {
-        for (const int i : range) {
-          const float3 &normal = normals.span[i];
-          rotations.span[i] = normal_to_euler_rotation(normal);
-        }
-      });
-    }
+  if (use_legacy_normal_and_rotation) {
+    compute_legacy_normal_and_rotation_outputs(
+        mesh, bary_coords, looptri_indices, normals.span, rotations.span);
   }
   else {
-    compute_legacy_normal_and_rotation_outputs(
+    compute_normal_and_rotation_outputs(
         mesh, bary_coords, looptri_indices, normals.span, rotations.span);
   }
 
