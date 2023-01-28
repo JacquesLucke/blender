@@ -10,11 +10,13 @@
 #include "BLI_utildefines.h"
 #include "BLI_utility_mixins.hh"
 
-#include "DNA_copy_on_write.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct bCopyOnWrite {
+  int user_count;
+} bCopyOnWrite;
 
 bCopyOnWrite *BLI_cow_new(int user_count);
 void BLI_cow_free(const bCopyOnWrite *cow);
