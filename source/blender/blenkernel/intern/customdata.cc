@@ -2361,21 +2361,31 @@ CustomData CustomData_shallow_copy_remove_non_bmesh_attributes(const CustomData 
   return dst;
 }
 
+static bCopyOnWrite *make_cow_for_array(const eCustomDataType type,
+                                        const void *data,
+                                        const int totelem)
+{
+  return MEM_new<bCopyOnWrite>(__func__, 1, data, [type, totelem](const bCopyOnWrite *cow) {
+    free_layer_data(type, cow->data(), totelem);
+    MEM_delete(cow);
+  });
+}
+
 static void ensure_layer_data_is_mutable(CustomDataLayer &layer, const int totelem)
 {
+  if (layer.data == nullptr) {
+    return;
+  }
   if (layer.cow == nullptr) {
     /* Can not be shared without cow data. */
     return;
   }
-  if (BLI_cow_is_shared(layer.cow)) {
+  if (layer.cow->is_shared()) {
     const eCustomDataType type = eCustomDataType(layer.type);
     const void *old_data = layer.data;
     layer.data = copy_layer_data(type, old_data, totelem);
-    if (BLI_cow_user_remove(layer.cow)) {
-      free_layer_data(type, old_data, totelem);
-      BLI_cow_free(layer.cow);
-    }
-    layer.cow = BLI_cow_new(1);
+    layer.cow->user_remove_and_delete_if_last();
+    layer.cow = make_cow_for_array(type, layer.data, totelem);
   }
 }
 
@@ -2384,13 +2394,28 @@ void CustomData_realloc(CustomData *data, const int old_size, const int new_size
   BLI_assert(new_size >= 0);
   for (int i = 0; i < data->totlayer; i++) {
     CustomDataLayer *layer = &data->layers[i];
-    /* TODO: Just copy to the resized buffer directly instead of doing a COW copy here. */
-    ensure_layer_data_is_mutable(*layer, old_size);
     const LayerTypeInfo *typeInfo = layerType_getInfo(layer->type);
-
     const int64_t old_size_in_bytes = int64_t(old_size) * typeInfo->size;
     const int64_t new_size_in_bytes = int64_t(new_size) * typeInfo->size;
-    layer->data = MEM_reallocN(layer->data, new_size_in_bytes);
+
+    void *new_layer_data = MEM_mallocN(new_size_in_bytes, __func__);
+    /* Copy or relocate data to new array. */
+    if (layer->cow && layer->cow->is_shared() && typeInfo->copy) {
+      typeInfo->copy(layer->data, new_layer_data, std::min(old_size, new_size));
+    }
+    else {
+      memcpy(new_layer_data, layer->data, std::min(old_size_in_bytes, new_size_in_bytes));
+    }
+    /* Remove ownership of old array */
+    if (layer->cow) {
+      layer->cow->user_remove_and_delete_if_last();
+      layer->cow = nullptr;
+    }
+    /* Take ownership of new array. */
+    layer->data = new_layer_data;
+    if (layer->data) {
+      layer->cow = make_cow_for_array(eCustomDataType(layer->type), layer->data, new_size);
+    }
 
     if (new_size > old_size) {
       /* Initialize new values for non-trivial types. */
@@ -2431,9 +2456,7 @@ void CustomData_copy_without_data(const struct CustomData *source,
 static void customData_free_layer__internal(CustomDataLayer *layer, const int totelem)
 {
   if (layer->anonymous_id != nullptr) {
-    if (layer->anonymous_id->cow().user_remove()) {
-      layer->anonymous_id->cow_delete_self();
-    }
+    layer->anonymous_id->cow().user_remove_and_delete_if_last();
     layer->anonymous_id = nullptr;
   }
   const eCustomDataType type = eCustomDataType(layer->type);
@@ -2443,12 +2466,7 @@ static void customData_free_layer__internal(CustomDataLayer *layer, const int to
     }
   }
   else {
-    if (BLI_cow_user_remove(layer->cow)) {
-      if (layer->data) {
-        free_layer_data(type, layer->data, totelem);
-      }
-      BLI_cow_free(layer->cow);
-    }
+    layer->cow->user_remove_and_delete_if_last();
   }
 }
 
@@ -2831,7 +2849,7 @@ static CustomDataLayer *customData_add_layer__internal(CustomData *data,
         new_layer.data = layer_data_to_assign;
         new_layer.cow = cow_to_assign;
         if (new_layer.cow) {
-          BLI_cow_user_add(new_layer.cow);
+          new_layer.cow->user_add();
         }
       }
       break;
@@ -2839,7 +2857,7 @@ static CustomDataLayer *customData_add_layer__internal(CustomData *data,
   }
 
   if (new_layer.data != nullptr && new_layer.cow == nullptr) {
-    new_layer.cow = BLI_cow_new(1);
+    new_layer.cow = make_cow_for_array(type, new_layer.data, totelem);
   }
 
   new_layer.type = type;
@@ -5101,10 +5119,7 @@ void CustomData_blend_write(BlendWriter *writer,
 
   for (const CustomDataLayer &layer : layers_to_write) {
     if (BLO_write_is_undo(writer) && layer.cow != nullptr) {
-      BLO_write_cow(
-          writer, layer.cow, layer.data, [type = eCustomDataType(layer.type), count](void *data) {
-            free_layer_data(type, data, count);
-          });
+      BLO_write_cow(writer, layer.cow);
       continue;
     }
     switch (layer.type) {
@@ -5225,11 +5240,13 @@ void CustomData_blend_read(BlendDataReader *reader, CustomData *data, const int 
     if (CustomData_verify_versions(data, i)) {
       if (BLO_read_is_cow_data(reader, layer->data)) {
         BLI_assert(layer->cow != nullptr);
-        BLI_cow_user_add(layer->cow);
+        layer->cow->user_add();
         continue;
       }
       BLO_read_data_address(reader, &layer->data);
-      layer->cow = BLI_cow_new(1);
+      if (layer->data != nullptr) {
+        layer->cow = make_cow_for_array(eCustomDataType(layer->type), layer->data, count);
+      }
       if (CustomData_layer_ensure_data_exists(layer, count)) {
         /* Under normal operations, this shouldn't happen, but...
          * For a CD_PROP_BOOL example, see T84935.

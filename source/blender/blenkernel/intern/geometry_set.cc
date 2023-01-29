@@ -39,7 +39,8 @@ using blender::bke::Instances;
 /** \name Geometry Component
  * \{ */
 
-GeometryComponent::GeometryComponent(GeometryComponentType type) : type_(type)
+GeometryComponent::GeometryComponent(GeometryComponentType type)
+    : type_(type), cow_(1, this, [this](const bCopyOnWrite * /*cow*/) { delete this; })
 {
 }
 

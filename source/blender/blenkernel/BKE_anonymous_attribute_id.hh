@@ -40,6 +40,7 @@ class AnonymousAttributeID {
   std::string name_;
 
  public:
+  AnonymousAttributeID();
   virtual ~AnonymousAttributeID() = default;
 
   StringRefNull name() const
@@ -49,7 +50,7 @@ class AnonymousAttributeID {
 
   virtual std::string user_name() const;
 
-  const blender::bCopyOnWrite &cow() const
+  const bCopyOnWrite &cow() const
   {
     return cow_;
   }

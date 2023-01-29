@@ -30,12 +30,10 @@ typedef struct {
 } MemFileChunk;
 
 #ifdef __cplusplus
-#  include <functional>
-
 #  include "BLI_copy_on_write.h"
 #  include "BLI_map.hh"
 struct MemFileCowStorage {
-  blender::Map<const void *, std::pair<const bCopyOnWrite *, std::function<void(void *)>>> map;
+  blender::Map<const void *, const bCopyOnWrite *> map;
 
   ~MemFileCowStorage();
 };

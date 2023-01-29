@@ -6,6 +6,9 @@
  * \ingroup bli
  */
 
+#include <atomic>
+#include <functional>
+
 #include "BLI_compiler_attrs.h"
 #include "BLI_utildefines.h"
 #include "BLI_utility_mixins.hh"
@@ -14,20 +17,7 @@
 extern "C" {
 #endif
 
-typedef struct bCopyOnWrite {
-  int user_count;
-} bCopyOnWrite;
-
-bCopyOnWrite *BLI_cow_new(int user_count);
-void BLI_cow_free(const bCopyOnWrite *cow);
-
-void BLI_cow_init(const bCopyOnWrite *cow);
-
-bool BLI_cow_is_shared(const bCopyOnWrite *cow);
-bool BLI_cow_is_mutable(const bCopyOnWrite *cow);
-
-void BLI_cow_user_add(const bCopyOnWrite *cow);
-bool BLI_cow_user_remove(const bCopyOnWrite *cow) ATTR_WARN_UNUSED_RESULT;
+typedef struct bCopyOnWrite bCopyOnWrite;
 
 #ifdef __cplusplus
 }
@@ -35,13 +25,18 @@ bool BLI_cow_user_remove(const bCopyOnWrite *cow) ATTR_WARN_UNUSED_RESULT;
 
 #ifdef __cplusplus
 
-namespace blender {
+struct bCopyOnWrite : blender::NonCopyable, blender::NonMovable {
+ private:
+  using DeleteFn = std::function<void(const bCopyOnWrite *cow)>;
 
-struct bCopyOnWrite : public ::bCopyOnWrite, private NonCopyable, NonMovable {
+  mutable std::atomic<int> users_;
+  const void *data_;
+  DeleteFn delete_fn_;
+
  public:
-  bCopyOnWrite()
+  bCopyOnWrite(const int initial_users, const void *data, DeleteFn delete_fn)
+      : users_(initial_users), data_(data), delete_fn_(std::move(delete_fn))
   {
-    BLI_cow_init(this);
   }
 
   ~bCopyOnWrite()
@@ -49,26 +44,39 @@ struct bCopyOnWrite : public ::bCopyOnWrite, private NonCopyable, NonMovable {
     BLI_assert(this->is_mutable());
   }
 
+  const void *data() const
+  {
+    return data_;
+  }
+
   bool is_shared() const
   {
-    return BLI_cow_is_shared(this);
+    return users_.load(std::memory_order_relaxed) >= 2;
   }
 
   bool is_mutable() const
   {
-    return BLI_cow_is_mutable(this);
+    return !this->is_shared();
   }
 
   void user_add() const
   {
-    BLI_cow_user_add(this);
+    users_.fetch_add(1, std::memory_order_relaxed);
   }
 
-  bool user_remove() const ATTR_WARN_UNUSED_RESULT
+  bool user_remove_and_delete_if_last() const
   {
-    return BLI_cow_user_remove(this);
+    const int old_user_count = users_.fetch_sub(1, std::memory_order_relaxed);
+    BLI_assert(old_user_count >= 1);
+    const bool was_last_user = old_user_count == 1;
+    if (was_last_user) {
+      delete_fn_(this);
+    }
+    return was_last_user;
   }
 };
+
+namespace blender {
 
 template<typename T> class COWUser {
  private:
@@ -93,7 +101,7 @@ template<typename T> class COWUser {
 
   ~COWUser()
   {
-    this->user_remove(data_);
+    this->user_remove_and_delete_if_last(data_);
   }
 
   COWUser &operator=(const COWUser &other)
@@ -102,7 +110,7 @@ template<typename T> class COWUser {
       return *this;
     }
 
-    this->user_remove(data_);
+    this->user_remove_and_delete_if_last(data_);
     data_ = other.data_;
     this->user_add(data_);
     return *this;
@@ -114,7 +122,7 @@ template<typename T> class COWUser {
       return *this;
     }
 
-    this->user_remove(data_);
+    this->user_remove_and_delete_if_last(data_);
     data_ = other.data_;
     other.data_ = nullptr;
     return *this;
@@ -168,7 +176,7 @@ template<typename T> class COWUser {
 
   void reset()
   {
-    this->user_remove(data_);
+    this->user_remove_and_delete_if_last(data_);
     data_ = nullptr;
   }
 
@@ -195,12 +203,10 @@ template<typename T> class COWUser {
     }
   }
 
-  static void user_remove(T *data)
+  static void user_remove_and_delete_if_last(T *data)
   {
     if (data != nullptr) {
-      if (data->cow().user_remove()) {
-        data->cow_delete_self();
-      }
+      data->cow().user_remove_and_delete_if_last();
     }
   }
 };

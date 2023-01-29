@@ -48,8 +48,8 @@ class GeometryComponent;
  */
 class GeometryComponent {
  private:
-  blender::bCopyOnWrite cow_;
   GeometryComponentType type_;
+  bCopyOnWrite cow_;
 
  public:
   GeometryComponent(GeometryComponentType type);
@@ -68,14 +68,9 @@ class GeometryComponent {
   /* The returned component should be of the same type as the type this is called on. */
   virtual GeometryComponent *copy() const = 0;
 
-  const blender::bCopyOnWrite &cow() const
+  const bCopyOnWrite &cow() const
   {
     return cow_;
-  }
-
-  void cow_delete_self() const
-  {
-    delete this;
   }
 
   /* Direct data is everything except for instances of objects/collections.
