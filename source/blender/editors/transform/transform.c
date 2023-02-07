@@ -862,6 +862,9 @@ static bool transform_event_modal_constraint(TransInfo *t, short modal_type)
     else {
       setUserConstraint(t, constraint_new, msg_3d);
     }
+
+    /* Take the opportunity to update the gizmo. */
+    transform_gizmo_3d_model_from_constraint_and_mode_set(t);
   }
   t->redraw |= TREDRAW_HARD;
   return true;
@@ -1481,6 +1484,12 @@ static void drawTransformPixel(const struct bContext *C, ARegion *region, void *
 
 void saveTransform(bContext *C, TransInfo *t, wmOperator *op)
 {
+  if (t->state == TRANS_CANCEL) {
+    /* No need to edit operator properties or tool settings if we are canceling the operation.
+     * These properties must match the original ones. */
+    return;
+  }
+
   ToolSettings *ts = CTX_data_tool_settings(C);
   PropertyRNA *prop;
 
@@ -1586,7 +1595,7 @@ void saveTransform(bContext *C, TransInfo *t, wmOperator *op)
     /* Update `ToolSettings` for properties that change during modal. */
     if (t->flag & T_MODAL) {
       /* Do we check for parameter? */
-      if (transformModeUseSnap(t) && !(t->tsnap.status & SNAP_FORCED)) {
+      if (transformModeUseSnap(t) && !(t->modifiers & MOD_SNAP_FORCED)) {
         if (!(t->modifiers & MOD_SNAP) != !(t->tsnap.flag & SCE_SNAP)) {
           /* Type is #eSnapFlag, but type must match various snap attributes in #ToolSettings. */
           short *snap_flag_ptr;
@@ -2057,6 +2066,8 @@ int transformEnd(bContext *C, TransInfo *t)
     viewRedrawPost(C, t);
 
     viewRedrawForce(C, t);
+
+    transform_gizmo_3d_model_from_constraint_and_mode_restore(t);
   }
 
   t->context = NULL;

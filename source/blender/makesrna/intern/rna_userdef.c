@@ -141,9 +141,9 @@ static const EnumPropertyItem rna_enum_userdef_viewport_aa_items[] = {
 };
 
 static const EnumPropertyItem rna_enum_preference_gpu_backend_items[] = {
-    {GPU_BACKEND_OPENGL, "OPENGL", 0, "OpenGL", "Use OpenGL back end"},
-    {GPU_BACKEND_METAL, "METAL", 0, "Metal", "Use Metal back end"},
-    {GPU_BACKEND_VULKAN, "VULKAN", 0, "Vulkan", "Use Vulkan back end"},
+    {GPU_BACKEND_OPENGL, "OPENGL", 0, "OpenGL", "Use OpenGL backend"},
+    {GPU_BACKEND_METAL, "METAL", 0, "Metal", "Use Metal backend"},
+    {GPU_BACKEND_VULKAN, "VULKAN", 0, "Vulkan", "Use Vulkan backend"},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -5647,8 +5647,8 @@ static void rna_def_userdef_system(BlenderRNA *brna)
   RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_preference_gpu_backend_itemf");
   RNA_def_property_ui_text(
       prop,
-      "GPU Back end",
-      "GPU back end to use (requires restarting Blender for changes to take effect)");
+      "GPU Backend",
+      "GPU backend to use (requires restarting Blender for changes to take effect)");
 
   /* Audio */
 
@@ -6227,7 +6227,7 @@ static void rna_def_userdef_filepaths(BlenderRNA *brna)
       prop,
       "Python Scripts Directory",
       "Alternate script path, matching the default layout with subdirectories: "
-      "startup, add-ons, modules, and presets (requires restart)");
+      "`startup`, `addons`, `modules`, and `presets` (requires restart)");
   /* TODO: editing should reset sys.path! */
 
   prop = RNA_def_property(srna, "i18n_branches_directory", PROP_STRING, PROP_DIRPATH);
