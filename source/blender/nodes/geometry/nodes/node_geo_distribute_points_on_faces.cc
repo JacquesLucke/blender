@@ -330,97 +330,38 @@ struct AttributeOutputs {
 };
 }  // namespace
 
-static void compute_normal_and_rotation_outputs(const Mesh &mesh,
-                                                const Span<float3> bary_coords,
-                                                const Span<int> looptri_indices,
-                                                MutableSpan<float3> r_normals,
-                                                MutableSpan<float3> r_rotations)
+static void compute_normal_outputs(const Mesh &mesh,
+                                   const Span<float3> bary_coords,
+                                   const Span<int> looptri_indices,
+                                   MutableSpan<float3> r_normals)
 {
-  const bool use_normals = !r_normals.is_empty();
-  const bool use_rotations = !r_rotations.is_empty();
-
   Array<float3> corner_normals(mesh.totloop);
-  if (use_normals || use_rotations) {
-    BKE_mesh_calc_normals_split_ex(
-        const_cast<Mesh *>(&mesh), nullptr, reinterpret_cast<float(*)[3]>(corner_normals.data()));
-  }
+  BKE_mesh_calc_normals_split_ex(
+      const_cast<Mesh *>(&mesh), nullptr, reinterpret_cast<float(*)[3]>(corner_normals.data()));
 
   const Span<MLoopTri> looptris = mesh.looptris();
 
-  if (use_normals) {
-    threading::parallel_for(bary_coords.index_range(), 512, [&](const IndexRange range) {
-      for (const int i : range) {
-        const int looptri_index = looptri_indices[i];
-        const MLoopTri &looptri = looptris[looptri_index];
-        const float3 &bary_coord = bary_coords[i];
+  threading::parallel_for(bary_coords.index_range(), 512, [&](const IndexRange range) {
+    for (const int i : range) {
+      const int looptri_index = looptri_indices[i];
+      const MLoopTri &looptri = looptris[looptri_index];
+      const float3 &bary_coord = bary_coords[i];
 
-        const float3 &normal0 = corner_normals[looptri.tri[0]];
-        const float3 &normal1 = corner_normals[looptri.tri[1]];
-        const float3 &normal2 = corner_normals[looptri.tri[2]];
+      const float3 &normal0 = corner_normals[looptri.tri[0]];
+      const float3 &normal1 = corner_normals[looptri.tri[1]];
+      const float3 &normal2 = corner_normals[looptri.tri[2]];
 
-        const float3 normal = math::normalize(
-            attribute_math::mix3(bary_coord, normal0, normal1, normal2));
-        r_normals[i] = normal;
-      }
-    });
-  }
-  if (use_rotations) {
-    BLI_assert(use_normals);
-    const Span<float3> positions = mesh.vert_positions();
-    const Span<MPoly> polys = mesh.polys();
-    const Span<MLoop> loops = mesh.loops();
-    threading::parallel_for(bary_coords.index_range(), 256, [&](const IndexRange range) {
-      for (const int i : range) {
-        const int looptri_index = looptri_indices[i];
-        const MLoopTri &looptri = looptris[looptri_index];
-        const MPoly &poly = polys[looptri.poly];
-
-        /* This may not be the true normal, it can also be smoothed or based on custom normals. */
-        const float3 &normal = r_normals[i];
-
-        /* Take the first non-zero-length edge that is not aligned with the normal as tangent
-         * guess. Typically that is just the first edge. Such an edge has to exist if the polygon
-         * area is larger than zero. If it is zero, there won't be any points distributed in the
-         * polygon anyway. */
-        float3 third_axis;
-        for (const int poly_edge_i : IndexRange(poly.totloop)) {
-          const bool is_last = poly_edge_i == poly.totloop - 1;
-          const int v0 = loops[poly.loopstart + poly_edge_i].v;
-          const int v1 = loops[poly.loopstart + (is_last ? 0 : poly_edge_i + 1)].v;
-          const float3 &pos0 = positions[v0];
-          const float3 &pos1 = positions[v1];
-          const float3 tangent_guess = pos1 - pos0;
-          if (math::is_zero(tangent_guess)) {
-            continue;
-          }
-          third_axis = math::normalize(math::cross(normal, tangent_guess));
-          if (math::is_zero(third_axis)) {
-            continue;
-          }
-          break;
-        }
-
-        const float3 tangent = math::cross(third_axis, normal);
-
-        float mat[3][3];
-        copy_v3_v3(mat[0], tangent);
-        copy_v3_v3(mat[1], third_axis);
-        copy_v3_v3(mat[2], normal);
-
-        BLI_assert(is_orthonormal_m3(mat));
-        BLI_assert(std::abs(determinant_m3_array(mat) - 1.0f) < 0.0001f);
-
-        mat3_normalized_to_eul(r_rotations[i], mat);
-      }
-    });
-  }
+      const float3 normal = math::normalize(
+          attribute_math::mix3(bary_coord, normal0, normal1, normal2));
+      r_normals[i] = normal;
+    }
+  });
 }
 
-static void compute_legacy_normal_and_rotation_outputs(const Mesh &mesh,
-                                                       const Span<float3> bary_coords,
-                                                       const Span<int> looptri_indices,
-                                                       MutableSpan<float3> r_normals,
-                                                       MutableSpan<float3> r_rotations)
+static void compute_legacy_normal_outputs(const Mesh &mesh,
+                                          const Span<float3> bary_coords,
+                                          const Span<int> looptri_indices,
+                                          MutableSpan<float3> r_normals)
 {
   const Span<float3> positions = mesh.vert_positions();
   const Span<MLoop> loops = mesh.loops();
@@ -438,16 +379,18 @@ static void compute_legacy_normal_and_rotation_outputs(const Mesh &mesh,
     const float3 v2_pos = positions[v2_index];
 
     float3 normal;
-    if (!r_normals.is_empty() || !r_rotations.is_empty()) {
-      normal_tri_v3(normal, v0_pos, v1_pos, v2_pos);
-    }
-    if (!r_normals.is_empty()) {
-      r_normals[i] = normal;
-    }
-    if (!r_rotations.is_empty()) {
-      r_rotations[i] = normal_to_euler_rotation(normal);
-    }
+    normal_tri_v3(normal, v0_pos, v1_pos, v2_pos);
+    r_normals[i] = normal;
   }
+}
+
+static void compute_rotation_output(const Span<float3> normals, MutableSpan<float3> r_rotations)
+{
+  threading::parallel_for(normals.index_range(), 256, [&](const IndexRange range) {
+    for (const int i : range) {
+      r_rotations[i] = normal_to_euler_rotation(normals[i]);
+    }
+  });
 }
 
 BLI_NOINLINE static void compute_attribute_outputs(const Mesh &mesh,
@@ -482,13 +425,17 @@ BLI_NOINLINE static void compute_attribute_outputs(const Mesh &mesh,
     }
   });
 
-  if (use_legacy_normal_and_rotation) {
-    compute_legacy_normal_and_rotation_outputs(
-        mesh, bary_coords, looptri_indices, normals.span, rotations.span);
-  }
-  else {
-    compute_normal_and_rotation_outputs(
-        mesh, bary_coords, looptri_indices, normals.span, rotations.span);
+  if (normals) {
+    if (use_legacy_normal_and_rotation) {
+      compute_legacy_normal_outputs(mesh, bary_coords, looptri_indices, normals.span);
+    }
+    else {
+      compute_normal_outputs(mesh, bary_coords, looptri_indices, normals.span);
+    }
+
+    if (rotations) {
+      compute_rotation_output(normals.span, rotations.span);
+    }
   }
 
   ids.finish();
