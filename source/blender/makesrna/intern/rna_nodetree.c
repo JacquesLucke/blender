@@ -9641,10 +9641,10 @@ static void def_geo_distribute_points_on_faces(StructRNA *srna)
   RNA_def_property_ui_text(prop, "Distribution Method", "Method to use for scattering points");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_socket_update");
 
-  prop = RNA_def_property(srna, "use_legacy_normal_and_rotation", PROP_BOOLEAN, PROP_NONE);
+  prop = RNA_def_property(srna, "use_legacy_normal", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "custom2", 1);
   RNA_def_property_ui_text(prop,
-                           "Legacy Normal and Rotation",
+                           "Legacy Normal",
                            "Output the normal and rotation values that have been output "
                            "before the node started taking smooth normals into account");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_socket_update");
@@ -9904,41 +9904,6 @@ static void def_fn_align_euler_to_vector(StructRNA *srna)
   RNA_def_property_enum_items(prop, pivot_axis_items);
   RNA_def_property_ui_text(prop, "Pivot Axis", "Axis to rotate around");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
-}
-
-static void def_fn_axis_to_euler(StructRNA *srna)
-{
-  static const EnumPropertyItem axis_items[] = {
-      {0, "X", ICON_NONE, "X", ""},
-      {1, "Y", ICON_NONE, "Y", ""},
-      {2, "Z", ICON_NONE, "Z", ""},
-      {0, NULL, 0, NULL, NULL},
-  };
-
-  PropertyRNA *prop;
-
-  RNA_def_struct_sdna_from(srna, "NodeFunctionAxisToEuler", "storage");
-
-  prop = RNA_def_property(srna, "primary_axis", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_items(prop, axis_items);
-  RNA_def_property_ui_text(
-      prop, "Primary Axis", "Axis that is aligned exactly to the provided primary direction");
-  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
-
-  prop = RNA_def_property(srna, "secondary_axis", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_items(prop, axis_items);
-  RNA_def_property_ui_text(
-      prop,
-      "Secondary Axis",
-      "Axis that is aligned as good as possible given the alignment of the primary axis");
-  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
-
-  prop = RNA_def_property(srna, "legacy_distribute_node_behavior", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_ui_text(
-      prop,
-      "Legacy Distribute Node Behavior",
-      "Use the exact behavior that the distribute points on faces node used to compute rotations");
-  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_socket_update");
 }
 
 static void def_geo_object_info(StructRNA *srna)

@@ -1560,7 +1560,6 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree, struct Scene *scene, i
 #define FN_NODE_INPUT_INT 1220
 #define FN_NODE_SEPARATE_COLOR 1221
 #define FN_NODE_COMBINE_COLOR 1222
-#define FN_NODE_AXIS_TO_EULER 1223
 
 /** \} */
 

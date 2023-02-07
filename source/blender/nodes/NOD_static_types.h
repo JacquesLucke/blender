@@ -262,7 +262,6 @@ DefNode(TextureNode,    TEX_NODE_PROC+TEX_STUCCI, 0,                     "TEX_ST
 DefNode(TextureNode,    TEX_NODE_PROC+TEX_DISTNOISE, 0,                  "TEX_DISTNOISE",  TexDistNoise,     "Distorted Noise",   ""              )
 
 DefNode(FunctionNode, FN_NODE_ALIGN_EULER_TO_VECTOR, def_fn_align_euler_to_vector, "ALIGN_EULER_TO_VECTOR", AlignEulerToVector, "Align Euler to Vector", "")
-DefNode(FunctionNode, FN_NODE_AXIS_TO_EULER, def_fn_axis_to_euler, "AXIS_TO_EULER", AxisToEuler, "Axis to Euler", "")
 DefNode(FunctionNode, FN_NODE_BOOLEAN_MATH, def_boolean_math,  "BOOLEAN_MATH", BooleanMath, "Boolean Math", "")
 DefNode(FunctionNode, FN_NODE_COMBINE_COLOR, def_fn_combsep_color, "COMBINE_COLOR", CombineColor, "Combine Color", "")
 DefNode(FunctionNode, FN_NODE_COMPARE, def_compare, "COMPARE", Compare, "Compare", "")

@@ -21,7 +21,6 @@ set(INC_SYS
 
 set(SRC
   nodes/node_fn_align_euler_to_vector.cc
-  nodes/node_fn_axis_to_euler.cc
   nodes/node_fn_boolean_math.cc
   nodes/node_fn_combine_color.cc
   nodes/node_fn_compare.cc

@@ -3,7 +3,6 @@
 #pragma once
 
 void register_node_type_fn_align_euler_to_vector();
-void register_node_type_fn_axis_to_euler();
 void register_node_type_fn_boolean_math();
 void register_node_type_fn_combine_color();
 void register_node_type_fn_compare();

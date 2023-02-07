@@ -69,7 +69,7 @@ static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 
 static void node_layout_ex(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
-  uiItemR(layout, ptr, "use_legacy_normal_and_rotation", 0, nullptr, ICON_NONE);
+  uiItemR(layout, ptr, "use_legacy_normal", 0, nullptr, ICON_NONE);
 }
 
 static void node_point_distribute_points_on_faces_update(bNodeTree *ntree, bNode *node)
@@ -398,7 +398,7 @@ BLI_NOINLINE static void compute_attribute_outputs(const Mesh &mesh,
                                                    const Span<float3> bary_coords,
                                                    const Span<int> looptri_indices,
                                                    const AttributeOutputs &attribute_outputs,
-                                                   const bool use_legacy_normal_and_rotation)
+                                                   const bool use_legacy_normal)
 {
   MutableAttributeAccessor point_attributes = points.attributes_for_write();
 
@@ -426,7 +426,7 @@ BLI_NOINLINE static void compute_attribute_outputs(const Mesh &mesh,
   });
 
   if (normals) {
-    if (use_legacy_normal_and_rotation) {
+    if (use_legacy_normal) {
       compute_legacy_normal_outputs(mesh, bary_coords, looptri_indices, normals.span);
     }
     else {
@@ -567,13 +567,9 @@ static void point_distribution_calculate(GeometrySet &geometry_set,
 
   propagate_existing_attributes(mesh, attributes, *pointcloud, bary_coords, looptri_indices);
 
-  const bool use_legacy_normal_and_rotation = params.node().custom2 != 0;
-  compute_attribute_outputs(mesh,
-                            *pointcloud,
-                            bary_coords,
-                            looptri_indices,
-                            attribute_outputs,
-                            use_legacy_normal_and_rotation);
+  const bool use_legacy_normal = params.node().custom2 != 0;
+  compute_attribute_outputs(
+      mesh, *pointcloud, bary_coords, looptri_indices, attribute_outputs, use_legacy_normal);
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
