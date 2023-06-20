@@ -118,8 +118,11 @@ void DrawNodeLayoutParams::draw_input(uiLayout &layout, bNodeSocket &socket)
 
   PointerRNA sockptr;
   RNA_pointer_create(ptr->owner_id, &RNA_NodeSocket, &socket, &sockptr);
-  socket.typeinfo->draw(
-      const_cast<bContext *>(this->C), col, &sockptr, this->ptr, nodeSocketLabel(&socket));
+  socket.typeinfo->draw(const_cast<bContext *>(this->C),
+                        col,
+                        &sockptr,
+                        this->ptr,
+                        blender::bke::nodeSocketLabel(&socket));
   this->attach_socket(*col, socket);
 }
 
@@ -142,7 +145,7 @@ struct TreeDrawContext {
    * currently drawn node tree can be retrieved from the log below.
    */
   blender::Map<const bNodeTreeZone *, geo_log::GeoTreeLog *> geo_log_by_zone;
-  Vector<rcti> layout_bounds;
+  blender::Vector<rcti> layout_bounds;
   /**
    * True if there is an active realtime compositor using the node tree, false otherwise.
    */
@@ -369,7 +372,7 @@ float2 node_from_view(const bNode &node, const float2 &co)
  * Based on settings and sockets in node, set drawing rect info.
  */
 static void node_update_basis(const bContext &C,
-                              const TreeDrawContext & /*tree_draw_ctx*/,
+                              TreeDrawContext &tree_draw_ctx,
                               bNodeTree &ntree,
                               bNode &node,
                               uiBlock &block)
@@ -401,12 +404,10 @@ static void node_update_basis(const bContext &C,
   bool add_output_space = false;
 
   for (bNodeSocket *socket : node.input_sockets()) {
-    socket->locx = 0;
-    socket->locy = 0;
+    socket->runtime->location = {0, 0};
   }
   for (bNodeSocket *socket : node.output_sockets()) {
-    socket->locx = 0;
-    socket->locy = 0;
+    socket->runtime->location = {0, 0};
   }
 
   if (node.typeinfo->draw_layout) {
@@ -440,8 +441,7 @@ static void node_update_basis(const bContext &C,
       bNodeSocket *socket = item.value[0];
       rcti layout_bounds;
       UI_layout_bounds(&block, layout, &layout_bounds);
-      socket->locx = loc.x;
-      socket->locy = BLI_rcti_cent_y(&layout_bounds);
+      socket->runtime->location = {loc.x, float(BLI_rcti_cent_y(&layout_bounds))};
     }
 
     for (auto item : params.output_sockets.items()) {
@@ -449,8 +449,7 @@ static void node_update_basis(const bContext &C,
       bNodeSocket *socket = item.value[0];
       rcti layout_bounds;
       UI_layout_bounds(&block, layout, &layout_bounds);
-      socket->locx = loc.x + NODE_WIDTH(node);
-      socket->locy = BLI_rcti_cent_y(&layout_bounds);
+      socket->runtime->location = {loc.x + NODE_WIDTH(node), BLI_rcti_cent_y(&layout_bounds)};
     }
 
     rcti layout_rect;

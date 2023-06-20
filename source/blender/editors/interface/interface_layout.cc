@@ -5762,7 +5762,7 @@ void UI_block_layout_free(uiBlock *block)
 
 static void store_layout_bounds_recursive(uiBlock *block, uiLayout *layout)
 {
-  uiBlockLayoutBounds *bounds = MEM_callocN(sizeof(uiBlockLayoutBounds), __func__);
+  uiBlockLayoutBounds *bounds = MEM_cnew<uiBlockLayoutBounds>(__func__);
   bounds->layout = layout;
   BLI_rcti_init(
       &bounds->bounds, layout->x, layout->x + layout->w, layout->y, layout->y + layout->h);
