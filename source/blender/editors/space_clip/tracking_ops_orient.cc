@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2016 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spclip
@@ -41,7 +42,7 @@ static Object *get_camera_with_movieclip(Scene *scene, const MovieClip *clip)
 {
   Object *camera = scene->camera;
 
-  if (camera != NULL && BKE_object_movieclip_get(scene, camera, false) == clip) {
+  if (camera != nullptr && BKE_object_movieclip_get(scene, camera, false) == clip) {
     return camera;
   }
 
@@ -66,7 +67,7 @@ static Object *get_orientation_object(bContext *C)
   MovieClip *clip = ED_space_clip_get_clip(sc);
   MovieTracking *tracking = &clip->tracking;
   MovieTrackingObject *tracking_object = BKE_tracking_object_get_active(tracking);
-  Object *object = NULL;
+  Object *object = nullptr;
 
   if (tracking_object->flag & TRACKING_OBJECT_CAMERA) {
     object = get_camera_with_movieclip(scene, clip);
@@ -76,7 +77,7 @@ static Object *get_orientation_object(bContext *C)
     object = BKE_view_layer_active_object_get(view_layer);
   }
 
-  if (object != NULL && object->parent != NULL) {
+  if (object != nullptr && object->parent != nullptr) {
     object = object->parent;
   }
 
@@ -86,18 +87,18 @@ static Object *get_orientation_object(bContext *C)
 static bool set_orientation_poll(bContext *C)
 {
   SpaceClip *sc = CTX_wm_space_clip(C);
-  if (sc != NULL) {
+  if (sc != nullptr) {
     const Scene *scene = CTX_data_scene(C);
     ViewLayer *view_layer = CTX_data_view_layer(C);
     MovieClip *clip = ED_space_clip_get_clip(sc);
-    if (clip != NULL) {
+    if (clip != nullptr) {
       MovieTracking *tracking = &clip->tracking;
       MovieTrackingObject *tracking_object = BKE_tracking_object_get_active(tracking);
       if (tracking_object->flag & TRACKING_OBJECT_CAMERA) {
         return true;
       }
       BKE_view_layer_synced_ensure(scene, view_layer);
-      return BKE_view_layer_active_object_get(view_layer) != NULL;
+      return BKE_view_layer_active_object_get(view_layer) != nullptr;
     }
   }
   return false;
@@ -122,7 +123,7 @@ static void object_solver_inverted_matrix(Scene *scene, Object *ob, float invmat
   bool found = false;
   LISTBASE_FOREACH (bConstraint *, con, &ob->constraints) {
     const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
-    if (cti == NULL) {
+    if (cti == nullptr) {
       continue;
     }
     if (cti->type == CONSTRAINT_TYPE_OBJECTSOLVER) {
@@ -147,15 +148,15 @@ static Object *object_solver_camera(Scene *scene, Object *ob)
 {
   LISTBASE_FOREACH (bConstraint *, con, &ob->constraints) {
     const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
-    if (cti == NULL) {
+    if (cti == nullptr) {
       continue;
     }
     if (cti->type == CONSTRAINT_TYPE_OBJECTSOLVER) {
       bObjectSolverConstraint *data = (bObjectSolverConstraint *)con->data;
-      return (data->camera != NULL) ? data->camera : scene->camera;
+      return (data->camera != nullptr) ? data->camera : scene->camera;
     }
   }
-  return NULL;
+  return nullptr;
 }
 
 static int set_origin_exec(bContext *C, wmOperator *op)
@@ -177,7 +178,7 @@ static int set_origin_exec(bContext *C, wmOperator *op)
   }
 
   Object *object = get_orientation_object(C);
-  if (object == NULL) {
+  if (object == nullptr) {
     BKE_report(op->reports, RPT_ERROR, "No object to apply orientation on");
     return OPERATOR_CANCELLED;
   }
@@ -210,7 +211,7 @@ static int set_origin_exec(bContext *C, wmOperator *op)
   DEG_id_tag_update(&object->id, ID_RECALC_TRANSFORM);
 
   WM_event_add_notifier(C, NC_MOVIECLIP | NA_EVALUATED, clip);
-  WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, NULL);
+  WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, nullptr);
 
   return OPERATOR_FINISHED;
 }
@@ -231,8 +232,11 @@ void CLIP_OT_set_origin(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   /* properties */
-  RNA_def_boolean(
-      ot->srna, "use_median", 0, "Use Median", "Set origin to median point of selected bundles");
+  RNA_def_boolean(ot->srna,
+                  "use_median",
+                  false,
+                  "Use Median",
+                  "Set origin to median point of selected bundles");
 }
 
 /********************** set floor operator *********************/
@@ -366,7 +370,7 @@ static void set_axis(Scene *scene,
     }
   }
 
-  BKE_object_apply_mat4(ob, mat, 0, 0);
+  BKE_object_apply_mat4(ob, mat, false, false);
 }
 
 static int set_plane_exec(bContext *C, wmOperator *op)
@@ -375,7 +379,7 @@ static int set_plane_exec(bContext *C, wmOperator *op)
   MovieClip *clip = ED_space_clip_get_clip(sc);
   Scene *scene = CTX_data_scene(C);
   MovieTracking *tracking = &clip->tracking;
-  const MovieTrackingTrack *axis_track = NULL;
+  const MovieTrackingTrack *axis_track = nullptr;
   Object *camera = get_camera_with_movieclip(scene, clip);
   int tot = 0;
   float vec[3][3], mat[4][4], obmat[4][4], newmat[4][4], orig[3] = {0.0f, 0.0f, 0.0f};
@@ -396,7 +400,7 @@ static int set_plane_exec(bContext *C, wmOperator *op)
   const MovieTrackingObject *tracking_object = BKE_tracking_object_get_active(tracking);
 
   Object *object = get_orientation_object(C);
-  if (object == NULL) {
+  if (object == nullptr) {
     BKE_report(op->reports, RPT_ERROR, "No object to apply orientation on");
     return OPERATOR_CANCELLED;
   }
@@ -453,17 +457,17 @@ static int set_plane_exec(bContext *C, wmOperator *op)
     BKE_object_to_mat4(object, obmat);
     mul_m4_m4m4(mat, mat, obmat);
     mul_m4_m4m4(newmat, rot, mat);
-    BKE_object_apply_mat4(object, newmat, 0, 0);
+    BKE_object_apply_mat4(object, newmat, false, false);
 
     /* Make camera have positive z-coordinate. */
     if (object->loc[2] < 0) {
       invert_m4(rot);
       mul_m4_m4m4(newmat, rot, mat);
-      BKE_object_apply_mat4(object, newmat, 0, 0);
+      BKE_object_apply_mat4(object, newmat, false, false);
     }
   }
   else {
-    BKE_object_apply_mat4(object, mat, 0, 0);
+    BKE_object_apply_mat4(object, mat, false, false);
   }
 
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
@@ -479,7 +483,7 @@ static int set_plane_exec(bContext *C, wmOperator *op)
   DEG_id_tag_update(&object->id, ID_RECALC_TRANSFORM);
 
   WM_event_add_notifier(C, NC_MOVIECLIP | NA_EVALUATED, clip);
-  WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, NULL);
+  WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, nullptr);
 
   return OPERATOR_FINISHED;
 }
@@ -489,7 +493,7 @@ void CLIP_OT_set_plane(wmOperatorType *ot)
   static const EnumPropertyItem plane_items[] = {
       {0, "FLOOR", 0, "Floor", "Set floor plane"},
       {1, "WALL", 0, "Wall", "Set wall plane"},
-      {0, NULL, 0, NULL, NULL},
+      {0, nullptr, 0, nullptr, nullptr},
   };
 
   /* identifiers */
@@ -529,7 +533,7 @@ static int set_axis_exec(bContext *C, wmOperator *op)
   }
 
   object = get_orientation_object(C);
-  if (object == NULL) {
+  if (object == nullptr) {
     BKE_report(op->reports, RPT_ERROR, "No object to apply orientation on");
     return OPERATOR_CANCELLED;
   }
@@ -549,7 +553,7 @@ static int set_axis_exec(bContext *C, wmOperator *op)
   DEG_id_tag_update(&object->id, ID_RECALC_TRANSFORM);
 
   WM_event_add_notifier(C, NC_MOVIECLIP | NA_EVALUATED, clip);
-  WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, NULL);
+  WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, nullptr);
 
   return OPERATOR_FINISHED;
 }
@@ -559,15 +563,15 @@ void CLIP_OT_set_axis(wmOperatorType *ot)
   static const EnumPropertyItem axis_actions[] = {
       {0, "X", 0, "X", "Align bundle align X axis"},
       {1, "Y", 0, "Y", "Align bundle align Y axis"},
-      {0, NULL, 0, NULL, NULL},
+      {0, nullptr, 0, nullptr, nullptr},
   };
 
   /* identifiers */
   ot->name = "Set Axis";
   ot->description =
-      "Set direction of scene axis rotating camera "
-      "(or its parent if present) and assume selected track "
-      "lies on real axis, joining it with the origin";
+      "Set the direction of a scene axis by rotating the camera "
+      "(or its parent if present). This assumes that the selected "
+      "track lies on a real axis connecting it to the origin";
   ot->idname = "CLIP_OT_set_axis";
 
   /* api callbacks */
@@ -590,7 +594,7 @@ static int do_set_scale(bContext *C, wmOperator *op, bool scale_solution, bool a
   MovieTracking *tracking = &clip->tracking;
   MovieTrackingObject *tracking_object = BKE_tracking_object_get_active(tracking);
   Scene *scene = CTX_data_scene(C);
-  Object *object = NULL;
+  Object *object = nullptr;
   Object *camera = get_camera_with_movieclip(scene, clip);
   int tot = 0;
   float vec[2][3], mat[4][4], scale;
@@ -603,7 +607,7 @@ static int do_set_scale(bContext *C, wmOperator *op, bool scale_solution, bool a
 
   if (!scale_solution && !apply_scale) {
     object = get_orientation_object(C);
-    if (object == NULL) {
+    if (object == nullptr) {
       BKE_report(op->reports, RPT_ERROR, "No object to apply orientation on");
       return OPERATOR_CANCELLED;
     }
@@ -638,7 +642,7 @@ static int do_set_scale(bContext *C, wmOperator *op, bool scale_solution, bool a
       }
 
       WM_event_add_notifier(C, NC_MOVIECLIP | NA_EVALUATED, clip);
-      WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, NULL);
+      WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, nullptr);
     }
     else {
       if (tracking_object->flag & TRACKING_OBJECT_CAMERA) {
@@ -667,7 +671,7 @@ static int do_set_scale(bContext *C, wmOperator *op, bool scale_solution, bool a
       }
 
       WM_event_add_notifier(C, NC_MOVIECLIP | NA_EVALUATED, clip);
-      WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, NULL);
+      WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, nullptr);
     }
   }
 
@@ -679,7 +683,7 @@ static int set_scale_exec(bContext *C, wmOperator *op)
   return do_set_scale(C, op, false, false);
 }
 
-static int set_scale_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+static int set_scale_invoke(bContext *C, wmOperator *op, const wmEvent * /*event*/)
 {
   SpaceClip *sc = CTX_wm_space_clip(C);
   MovieClip *clip = ED_space_clip_get_clip(sc);
@@ -723,9 +727,9 @@ void CLIP_OT_set_scale(wmOperatorType *ot)
 static bool set_solution_scale_poll(bContext *C)
 {
   SpaceClip *sc = CTX_wm_space_clip(C);
-  if (sc != NULL) {
+  if (sc != nullptr) {
     MovieClip *clip = ED_space_clip_get_clip(sc);
-    if (clip != NULL) {
+    if (clip != nullptr) {
       MovieTracking *tracking = &clip->tracking;
       MovieTrackingObject *tracking_object = BKE_tracking_object_get_active(tracking);
       return (tracking_object->flag & TRACKING_OBJECT_CAMERA) == 0;
@@ -739,7 +743,7 @@ static int set_solution_scale_exec(bContext *C, wmOperator *op)
   return do_set_scale(C, op, true, false);
 }
 
-static int set_solution_scale_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+static int set_solution_scale_invoke(bContext *C, wmOperator *op, const wmEvent * /*event*/)
 {
   SpaceClip *sc = CTX_wm_space_clip(C);
   MovieClip *clip = ED_space_clip_get_clip(sc);
@@ -785,15 +789,15 @@ void CLIP_OT_set_solution_scale(wmOperatorType *ot)
 static bool apply_solution_scale_poll(bContext *C)
 {
   SpaceClip *sc = CTX_wm_space_clip(C);
-  if (sc != NULL) {
+  if (sc != nullptr) {
     MovieClip *clip = ED_space_clip_get_clip(sc);
-    if (clip != NULL) {
+    if (clip != nullptr) {
       MovieTracking *tracking = &clip->tracking;
       MovieTrackingObject *tracking_object = BKE_tracking_object_get_active(tracking);
       return (tracking_object->flag & TRACKING_OBJECT_CAMERA) != 0;
     }
   }
-  return 0;
+  return false;
 }
 
 static int apply_solution_scale_exec(bContext *C, wmOperator *op)
@@ -801,7 +805,7 @@ static int apply_solution_scale_exec(bContext *C, wmOperator *op)
   return do_set_scale(C, op, false, true);
 }
 
-static int apply_solution_scale_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+static int apply_solution_scale_invoke(bContext *C, wmOperator *op, const wmEvent * /*event*/)
 {
   SpaceClip *sc = CTX_wm_space_clip(C);
   MovieClip *clip = ED_space_clip_get_clip(sc);

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2011-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -117,13 +119,13 @@ void SphericalGrid::assignCells(OccluderSource & /*source*/,
   // Now allocate the cell table and fill it with default (empty) cells
   _cells.resize(_cellsX * _cellsY);
   for (cellContainer::iterator i = _cells.begin(), end = _cells.end(); i != end; ++i) {
-    (*i) = NULL;
+    (*i) = nullptr;
   }
 
   // Identify cells that will be used, and set the dimensions for each
   ViewMap::fedges_container &fedges = viewMap->FEdges();
-  for (ViewMap::fedges_container::iterator f = fedges.begin(), fend = fedges.end(); f != fend;
-       ++f) {
+  for (ViewMap::fedges_container::iterator f = fedges.begin(), fend = fedges.end(); f != fend; ++f)
+  {
     if ((*f)->isInImage()) {
       Vec3r point = SphericalGrid::Transform::sphericalProjection((*f)->center3d());
       uint i, j;
@@ -178,7 +180,7 @@ void SphericalGrid::reorganizeCells()
 {
   // Sort the occluders by shallowest point
   for (vector<Cell *>::iterator i = _cells.begin(), end = _cells.end(); i != end; ++i) {
-    if (*i != NULL) {
+    if (*i != nullptr) {
       (*i)->indexPolygons();
     }
   }

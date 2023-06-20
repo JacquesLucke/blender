@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __UTIL_GUARDED_ALLOCATOR_H__
 #define __UTIL_GUARDED_ALLOCATOR_H__
@@ -29,12 +30,8 @@ template<typename T> class GuardedAllocator {
   typedef const T &const_reference;
   typedef T value_type;
 
-  GuardedAllocator()
-  {
-  }
-  GuardedAllocator(const GuardedAllocator &)
-  {
-  }
+  GuardedAllocator() {}
+  GuardedAllocator(const GuardedAllocator &) {}
 
   T *allocate(size_t n, const void *hint = 0)
   {
@@ -97,9 +94,7 @@ template<typename T> class GuardedAllocator {
     typedef GuardedAllocator<U> other;
   };
 
-  template<class U> GuardedAllocator(const GuardedAllocator<U> &)
-  {
-  }
+  template<class U> GuardedAllocator(const GuardedAllocator<U> &) {}
 
   template<class U> GuardedAllocator &operator=(const GuardedAllocator<U> &)
   {

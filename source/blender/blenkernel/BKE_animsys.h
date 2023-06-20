@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation, Joshua Leung. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation, Joshua Leung. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -33,12 +34,11 @@ struct PointerRNA;
 struct PropertyRNA;
 struct bAction;
 struct bActionGroup;
-struct bContext;
 
 /* Container for data required to do FCurve and Driver evaluation. */
 typedef struct AnimationEvalContext {
   /* For drivers, so that they have access to the dependency graph and the current view layer. See
-   * T77086. */
+   * #77086. */
   struct Depsgraph *depsgraph;
 
   /* FCurves and Drivers can be evaluated at a different time than the current scene time, for
@@ -230,7 +230,7 @@ void BKE_fcurves_main_cb(struct Main *bmain, ID_FCurve_Edit_Callback func, void 
 void BKE_fcurves_id_cb(struct ID *id, ID_FCurve_Edit_Callback func, void *user_data);
 
 /* ************************************* */
-// TODO: overrides, remapping, and path-finding api's
+/* TODO: overrides, remapping, and path-finding API's. */
 
 /* ------------ NLA Keyframing --------------- */
 

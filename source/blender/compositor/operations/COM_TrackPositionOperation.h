@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2012 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2012 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -25,7 +26,7 @@ class TrackPositionOperation : public ConstantOperation {
   char tracking_object_name_[64];
   char track_name_[64];
   int axis_;
-  int position_;
+  CMPNodeTrackPositionMode position_;
   int relative_frame_;
   bool speed_output_;
 
@@ -63,7 +64,7 @@ class TrackPositionOperation : public ConstantOperation {
   {
     axis_ = value;
   }
-  void set_position(int value)
+  void set_position(CMPNodeTrackPositionMode value)
   {
     position_ = value;
   }

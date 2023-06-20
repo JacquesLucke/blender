@@ -1,5 +1,7 @@
+# SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+#
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2011-2022 Blender Foundation
+
 from __future__ import annotations
 
 from bl_operators.presets import AddPresetBase
@@ -91,8 +93,8 @@ class AddPresetPerformance(AddPresetBase, Operator):
     preset_menu = "CYCLES_PT_performance_presets"
 
     preset_defines = [
-        "render = bpy.context.scene.render"
-        "cycles = bpy.context.scene.cycles"
+        "render = bpy.context.scene.render",
+        "cycles = bpy.context.scene.cycles",
     ]
 
     preset_values = [

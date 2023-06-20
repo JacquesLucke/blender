@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "BLI_span.hh"
 #include "BLI_strict_flags.h"
@@ -142,8 +144,8 @@ TEST(span, SliceRange)
 TEST(span, SliceLargeN)
 {
   Vector<int> a = {1, 2, 3, 4, 5};
-  Span<int> slice1 = Span<int>(a).slice(3, 100);
-  MutableSpan<int> slice2 = MutableSpan<int>(a).slice(3, 100);
+  Span<int> slice1 = Span<int>(a).slice_safe(3, 100);
+  MutableSpan<int> slice2 = MutableSpan<int>(a).slice_safe(3, 100);
   EXPECT_EQ(slice1.size(), 2);
   EXPECT_EQ(slice2.size(), 2);
   EXPECT_EQ(slice1[0], 4);
@@ -225,7 +227,7 @@ TEST(span, FillIndices)
 {
   std::array<int, 5> a = {0, 0, 0, 0, 0};
   MutableSpan<int> a_span(a);
-  a_span.fill_indices({0, 2, 3}, 1);
+  a_span.fill_indices(Span({0, 2, 3}), 1);
   EXPECT_EQ(a[0], 1);
   EXPECT_EQ(a[1], 0);
   EXPECT_EQ(a[2], 1);

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_math_matrix.h"
 
@@ -20,15 +22,15 @@ NODE_STORAGE_FUNCS(NodeGeometryCollectionInfo)
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Collection>(N_("Collection")).hide_label();
-  b.add_input<decl::Bool>(N_("Separate Children"))
+  b.add_input<decl::Collection>("Collection").hide_label();
+  b.add_input<decl::Bool>("Separate Children")
       .description(
-          N_("Output each child of the collection as a separate instance, sorted alphabetically"));
-  b.add_input<decl::Bool>(N_("Reset Children"))
+          "Output each child of the collection as a separate instance, sorted alphabetically");
+  b.add_input<decl::Bool>("Reset Children")
       .description(
-          N_("Reset the transforms of every child instance in the output. Only used when Separate "
-             "Children is enabled"));
-  b.add_output<decl::Geometry>(N_("Geometry"));
+          "Reset the transforms of every child instance in the output. Only used when Separate "
+          "Children is enabled");
+  b.add_output<decl::Geometry>("Instances");
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -61,7 +63,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   const bool is_recursive = BKE_collection_has_object_recursive_instanced(
       collection, const_cast<Object *>(self_object));
   if (is_recursive) {
-    params.error_message_add(NodeWarningType::Error, "Collection contains current object");
+    params.error_message_add(NodeWarningType::Error, TIP_("Collection contains current object"));
     params.set_default_remaining_outputs();
     return;
   }
@@ -91,12 +93,12 @@ static void node_geo_exec(GeoNodeExecParams params)
     for (Collection *child_collection : children_collections) {
       float4x4 transform = float4x4::identity();
       if (!reset_children) {
-        add_v3_v3(transform.values[3], child_collection->instance_offset);
+        transform.location() += float3(child_collection->instance_offset);
         if (use_relative_transform) {
-          mul_m4_m4_pre(transform.values, self_object->world_to_object);
+          transform = float4x4(self_object->world_to_object) * transform;
         }
         else {
-          sub_v3_v3(transform.values[3], collection->instance_offset);
+          transform.location() -= float3(collection->instance_offset);
         }
       }
       const int handle = instances->add_reference(*child_collection);
@@ -107,12 +109,12 @@ static void node_geo_exec(GeoNodeExecParams params)
       float4x4 transform = float4x4::identity();
       if (!reset_children) {
         if (use_relative_transform) {
-          transform = self_object->world_to_object;
+          transform = float4x4(self_object->world_to_object);
         }
         else {
-          sub_v3_v3(transform.values[3], collection->instance_offset);
+          transform.location() -= float3(collection->instance_offset);
         }
-        mul_m4_m4_post(transform.values, child_object->object_to_world);
+        transform *= float4x4(child_object->object_to_world);
       }
       entries.append({handle, &(child_object->id.name[2]), transform});
     }
@@ -129,15 +131,15 @@ static void node_geo_exec(GeoNodeExecParams params)
   else {
     float4x4 transform = float4x4::identity();
     if (use_relative_transform) {
-      copy_v3_v3(transform.values[3], collection->instance_offset);
-      mul_m4_m4_pre(transform.values, self_object->world_to_object);
+      transform.location() = collection->instance_offset;
+      transform = float4x4_view(self_object->world_to_object) * transform;
     }
 
     const int handle = instances->add_reference(*collection);
     instances->add_instance(handle, transform);
   }
 
-  params.set_output("Geometry", GeometrySet::create_with_instances(instances.release()));
+  params.set_output("Instances", GeometrySet::create_with_instances(instances.release()));
 }
 
 }  // namespace blender::nodes::node_geo_collection_info_cc

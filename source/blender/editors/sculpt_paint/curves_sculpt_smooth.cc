@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_brush.h"
 #include "BKE_context.h"
@@ -14,6 +16,7 @@
 #include "WM_api.h"
 
 #include "BLI_enumerable_thread_specific.hh"
+#include "BLI_task.hh"
 
 #include "curves_sculpt_intern.hh"
 
@@ -43,7 +46,7 @@ struct SmoothOperationExecutor {
   CurvesGeometry *curves_ = nullptr;
 
   VArray<float> point_factors_;
-  Vector<int64_t> selected_curve_indices_;
+  IndexMaskMemory selected_curve_memory_;
   IndexMask curve_selection_;
 
   const CurvesSculpt *curves_sculpt_ = nullptr;
@@ -55,9 +58,7 @@ struct SmoothOperationExecutor {
 
   CurvesSurfaceTransforms transforms_;
 
-  SmoothOperationExecutor(const bContext &C) : ctx_(C)
-  {
-  }
+  SmoothOperationExecutor(const bContext &C) : ctx_(C) {}
 
   void execute(SmoothOperation &self, const bContext &C, const StrokeExtension &stroke_extension)
   {
@@ -66,7 +67,7 @@ struct SmoothOperationExecutor {
 
     object_ = CTX_data_active_object(&C);
     curves_id_ = static_cast<Curves *>(object_->data);
-    curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
+    curves_ = &curves_id_->geometry.wrap();
     if (curves_->curves_num() == 0) {
       return;
     }
@@ -78,8 +79,9 @@ struct SmoothOperationExecutor {
     brush_strength_ = brush_strength_get(*ctx_.scene, *brush_, stroke_extension);
     brush_pos_re_ = stroke_extension.mouse_position;
 
-    point_factors_ = get_point_selection(*curves_id_);
-    curve_selection_ = retrieve_selected_curves(*curves_id_, selected_curve_indices_);
+    point_factors_ = *curves_->attributes().lookup_or_default<float>(
+        ".selection", ATTR_DOMAIN_POINT, 1.0f);
+    curve_selection_ = curves::retrieve_selected_curves(*curves_id_, selected_curve_memory_);
     transforms_ = CurvesSurfaceTransforms(*object_, curves_id_->surface);
 
     const eBrushFalloffShape falloff_shape = static_cast<eBrushFalloffShape>(
@@ -127,39 +129,39 @@ struct SmoothOperationExecutor {
   void find_projected_smooth_factors(const float4x4 &brush_transform,
                                      MutableSpan<float> r_point_smooth_factors)
   {
-    const float4x4 brush_transform_inv = brush_transform.inverted();
+    const float4x4 brush_transform_inv = math::invert(brush_transform);
 
     const float brush_radius_re = brush_radius_base_re_ * brush_radius_factor_;
     const float brush_radius_sq_re = pow2f(brush_radius_re);
 
     float4x4 projection;
-    ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
+    ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.ptr());
 
     const bke::crazyspace::GeometryDeformation deformation =
         bke::crazyspace::get_evaluated_curves_deformation(*ctx_.depsgraph, *object_);
+    const OffsetIndices points_by_curve = curves_->points_by_curve();
 
-    threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
-      for (const int curve_i : curve_selection_.slice(range)) {
-        const IndexRange points = curves_->points_for_curve(curve_i);
-        for (const int point_i : points) {
-          const float3 &pos_cu = brush_transform_inv * deformation.positions[point_i];
-          float2 pos_re;
-          ED_view3d_project_float_v2_m4(ctx_.region, pos_cu, pos_re, projection.values);
-          const float dist_to_brush_sq_re = math::distance_squared(pos_re, brush_pos_re_);
-          if (dist_to_brush_sq_re > brush_radius_sq_re) {
-            continue;
-          }
-
-          const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
-          const float radius_falloff = BKE_brush_curve_strength(
-              brush_, dist_to_brush_re, brush_radius_re);
-          /* Used to make the brush easier to use. Otherwise a strength of 1 would be way too
-           * large. */
-          const float weight_factor = 0.1f;
-          const float weight = weight_factor * brush_strength_ * radius_falloff *
-                               point_factors_[point_i];
-          math::max_inplace(r_point_smooth_factors[point_i], weight);
+    curve_selection_.foreach_index(GrainSize(256), [&](const int curve_i) {
+      const IndexRange points = points_by_curve[curve_i];
+      for (const int point_i : points) {
+        const float3 &pos_cu = math::transform_point(brush_transform_inv,
+                                                     deformation.positions[point_i]);
+        float2 pos_re;
+        ED_view3d_project_float_v2_m4(ctx_.region, pos_cu, pos_re, projection.ptr());
+        const float dist_to_brush_sq_re = math::distance_squared(pos_re, brush_pos_re_);
+        if (dist_to_brush_sq_re > brush_radius_sq_re) {
+          continue;
         }
+
+        const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
+        const float radius_falloff = BKE_brush_curve_strength(
+            brush_, dist_to_brush_re, brush_radius_re);
+        /* Used to make the brush easier to use. Otherwise a strength of 1 would be way too
+         * large. */
+        const float weight_factor = 0.1f;
+        const float weight = weight_factor * brush_strength_ * radius_falloff *
+                             point_factors_[point_i];
+        math::max_inplace(r_point_smooth_factors[point_i], weight);
       }
     });
   }
@@ -167,22 +169,24 @@ struct SmoothOperationExecutor {
   void find_spherical_smooth_factors_with_symmetry(MutableSpan<float> r_point_smooth_factors)
   {
     float4x4 projection;
-    ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
+    ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.ptr());
 
     float3 brush_pos_wo;
-    ED_view3d_win_to_3d(ctx_.v3d,
-                        ctx_.region,
-                        transforms_.curves_to_world * self_->brush_3d_.position_cu,
-                        brush_pos_re_,
-                        brush_pos_wo);
-    const float3 brush_pos_cu = transforms_.world_to_curves * brush_pos_wo;
+    ED_view3d_win_to_3d(
+        ctx_.v3d,
+        ctx_.region,
+        math::transform_point(transforms_.curves_to_world, self_->brush_3d_.position_cu),
+        brush_pos_re_,
+        brush_pos_wo);
+    const float3 brush_pos_cu = math::transform_point(transforms_.world_to_curves, brush_pos_wo);
     const float brush_radius_cu = self_->brush_3d_.radius_cu * brush_radius_factor_;
 
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->find_spherical_smooth_factors(
-          brush_transform * brush_pos_cu, brush_radius_cu, r_point_smooth_factors);
+      this->find_spherical_smooth_factors(math::transform_point(brush_transform, brush_pos_cu),
+                                          brush_radius_cu,
+                                          r_point_smooth_factors);
     }
   }
 
@@ -193,38 +197,39 @@ struct SmoothOperationExecutor {
     const float brush_radius_sq_cu = pow2f(brush_radius_cu);
     const bke::crazyspace::GeometryDeformation deformation =
         bke::crazyspace::get_evaluated_curves_deformation(*ctx_.depsgraph, *object_);
+    const OffsetIndices points_by_curve = curves_->points_by_curve();
 
-    threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
-      for (const int curve_i : curve_selection_.slice(range)) {
-        const IndexRange points = curves_->points_for_curve(curve_i);
-        for (const int point_i : points) {
-          const float3 &pos_cu = deformation.positions[point_i];
-          const float dist_to_brush_sq_cu = math::distance_squared(pos_cu, brush_pos_cu);
-          if (dist_to_brush_sq_cu > brush_radius_sq_cu) {
-            continue;
-          }
-
-          const float dist_to_brush_cu = std::sqrt(dist_to_brush_sq_cu);
-          const float radius_falloff = BKE_brush_curve_strength(
-              brush_, dist_to_brush_cu, brush_radius_cu);
-          /* Used to make the brush easier to use. Otherwise a strength of 1 would be way too
-           * large. */
-          const float weight_factor = 0.1f;
-          const float weight = weight_factor * brush_strength_ * radius_falloff *
-                               point_factors_[point_i];
-          math::max_inplace(r_point_smooth_factors[point_i], weight);
+    curve_selection_.foreach_index(GrainSize(256), [&](const int curve_i) {
+      const IndexRange points = points_by_curve[curve_i];
+      for (const int point_i : points) {
+        const float3 &pos_cu = deformation.positions[point_i];
+        const float dist_to_brush_sq_cu = math::distance_squared(pos_cu, brush_pos_cu);
+        if (dist_to_brush_sq_cu > brush_radius_sq_cu) {
+          continue;
         }
+
+        const float dist_to_brush_cu = std::sqrt(dist_to_brush_sq_cu);
+        const float radius_falloff = BKE_brush_curve_strength(
+            brush_, dist_to_brush_cu, brush_radius_cu);
+        /* Used to make the brush easier to use. Otherwise a strength of 1 would be way too
+         * large. */
+        const float weight_factor = 0.1f;
+        const float weight = weight_factor * brush_strength_ * radius_falloff *
+                             point_factors_[point_i];
+        math::max_inplace(r_point_smooth_factors[point_i], weight);
       }
     });
   }
 
   void smooth(const Span<float> point_smooth_factors)
   {
+    const OffsetIndices points_by_curve = curves_->points_by_curve();
     MutableSpan<float3> positions = curves_->positions_for_write();
-    threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
+
+    curve_selection_.foreach_segment(GrainSize(256), [&](const IndexMaskSegment segment) {
       Vector<float3> old_positions;
-      for (const int curve_i : curve_selection_.slice(range)) {
-        const IndexRange points = curves_->points_for_curve(curve_i);
+      for (const int curve_i : segment) {
+        const IndexRange points = points_by_curve[curve_i];
         old_positions.clear();
         old_positions.extend(positions.slice(points));
         for (const int i : IndexRange(points.size()).drop_front(1).drop_back(1)) {

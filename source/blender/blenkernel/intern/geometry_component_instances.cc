@@ -1,10 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <mutex>
 
-#include "BLI_float4x4.hh"
 #include "BLI_index_mask.hh"
 #include "BLI_map.hh"
+#include "BLI_math_matrix_types.hh"
 #include "BLI_rand.hh"
 #include "BLI_set.hh"
 #include "BLI_span.hh"
@@ -22,24 +24,13 @@
 
 #include "BLI_cpp_type_make.hh"
 
-using blender::float4x4;
-using blender::GSpan;
-using blender::IndexMask;
-using blender::Map;
-using blender::MutableSpan;
-using blender::Set;
-using blender::Span;
-using blender::VectorSet;
-using blender::bke::InstanceReference;
-using blender::bke::Instances;
+namespace blender::bke {
 
 /* -------------------------------------------------------------------- */
 /** \name Geometry Component Implementation
  * \{ */
 
-InstancesComponent::InstancesComponent() : GeometryComponent(GEO_COMPONENT_TYPE_INSTANCES)
-{
-}
+InstancesComponent::InstancesComponent() : GeometryComponent(Type::Instance) {}
 
 InstancesComponent::~InstancesComponent()
 {
@@ -58,7 +49,7 @@ GeometryComponent *InstancesComponent::copy() const
 
 void InstancesComponent::clear()
 {
-  BLI_assert(this->is_mutable());
+  BLI_assert(this->is_mutable() || this->is_expired());
   if (ownership_ == GeometryOwnershipType::Owned) {
     delete instances_;
   }
@@ -90,12 +81,12 @@ void InstancesComponent::ensure_owns_direct_data()
   }
 }
 
-const blender::bke::Instances *InstancesComponent::get_for_read() const
+const Instances *InstancesComponent::get_for_read() const
 {
   return instances_;
 }
 
-blender::bke::Instances *InstancesComponent::get_for_write()
+Instances *InstancesComponent::get_for_write()
 {
   BLI_assert(this->is_mutable());
   if (ownership_ == GeometryOwnershipType::ReadOnly) {
@@ -113,34 +104,34 @@ void InstancesComponent::replace(Instances *instances, GeometryOwnershipType own
   ownership_ = ownership;
 }
 
-namespace blender::bke {
-
 static float3 get_transform_position(const float4x4 &transform)
 {
-  return transform.translation();
+  return transform.location();
 }
 
 static void set_transform_position(float4x4 &transform, const float3 position)
 {
-  copy_v3_v3(transform.values[3], position);
+  transform.location() = position;
 }
 
 class InstancePositionAttributeProvider final : public BuiltinAttributeProvider {
  public:
   InstancePositionAttributeProvider()
       : BuiltinAttributeProvider(
-            "position", ATTR_DOMAIN_INSTANCE, CD_PROP_FLOAT3, NonCreatable, Writable, NonDeletable)
+            "position", ATTR_DOMAIN_INSTANCE, CD_PROP_FLOAT3, NonCreatable, NonDeletable)
   {
   }
 
-  GVArray try_get_for_read(const void *owner) const final
+  GAttributeReader try_get_for_read(const void *owner) const final
   {
     const Instances *instances = static_cast<const Instances *>(owner);
     if (instances == nullptr) {
       return {};
     }
     Span<float4x4> transforms = instances->transforms();
-    return VArray<float3>::ForDerivedSpan<float4x4, get_transform_position>(transforms);
+    return {VArray<float3>::ForDerivedSpan<float4x4, get_transform_position>(transforms),
+            domain_,
+            nullptr};
   }
 
   GAttributeWriter try_get_for_write(void *owner) const final
@@ -200,11 +191,8 @@ static ComponentAttributeProviders create_attribute_providers_for_instances()
                                            CD_PROP_INT32,
                                            CD_PROP_INT32,
                                            BuiltinAttributeProvider::Creatable,
-                                           BuiltinAttributeProvider::Writable,
                                            BuiltinAttributeProvider::Deletable,
                                            instance_custom_data_access,
-                                           make_array_read_attribute<int>,
-                                           make_array_write_attribute<int>,
                                            nullptr);
 
   static CustomDataAttributeProvider instance_custom_data(ATTR_DOMAIN_INSTANCE,
@@ -234,13 +222,13 @@ static AttributeAccessorFunctions get_instances_accessor_functions()
     return domain == ATTR_DOMAIN_INSTANCE;
   };
   fn.adapt_domain = [](const void * /*owner*/,
-                       const blender::GVArray &varray,
+                       const GVArray &varray,
                        const eAttrDomain from_domain,
                        const eAttrDomain to_domain) {
     if (from_domain == to_domain && from_domain == ATTR_DOMAIN_INSTANCE) {
       return varray;
     }
-    return blender::GVArray{};
+    return GVArray{};
   };
   return fn;
 }
@@ -251,30 +239,26 @@ static const AttributeAccessorFunctions &get_instances_accessor_functions_ref()
   return fn;
 }
 
-blender::bke::AttributeAccessor Instances::attributes() const
+AttributeAccessor Instances::attributes() const
 {
-  return blender::bke::AttributeAccessor(this,
-                                         blender::bke::get_instances_accessor_functions_ref());
+  return AttributeAccessor(this, get_instances_accessor_functions_ref());
 }
 
-blender::bke::MutableAttributeAccessor Instances::attributes_for_write()
+MutableAttributeAccessor Instances::attributes_for_write()
 {
-  return blender::bke::MutableAttributeAccessor(
-      this, blender::bke::get_instances_accessor_functions_ref());
+  return MutableAttributeAccessor(this, get_instances_accessor_functions_ref());
 }
 
-}  // namespace blender::bke
-
-std::optional<blender::bke::AttributeAccessor> InstancesComponent::attributes() const
+std::optional<AttributeAccessor> InstancesComponent::attributes() const
 {
-  return blender::bke::AttributeAccessor(instances_,
-                                         blender::bke::get_instances_accessor_functions_ref());
+  return AttributeAccessor(instances_, get_instances_accessor_functions_ref());
 }
 
-std::optional<blender::bke::MutableAttributeAccessor> InstancesComponent::attributes_for_write()
+std::optional<MutableAttributeAccessor> InstancesComponent::attributes_for_write()
 {
-  return blender::bke::MutableAttributeAccessor(
-      instances_, blender::bke::get_instances_accessor_functions_ref());
+  return MutableAttributeAccessor(instances_, get_instances_accessor_functions_ref());
 }
 
 /** \} */
+
+}  // namespace blender::bke

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -28,7 +29,7 @@
 #include "transform_convert.h"
 
 /* -------------------------------------------------------------------- */
-/** \name Edit Mesh #CD_BWEIGHT and #CD_CREASE Transform Creation
+/** \name Edit Mesh Bevel Weight and Crease Transform Creation
  * \{ */
 
 static float *tc_mesh_cdata_transdata_center(const struct TransIslandData *island_data,
@@ -49,8 +50,8 @@ static void tc_mesh_cdata_transdata_create(TransDataBasic *td,
 {
   BLI_assert(BM_elem_flag_test(eve, BM_ELEM_HIDDEN) == 0);
 
-  td->loc = weight;
-  td->iloc[0] = *weight;
+  td->val = weight;
+  td->ival = *weight;
 
   if (BM_elem_flag_test(eve, BM_ELEM_SELECT)) {
     td->flag |= TD_SELECTED;
@@ -77,23 +78,24 @@ static void createTransMeshVertCData(bContext *UNUSED(C), TransInfo *t)
     struct TransMirrorData mirror_data = {NULL};
     struct TransMeshDataCrazySpace crazyspace_data = {NULL};
 
-    /* Support other objects using PET to adjust these, unless connected is enabled. */
+    /* Support other objects using proportional editing to adjust these, unless connected is
+     * enabled. */
     if ((!prop_mode || (prop_mode & T_PROP_CONNECTED)) && (bm->totvertsel == 0)) {
       continue;
     }
 
     int cd_offset = -1;
     if (t->mode == TFM_BWEIGHT) {
-      if (!CustomData_has_layer(&bm->vdata, CD_BWEIGHT)) {
-        BM_data_layer_add(bm, &bm->vdata, CD_BWEIGHT);
+      if (!CustomData_has_layer_named(&bm->vdata, CD_PROP_FLOAT, "bevel_weight_vert")) {
+        BM_data_layer_add_named(bm, &bm->vdata, CD_PROP_FLOAT, "bevel_weight_vert");
       }
-      cd_offset = CustomData_get_offset(&bm->vdata, CD_BWEIGHT);
+      cd_offset = CustomData_get_offset_named(&bm->vdata, CD_PROP_FLOAT, "bevel_weight_vert");
     }
     else {
-      if (!CustomData_has_layer(&bm->vdata, CD_CREASE)) {
-        BM_data_layer_add(bm, &bm->vdata, CD_CREASE);
+      if (!CustomData_has_layer_named(&bm->vdata, CD_PROP_FLOAT, "crease_vert")) {
+        BM_data_layer_add_named(bm, &bm->vdata, CD_PROP_FLOAT, "crease_vert");
       }
-      cd_offset = CustomData_get_offset(&bm->vdata, CD_CREASE);
+      cd_offset = CustomData_get_offset_named(&bm->vdata, CD_PROP_FLOAT, "crease_vert");
     }
 
     if (cd_offset == -1) {
@@ -267,7 +269,7 @@ static void tc_mesh_cdata_apply_to_mirror(TransInfo *t)
     if (tc->use_mirror_axis_any) {
       TransDataMirror *td_mirror = tc->data_mirror;
       for (int i = 0; i < tc->data_mirror_len; i++, td_mirror++) {
-        td_mirror->loc[0] = td_mirror->loc_src[0];
+        *td_mirror->val = td_mirror->loc_src[0];
       }
     }
   }
@@ -293,8 +295,8 @@ static void recalcData_mesh_cdata(TransInfo *t)
 /** \} */
 
 TransConvertTypeInfo TransConvertType_MeshVertCData = {
-    /* flags */ (T_EDIT | T_POINTS),
-    /* createTransData */ createTransMeshVertCData,
-    /* recalcData */ recalcData_mesh_cdata,
-    /* special_aftertrans_update */ NULL,
+    /*flags*/ (T_EDIT | T_POINTS),
+    /*createTransData*/ createTransMeshVertCData,
+    /*recalcData*/ recalcData_mesh_cdata,
+    /*special_aftertrans_update*/ NULL,
 };

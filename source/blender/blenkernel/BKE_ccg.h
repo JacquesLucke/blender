@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2012 by Nicholas Bishop. All rights reserved. */
+/* SPDX-FileCopyrightText: 2012 by Nicholas Bishop. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -83,7 +84,12 @@ BLI_INLINE CCGElem *CCG_elem_next(const CCGKey *key, CCGElem *elem);
 
 /* inline definitions follow */
 
-BLI_INLINE float *CCG_elem_co(const CCGKey *UNUSED(key), CCGElem *elem)
+BLI_INLINE float *CCG_elem_co(const CCGKey *
+#ifndef __cplusplus
+                                  UNUSED(key)
+#endif
+                                      ,
+                              CCGElem *elem)
 {
   return (float *)elem;
 }

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2008-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -81,7 +83,8 @@ int Operators::chain(ViewEdgeInternal::ViewEdgeIterator &it,
 
   for (I1DContainer::iterator it_edge = _current_view_edges_set.begin();
        it_edge != _current_view_edges_set.end();
-       ++it_edge) {
+       ++it_edge)
+  {
     if (pred(**it_edge) < 0) {
       goto error;
     }
@@ -147,7 +150,8 @@ int Operators::chain(ViewEdgeInternal::ViewEdgeIterator &it, UnaryPredicate1D &p
 
   for (I1DContainer::iterator it_edge = _current_view_edges_set.begin();
        it_edge != _current_view_edges_set.end();
-       ++it_edge) {
+       ++it_edge)
+  {
     if (pred(**it_edge) < 0) {
       goto error;
     }
@@ -328,7 +332,8 @@ int Operators::bidirectionalChain(ChainingIterator &it, UnaryPredicate1D &pred)
 
   for (I1DContainer::iterator it_edge = _current_view_edges_set.begin();
        it_edge != _current_view_edges_set.end();
-       ++it_edge) {
+       ++it_edge)
+  {
     if (pred(**it_edge) < 0) {
       goto error;
     }
@@ -431,7 +436,8 @@ int Operators::bidirectionalChain(ChainingIterator &it)
 
   for (I1DContainer::iterator it_edge = _current_view_edges_set.begin();
        it_edge != _current_view_edges_set.end();
-       ++it_edge) {
+       ++it_edge)
+  {
     if (pred_ts(**it_edge) < 0) {
       goto error;
     }
@@ -745,7 +751,8 @@ static int __recursiveSplit(Chain *_curve,
 
   for (; (vit != vitend) && (vnext != vitend) &&
          (vnext._CurvilinearLength < split._CurvilinearLength);
-       ++vit, ++vnext) {
+       ++vit, ++vnext)
+  {
     new_curve_a->push_vertex_back(&(*vit));
   }
   if ((vit == vitend) || (vnext == vitend)) {
@@ -875,13 +882,13 @@ static int __recursiveSplit(Chain *_curve,
   ++it;
   // real mean = 0.0f;
   // soc unused - real variance                              = 0.0f;
-  uint count = 0;
+  // uint count = 0;
   CurveInternal::CurvePointIterator next = it;
   ++next;
 
   bool bsplit = false;
   for (; ((it != end) && (next != end)); ++it, ++next) {
-    ++count;
+    // ++count;
     it0d = it.castToInterface0DIterator();
     if (pred0d(it0d) < 0) {
       return -1;
@@ -928,7 +935,8 @@ static int __recursiveSplit(Chain *_curve,
 
   for (; (vit != vitend) && (vnext != vitend) &&
          (vnext._CurvilinearLength < split._CurvilinearLength);
-       ++vit, ++vnext) {
+       ++vit, ++vnext)
+  {
     new_curve_a->push_vertex_back(&(*vit));
   }
   if ((vit == vitend) || (vnext == vitend)) {
@@ -1286,16 +1294,16 @@ int Operators::create(UnaryPredicate1D &pred, vector<StrokeShader *> shaders)
     }
   }
 
-  for (StrokesContainer::iterator it = new_strokes_set.begin(); it != new_strokes_set.end();
-       ++it) {
+  for (StrokesContainer::iterator it = new_strokes_set.begin(); it != new_strokes_set.end(); ++it)
+  {
     _current_strokes_set.push_back(*it);
   }
   new_strokes_set.clear();
   return 0;
 
 error:
-  for (StrokesContainer::iterator it = new_strokes_set.begin(); it != new_strokes_set.end();
-       ++it) {
+  for (StrokesContainer::iterator it = new_strokes_set.begin(); it != new_strokes_set.end(); ++it)
+  {
     delete (*it);
   }
   new_strokes_set.clear();
@@ -1311,7 +1319,8 @@ void Operators::reset(bool removeStrokes)
   }
   _current_view_edges_set.clear();
   for (I1DContainer::iterator it = _current_chains_set.begin(); it != _current_chains_set.end();
-       ++it) {
+       ++it)
+  {
     delete *it;
   }
   _current_chains_set.clear();

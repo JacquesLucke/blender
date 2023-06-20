@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -67,7 +69,7 @@ static void idp_str_append_escape(struct ReprState *state,
         state->str_append_fn(state->user_data, str + i_prev, i - i_prev);
       }
       char buf[5];
-      uint len = (uint)BLI_snprintf_rlen(buf, sizeof(buf), "\\x%02x", c);
+      uint len = (uint)SNPRINTF_RLEN(buf, "\\x%02x", c);
       BLI_assert(len == 4);
       state->str_append_fn(state->user_data, buf, len);
       i_prev = i + 1;
@@ -90,9 +92,7 @@ static void idp_repr_fn_recursive(struct ReprState *state, const IDProperty *pro
 
 #define STR_APPEND_FMT(format, ...) \
   state->str_append_fn( \
-      state->user_data, \
-      state->buf, \
-      (uint)BLI_snprintf_rlen(state->buf, sizeof(state->buf), format, __VA_ARGS__))
+      state->user_data, state->buf, (uint)SNPRINTF_RLEN(state->buf, format, __VA_ARGS__))
 
   switch (prop->type) {
     case IDP_STRING: {
@@ -109,6 +109,10 @@ static void idp_repr_fn_recursive(struct ReprState *state, const IDProperty *pro
     }
     case IDP_DOUBLE: {
       STR_APPEND_FMT("%g", IDP_Double(prop));
+      break;
+    }
+    case IDP_BOOLEAN: {
+      STR_APPEND_FMT("%s", IDP_Bool(prop) ? "True" : "False");
       break;
     }
     case IDP_ARRAY: {
@@ -136,6 +140,14 @@ static void idp_repr_fn_recursive(struct ReprState *state, const IDProperty *pro
               STR_APPEND_STR(", ");
             }
             STR_APPEND_FMT("%g", *v);
+          }
+          break;
+        case IDP_BOOLEAN:
+          for (const double *v = prop->data.pointer, *v_end = v + prop->len; v != v_end; v++) {
+            if (v != prop->data.pointer) {
+              STR_APPEND_STR(", ");
+            }
+            STR_APPEND_FMT("%s", IDP_Bool(prop) ? "True" : "False");
           }
           break;
       }

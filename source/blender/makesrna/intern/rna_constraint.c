@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -279,7 +281,26 @@ static const EnumPropertyItem euler_order_items[] = {
 
 #ifdef RNA_RUNTIME
 
-static const EnumPropertyItem space_object_items[] = {
+static const EnumPropertyItem owner_space_object_items[] = {
+    {CONSTRAINT_SPACE_WORLD,
+     "WORLD",
+     0,
+     "World Space",
+     "The constraint is applied relative to the world coordinate system"},
+    {CONSTRAINT_SPACE_CUSTOM,
+     "CUSTOM",
+     0,
+     "Custom Space",
+     "The constraint is applied in local space of a custom object/bone/vertex group"},
+    {CONSTRAINT_SPACE_LOCAL,
+     "LOCAL",
+     0,
+     "Local Space",
+     "The constraint is applied relative to the local coordinate system of the object"},
+    {0, NULL, 0, NULL, NULL},
+};
+
+static const EnumPropertyItem target_space_object_items[] = {
     {CONSTRAINT_SPACE_WORLD,
      "WORLD",
      0,
@@ -397,10 +418,10 @@ static void rna_Constraint_name_set(PointerRNA *ptr, const char *value)
   char oldname[sizeof(con->name)];
 
   /* make a copy of the old name first */
-  BLI_strncpy(oldname, con->name, sizeof(con->name));
+  STRNCPY(oldname, con->name);
 
   /* copy the new name into the name slot */
-  BLI_strncpy_utf8(con->name, value, sizeof(con->name));
+  STRNCPY_UTF8(con->name, value);
 
   /* make sure name is unique */
   if (ptr->owner_id) {
@@ -588,7 +609,7 @@ static const EnumPropertyItem *rna_Constraint_owner_space_itemf(bContext *UNUSED
   }
   else {
     /* object */
-    return space_object_items;
+    return owner_space_object_items;
   }
 }
 
@@ -615,7 +636,7 @@ static const EnumPropertyItem *rna_Constraint_target_space_itemf(bContext *UNUSE
     }
   }
 
-  return space_object_items;
+  return target_space_object_items;
 }
 
 static bConstraintTarget *rna_ArmatureConstraint_target_new(ID *id, bConstraint *con, Main *bmain)
@@ -1602,8 +1623,9 @@ static void rna_def_constraint_same_volume(BlenderRNA *brna)
       prop, "Mode", "The way the constraint treats original non-free axis scaling");
   RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
 
-  prop = RNA_def_property(srna, "volume", PROP_FLOAT, PROP_DISTANCE);
-  RNA_def_property_range(prop, 0.001f, 100.0f);
+  prop = RNA_def_property(srna, "volume", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_range(prop, 0.0f, FLT_MAX);
+  RNA_def_property_ui_range(prop, 0.001f, 100.0f, 1, 3);
   RNA_def_property_ui_text(prop, "Volume", "Volume of the bone at rest");
   RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
 
@@ -2217,7 +2239,7 @@ static void rna_def_constraint_transform(BlenderRNA *brna)
   RNA_def_property_enum_sdna(prop, NULL, "to");
   RNA_def_property_enum_items(prop, transform_items);
   RNA_def_property_ui_text(
-      prop, "Map To", "The transformation type to affect of the constrained object");
+      prop, "Map To", "The transformation type to affect on the constrained object");
   RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
 
   prop = RNA_def_property(srna, "map_to_x_from", PROP_ENUM, PROP_NONE);

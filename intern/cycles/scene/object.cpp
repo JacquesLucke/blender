@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/object.h"
 #include "device/device.h"
@@ -100,6 +101,10 @@ NODE_DEFINE(Object)
   SOCKET_FLOAT(ao_distance, "AO Distance", 0.0f);
 
   SOCKET_STRING(lightgroup, "Light Group", ustring());
+  SOCKET_UINT(receiver_light_set, "Light Set Index", 0);
+  SOCKET_UINT64(light_set_membership, "Light Set Membership", LIGHT_LINK_MASK_ALL);
+  SOCKET_UINT(blocker_shadow_set, "Shadow Set Index", 0);
+  SOCKET_UINT64(shadow_set_membership, "Shadow Set Membership", LIGHT_LINK_MASK_ALL);
 
   return type;
 }
@@ -113,9 +118,7 @@ Object::Object() : Node(get_node_type())
   intersects_volume = false;
 }
 
-Object::~Object()
-{
-}
+Object::~Object() {}
 
 void Object::update_motion()
 {
@@ -217,6 +220,7 @@ void Object::tag_update(Scene *scene)
 
     if (is_shadow_catcher_is_modified()) {
       scene->tag_shadow_catcher_modified();
+      flag |= ObjectManager::VISIBILITY_MODIFIED;
     }
   }
 
@@ -231,7 +235,7 @@ void Object::tag_update(Scene *scene)
 
     foreach (Node *node, geometry->get_used_shaders()) {
       Shader *shader = static_cast<Shader *>(node);
-      if (shader->get_use_mis() && shader->has_surface_emission)
+      if (shader->emission_sampling != EMISSION_SAMPLING_NONE)
         scene->light_manager->tag_update(scene, LightManager::EMISSIVE_MESH_MODIFIED);
     }
   }
@@ -297,7 +301,8 @@ float Object::compute_volume_step_size() const
     Shader *shader = static_cast<Shader *>(node);
     if (shader->has_volume) {
       if ((shader->get_heterogeneous_volume() && shader->has_volume_spatial_varying) ||
-          (shader->has_volume_attribute_dependency)) {
+          (shader->has_volume_attribute_dependency))
+      {
         step_rate = fminf(shader->get_volume_step_rate(), step_rate);
       }
     }
@@ -371,6 +376,60 @@ int Object::get_device_index() const
   return index;
 }
 
+bool Object::usable_as_light() const
+{
+  Geometry *geom = get_geometry();
+  if (!geom->is_mesh() && !geom->is_volume()) {
+    return false;
+  }
+  /* Skip non-traceable objects. */
+  if (!is_traceable()) {
+    return false;
+  }
+  /* Skip if we are not visible for BSDFs. */
+  if (!(get_visibility() & (PATH_RAY_DIFFUSE | PATH_RAY_GLOSSY | PATH_RAY_TRANSMIT))) {
+    return false;
+  }
+  /* Skip if we have no emission shaders. */
+  /* TODO(sergey): Ideally we want to avoid such duplicated loop, since it'll
+   * iterate all geometry shaders twice (when counting and when calculating
+   * triangle area.
+   */
+  foreach (Node *node, geom->get_used_shaders()) {
+    Shader *shader = static_cast<Shader *>(node);
+    if (shader->emission_sampling != EMISSION_SAMPLING_NONE) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool Object::has_light_linking() const
+{
+  if (get_receiver_light_set()) {
+    return true;
+  }
+
+  if (get_light_set_membership() != LIGHT_LINK_MASK_ALL) {
+    return true;
+  }
+
+  return false;
+}
+
+bool Object::has_shadow_linking() const
+{
+  if (get_blocker_shadow_set()) {
+    return true;
+  }
+
+  if (get_shadow_set_membership() != LIGHT_LINK_MASK_ALL) {
+    return true;
+  }
+
+  return false;
+}
+
 /* Object Manager */
 
 ObjectManager::ObjectManager()
@@ -379,9 +438,7 @@ ObjectManager::ObjectManager()
   need_flags_update = true;
 }
 
-ObjectManager::~ObjectManager()
-{
-}
+ObjectManager::~ObjectManager() {}
 
 static float object_volume_density(const Transform &tfm, Geometry *geom)
 {
@@ -430,9 +487,21 @@ void ObjectManager::device_update_object_transform(UpdateObjectTransformState *s
   kobject.particle_index = particle_index;
   kobject.motion_offset = 0;
   kobject.ao_distance = ob->ao_distance;
+  kobject.receiver_light_set = ob->receiver_light_set >= LIGHT_LINK_SET_MAX ?
+                                   0 :
+                                   ob->receiver_light_set;
+  kobject.light_set_membership = ob->light_set_membership;
+  kobject.blocker_shadow_set = ob->blocker_shadow_set >= LIGHT_LINK_SET_MAX ?
+                                   0 :
+                                   ob->blocker_shadow_set;
+  kobject.shadow_set_membership = ob->shadow_set_membership;
 
   if (geom->get_use_motion_blur()) {
     state->have_motion = true;
+  }
+
+  if (transform_negative_scale(tfm)) {
+    flag |= SD_OBJECT_NEGATIVE_SCALE;
   }
 
   if (geom->geometry_type == Geometry::MESH || geom->geometry_type == Geometry::POINTCLOUD) {
@@ -444,8 +513,8 @@ void ObjectManager::device_update_object_transform(UpdateObjectTransformState *s
   }
   else if (geom->is_volume()) {
     Volume *volume = static_cast<Volume *>(geom);
-    if (volume->attributes.find(ATTR_STD_VOLUME_VELOCITY) &&
-        volume->get_velocity_scale() != 0.0f) {
+    if (volume->attributes.find(ATTR_STD_VOLUME_VELOCITY) && volume->get_velocity_scale() != 0.0f)
+    {
       flag |= SD_OBJECT_HAS_VOLUME_MOTION;
       kobject.velocity_scale = volume->get_velocity_scale();
     }
@@ -565,10 +634,14 @@ void ObjectManager::device_update_object_transform(UpdateObjectTransformState *s
 
 void ObjectManager::device_update_prim_offsets(Device *device, DeviceScene *dscene, Scene *scene)
 {
-  BVHLayoutMask layout_mask = device->get_bvh_layout_mask();
-  if (layout_mask != BVH_LAYOUT_METAL && layout_mask != BVH_LAYOUT_MULTI_METAL &&
-      layout_mask != BVH_LAYOUT_MULTI_METAL_EMBREE) {
-    return;
+  if (!scene->integrator->get_use_light_tree()) {
+    BVHLayoutMask layout_mask = device->get_bvh_layout_mask(dscene->data.kernel_features);
+    if (layout_mask != BVH_LAYOUT_METAL && layout_mask != BVH_LAYOUT_MULTI_METAL &&
+        layout_mask != BVH_LAYOUT_MULTI_METAL_EMBREE && layout_mask != BVH_LAYOUT_HIPRT &&
+        layout_mask != BVH_LAYOUT_MULTI_HIPRT && layout_mask != BVH_LAYOUT_MULTI_HIPRT_EMBREE)
+    {
+      return;
+    }
   }
 
   /* On MetalRT, primitive / curve segment offsets can't be baked at BVH build time. Intersection
@@ -968,8 +1041,6 @@ void ObjectManager::apply_static_transforms(DeviceScene *dscene, Scene *scene, P
         }
 
         object_flag[i] |= SD_OBJECT_TRANSFORM_APPLIED;
-        if (geom->transform_negative_scaled)
-          object_flag[i] |= SD_OBJECT_NEGATIVE_SCALE_APPLIED;
       }
     }
 

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bli
@@ -463,6 +464,12 @@ MINLINE void sub_v2_v2(float r[2], const float a[2])
   r[1] -= a[1];
 }
 
+MINLINE void sub_v2_v2_db(double r[2], const double a[2])
+{
+  r[0] -= a[0];
+  r[1] -= a[1];
+}
+
 MINLINE void sub_v2_v2v2(float r[2], const float a[2], const float b[2])
 {
   r[0] = a[0] - b[0];
@@ -692,6 +699,12 @@ MINLINE void madd_v3_v3v3(float r[3], const float a[3], const float b[3])
 }
 
 MINLINE void madd_v2_v2v2fl(float r[2], const float a[2], const float b[2], float f)
+{
+  r[0] = a[0] + b[0] * f;
+  r[1] = a[1] + b[1] * f;
+}
+
+MINLINE void madd_v2_v2db_db(double r[2], const double a[2], const double b[2], double f)
 {
   r[0] = a[0] + b[0] * f;
   r[1] = a[1] + b[1] * f;

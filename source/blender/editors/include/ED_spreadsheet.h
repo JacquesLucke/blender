@@ -1,14 +1,11 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
 struct ID;
-struct Main;
-struct Object;
-struct SpaceNode;
 struct SpaceSpreadsheet;
-struct bContext;
-struct bNode;
 
 #ifdef __cplusplus
 extern "C" {

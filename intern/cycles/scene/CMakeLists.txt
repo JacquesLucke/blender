@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2011-2021 Blender Foundation
+#
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2011-2021 Blender Foundation
 
 set(INC
   ..
@@ -15,16 +16,20 @@ set(SRC
   camera.cpp
   colorspace.cpp
   constant_fold.cpp
+  devicescene.cpp
   film.cpp
   geometry.cpp
+  geometry_attributes.cpp
+  geometry_bvh.cpp
+  geometry_mesh.cpp
   hair.cpp
   image.cpp
   image_oiio.cpp
   image_sky.cpp
   image_vdb.cpp
   integrator.cpp
-  jitter.cpp
   light.cpp
+  light_tree.cpp
   mesh.cpp
   mesh_displace.cpp
   mesh_subdivision.cpp
@@ -42,6 +47,7 @@ set(SRC
   stats.cpp
   svm.cpp
   tables.cpp
+  tabulated_sobol.cpp
   volume.cpp
 )
 
@@ -54,6 +60,7 @@ set(SRC_HEADERS
   camera.h
   colorspace.h
   constant_fold.h
+  devicescene.h
   film.h
   geometry.h
   hair.h
@@ -63,7 +70,7 @@ set(SRC_HEADERS
   image_vdb.h
   integrator.h
   light.h
-  jitter.h
+  light_tree.h
   mesh.h
   object.h
   osl.h
@@ -79,6 +86,7 @@ set(SRC_HEADERS
   stats.h
   svm.h
   tables.h
+  tabulated_sobol.h
   volume.h
 )
 

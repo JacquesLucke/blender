@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2008 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2008 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spscript
@@ -31,10 +32,10 @@
 
 static int run_pyfile_exec(bContext *C, wmOperator *op)
 {
-  char path[FILE_MAX];
-  RNA_string_get(op->ptr, "filepath", path);
+  char filepath[FILE_MAX];
+  RNA_string_get(op->ptr, "filepath", filepath);
 #ifdef WITH_PYTHON
-  if (BPY_run_filepath(C, path, op->reports)) {
+  if (BPY_run_filepath(C, filepath, op->reports)) {
     ARegion *region = CTX_wm_region(C);
     if (region != NULL) {
       ED_region_tag_redraw(region);
@@ -100,7 +101,7 @@ static int script_reload_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  /* TODO(@campbellbarton): this crashes on netrender and keying sets, need to look into why
+  /* TODO(@ideasman42): this crashes on netrender and keying sets, need to look into why
    * disable for now unless running in debug mode. */
 
   /* It would be nice if we could detect when this is called from the Python
@@ -108,7 +109,7 @@ static int script_reload_exec(bContext *C, wmOperator *op)
   if (true) {
     /* Postpone when called from Python so this can be called from an operator
      * that might be re-registered, crashing Blender when we try to read from the
-     * freed operator type which, see T80694. */
+     * freed operator type which, see #80694. */
     BPY_run_string_exec(C,
                         (const char *[]){"bpy", NULL},
                         "def fn():\n"

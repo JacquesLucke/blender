@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -48,14 +49,14 @@ ccl_device int bsdf_oren_nayar_setup(ccl_private OrenNayarBsdf *bsdf)
 }
 
 ccl_device Spectrum bsdf_oren_nayar_eval(ccl_private const ShaderClosure *sc,
-                                         const float3 I,
-                                         const float3 omega_in,
+                                         const float3 wi,
+                                         const float3 wo,
                                          ccl_private float *pdf)
 {
   ccl_private const OrenNayarBsdf *bsdf = (ccl_private const OrenNayarBsdf *)sc;
-  if (dot(bsdf->N, omega_in) > 0.0f) {
+  if (dot(bsdf->N, wo) > 0.0f) {
     *pdf = 0.5f * M_1_PI_F;
-    return bsdf_oren_nayar_get_intensity(sc, bsdf->N, I, omega_in);
+    return bsdf_oren_nayar_get_intensity(sc, bsdf->N, wi, wo);
   }
   else {
     *pdf = 0.0f;
@@ -65,18 +66,17 @@ ccl_device Spectrum bsdf_oren_nayar_eval(ccl_private const ShaderClosure *sc,
 
 ccl_device int bsdf_oren_nayar_sample(ccl_private const ShaderClosure *sc,
                                       float3 Ng,
-                                      float3 I,
-                                      float randu,
-                                      float randv,
+                                      float3 wi,
+                                      float2 rand,
                                       ccl_private Spectrum *eval,
-                                      ccl_private float3 *omega_in,
+                                      ccl_private float3 *wo,
                                       ccl_private float *pdf)
 {
   ccl_private const OrenNayarBsdf *bsdf = (ccl_private const OrenNayarBsdf *)sc;
-  sample_uniform_hemisphere(bsdf->N, randu, randv, omega_in, pdf);
+  sample_uniform_hemisphere(bsdf->N, rand, wo, pdf);
 
-  if (dot(Ng, *omega_in) > 0.0f) {
-    *eval = bsdf_oren_nayar_get_intensity(sc, bsdf->N, I, *omega_in);
+  if (dot(Ng, *wo) > 0.0f) {
+    *eval = bsdf_oren_nayar_get_intensity(sc, bsdf->N, wi, *wo);
   }
   else {
     *pdf = 0.0f;

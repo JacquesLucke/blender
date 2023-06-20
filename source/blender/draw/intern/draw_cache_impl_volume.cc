@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2017 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2017 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw
@@ -197,7 +198,7 @@ static void drw_volume_wireframe_cb(
         GPU_PRIM_LINES, cache->face_wire.pos_nor_in_order, ibo, GPU_BATCH_OWNS_INDEX);
   }
 
-  GPU_batch_vertbuf_add_ex(cache->face_wire.batch, vbo_wiredata, true);
+  GPU_batch_vertbuf_add(cache->face_wire.batch, vbo_wiredata, true);
 }
 
 GPUBatch *DRW_volume_batch_cache_get_wireframes_face(Volume *volume)
@@ -311,13 +312,14 @@ static DRWVolumeGrid *volume_grid_cache_get(const Volume *volume,
                                                 UNPACK3(dense_grid.resolution),
                                                 1,
                                                 format,
-                                                GPU_DATA_FLOAT,
+                                                GPU_TEXTURE_USAGE_SHADER_READ |
+                                                    GPU_TEXTURE_USAGE_MIP_SWIZZLE_VIEW,
                                                 dense_grid.voxels);
     /* The texture can be null if the resolution along one axis is larger than
      * GL_MAX_3D_TEXTURE_SIZE. */
     if (cache_grid->texture != nullptr) {
       GPU_texture_swizzle_set(cache_grid->texture, (channels == 3) ? "rgb1" : "rrr1");
-      GPU_texture_wrap_mode(cache_grid->texture, false, false);
+      GPU_texture_extend_mode(cache_grid->texture, GPU_SAMPLER_EXTEND_MODE_CLAMP_TO_BORDER);
       BKE_volume_dense_float_grid_clear(&dense_grid);
     }
     else {

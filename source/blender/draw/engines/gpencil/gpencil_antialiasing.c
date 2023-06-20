@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2019 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2019 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw
@@ -9,9 +10,9 @@
 
 #include "gpencil_engine.h"
 
-#include "smaa_textures.h"
+#include "BLI_smaa_textures.h"
 
-void GPENCIL_antialiasing_init(struct GPENCIL_Data *vedata)
+void GPENCIL_antialiasing_init(GPENCIL_Data *vedata)
 {
   GPENCIL_PrivateData *pd = vedata->stl->pd;
   GPENCIL_FramebufferList *fbl = vedata->fbl;
@@ -40,13 +41,16 @@ void GPENCIL_antialiasing_init(struct GPENCIL_Data *vedata)
     return;
   }
 
+  eGPUTextureUsage usage = GPU_TEXTURE_USAGE_SHADER_READ | GPU_TEXTURE_USAGE_ATTACHMENT;
+
   if (txl->smaa_search_tx == NULL) {
+
     txl->smaa_search_tx = GPU_texture_create_2d(
-        "smaa_search", SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 1, GPU_R8, NULL);
+        "smaa_search", SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 1, GPU_R8, usage, NULL);
     GPU_texture_update(txl->smaa_search_tx, GPU_DATA_UBYTE, searchTexBytes);
 
     txl->smaa_area_tx = GPU_texture_create_2d(
-        "smaa_area", AREATEX_WIDTH, AREATEX_HEIGHT, 1, GPU_RG8, NULL);
+        "smaa_area", AREATEX_WIDTH, AREATEX_HEIGHT, 1, GPU_RG8, usage, NULL);
     GPU_texture_update(txl->smaa_area_tx, GPU_DATA_UBYTE, areaTexBytes);
 
     GPU_texture_filter_mode(txl->smaa_search_tx, true);
@@ -54,10 +58,10 @@ void GPENCIL_antialiasing_init(struct GPENCIL_Data *vedata)
   }
 
   {
-    pd->smaa_edge_tx = DRW_texture_pool_query_2d(
-        size[0], size[1], GPU_RG8, &draw_engine_gpencil_type);
-    pd->smaa_weight_tx = DRW_texture_pool_query_2d(
-        size[0], size[1], GPU_RGBA8, &draw_engine_gpencil_type);
+    pd->smaa_edge_tx = DRW_texture_pool_query_2d_ex(
+        size[0], size[1], GPU_RG8, usage, &draw_engine_gpencil_type);
+    pd->smaa_weight_tx = DRW_texture_pool_query_2d_ex(
+        size[0], size[1], GPU_RGBA8, usage, &draw_engine_gpencil_type);
 
     GPU_framebuffer_ensure_config(&fbl->smaa_edge_fb,
                                   {
@@ -118,7 +122,7 @@ void GPENCIL_antialiasing_init(struct GPENCIL_Data *vedata)
   }
 }
 
-void GPENCIL_antialiasing_draw(struct GPENCIL_Data *vedata)
+void GPENCIL_antialiasing_draw(GPENCIL_Data *vedata)
 {
   GPENCIL_FramebufferList *fbl = vedata->fbl;
   GPENCIL_PrivateData *pd = vedata->stl->pd;

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifdef __MNEE__
 
@@ -108,48 +109,6 @@ ccl_device_inline float mat22_inverse(const float4 m, ccl_private float4 &m_inve
   return det;
 }
 
-/* Update light sample */
-ccl_device_forceinline void mnee_update_light_sample(KernelGlobals kg,
-                                                     const float3 P,
-                                                     ccl_private LightSample *ls)
-{
-  /* correct light sample position/direction and pdf
-   * NOTE: preserve pdf in area measure */
-  const ccl_global KernelLight *klight = &kernel_data_fetch(lights, ls->lamp);
-
-  if (ls->type == LIGHT_POINT || ls->type == LIGHT_SPOT) {
-    ls->D = normalize_len(ls->P - P, &ls->t);
-    ls->Ng = -ls->D;
-
-    float2 uv = map_to_sphere(ls->Ng);
-    ls->u = uv.x;
-    ls->v = uv.y;
-
-    float invarea = klight->spot.invarea;
-    ls->eval_fac = (0.25f * M_1_PI_F) * invarea;
-    ls->pdf = invarea;
-
-    if (ls->type == LIGHT_SPOT) {
-      /* spot light attenuation */
-      float3 dir = make_float3(klight->spot.dir[0], klight->spot.dir[1], klight->spot.dir[2]);
-      ls->eval_fac *= spot_light_attenuation(
-          dir, klight->spot.spot_angle, klight->spot.spot_smooth, ls->Ng);
-    }
-  }
-  else if (ls->type == LIGHT_AREA) {
-    float invarea = fabsf(klight->area.invarea);
-    ls->D = normalize_len(ls->P - P, &ls->t);
-    ls->pdf = invarea;
-    if (klight->area.tan_spread > 0.f) {
-      ls->eval_fac = 0.25f * invarea;
-      ls->eval_fac *= light_spread_attenuation(
-          ls->D, ls->Ng, klight->area.tan_spread, klight->area.normalize_spread);
-    }
-  }
-
-  ls->pdf *= kernel_data.integrator.pdf_lights;
-}
-
 /* Manifold vertex setup from ray and intersection data */
 ccl_device_forceinline void mnee_setup_manifold_vertex(KernelGlobals kg,
                                                        ccl_private ManifoldVertex *vtx,
@@ -218,8 +177,9 @@ ccl_device_forceinline void mnee_setup_manifold_vertex(KernelGlobals kg,
 
   /* Geometric normal. */
   vtx->ng = normalize(cross(dp_du, dp_dv));
-  if (sd_vtx->object_flag & SD_OBJECT_NEGATIVE_SCALE_APPLIED)
+  if (sd_vtx->object_flag & SD_OBJECT_NEGATIVE_SCALE) {
     vtx->ng = -vtx->ng;
+  }
 
   /* Shading normals: Interpolate normals between vertices. */
   float n_len;
@@ -439,6 +399,7 @@ ccl_device_forceinline bool mnee_newton_solver(KernelGlobals kg,
                                                ccl_private const ShaderData *sd,
                                                ccl_private ShaderData *sd_vtx,
                                                ccl_private const LightSample *ls,
+                                               const bool light_fixed_direction,
                                                int vertex_count,
                                                ccl_private ManifoldVertex *vertices)
 {
@@ -448,13 +409,13 @@ ccl_device_forceinline bool mnee_newton_solver(KernelGlobals kg,
   Ray projection_ray;
   projection_ray.self.light_object = OBJECT_NONE;
   projection_ray.self.light_prim = PRIM_NONE;
+  projection_ray.self.light = LAMP_NONE;
   projection_ray.dP = differential_make_compact(sd->dP);
   projection_ray.dD = differential_zero_compact();
   projection_ray.tmin = 0.0f;
   projection_ray.time = sd->time;
   Intersection projection_isect;
 
-  const bool light_fixed_direction = (ls->t == FLT_MAX);
   const float3 light_sample = light_fixed_direction ? ls->D : ls->P;
 
   /* We start gently, potentially ramping up to beta = 1, since target configurations
@@ -523,11 +484,7 @@ ccl_device_forceinline bool mnee_newton_solver(KernelGlobals kg,
         if (!hit)
           break;
 
-        int hit_object = (projection_isect.object == OBJECT_NONE) ?
-                             kernel_data_fetch(prim_object, projection_isect.prim) :
-                             projection_isect.object;
-
-        if (hit_object == mv.object) {
+        if (projection_isect.object == mv.object) {
           projection_success = true;
           break;
         }
@@ -648,24 +605,22 @@ ccl_device_forceinline Spectrum mnee_eval_bsdf_contribution(ccl_private ShaderCl
 {
   ccl_private MicrofacetBsdf *bsdf = (ccl_private MicrofacetBsdf *)closure;
 
-  float cosNO = dot(bsdf->N, wi);
-  float cosNI = dot(bsdf->N, wo);
+  float cosNI = dot(bsdf->N, wi);
+  float cosNO = dot(bsdf->N, wo);
 
   float3 Ht = normalize(-(bsdf->ior * wo + wi));
-  float cosHO = dot(Ht, wi);
+  float cosHI = dot(Ht, wi);
 
   float alpha2 = bsdf->alpha_x * bsdf->alpha_y;
   float cosThetaM = dot(bsdf->N, Ht);
 
+  /* Now calculate G1(i, m) and G1(o, m). */
   float G;
   if (bsdf->type == CLOSURE_BSDF_MICROFACET_BECKMANN_REFRACTION_ID) {
-    /* Eq. 26, 27: now calculate G1(i,m) and G1(o,m). */
-    G = bsdf_beckmann_G1(bsdf->alpha_x, cosNO) * bsdf_beckmann_G1(bsdf->alpha_x, cosNI);
+    G = bsdf_G<MicrofacetType::BECKMANN>(alpha2, cosNI, cosNO);
   }
   else { /* bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID assumed */
-    /* Eq. 34: now calculate G1(i,m) and G1(o,m). */
-    G = (2.f / (1.f + safe_sqrtf(1.f + alpha2 * (1.f - cosNO * cosNO) / (cosNO * cosNO)))) *
-        (2.f / (1.f + safe_sqrtf(1.f + alpha2 * (1.f - cosNI * cosNI) / (cosNI * cosNI))));
+    G = bsdf_G<MicrofacetType::GGX>(alpha2, cosNI, cosNO);
   }
 
   /*
@@ -676,12 +631,13 @@ ccl_device_forceinline Spectrum mnee_eval_bsdf_contribution(ccl_private ShaderCl
    * contribution = bsdf_do * |do/dh| * |n.wo / n.h| / pdf_dh
    *              = (1 - F) * G * |h.wi / (n.wi * n.h^2)|
    */
-  return bsdf->weight * G * fabsf(cosHO / (cosNO * sqr(cosThetaM)));
+  return bsdf->weight * G * fabsf(cosHI / (cosNI * sqr(cosThetaM)));
 }
 
 /* Compute transfer matrix determinant |T1| = |dx1/dxn| (and |dh/dx| in the process) */
 ccl_device_forceinline bool mnee_compute_transfer_matrix(ccl_private const ShaderData *sd,
                                                          ccl_private const LightSample *ls,
+                                                         const bool light_fixed_direction,
                                                          int vertex_count,
                                                          ccl_private ManifoldVertex *vertices,
                                                          ccl_private float *dx1_dxlight,
@@ -735,7 +691,7 @@ ccl_device_forceinline bool mnee_compute_transfer_matrix(ccl_private const Shade
   float dxn_dwn;
   float4 dc_dlight;
 
-  if (ls->t == FLT_MAX) {
+  if (light_fixed_direction) {
     /* Constant direction toward light sample. */
     float3 wo = ls->D;
 
@@ -747,9 +703,9 @@ ccl_device_forceinline bool mnee_compute_transfer_matrix(ccl_private const Shade
     float ilo = -eta * ilh;
 
     float cos_theta = dot(wo, m.n);
-    float sin_theta = safe_sqrtf(1.f - sqr(cos_theta));
+    float sin_theta = sin_from_cos(cos_theta);
     float cos_phi = dot(wo, s);
-    float sin_phi = safe_sqrtf(1.f - sqr(cos_phi));
+    float sin_phi = sin_from_cos(cos_phi);
 
     /* Wo = (cos_phi * sin_theta) * s + (sin_phi * sin_theta) * t + cos_theta * n. */
     float3 dH_dtheta = ilo * (cos_theta * (cos_phi * s + sin_phi * t) - sin_theta * m.n);
@@ -807,6 +763,7 @@ ccl_device_forceinline bool mnee_path_contribution(KernelGlobals kg,
                                                    ccl_private ShaderData *sd,
                                                    ccl_private ShaderData *sd_mnee,
                                                    ccl_private LightSample *ls,
+                                                   const bool light_fixed_direction,
                                                    int vertex_count,
                                                    ccl_private ManifoldVertex *vertices,
                                                    ccl_private BsdfEval *throughput)
@@ -817,9 +774,8 @@ ccl_device_forceinline bool mnee_path_contribution(KernelGlobals kg,
   /* Initialize throughput and evaluate receiver bsdf * |n.wo|. */
   surface_shader_bsdf_eval(kg, state, sd, wo, throughput, ls->shader);
 
-  /* Update light sample with new position / direct.ion
-   * and keep pdf in vertex area measure */
-  mnee_update_light_sample(kg, vertices[vertex_count - 1].p, ls);
+  /* Update light sample with new position / direction and keep pdf in vertex area measure. */
+  light_sample_update(kg, ls, vertices[vertex_count - 1].p);
 
   /* Save state path bounce info in case a light path node is used in the refractive interface or
    * light shader graph. */
@@ -850,7 +806,8 @@ ccl_device_forceinline bool mnee_path_contribution(KernelGlobals kg,
 
   float dh_dx;
   float dx1_dxlight;
-  if (!mnee_compute_transfer_matrix(sd, ls, vertex_count, vertices, &dx1_dxlight, &dh_dx))
+  if (!mnee_compute_transfer_matrix(
+          sd, ls, light_fixed_direction, vertex_count, vertices, &dx1_dxlight, &dh_dx))
     return false;
 
   /* Receiver bsdf eval above already contains |n.wo|. */
@@ -866,6 +823,7 @@ ccl_device_forceinline bool mnee_path_contribution(KernelGlobals kg,
   Ray probe_ray;
   probe_ray.self.light_object = ls->object;
   probe_ray.self.light_prim = ls->prim;
+  probe_ray.self.light = ls->lamp;
   probe_ray.tmin = 0.0f;
   probe_ray.dP = differential_make_compact(sd->dP);
   probe_ray.dD = differential_zero_compact();
@@ -925,7 +883,7 @@ ccl_device_forceinline bool mnee_path_contribution(KernelGlobals kg,
         kg, state, sd_mnee, NULL, PATH_RAY_DIFFUSE, true);
 
     /* Set light looking dir. */
-    wo = (vi == vertex_count - 1) ? (ls->t == FLT_MAX ? ls->D : ls->P - v.p) :
+    wo = (vi == vertex_count - 1) ? (light_fixed_direction ? ls->D : ls->P - v.p) :
                                     vertices[vi + 1].p - v.p;
     wo = normalize_len(wo, &wo_len);
 
@@ -966,6 +924,7 @@ ccl_device_forceinline int kernel_path_mnee_sample(KernelGlobals kg,
   probe_ray.self.prim = sd->prim;
   probe_ray.self.light_object = ls->object;
   probe_ray.self.light_prim = ls->prim;
+  probe_ray.self.light = ls->lamp;
   probe_ray.P = sd->P;
   probe_ray.tmin = 0.0f;
   if (ls->t == FLT_MAX) {
@@ -1018,20 +977,13 @@ ccl_device_forceinline int kernel_path_mnee_sample(KernelGlobals kg,
           kg, state, sd_mnee, NULL, PATH_RAY_DIFFUSE, true);
 
       /* Get and sample refraction bsdf */
-      bool found_transimissive_microfacet_bsdf = false;
+      bool found_refractive_microfacet_bsdf = false;
       for (int ci = 0; ci < sd_mnee->num_closure; ci++) {
         ccl_private ShaderClosure *bsdf = &sd_mnee->closure[ci];
-        if (bsdf->type == CLOSURE_BSDF_MICROFACET_BECKMANN_REFRACTION_ID ||
-            bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID ||
-            bsdf->type == CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID ||
-            bsdf->type == CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_FRESNEL_ID ||
-            bsdf->type == CLOSURE_BSDF_REFRACTION_ID ||
-            bsdf->type == CLOSURE_BSDF_SHARP_GLASS_ID) {
-          /* Note that CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID and
-           * CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_FRESNEL_ID are treated as
-           * CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID further below. */
+        if (CLOSURE_IS_REFRACTION(bsdf->type) || CLOSURE_IS_GLASS(bsdf->type)) {
+          /* Note that Glass closures are treated as refractive further below. */
 
-          found_transimissive_microfacet_bsdf = true;
+          found_refractive_microfacet_bsdf = true;
           ccl_private MicrofacetBsdf *microfacet_bsdf = (ccl_private MicrofacetBsdf *)bsdf;
 
           /* Figure out appropriate index of refraction ratio. */
@@ -1054,7 +1006,7 @@ ccl_device_forceinline int kernel_path_mnee_sample(KernelGlobals kg,
           break;
         }
       }
-      if (!found_transimissive_microfacet_bsdf)
+      if (!found_refractive_microfacet_bsdf)
         return 0;
     }
 
@@ -1089,12 +1041,22 @@ ccl_device_forceinline int kernel_path_mnee_sample(KernelGlobals kg,
    * discontinuity is visible between direct and indirect contributions */
   INTEGRATOR_STATE_WRITE(state, path, mnee) |= PATH_MNEE_VALID;
 
-  /* 2. Walk on the specular manifold to find vertices on the
-   *    casters that satisfy snell's law for each interface
-   */
-  if (mnee_newton_solver(kg, sd, sd_mnee, ls, vertex_count, vertices)) {
+  /* Distant or environment light. */
+  bool light_fixed_direction = (ls->t == FLT_MAX);
+  if (ls->type == LIGHT_AREA) {
+    const ccl_global KernelLight *klight = &kernel_data_fetch(lights, ls->lamp);
+    if (klight->area.tan_half_spread == 0.0f) {
+      /* Area light with zero spread also has fixed direction. */
+      light_fixed_direction = true;
+    }
+  }
+
+  /* 2. Walk on the specular manifold to find vertices on the casters that satisfy snell's law for
+   * each interface. */
+  if (mnee_newton_solver(kg, sd, sd_mnee, ls, light_fixed_direction, vertex_count, vertices)) {
     /* 3. If a solution exists, calculate contribution of the corresponding path */
-    if (!mnee_path_contribution(kg, state, sd, sd_mnee, ls, vertex_count, vertices, throughput))
+    if (!mnee_path_contribution(
+            kg, state, sd, sd_mnee, ls, light_fixed_direction, vertex_count, vertices, throughput))
       return 0;
 
     return vertex_count;

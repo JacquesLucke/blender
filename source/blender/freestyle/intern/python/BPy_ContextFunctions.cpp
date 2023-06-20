@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2009-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -104,7 +106,8 @@ static PyObject *ContextFunctions_load_map(PyObject * /*self*/, PyObject *args, 
   float sigma = 1.0;
 
   if (!PyArg_ParseTupleAndKeywords(
-          args, kwds, "ss|If", (char **)kwlist, &fileName, &mapName, &nbLevels, &sigma)) {
+          args, kwds, "ss|If", (char **)kwlist, &fileName, &mapName, &nbLevels, &sigma))
+  {
     return nullptr;
   }
   ContextFunctions::LoadMapCF(fileName, mapName, nbLevels, sigma);
@@ -139,8 +142,8 @@ static PyObject *ContextFunctions_read_map_pixel(PyObject * /*self*/,
   int level;
   uint x, y;
 
-  if (!PyArg_ParseTupleAndKeywords(
-          args, kwds, "siII", (char **)kwlist, &mapName, &level, &x, &y)) {
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "siII", (char **)kwlist, &mapName, &level, &x, &y))
+  {
     return nullptr;
   }
   return PyFloat_FromDouble(ContextFunctions::ReadMapPixelCF(mapName, level, x, y));
@@ -206,7 +209,8 @@ static PyObject *ContextFunctions_read_directional_view_map_pixel(PyObject * /*s
   uint x, y;
 
   if (!PyArg_ParseTupleAndKeywords(
-          args, kwds, "iiII", (char **)kwlist, &orientation, &level, &x, &y)) {
+          args, kwds, "iiII", (char **)kwlist, &orientation, &level, &x, &y))
+  {
     return nullptr;
   }
   return PyFloat_FromDouble(
@@ -284,10 +288,10 @@ static PyModuleDef module_definition = {
     /*m_doc*/ module_docstring,
     /*m_size*/ -1,
     /*m_methods*/ module_functions,
-    /*m_slots*/ NULL,
-    /*m_traverse*/ NULL,
-    /*m_clear*/ NULL,
-    /*m_free*/ NULL,
+    /*m_slots*/ nullptr,
+    /*m_traverse*/ nullptr,
+    /*m_clear*/ nullptr,
+    /*m_free*/ nullptr,
 };
 
 //------------------- MODULE INITIALIZATION --------------------------------

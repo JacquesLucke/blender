@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup editors
@@ -68,7 +70,7 @@ bool ED_undo_is_memfile_compatible(const struct bContext *C);
  * This is to avoid changes to a property making undo pushes
  * which are ignored by the undo-system.
  * For example, changing a brush property isn't stored by sculpt-mode undo steps.
- * This workaround is needed until the limitation is removed, see: T61948.
+ * This workaround is needed until the limitation is removed, see: #61948.
  */
 bool ED_undo_is_legacy_compatible_for_property(struct bContext *C, struct ID *id);
 
@@ -120,7 +122,7 @@ struct MemFile *ED_undosys_stack_memfile_get_active(struct UndoStack *ustack);
  * with memfile ones, this has to be called manually by relevant undo code.
  *
  * \note Only current known case for this is undoing a switch from Object to Sculpt mode (see
- * T82388).
+ * #82388).
  *
  * \note Calling this ID by ID is not optimal, as it will loop over all #MemFile.chunks until it
  * finds the expected one. If this becomes an issue we'll have to add a mapping from session UUID

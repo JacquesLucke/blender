@@ -1,6 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2022 NVIDIA Corporation
- * Copyright 2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2022 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -22,9 +23,7 @@ class HdCyclesMaterial final : public PXR_NS::HdMaterial {
             PXR_NS::HdDirtyBits *dirtyBits) override;
 
 #if PXR_VERSION < 2011
-  void Reload() override
-  {
-  }
+  void Reload() override {}
 #endif
 
   void Finalize(PXR_NS::HdRenderParam *renderParam) override;

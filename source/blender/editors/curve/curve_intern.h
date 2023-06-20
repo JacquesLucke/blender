@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2008 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2008 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edcurve
@@ -14,6 +15,10 @@ struct ListBase;
 struct Object;
 struct ViewContext;
 struct wmOperatorType;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* editfont.c */
 
@@ -30,6 +35,8 @@ enum { CASE_LOWER, CASE_UPPER };
 enum {
   LINE_BEGIN,
   LINE_END,
+  TEXT_BEGIN,
+  TEXT_END,
   PREV_CHAR,
   NEXT_CHAR,
   PREV_WORD,
@@ -80,6 +87,9 @@ void FONT_OT_text_cut(struct wmOperatorType *ot);
 void FONT_OT_text_paste(struct wmOperatorType *ot);
 void FONT_OT_text_paste_from_file(struct wmOperatorType *ot);
 
+void FONT_OT_selection_set(struct wmOperatorType *ot);
+void FONT_OT_select_word(struct wmOperatorType *ot);
+
 void FONT_OT_move(struct wmOperatorType *ot);
 void FONT_OT_move_select(struct wmOperatorType *ot);
 void FONT_OT_delete(struct wmOperatorType *ot);
@@ -129,7 +139,7 @@ void CURVE_OT_cyclic_toggle(struct wmOperatorType *ot);
 
 void CURVE_OT_match_texture_space(struct wmOperatorType *ot);
 
-/* exported for editcurve_undo.c */
+/* exported for editcurve_undo.cc */
 
 struct GHash *ED_curve_keyindex_hash_duplicate(struct GHash *keyindex);
 void ED_curve_keyindex_update_nurb(struct EditNurb *editnurb, struct Nurb *nu, struct Nurb *newnu);
@@ -227,3 +237,7 @@ void CURVE_OT_draw(struct wmOperatorType *ot);
 
 void CURVE_OT_pen(struct wmOperatorType *ot);
 struct wmKeyMap *curve_pen_modal_keymap(struct wmKeyConfig *keyconf);
+
+#ifdef __cplusplus
+}
+#endif

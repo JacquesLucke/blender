@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2002-2022 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(YAMLCPP_EXTRA_ARGS
@@ -10,7 +12,8 @@ if(WIN32)
   set(YAMLCPP_EXTRA_ARGS
     ${YAMLCPP_EXTRA_ARGS}
     -DBUILD_GMOCK=OFF
-    -DYAML_MSVC_SHARED_RT=ON)
+    -DYAML_MSVC_SHARED_RT=ON
+  )
 endif()
 
 ExternalProject_Add(external_yamlcpp
@@ -18,6 +21,7 @@ ExternalProject_Add(external_yamlcpp
   DOWNLOAD_DIR ${DOWNLOAD_DIR}
   URL_HASH ${YAMLCPP_HASH_TYPE}=${YAMLCPP_HASH}
   PREFIX ${BUILD_DIR}/yamlcpp
+  CMAKE_GENERATOR ${PLATFORM_ALT_GENERATOR}
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${LIBDIR}/yamlcpp ${DEFAULT_CMAKE_FLAGS} ${YAMLCPP_EXTRA_ARGS}
   INSTALL_DIR ${LIBDIR}/yamlcpp
 )

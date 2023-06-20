@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2021-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2021-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifdef WITH_METAL
 
@@ -816,6 +817,11 @@ bool BVHMetal::build_TLAS(Progress &progress,
 
     uint32_t instance_index = 0;
     uint32_t motion_transform_index = 0;
+
+    // allocate look up buffer for wost case scenario
+    uint64_t count = objects.size();
+    blas_lookup.resize(count);
+
     for (Object *ob : objects) {
       /* Skip non-traceable objects */
       if (!ob->is_traceable())
@@ -843,12 +849,15 @@ bool BVHMetal::build_TLAS(Progress &progress,
       /* Set user instance ID to object index */
       int object_index = ob->get_device_index();
       uint32_t user_id = uint32_t(object_index);
+      int currIndex = instance_index++;
+      assert(user_id < blas_lookup.size());
+      blas_lookup[user_id] = accel_struct_index;
 
       /* Bake into the appropriate descriptor */
       if (motion_blur) {
         MTLAccelerationStructureMotionInstanceDescriptor *instances =
             (MTLAccelerationStructureMotionInstanceDescriptor *)[instanceBuf contents];
-        MTLAccelerationStructureMotionInstanceDescriptor &desc = instances[instance_index++];
+        MTLAccelerationStructureMotionInstanceDescriptor &desc = instances[currIndex];
 
         desc.accelerationStructureIndex = accel_struct_index;
         desc.userID = user_id;
@@ -894,7 +903,7 @@ bool BVHMetal::build_TLAS(Progress &progress,
       else {
         MTLAccelerationStructureUserIDInstanceDescriptor *instances =
             (MTLAccelerationStructureUserIDInstanceDescriptor *)[instanceBuf contents];
-        MTLAccelerationStructureUserIDInstanceDescriptor &desc = instances[instance_index++];
+        MTLAccelerationStructureUserIDInstanceDescriptor &desc = instances[currIndex];
 
         desc.accelerationStructureIndex = accel_struct_index;
         desc.userID = user_id;

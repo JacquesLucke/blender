@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/camera.h"
 #include "scene/mesh.h"
@@ -115,9 +116,7 @@ void EdgeDice::stitch_triangles(Subpatch &sub, int edge)
 
 /* QuadDice */
 
-QuadDice::QuadDice(const SubdParams &params_) : EdgeDice(params_)
-{
-}
+QuadDice::QuadDice(const SubdParams &params_) : EdgeDice(params_) {}
 
 float2 QuadDice::map_uv(Subpatch &sub, float u, float v)
 {

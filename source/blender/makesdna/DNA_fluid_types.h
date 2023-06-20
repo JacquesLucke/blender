@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2006 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2006 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -687,10 +688,12 @@ typedef struct FluidDomainSettings {
   int viewsettings;
   char _pad12[4]; /* Unused. */
 
-  /* Pointcache options. */
-  /* Smoke uses only one cache from now on (index [0]), but keeping the array for now for reading
-   * old files. */
-  struct PointCache *point_cache[2]; /* Definition is in DNA_object_force_types.h. */
+  /**
+   * Point-cache options.
+   * Smoke uses only one cache from now on (index [0]),
+   * but keeping the array for now for reading old files.
+   */
+  struct PointCache *point_cache[2];
   struct ListBase ptcaches[2];
   int cache_comp;
   int cache_high_comp;
@@ -784,14 +787,15 @@ typedef struct FluidFlowSettings {
   float texture_offset;
   char _pad2[4];
   /* MAX_CUSTOMDATA_LAYER_NAME. */
-  char uvlayer_name[64];
+  char uvlayer_name[68];
+  char _pad3[4];
   short vgroup_density;
 
   short type;     /* Smoke, flames, both, outflow, liquid. */
   short behavior; /* Inflow, outflow, static. */
   short source;
   short texture_type;
-  short _pad3[3];
+  short _pad4[3];
   int flags; /* Absolute emission etc. */
 } FluidFlowSettings;
 

@@ -1,10 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <algorithm>
 
 #include "curves_sculpt_intern.hh"
 
-#include "BLI_float4x4.hh"
+#include "BLI_math_matrix_types.hh"
+#include "BLI_task.hh"
 #include "BLI_vector.hh"
 
 #include "PIL_time.h"
@@ -41,7 +44,9 @@ namespace blender::ed::sculpt_paint {
 class PinchOperation : public CurvesSculptStrokeOperation {
  private:
   bool invert_pinch_;
-  Array<float> segment_lengths_cu_;
+
+  /** Solver for length and collision constraints. */
+  CurvesConstraintSolver constraint_solver_;
 
   /** Only used when a 3D brush is used. */
   CurvesBrush3D brush_3d_;
@@ -49,9 +54,7 @@ class PinchOperation : public CurvesSculptStrokeOperation {
   friend struct PinchOperationExecutor;
 
  public:
-  PinchOperation(const bool invert_pinch) : invert_pinch_(invert_pinch)
-  {
-  }
+  PinchOperation(const bool invert_pinch) : invert_pinch_(invert_pinch) {}
 
   void on_stroke_extended(const bContext &C, const StrokeExtension &stroke_extension) override;
 };
@@ -65,7 +68,7 @@ struct PinchOperationExecutor {
   CurvesGeometry *curves_ = nullptr;
 
   VArray<float> point_factors_;
-  Vector<int64_t> selected_curve_indices_;
+  IndexMaskMemory selected_curve_memory_;
   IndexMask curve_selection_;
 
   CurvesSurfaceTransforms transforms_;
@@ -80,9 +83,7 @@ struct PinchOperationExecutor {
 
   float2 brush_pos_re_;
 
-  PinchOperationExecutor(const bContext &C) : ctx_(C)
-  {
-  }
+  PinchOperationExecutor(const bContext &C) : ctx_(C) {}
 
   void execute(PinchOperation &self, const bContext &C, const StrokeExtension &stroke_extension)
   {
@@ -90,7 +91,7 @@ struct PinchOperationExecutor {
 
     object_ = CTX_data_active_object(&C);
     curves_id_ = static_cast<Curves *>(object_->data);
-    curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
+    curves_ = &curves_id_->geometry.wrap();
     if (curves_->curves_num() == 0) {
       return;
     }
@@ -105,16 +106,15 @@ struct PinchOperationExecutor {
 
     transforms_ = CurvesSurfaceTransforms(*object_, curves_id_->surface);
 
-    point_factors_ = get_point_selection(*curves_id_);
-    curve_selection_ = retrieve_selected_curves(*curves_id_, selected_curve_indices_);
+    point_factors_ = *curves_->attributes().lookup_or_default<float>(
+        ".selection", ATTR_DOMAIN_POINT, 1.0f);
+    curve_selection_ = curves::retrieve_selected_curves(*curves_id_, selected_curve_memory_);
 
     brush_pos_re_ = stroke_extension.mouse_position;
     const eBrushFalloffShape falloff_shape = static_cast<eBrushFalloffShape>(
         brush_->falloff_shape);
 
     if (stroke_extension.is_first) {
-      this->initialize_segment_lengths();
-
       if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
         self_->brush_3d_ = *sample_curves_3d_brush(*ctx_.depsgraph,
                                                    *ctx_.region,
@@ -124,6 +124,9 @@ struct PinchOperationExecutor {
                                                    brush_pos_re_,
                                                    brush_radius_base_re_);
       }
+
+      self_->constraint_solver_.initialize(
+          *curves_, curve_selection_, curves_id_->flag & CV_SCULPT_COLLISION_ENABLED);
     }
 
     Array<bool> changed_curves(curves_->curves_num(), false);
@@ -137,7 +140,13 @@ struct PinchOperationExecutor {
       BLI_assert_unreachable();
     }
 
-    this->restore_segment_lengths(changed_curves);
+    IndexMaskMemory memory;
+    const IndexMask changed_curves_mask = IndexMask::from_bools(changed_curves, memory);
+    const Mesh *surface = curves_id_->surface && curves_id_->surface->type == OB_MESH ?
+                              static_cast<const Mesh *>(curves_id_->surface->data) :
+                              nullptr;
+    self_->constraint_solver_.solve_step(*curves_, changed_curves_mask, surface, transforms_);
+
     curves_->tag_positions_changed();
     DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);
     WM_main_add_notifier(NC_GEOM | ND_DATA, &curves_id_->id);
@@ -155,26 +164,27 @@ struct PinchOperationExecutor {
 
   void pinch_projected(const float4x4 &brush_transform, MutableSpan<bool> r_changed_curves)
   {
-    const float4x4 brush_transform_inv = brush_transform.inverted();
+    const float4x4 brush_transform_inv = math::invert(brush_transform);
 
     const bke::crazyspace::GeometryDeformation deformation =
         bke::crazyspace::get_evaluated_curves_deformation(*ctx_.depsgraph, *object_);
+    const OffsetIndices points_by_curve = curves_->points_by_curve();
 
     float4x4 projection;
-    ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
+    ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.ptr());
     MutableSpan<float3> positions_cu = curves_->positions_for_write();
     const float brush_radius_re = brush_radius_base_re_ * brush_radius_factor_;
     const float brush_radius_sq_re = pow2f(brush_radius_re);
 
-    threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
-      for (const int curve_i : curve_selection_.slice(range)) {
-        const IndexRange points = curves_->points_for_curve(curve_i);
+    curve_selection_.foreach_segment(GrainSize(256), [&](const IndexMaskSegment segment) {
+      for (const int curve_i : segment) {
+        const IndexRange points = points_by_curve[curve_i];
         for (const int point_i : points.drop_front(1)) {
           const float3 old_pos_cu = deformation.positions[point_i];
-          const float3 old_symm_pos_cu = brush_transform_inv * old_pos_cu;
+          const float3 old_symm_pos_cu = math::transform_point(brush_transform_inv, old_pos_cu);
           float2 old_symm_pos_re;
           ED_view3d_project_float_v2_m4(
-              ctx_.region, old_symm_pos_cu, old_symm_pos_re, projection.values);
+              ctx_.region, old_symm_pos_cu, old_symm_pos_re, projection.ptr());
 
           const float dist_to_brush_sq_re = math::distance_squared(old_symm_pos_re, brush_pos_re_);
           if (dist_to_brush_sq_re > brush_radius_sq_re) {
@@ -192,12 +202,12 @@ struct PinchOperationExecutor {
           float3 new_symm_pos_wo;
           ED_view3d_win_to_3d(ctx_.v3d,
                               ctx_.region,
-                              transforms_.curves_to_world * old_symm_pos_cu,
+                              math::transform_point(transforms_.curves_to_world, old_symm_pos_cu),
                               new_symm_pos_re,
                               new_symm_pos_wo);
 
-          const float3 new_pos_cu = brush_transform * transforms_.world_to_curves *
-                                    new_symm_pos_wo;
+          float3 new_pos_cu = math::transform_point(transforms_.world_to_curves, new_symm_pos_wo);
+          new_pos_cu = math::transform_point(brush_transform, new_pos_cu);
           const float3 translation_eval = new_pos_cu - old_pos_cu;
           const float3 translation_orig = deformation.translation_from_deformed_to_original(
               point_i, translation_eval);
@@ -211,18 +221,20 @@ struct PinchOperationExecutor {
   void pinch_spherical_with_symmetry(MutableSpan<bool> r_changed_curves)
   {
     float3 brush_pos_wo;
-    ED_view3d_win_to_3d(ctx_.v3d,
-                        ctx_.region,
-                        transforms_.curves_to_world * self_->brush_3d_.position_cu,
-                        brush_pos_re_,
-                        brush_pos_wo);
-    const float3 brush_pos_cu = transforms_.world_to_curves * brush_pos_wo;
+    ED_view3d_win_to_3d(
+        ctx_.v3d,
+        ctx_.region,
+        math::transform_point(transforms_.curves_to_world, self_->brush_3d_.position_cu),
+        brush_pos_re_,
+        brush_pos_wo);
+    const float3 brush_pos_cu = math::transform_point(transforms_.world_to_curves, brush_pos_wo);
     const float brush_radius_cu = self_->brush_3d_.radius_cu * brush_radius_factor_;
 
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->pinch_spherical(brush_transform * brush_pos_cu, brush_radius_cu, r_changed_curves);
+      this->pinch_spherical(
+          math::transform_point(brush_transform, brush_pos_cu), brush_radius_cu, r_changed_curves);
     }
   }
 
@@ -235,10 +247,11 @@ struct PinchOperationExecutor {
 
     const bke::crazyspace::GeometryDeformation deformation =
         bke::crazyspace::get_evaluated_curves_deformation(*ctx_.depsgraph, *object_);
+    const OffsetIndices points_by_curve = curves_->points_by_curve();
 
-    threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
-      for (const int curve_i : curve_selection_.slice(range)) {
-        const IndexRange points = curves_->points_for_curve(curve_i);
+    curve_selection_.foreach_segment(GrainSize(256), [&](const IndexMaskSegment segment) {
+      for (const int curve_i : segment) {
+        const IndexRange points = points_by_curve[curve_i];
         for (const int point_i : points.drop_front(1)) {
           const float3 old_pos_cu = deformation.positions[point_i];
 
@@ -260,45 +273,6 @@ struct PinchOperationExecutor {
           positions_cu[point_i] += translation_orig;
 
           r_changed_curves[curve_i] = true;
-        }
-      }
-    });
-  }
-
-  void initialize_segment_lengths()
-  {
-    const Span<float3> positions_cu = curves_->positions();
-    self_->segment_lengths_cu_.reinitialize(curves_->points_num());
-    threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
-      for (const int curve_i : curve_selection_.slice(range)) {
-        const IndexRange points = curves_->points_for_curve(curve_i);
-        for (const int point_i : points.drop_back(1)) {
-          const float3 &p1_cu = positions_cu[point_i];
-          const float3 &p2_cu = positions_cu[point_i + 1];
-          const float length_cu = math::distance(p1_cu, p2_cu);
-          self_->segment_lengths_cu_[point_i] = length_cu;
-        }
-      }
-    });
-  }
-
-  void restore_segment_lengths(const Span<bool> changed_curves)
-  {
-    const Span<float> expected_lengths_cu = self_->segment_lengths_cu_;
-    MutableSpan<float3> positions_cu = curves_->positions_for_write();
-
-    threading::parallel_for(changed_curves.index_range(), 256, [&](const IndexRange range) {
-      for (const int curve_i : range) {
-        if (!changed_curves[curve_i]) {
-          continue;
-        }
-        const IndexRange points = curves_->points_for_curve(curve_i);
-        for (const int segment_i : IndexRange(points.size() - 1)) {
-          const float3 &p1_cu = positions_cu[points[segment_i]];
-          float3 &p2_cu = positions_cu[points[segment_i] + 1];
-          const float3 direction = math::normalize(p2_cu - p1_cu);
-          const float expected_length_cu = expected_lengths_cu[points[segment_i]];
-          p2_cu = p1_cu + direction * expected_length_cu;
         }
       }
     });

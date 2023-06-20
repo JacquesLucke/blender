@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+#
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2011-2022 Blender Foundation
 
 set(LICENSES
   Apache2-license.txt
@@ -10,4 +11,4 @@ set(LICENSES
   Zlib-license.txt
 )
 
-delayed_install(${CMAKE_CURRENT_SOURCE_DIR}  "${LICENSES}" ${CYCLES_INSTALL_PATH}/license)
+delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${LICENSES}" ${CYCLES_INSTALL_PATH}/license)

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2004-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -180,7 +182,8 @@ static PyObject *Stroke_insert_vertex(BPy_Stroke *self, PyObject *args, PyObject
                                    &StrokeVertex_Type,
                                    &py_sv,
                                    &StrokeVertexIterator_Type,
-                                   &py_sv_it)) {
+                                   &py_sv_it))
+  {
     return nullptr;
   }
 
@@ -207,8 +210,8 @@ static PyObject *Stroke_remove_vertex(BPy_Stroke *self, PyObject *args, PyObject
   static const char *kwlist[] = {"vertex", nullptr};
   PyObject *py_sv = nullptr;
 
-  if (!PyArg_ParseTupleAndKeywords(
-          args, kwds, "O!", (char **)kwlist, &StrokeVertex_Type, &py_sv)) {
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!", (char **)kwlist, &StrokeVertex_Type, &py_sv))
+  {
     return nullptr;
   }
   if (((BPy_StrokeVertex *)py_sv)->sv) {

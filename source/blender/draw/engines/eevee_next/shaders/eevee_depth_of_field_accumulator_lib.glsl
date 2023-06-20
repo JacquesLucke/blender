@@ -60,6 +60,27 @@ struct DofGatherData {
   float transparency;
 
   float layer_opacity;
+
+#ifdef GPU_METAL
+  /* Explicit constructors -- To support GLSL syntax. */
+  inline DofGatherData() = default;
+  inline DofGatherData(vec4 in_color,
+                       float in_weight,
+                       float in_dist,
+                       float in_coc,
+                       float in_coc_sqr,
+                       float in_transparency,
+                       float in_layer_opacity)
+      : color(in_color),
+        weight(in_weight),
+        dist(in_dist),
+        coc(in_coc),
+        coc_sqr(in_coc_sqr),
+        transparency(in_transparency),
+        layer_opacity(in_layer_opacity)
+  {
+  }
+#endif
 };
 
 #define GATHER_DATA_INIT DofGatherData(vec4(0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
@@ -503,7 +524,8 @@ void dof_gather_accumulator(sampler2D color_tx,
     first_ring = false;
 
     if (do_density_change && (ring == change_density_at_ring) &&
-        (density_change < gather_max_density_change)) {
+        (density_change < gather_max_density_change))
+    {
       if (dof_do_density_change(base_radius, min_intersectable_radius)) {
         base_radius *= radius_downscale_factor;
         ring += gather_density_change_ring;
@@ -569,7 +591,7 @@ void dof_gather_accumulator(sampler2D color_tx,
  * The full pixel neighborhood is gathered.
  * \{ */
 
-void dof_slight_focus_gather(sampler2D depth_tx,
+void dof_slight_focus_gather(depth2D depth_tx,
                              sampler2D color_tx,
                              sampler2D bkh_lut_tx, /* Renamed because of ugly macro job. */
                              float radius,

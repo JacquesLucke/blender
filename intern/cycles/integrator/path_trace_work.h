@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -142,9 +143,7 @@ class PathTraceWork {
 
 #ifdef WITH_PATH_GUIDING
   /* Initializes the per-thread guiding kernel data. */
-  virtual void guiding_init_kernel_globals(void *, void *, const bool)
-  {
-  }
+  virtual void guiding_init_kernel_globals(void *, void *, const bool) {}
 #endif
 
  protected:

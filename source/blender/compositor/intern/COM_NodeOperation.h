@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -16,6 +17,8 @@
 #include "COM_Enums.h"
 #include "COM_MemoryBuffer.h"
 #include "COM_MetaData.h"
+
+#include "BKE_node_runtime.hh"
 
 #include "clew.h"
 
@@ -70,7 +73,8 @@ class NodeOperationInput {
  private:
   NodeOperation *operation_;
 
-  /** Datatype of this socket. Is used for automatically data transformation.
+  /**
+   * Datatype of this socket. Is used for automatically data transformation.
    * \section data-conversion
    */
   DataType datatype_;
@@ -133,7 +137,8 @@ class NodeOperationOutput {
  private:
   NodeOperation *operation_;
 
-  /** Datatype of this socket. Is used for automatically data transformation.
+  /**
+   * Datatype of this socket. Is used for automatically data transformation.
    * \section data-conversion
    */
   DataType datatype_;
@@ -349,9 +354,7 @@ class NodeOperation {
   ExecutionSystem *exec_system_;
 
  public:
-  virtual ~NodeOperation()
-  {
-  }
+  virtual ~NodeOperation() {}
 
   void set_name(const std::string name)
   {
@@ -455,9 +458,7 @@ class NodeOperation {
    * \param chunk_number: the chunk_number to be calculated
    * \param memory_buffers: all input MemoryBuffer's needed
    */
-  virtual void execute_region(rcti * /*rect*/, unsigned int /*chunk_number*/)
-  {
-  }
+  virtual void execute_region(rcti * /*rect*/, unsigned int /*chunk_number*/) {}
 
   /**
    * \brief when a chunk is executed by an OpenCLDevice, this method is called
@@ -555,13 +556,13 @@ class NodeOperation {
 
   inline bool is_braked() const
   {
-    return btree_->test_break(btree_->tbh);
+    return btree_->runtime->test_break(btree_->runtime->tbh);
   }
 
   inline void update_draw()
   {
-    if (btree_->update_draw) {
-      btree_->update_draw(btree_->udh);
+    if (btree_->runtime->update_draw) {
+      btree_->runtime->update_draw(btree_->runtime->udh);
     }
   }
 
@@ -595,9 +596,7 @@ class NodeOperation {
     return 0;
   }
 
-  virtual void deinitialize_tile_data(rcti * /*rect*/, void * /*data*/)
-  {
-  }
+  virtual void deinitialize_tile_data(rcti * /*rect*/, void * /*data*/) {}
 
   virtual MemoryBuffer *get_input_memory_buffer(MemoryBuffer ** /*memory_buffers*/)
   {

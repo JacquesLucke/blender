@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup balembic
@@ -16,7 +18,7 @@
 #include "BKE_customdata.h"
 #include "BKE_lib_id.h"
 #include "BKE_material.h"
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 
@@ -58,19 +60,19 @@ namespace blender::io::alembic {
 
 /* NOTE: Alembic's polygon winding order is clockwise, to match with Renderman. */
 
-static void get_vertices(struct Mesh *mesh, std::vector<Imath::V3f> &points);
-static void get_topology(struct Mesh *mesh,
+static void get_vertices(Mesh *mesh, std::vector<Imath::V3f> &points);
+static void get_topology(Mesh *mesh,
                          std::vector<int32_t> &poly_verts,
                          std::vector<int32_t> &loop_counts,
                          bool &r_has_flat_shaded_poly);
-static void get_edge_creases(struct Mesh *mesh,
+static void get_edge_creases(Mesh *mesh,
                              std::vector<int32_t> &indices,
                              std::vector<int32_t> &lengths,
                              std::vector<float> &sharpnesses);
-static void get_vert_creases(struct Mesh *mesh,
+static void get_vert_creases(Mesh *mesh,
                              std::vector<int32_t> &indices,
                              std::vector<float> &sharpnesses);
-static void get_loop_normals(struct Mesh *mesh,
+static void get_loop_normals(Mesh *mesh,
                              std::vector<Imath::V3f> &normals,
                              bool has_flat_shaded_poly);
 
@@ -176,8 +178,8 @@ void ABCGenericMeshWriter::do_write(HierarchyContext &context)
 
   m_custom_data_config.pack_uvs = args_.export_params->packuv;
   m_custom_data_config.mesh = mesh;
-  m_custom_data_config.mpoly = mesh->polys_for_write().data();
-  m_custom_data_config.mloop = mesh->loops_for_write().data();
+  m_custom_data_config.poly_offsets = mesh->poly_offsets_for_write().data();
+  m_custom_data_config.corner_verts = mesh->corner_verts_for_write().data();
   m_custom_data_config.totpoly = mesh->totpoly;
   m_custom_data_config.totloop = mesh->totloop;
   m_custom_data_config.totvert = mesh->totvert;
@@ -240,8 +242,10 @@ void ABCGenericMeshWriter::write_mesh(HierarchyContext &context, Mesh *mesh)
       mesh_sample.setUVs(uv_sample);
     }
 
-    write_custom_data(
-        abc_poly_mesh_schema_.getArbGeomParams(), m_custom_data_config, &mesh->ldata, CD_MLOOPUV);
+    write_custom_data(abc_poly_mesh_schema_.getArbGeomParams(),
+                      m_custom_data_config,
+                      &mesh->ldata,
+                      CD_PROP_FLOAT2);
   }
 
   if (args_.export_params->normals) {
@@ -272,7 +276,7 @@ void ABCGenericMeshWriter::write_mesh(HierarchyContext &context, Mesh *mesh)
   write_arb_geo_params(mesh);
 }
 
-void ABCGenericMeshWriter::write_subd(HierarchyContext &context, struct Mesh *mesh)
+void ABCGenericMeshWriter::write_subd(HierarchyContext &context, Mesh *mesh)
 {
   std::vector<float> edge_crease_sharpness, vert_crease_sharpness;
   std::vector<Imath::V3f> points;
@@ -307,7 +311,7 @@ void ABCGenericMeshWriter::write_subd(HierarchyContext &context, struct Mesh *me
     }
 
     write_custom_data(
-        abc_subdiv_schema_.getArbGeomParams(), m_custom_data_config, &mesh->ldata, CD_MLOOPUV);
+        abc_subdiv_schema_.getArbGeomParams(), m_custom_data_config, &mesh->ldata, CD_PROP_FLOAT2);
   }
 
   if (args_.export_params->orcos) {
@@ -333,7 +337,7 @@ void ABCGenericMeshWriter::write_subd(HierarchyContext &context, struct Mesh *me
 }
 
 template<typename Schema>
-void ABCGenericMeshWriter::write_face_sets(Object *object, struct Mesh *mesh, Schema &schema)
+void ABCGenericMeshWriter::write_face_sets(Object *object, Mesh *mesh, Schema &schema)
 {
   std::map<std::string, std::vector<int32_t>> geo_groups;
   get_geo_groups(object, mesh, geo_groups);
@@ -347,7 +351,7 @@ void ABCGenericMeshWriter::write_face_sets(Object *object, struct Mesh *mesh, Sc
   }
 }
 
-void ABCGenericMeshWriter::write_arb_geo_params(struct Mesh *me)
+void ABCGenericMeshWriter::write_arb_geo_params(Mesh *me)
 {
   if (!args_.export_params->vcolors) {
     return;
@@ -363,7 +367,7 @@ void ABCGenericMeshWriter::write_arb_geo_params(struct Mesh *me)
   write_custom_data(arb_geom_params, m_custom_data_config, &me->ldata, CD_PROP_BYTE_COLOR);
 }
 
-bool ABCGenericMeshWriter::get_velocities(struct Mesh *mesh, std::vector<Imath::V3f> &vels)
+bool ABCGenericMeshWriter::get_velocities(Mesh *mesh, std::vector<Imath::V3f> &vels)
 {
   /* Export velocity attribute output by fluid sim, sequence cache modifier
    * and geometry nodes. */
@@ -388,11 +392,11 @@ bool ABCGenericMeshWriter::get_velocities(struct Mesh *mesh, std::vector<Imath::
 }
 
 void ABCGenericMeshWriter::get_geo_groups(Object *object,
-                                          struct Mesh *mesh,
+                                          Mesh *mesh,
                                           std::map<std::string, std::vector<int32_t>> &geo_groups)
 {
   const bke::AttributeAccessor attributes = mesh->attributes();
-  const VArraySpan<int> material_indices = attributes.lookup_or_default<int>(
+  const VArraySpan<int> material_indices = *attributes.lookup_or_default<int>(
       "material_index", ATTR_DOMAIN_FACE, 0);
 
   for (const int i : material_indices.index_range()) {
@@ -431,47 +435,52 @@ void ABCGenericMeshWriter::get_geo_groups(Object *object,
 
 /* NOTE: Alembic's polygon winding order is clockwise, to match with Renderman. */
 
-static void get_vertices(struct Mesh *mesh, std::vector<Imath::V3f> &points)
+static void get_vertices(Mesh *mesh, std::vector<Imath::V3f> &points)
 {
   points.clear();
   points.resize(mesh->totvert);
 
-  const Span<MVert> verts = mesh->verts();
+  const Span<float3> positions = mesh->vert_positions();
   for (int i = 0, e = mesh->totvert; i < e; i++) {
-    copy_yup_from_zup(points[i].getValue(), verts[i].co);
+    copy_yup_from_zup(points[i].getValue(), positions[i]);
   }
 }
 
-static void get_topology(struct Mesh *mesh,
+static void get_topology(Mesh *mesh,
                          std::vector<int32_t> &poly_verts,
                          std::vector<int32_t> &loop_counts,
                          bool &r_has_flat_shaded_poly)
 {
-  const Span<MPoly> polys = mesh->polys();
-  const Span<MLoop> loops = mesh->loops();
-  r_has_flat_shaded_poly = false;
+  const OffsetIndices polys = mesh->polys();
+  const Span<int> corner_verts = mesh->corner_verts();
+  const bke::AttributeAccessor attributes = mesh->attributes();
+  const VArray<bool> sharp_faces = *attributes.lookup_or_default<bool>(
+      "sharp_face", ATTR_DOMAIN_FACE, false);
+  for (const int i : sharp_faces.index_range()) {
+    if (sharp_faces[i]) {
+      r_has_flat_shaded_poly = true;
+      break;
+    }
+  }
 
   poly_verts.clear();
   loop_counts.clear();
-  poly_verts.reserve(loops.size());
+  poly_verts.reserve(corner_verts.size());
   loop_counts.reserve(polys.size());
 
   /* NOTE: data needs to be written in the reverse order. */
   for (const int i : polys.index_range()) {
-    const MPoly &poly = polys[i];
-    loop_counts.push_back(poly.totloop);
+    const IndexRange poly = polys[i];
+    loop_counts.push_back(poly.size());
 
-    r_has_flat_shaded_poly |= (poly.flag & ME_SMOOTH) == 0;
-
-    const MLoop *loop = &loops[poly.loopstart + (poly.totloop - 1)];
-
-    for (int j = 0; j < poly.totloop; j++, loop--) {
-      poly_verts.push_back(loop->v);
+    int corner = poly.start() + (poly.size() - 1);
+    for (int j = 0; j < poly.size(); j++, corner--) {
+      poly_verts.push_back(corner_verts[corner]);
     }
   }
 }
 
-static void get_edge_creases(struct Mesh *mesh,
+static void get_edge_creases(Mesh *mesh,
                              std::vector<int32_t> &indices,
                              std::vector<int32_t> &lengths,
                              std::vector<float> &sharpnesses)
@@ -480,17 +489,19 @@ static void get_edge_creases(struct Mesh *mesh,
   lengths.clear();
   sharpnesses.clear();
 
-  const float *creases = static_cast<const float *>(CustomData_get_layer(&mesh->edata, CD_CREASE));
-  if (!creases) {
+  const bke::AttributeAccessor attributes = mesh->attributes();
+  const bke::AttributeReader attribute = attributes.lookup<float>("crease_edge", ATTR_DOMAIN_EDGE);
+  if (!attribute) {
     return;
   }
-  const Span<MEdge> edges = mesh->edges();
+  const VArraySpan creases(*attribute);
+  const Span<int2> edges = mesh->edges();
   for (const int i : edges.index_range()) {
     const float sharpness = creases[i];
 
     if (sharpness != 0.0f) {
-      indices.push_back(edges[i].v1);
-      indices.push_back(edges[i].v2);
+      indices.push_back(edges[i][0]);
+      indices.push_back(edges[i][1]);
       sharpnesses.push_back(sharpness);
     }
   }
@@ -498,20 +509,21 @@ static void get_edge_creases(struct Mesh *mesh,
   lengths.resize(sharpnesses.size(), 2);
 }
 
-static void get_vert_creases(struct Mesh *mesh,
+static void get_vert_creases(Mesh *mesh,
                              std::vector<int32_t> &indices,
                              std::vector<float> &sharpnesses)
 {
   indices.clear();
   sharpnesses.clear();
 
-  const float *creases = static_cast<const float *>(CustomData_get_layer(&mesh->vdata, CD_CREASE));
-
-  if (!creases) {
+  const bke::AttributeAccessor attributes = mesh->attributes();
+  const bke::AttributeReader attribute = attributes.lookup<float>("crease_vert",
+                                                                  ATTR_DOMAIN_POINT);
+  if (!attribute) {
     return;
   }
-
-  for (int i = 0, v = mesh->totvert; i < v; i++) {
+  const VArraySpan creases(*attribute);
+  for (const int i : creases.index_range()) {
     const float sharpness = creases[i];
 
     if (sharpness != 0.0f) {
@@ -521,41 +533,41 @@ static void get_vert_creases(struct Mesh *mesh,
   }
 }
 
-static void get_loop_normals(struct Mesh *mesh,
+static void get_loop_normals(Mesh *mesh,
                              std::vector<Imath::V3f> &normals,
                              bool has_flat_shaded_poly)
 {
   normals.clear();
 
   /* If all polygons are smooth shaded, and there are no custom normals, we don't need to export
-   * normals at all. This is also done by other software, see T71246. */
+   * normals at all. This is also done by other software, see #71246. */
   if (!has_flat_shaded_poly && !CustomData_has_layer(&mesh->ldata, CD_CUSTOMLOOPNORMAL) &&
-      (mesh->flag & ME_AUTOSMOOTH) == 0) {
+      (mesh->flag & ME_AUTOSMOOTH) == 0)
+  {
     return;
   }
 
   BKE_mesh_calc_normals_split(mesh);
-  const float(*lnors)[3] = static_cast<float(*)[3]>(CustomData_get_layer(&mesh->ldata, CD_NORMAL));
+  const float(*lnors)[3] = static_cast<const float(*)[3]>(
+      CustomData_get_layer(&mesh->ldata, CD_NORMAL));
   BLI_assert_msg(lnors != nullptr, "BKE_mesh_calc_normals_split() should have computed CD_NORMAL");
 
   normals.resize(mesh->totloop);
 
   /* NOTE: data needs to be written in the reverse order. */
   int abc_index = 0;
-  const Span<MPoly> polys = mesh->polys();
+  const OffsetIndices polys = mesh->polys();
 
   for (const int i : polys.index_range()) {
-    const MPoly *mp = &polys[i];
-    for (int j = mp->totloop - 1; j >= 0; j--, abc_index++) {
-      int blender_index = mp->loopstart + j;
+    const IndexRange poly = polys[i];
+    for (int j = poly.size() - 1; j >= 0; j--, abc_index++) {
+      int blender_index = poly[j];
       copy_yup_from_zup(normals[abc_index].getValue(), lnors[blender_index]);
     }
   }
 }
 
-ABCMeshWriter::ABCMeshWriter(const ABCWriterConstructorArgs &args) : ABCGenericMeshWriter(args)
-{
-}
+ABCMeshWriter::ABCMeshWriter(const ABCWriterConstructorArgs &args) : ABCGenericMeshWriter(args) {}
 
 Mesh *ABCMeshWriter::get_export_mesh(Object *object_eval, bool & /*r_needsfree*/)
 {

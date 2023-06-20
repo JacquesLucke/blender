@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "util/task.h"
 #include "util/foreach.h"
@@ -11,9 +12,7 @@ CCL_NAMESPACE_BEGIN
 
 /* Task Pool */
 
-TaskPool::TaskPool() : start_time(time_dt()), num_tasks_pushed(0)
-{
-}
+TaskPool::TaskPool() : start_time(time_dt()), num_tasks_pushed(0) {}
 
 TaskPool::~TaskPool()
 {

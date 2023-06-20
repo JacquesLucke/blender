@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2004-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -57,11 +59,11 @@ static PyNumberMethods nature_as_number = {
     /*nb_inplace_floor_divide*/ nullptr,
     /*nb_inplace_true_divide*/ nullptr,
     /*nb_index*/ nullptr,
-    /*nb_matrix_multiply*/ NULL,
-    /*nb_inplace_matrix_multiply*/ NULL,
+    /*nb_matrix_multiply*/ nullptr,
+    /*nb_inplace_matrix_multiply*/ nullptr,
 };
 
-/*-----------------------BPy_Nature docstring ------------------------------------*/
+/*-----------------------BPy_Nature doc-string -----------------------------------*/
 
 PyDoc_STRVAR(Nature_doc,
              "Class hierarchy: int > :class:`Nature`\n"

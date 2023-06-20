@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup editorui
@@ -17,12 +19,10 @@
 #include "UI_resources.h"
 
 struct bContext;
-struct PreviewImage;
 struct uiBlock;
 struct uiButViewItem;
 struct uiLayout;
 struct View2D;
-struct wmNotifier;
 
 namespace blender::ui {
 
@@ -47,7 +47,7 @@ class AbstractGridViewItem : public AbstractViewItem {
 
   virtual void build_grid_tile(uiLayout &layout) const = 0;
 
-  const AbstractGridView &get_view() const;
+  AbstractGridView &get_view() const;
 
  protected:
   AbstractGridViewItem(StringRef identifier);
@@ -98,6 +98,8 @@ class AbstractGridView : public AbstractView {
 
  protected:
   Vector<std::unique_ptr<AbstractGridViewItem>> items_;
+  /** Store this to avoid recomputing. */
+  mutable std::optional<int> item_count_filtered_;
   /** <identifier, item> map to lookup items by identifier, used for efficient lookups in
    * #update_from_old(). */
   Map<StringRef, AbstractGridViewItem *> item_map_;
@@ -109,6 +111,7 @@ class AbstractGridView : public AbstractView {
 
   using ItemIterFn = FunctionRef<void(AbstractGridViewItem &)>;
   void foreach_item(ItemIterFn iter_fn) const;
+  void foreach_filtered_item(ItemIterFn iter_fn) const;
 
   /**
    * Convenience wrapper constructing the item by forwarding given arguments to the constructor of
@@ -126,6 +129,9 @@ class AbstractGridView : public AbstractView {
   template<class ItemT, typename... Args> inline ItemT &add_item(Args &&...args);
   const GridViewStyle &get_style() const;
   int get_item_count() const;
+  int get_item_count_filtered() const;
+
+  void set_tile_size(int tile_width, int tile_height);
 
  protected:
   virtual void build_items() = 0;
@@ -157,14 +163,12 @@ class AbstractGridView : public AbstractView {
  * \{ */
 
 class GridViewBuilder {
-  uiBlock &block_;
-
  public:
   GridViewBuilder(uiBlock &block);
 
   /** Build \a grid_view into the previously provided block, clipped by \a view_bounds (view space,
    * typically `View2D.cur`). */
-  void build_grid_view(AbstractGridView &grid_view, const View2D &v2d);
+  void build_grid_view(AbstractGridView &grid_view, const View2D &v2d, uiLayout &layout);
 };
 
 /** \} */

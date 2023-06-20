@@ -1,11 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup pythonintern
  *
  * This file defines a singleton py object accessed via 'bpy.app.translations',
  * which exposes various data and functions useful in i18n work.
- * Most notably, it allows to extend main translations with py dicts.
+ * Most notably, it allows to extend main translations with Python dictionaries.
  */
 
 #include <Python.h>
@@ -44,7 +46,7 @@ typedef struct {
   /** A readonly mapping {C context id: python id}  (actually, a MappingProxy). */
   PyObject *contexts_C_to_py;
   /**
-   * A py dict containing all registered py dicts
+   * A Python dictionary containing all registered Python dictionaries
    * (order is more or less random, first match wins!).
    */
   PyObject *py_messages;
@@ -112,7 +114,9 @@ static void _ghashutil_keyfree(void *ptr)
 /** \name Python'S Messages Cache
  * \{ */
 
-/* We cache all messages available for a given locale from all py dicts into a single ghash.
+/**
+ * We cache all messages available for a given locale
+ * from all Python dictionaries into a single #GHash.
  * Changing of locale is not so common, while looking for a message translation is,
  * so let's try to optimize the later as much as we can!
  * Note changing of locale, as well as (un)registering a message dict, invalidate that cache.
@@ -141,7 +145,7 @@ static void _build_translations_cache(PyObject *py_messages, const char *locale)
   _clear_translations_cache();
   _translations_cache = BLI_ghash_new(_ghashutil_keyhash, _ghashutil_keycmp, __func__);
 
-  /* Iterate over all py dicts. */
+  /* Iterate over all Python dictionaries. */
   while (PyDict_Next(py_messages, &pos, &uuid, &uuid_dict)) {
     PyObject *lang_dict;
 
@@ -265,7 +269,7 @@ const char *BPY_app_translations_py_pgettext(const char *msgctxt, const char *ms
   if (!STREQ(tmp, locale) || !_translations_cache) {
     PyGILState_STATE _py_state;
 
-    BLI_strncpy(locale, tmp, STATIC_LOCALE_SIZE);
+    STRNCPY(locale, tmp);
 
     /* Locale changed or cache does not exist, refresh the whole cache! */
     /* This func may be called from C (i.e. outside of python interpreter 'context'). */
@@ -318,7 +322,8 @@ static PyObject *app_translations_py_messages_register(BlenderAppTranslations *s
                                    &PyUnicode_Type,
                                    &module_name,
                                    &PyDict_Type,
-                                   &uuid_dict)) {
+                                   &uuid_dict))
+  {
     return NULL;
   }
 
@@ -369,7 +374,8 @@ static PyObject *app_translations_py_messages_unregister(BlenderAppTranslations 
                                    "O!:bpy.app.translations.unregister",
                                    (char **)kwlist,
                                    &PyUnicode_Type,
-                                   &module_name)) {
+                                   &module_name))
+  {
     return NULL;
   }
 
@@ -532,7 +538,8 @@ static PyObject *_py_pgettext(PyObject *args,
   char *msgid, *msgctxt = NULL;
 
   if (!PyArg_ParseTupleAndKeywords(
-          args, kw, "s|z:bpy.app.translations.pgettext", (char **)kwlist, &msgid, &msgctxt)) {
+          args, kw, "s|z:bpy.app.translations.pgettext", (char **)kwlist, &msgid, &msgctxt))
+  {
     return NULL;
   }
 
@@ -542,7 +549,8 @@ static PyObject *_py_pgettext(PyObject *args,
   (void)_pgettext;
 
   if (!PyArg_ParseTupleAndKeywords(
-          args, kw, "O|O:bpy.app.translations.pgettext", (char **)kwlist, &msgid, &msgctxt)) {
+          args, kw, "O|O:bpy.app.translations.pgettext", (char **)kwlist, &msgid, &msgctxt))
+  {
     return NULL;
   }
 
@@ -676,7 +684,8 @@ static PyObject *app_translations_locale_explode(BlenderAppTranslations *UNUSED(
   char *language, *country, *variant, *language_country, *language_variant;
 
   if (!PyArg_ParseTupleAndKeywords(
-          args, kw, "s:bpy.app.translations.locale_explode", (char **)kwlist, &locale)) {
+          args, kw, "s:bpy.app.translations.locale_explode", (char **)kwlist, &locale))
+  {
     return NULL;
   }
 
@@ -827,7 +836,7 @@ PyObject *BPY_app_translations_struct(void)
 {
   PyObject *ret;
 
-  /* Let's finalize our contexts structseq definition! */
+  /* Let's finalize our contexts `PyStructSequence` definition! */
   {
     BLT_i18n_contexts_descriptor *ctxt;
     PyStructSequence_Field *desc;
@@ -852,7 +861,7 @@ PyObject *BPY_app_translations_struct(void)
 
   /* prevent user from creating new instances */
   BlenderAppTranslationsType.tp_new = NULL;
-  /* without this we can't do set(sys.modules) T29635. */
+  /* Without this we can't do `set(sys.modules)` #29635. */
   BlenderAppTranslationsType.tp_hash = (hashfunc)_Py_HashPointer;
 
   return ret;
@@ -860,7 +869,7 @@ PyObject *BPY_app_translations_struct(void)
 
 void BPY_app_translations_end(void)
 {
-  /* In case the object remains in a module's name-space, see T44127. */
+  /* In case the object remains in a module's name-space, see #44127. */
 #ifdef WITH_INTERNATIONAL
   _clear_translations_cache();
 #endif

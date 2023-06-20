@@ -1,10 +1,11 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
-#include "kernel/sample/jitter.h"
 #include "kernel/sample/sobol_burley.h"
+#include "kernel/sample/tabulated_sobol.h"
 #include "util/hash.h"
 
 CCL_NAMESPACE_BEGIN
@@ -12,6 +13,20 @@ CCL_NAMESPACE_BEGIN
 /* Pseudo random numbers, uncomment this for debugging correlations. Only run
  * this single threaded on a CPU for repeatable results. */
 //#define __DEBUG_CORRELATION__
+
+/*
+ * The `path_rng_*()` functions below use a shuffled scrambled Sobol
+ * sequence to generate their samples.  Sobol samplers have a property
+ * that is worth being aware of when choosing how to use the sample
+ * dimensions:
+ *
+ * 1. In general, earlier sets of dimensions are better stratified.  So
+ *    prefer e.g. x,y over y,z over z,w for the things that are most
+ *    important to sample well.
+ * 2. As a rule of thumb, dimensions that are closer to each other are
+ *    better stratified than dimensions that are far.  So prefer e.g.
+ *    x,y over x,z.
+ */
 
 ccl_device_forceinline float path_rng_1D(KernelGlobals kg,
                                          uint rng_hash,
@@ -23,10 +38,11 @@ ccl_device_forceinline float path_rng_1D(KernelGlobals kg,
 #endif
 
   if (kernel_data.integrator.sampling_pattern == SAMPLING_PATTERN_SOBOL_BURLEY) {
-    return sobol_burley_sample_1D(sample, dimension, rng_hash);
+    const uint index_mask = kernel_data.integrator.sobol_index_mask;
+    return sobol_burley_sample_1D(sample, dimension, rng_hash, index_mask);
   }
   else {
-    return pmj_sample_1D(kg, sample, rng_hash, dimension);
+    return tabulated_sobol_sample_1D(kg, sample, rng_hash, dimension);
   }
 }
 
@@ -40,10 +56,47 @@ ccl_device_forceinline float2 path_rng_2D(KernelGlobals kg,
 #endif
 
   if (kernel_data.integrator.sampling_pattern == SAMPLING_PATTERN_SOBOL_BURLEY) {
-    return sobol_burley_sample_2D(sample, dimension, rng_hash);
+    const uint index_mask = kernel_data.integrator.sobol_index_mask;
+    return sobol_burley_sample_2D(sample, dimension, rng_hash, index_mask);
   }
   else {
-    return pmj_sample_2D(kg, sample, rng_hash, dimension);
+    return tabulated_sobol_sample_2D(kg, sample, rng_hash, dimension);
+  }
+}
+
+ccl_device_forceinline float3 path_rng_3D(KernelGlobals kg,
+                                          uint rng_hash,
+                                          int sample,
+                                          int dimension)
+{
+#ifdef __DEBUG_CORRELATION__
+  return make_float3((float)drand48(), (float)drand48(), (float)drand48());
+#endif
+
+  if (kernel_data.integrator.sampling_pattern == SAMPLING_PATTERN_SOBOL_BURLEY) {
+    const uint index_mask = kernel_data.integrator.sobol_index_mask;
+    return sobol_burley_sample_3D(sample, dimension, rng_hash, index_mask);
+  }
+  else {
+    return tabulated_sobol_sample_3D(kg, sample, rng_hash, dimension);
+  }
+}
+
+ccl_device_forceinline float4 path_rng_4D(KernelGlobals kg,
+                                          uint rng_hash,
+                                          int sample,
+                                          int dimension)
+{
+#ifdef __DEBUG_CORRELATION__
+  return make_float4((float)drand48(), (float)drand48(), (float)drand48(), (float)drand48());
+#endif
+
+  if (kernel_data.integrator.sampling_pattern == SAMPLING_PATTERN_SOBOL_BURLEY) {
+    const uint index_mask = kernel_data.integrator.sobol_index_mask;
+    return sobol_burley_sample_4D(sample, dimension, rng_hash, index_mask);
+  }
+  else {
+    return tabulated_sobol_sample_4D(kg, sample, rng_hash, dimension);
   }
 }
 
@@ -97,7 +150,7 @@ ccl_device_inline uint path_rng_hash_init(KernelGlobals kg,
 ccl_device_inline bool sample_is_class_A(int pattern, int sample)
 {
 #if 0
-  if (!(pattern == SAMPLING_PATTERN_PMJ || pattern == SAMPLING_PATTERN_SOBOL_BURLEY)) {
+  if (!(pattern == SAMPLING_PATTERN_TABULATED_SOBOL || pattern == SAMPLING_PATTERN_SOBOL_BURLEY)) {
     /* Fallback: assign samples randomly.
      * This is guaranteed to work "okay" for any sampler, but isn't good.
      * (NOTE: the seed constant is just a random number to guard against
@@ -114,8 +167,8 @@ ccl_device_inline bool sample_is_class_A(int pattern, int sample)
    * Multi-Jittered Sample Sequences" by Christensen et al., but
    * implemented with efficient bit-fiddling.
    *
-   * This approach also turns out to work equally well with Sobol-Burley
-   * (see https://developer.blender.org/D15746#429471).
+   * This approach also turns out to work equally well with Owen
+   * scrambled and shuffled Sobol (see https://developer.blender.org/D15746#429471).
    */
   return popcount(uint(sample) & 0xaaaaaaaa) & 1;
 }

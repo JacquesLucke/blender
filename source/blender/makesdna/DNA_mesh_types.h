@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -15,6 +16,13 @@
 
 /** Workaround to forward-declare C++ type in C header. */
 #ifdef __cplusplus
+
+#  include <optional>
+
+#  include "BLI_bounds_types.hh"
+#  include "BLI_math_vector_types.hh"
+#  include "BLI_offset_indices.hh"
+
 namespace blender {
 template<typename T> class Span;
 template<typename T> class MutableSpan;
@@ -22,6 +30,7 @@ namespace bke {
 struct MeshRuntime;
 class AttributeAccessor;
 class MutableAttributeAccessor;
+struct LooseVertCache;
 struct LooseEdgeCache;
 }  // namespace bke
 }  // namespace blender
@@ -41,7 +50,6 @@ struct MCol;
 struct MEdge;
 struct MFace;
 struct MLoopTri;
-struct MVert;
 struct Material;
 
 typedef struct Mesh {
@@ -62,14 +70,22 @@ typedef struct Mesh {
    */
   struct Material **mat;
 
-  /** The number of vertices (#MVert) in the mesh, and the size of #vdata. */
+  /** The number of vertices in the mesh, and the size of #vdata. */
   int totvert;
-  /** The number of edges (#MEdge) in the mesh, and the size of #edata. */
+  /** The number of edges in the mesh, and the size of #edata. */
   int totedge;
-  /** The number of polygons/faces (#MPoly) in the mesh, and the size of #pdata. */
+  /** The number of polygons/faces in the mesh, and the size of #pdata. */
   int totpoly;
-  /** The number of face corners (#MLoop) in the mesh, and the size of #ldata. */
+  /** The number of face corners in the mesh, and the size of #ldata. */
   int totloop;
+
+  /**
+   * Array owned by mesh. See #Mesh::polys() and #OffsetIndices.
+   *
+   * This array is shared based on the bke::MeshRuntime::poly_offsets_sharing_info.
+   * Avoid accessing directly when possible.
+   */
+  int *poly_offset_indices;
 
   CustomData vdata, edata, pdata, ldata;
 
@@ -125,9 +141,9 @@ typedef struct Mesh {
   struct Mesh *texcomesh;
 
   /** Texture space location and size, used for procedural coordinates when rendering. */
-  float loc[3];
-  float size[3];
-  char texflag;
+  float texspace_location[3];
+  float texspace_size[3];
+  char texspace_flag;
 
   /** Various flags used when editing the mesh. */
   char editflag;
@@ -138,6 +154,20 @@ typedef struct Mesh {
    * The angle for auto smooth in radians. `M_PI` (180 degrees) causes all edges to be smooth.
    */
   float smoothresh;
+
+  /** Per-mesh settings for voxel remesh. */
+  float remesh_voxel_size;
+  float remesh_voxel_adaptivity;
+
+  int face_sets_color_seed;
+  /* Stores the initial Face Set to be rendered white. This way the overlay can be enabled by
+   * default and Face Sets can be used without affecting the color of the mesh. */
+  int face_sets_color_default;
+
+  /** The color attribute currently selected in the list and edited by a user. */
+  char *active_color_attribute;
+  /** The color attribute used by default (i.e. for rendering) if no name is given explicitly. */
+  char *default_color_attribute;
 
   /**
    * User-defined symmetry flag (#eMeshSymmetryType) that causes editing operations to maintain
@@ -191,53 +221,67 @@ typedef struct Mesh {
   /* Deprecated size of #fdata. */
   int totface;
 
-  /** Per-mesh settings for voxel remesh. */
-  float remesh_voxel_size;
-  float remesh_voxel_adaptivity;
-
-  int face_sets_color_seed;
-  /* Stores the initial Face Set to be rendered white. This way the overlay can be enabled by
-   * default and Face Sets can be used without affecting the color of the mesh. */
-  int face_sets_color_default;
-
   char _pad1[4];
 
   /**
    * Data that isn't saved in files, including caches of derived data, temporary data to improve
-   * the editing experience, etc. Runtime data is created when reading files and can be accessed
+   * the editing experience, etc. The struct is created when reading files and can be accessed
    * without null checks, with the exception of some temporary meshes which should allocate and
    * free the data if they are passed to functions that expect run-time data.
    */
   MeshRuntimeHandle *runtime;
 #ifdef __cplusplus
   /**
-   * Array of vertex positions (and various other data). Edges and faces are defined by indices
-   * into this array.
+   * Array of vertex positions. Edges and faces are defined by indices into this array.
    */
-  blender::Span<MVert> verts() const;
+  blender::Span<blender::float3> vert_positions() const;
   /** Write access to vertex data. */
-  blender::MutableSpan<MVert> verts_for_write();
+  blender::MutableSpan<blender::float3> vert_positions_for_write();
   /**
-   * Array of edges, containing vertex indices. For simple triangle or quad meshes, edges could be
-   * calculated from the #MPoly and #MLoop arrays, however, edges need to be stored explicitly to
-   * edge domain attributes and to support loose edges that aren't connected to faces.
+   * Array of edges, containing vertex indices, stored in the ".edge_verts" attributes. For simple
+   * triangle or quad meshes, edges could be calculated from the polygon and "corner edge" arrays,
+   * however, edges need to be stored explicitly to edge domain attributes and to support loose
+   * edges that aren't connected to faces.
    */
-  blender::Span<MEdge> edges() const;
+  blender::Span<blender::int2> edges() const;
   /** Write access to edge data. */
-  blender::MutableSpan<MEdge> edges_for_write();
+  blender::MutableSpan<blender::int2> edges_for_write();
   /**
-   * Face topology storage of the size and offset of each face's section of the face corners.
+   * Face topology storage of the offset of each face's section of the face corners. The size of
+   * each polygon is encoded using the next offset value. Can be used to slice the #corner_verts or
+   * #corner_edges arrays to find the vertices or edges that make up each face.
    */
-  blender::Span<MPoly> polys() const;
-  /** Write access to polygon data. */
-  blender::MutableSpan<MPoly> polys_for_write();
+  blender::OffsetIndices<int> polys() const;
   /**
-   * Mesh face corners that "loop" around each face, storing the vertex index and the index of the
-   * subsequent edge.
+   * Index of the first corner of each polygon, and the size of the polygon encoded as the next
+   * offset. The total number of corners is the final value, and the first value is always zero.
+   * May be empty if there are no polygons.
    */
-  blender::Span<MLoop> loops() const;
-  /** Write access to loop data. */
-  blender::MutableSpan<MLoop> loops_for_write();
+  blender::Span<int> poly_offsets() const;
+  /** Write access to #poly_offsets data. */
+  blender::MutableSpan<int> poly_offsets_for_write();
+
+  /**
+   * Array of vertices for every face corner,  stored in the ".corner_vert" integer attribute.
+   * For example, the vertices in a face can be retrieved with the #slice method:
+   * \code{.cc}
+   * const Span<int> poly_verts = corner_verts.slice(poly.loopstart, poly.totloop);
+   * \endcode
+   * Such a span can often be passed as an argument in lieu of a polygon and the entire corner
+   * verts array.
+   */
+  blender::Span<int> corner_verts() const;
+  /** Write access to the #corner_verts data. */
+  blender::MutableSpan<int> corner_verts_for_write();
+
+  /**
+   * Array of edges following every face corner traveling around each face, stored in the
+   * ".corner_edge" attribute. The array sliced the same way as the #corner_verts data. The edge
+   * previous to a corner must be accessed with the index of the previous face corner.
+   */
+  blender::Span<int> corner_edges() const;
+  /** Write access to the #corner_edges data. */
+  blender::MutableSpan<int> corner_edges_for_write();
 
   blender::bke::AttributeAccessor attributes() const;
   blender::bke::MutableAttributeAccessor attributes_for_write();
@@ -251,22 +295,63 @@ typedef struct Mesh {
   blender::MutableSpan<MDeformVert> deform_verts_for_write();
 
   /**
-   * Cached triangulation of the mesh.
+   * Cached triangulation of mesh faces, depending on the face topology and the vertex positions.
    */
   blender::Span<MLoopTri> looptris() const;
+
+  /**
+   * A map containing the face index that each cached triangle from #Mesh::looptris() came from.
+   */
+  blender::Span<int> looptri_polys() const;
+
+  /**
+   * Calculate the largest and smallest position values of vertices.
+   * \note Does not take non-mesh data (edit mesh) into account, see #BKE_mesh_wrapper_minmax,
+   */
+  std::optional<blender::Bounds<blender::float3>> bounds_min_max() const;
+
+  /** Set cached mesh bounds to a known-correct value to avoid their lazy calculation later on. */
+  void bounds_set_eager(const blender::Bounds<blender::float3> &bounds);
 
   /**
    * Cached information about loose edges, calculated lazily when necessary.
    */
   const blender::bke::LooseEdgeCache &loose_edges() const;
   /**
+   * Cached information about vertices that aren't used by any edges.
+   */
+  const blender::bke::LooseVertCache &loose_verts() const;
+  /**
+   * Cached information about vertices that aren't used by faces (but may be used by loose edges).
+   */
+  const blender::bke::LooseVertCache &verts_no_face() const;
+
+  /**
    * Explicitly set the cached number of loose edges to zero. This can improve performance
    * later on, because finding loose edges lazily can be skipped entirely.
    *
-   * \note To allow setting this status on meshes without changing them, this This does not tag the
+   * \note To allow setting this status on meshes without changing them, this does not tag the
    * cache dirty. If the mesh was changed first, the relevant dirty tags should be called first.
    */
-  void loose_edges_tag_none() const;
+  void tag_loose_edges_none() const;
+  /**
+   * Set the number of vertices not connected to edges to zero. Similar to #tag_loose_edges_none().
+   * There may still be vertices only used by loose edges though.
+   *
+   * \note If both #tag_loose_edges_none() and #tag_loose_verts_none() are called,
+   * all vertices are used by faces, so #verts_no_faces() will be tagged empty as well.
+   */
+  void tag_loose_verts_none() const;
+
+  /**
+   * Normal direction of polygons, defined by positions and the winding direction of face corners.
+   */
+  blender::Span<blender::float3> poly_normals() const;
+  /**
+   * Normal direction of vertices, defined as the weighted average of face normals
+   * surrounding each vertex and the normalized position for loose vertices.
+   */
+  blender::Span<blender::float3> vert_normals() const;
 #endif
 } Mesh;
 
@@ -286,10 +371,10 @@ typedef struct TFace {
 
 /* **************** MESH ********************* */
 
-/** #Mesh.texflag */
+/** #Mesh.texspace_flag */
 enum {
-  ME_AUTOSPACE = 1,
-  ME_AUTOSPACE_EVALUATED = 2,
+  ME_TEXSPACE_FLAG_AUTO = 1 << 0,
+  ME_TEXSPACE_FLAG_AUTO_EVALUATED = 1 << 1,
 };
 
 /** #Mesh.editflag */

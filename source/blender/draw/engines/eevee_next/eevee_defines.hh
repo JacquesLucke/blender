@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2021 Blender Foundation.
- */
+/* SPDX-FileCopyrightText: 2021 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup eevee
@@ -9,7 +9,9 @@
  * dragging larger headers into the createInfo pipeline which would cause problems.
  */
 
-#pragma once
+#ifndef GPU_SHADER
+#  pragma once
+#endif
 
 /* Hierarchical Z down-sampling. */
 #define HIZ_MIP_COUNT 8
@@ -22,7 +24,7 @@
 #define CULLING_SELECT_GROUP_SIZE 256
 #define CULLING_SORT_GROUP_SIZE 256
 #define CULLING_ZBIN_GROUP_SIZE 1024
-#define CULLING_TILE_GROUP_SIZE 1024
+#define CULLING_TILE_GROUP_SIZE 256
 
 /**
  * IMPORTANT: Some data packing are tweaked for these values.
@@ -30,15 +32,30 @@
  * SHADOW_TILEMAP_RES max is 32 because of the shared bitmaps used for LOD tagging.
  * It is also limited by the maximum thread group size (1024).
  */
-#define SHADOW_TILEMAP_RES 16
-#define SHADOW_TILEMAP_LOD 4 /* LOG2(SHADOW_TILEMAP_RES) */
+#define SHADOW_TILEMAP_RES 32
+#define SHADOW_TILEMAP_LOD 5 /* LOG2(SHADOW_TILEMAP_RES) */
+#define SHADOW_TILEMAP_LOD0_LEN ((SHADOW_TILEMAP_RES / 1) * (SHADOW_TILEMAP_RES / 1))
+#define SHADOW_TILEMAP_LOD1_LEN ((SHADOW_TILEMAP_RES / 2) * (SHADOW_TILEMAP_RES / 2))
+#define SHADOW_TILEMAP_LOD2_LEN ((SHADOW_TILEMAP_RES / 4) * (SHADOW_TILEMAP_RES / 4))
+#define SHADOW_TILEMAP_LOD3_LEN ((SHADOW_TILEMAP_RES / 8) * (SHADOW_TILEMAP_RES / 8))
+#define SHADOW_TILEMAP_LOD4_LEN ((SHADOW_TILEMAP_RES / 16) * (SHADOW_TILEMAP_RES / 16))
+#define SHADOW_TILEMAP_LOD5_LEN ((SHADOW_TILEMAP_RES / 32) * (SHADOW_TILEMAP_RES / 32))
 #define SHADOW_TILEMAP_PER_ROW 64
-#define SHADOW_PAGE_COPY_GROUP_SIZE 32
-#define SHADOW_DEPTH_SCAN_GROUP_SIZE 32
+#define SHADOW_TILEDATA_PER_TILEMAP \
+  (SHADOW_TILEMAP_LOD0_LEN + SHADOW_TILEMAP_LOD1_LEN + SHADOW_TILEMAP_LOD2_LEN + \
+   SHADOW_TILEMAP_LOD3_LEN + SHADOW_TILEMAP_LOD4_LEN + SHADOW_TILEMAP_LOD5_LEN)
+#define SHADOW_PAGE_CLEAR_GROUP_SIZE 32
+#define SHADOW_PAGE_RES 256
+#define SHADOW_DEPTH_SCAN_GROUP_SIZE 8
 #define SHADOW_AABB_TAG_GROUP_SIZE 64
 #define SHADOW_MAX_TILEMAP 4096
+#define SHADOW_MAX_TILE (SHADOW_MAX_TILEMAP * SHADOW_TILEDATA_PER_TILEMAP)
 #define SHADOW_MAX_PAGE 4096
 #define SHADOW_PAGE_PER_ROW 64
+#define SHADOW_ATLAS_SLOT 5
+#define SHADOW_BOUNDS_GROUP_SIZE 64
+#define SHADOW_CLIPMAP_GROUP_SIZE 64
+#define SHADOW_VIEW_MAX 64 /* Must match DRW_VIEW_MAX. */
 
 /* Ray-tracing. */
 #define RAYTRACE_GROUP_SIZE 16
@@ -71,34 +88,41 @@
 
 /* Resource bindings. */
 
-/* Texture. */
-#define RBUFS_UTILITY_TEX_SLOT 14
+/* Textures. */
+/* Used anywhere. (Starts at index 2, since 0 and 1 are used by draw_gpencil) */
+#define RBUFS_UTILITY_TEX_SLOT 2
+#define HIZ_TEX_SLOT 3
+/* Only during surface shading (forward and deferred eval). */
+#define SHADOW_TILEMAPS_TEX_SLOT 4
+#define SHADOW_ATLAS_TEX_SLOT 5
+#define SSS_TRANSMITTANCE_TEX_SLOT 6
+/* Only during shadow rendering. */
+#define SHADOW_RENDER_MAP_SLOT 4
 
 /* Images. */
-#define RBUFS_NORMAL_SLOT 0
-#define RBUFS_LIGHT_SLOT 1
-#define RBUFS_DIFF_COLOR_SLOT 2
-#define RBUFS_SPEC_COLOR_SLOT 3
-#define RBUFS_EMISSION_SLOT 4
-#define RBUFS_AOV_COLOR_SLOT 5
-#define RBUFS_AOV_VALUE_SLOT 6
-#define RBUFS_CRYPTOMATTE_SLOT 7
+#define RBUFS_COLOR_SLOT 0
+#define RBUFS_VALUE_SLOT 1
+#define RBUFS_CRYPTOMATTE_SLOT 2
+#define GBUF_CLOSURE_SLOT 3
+#define GBUF_COLOR_SLOT 4
 
 /* Uniform Buffers. */
-/* Only during prepass. */
+/* Only during pre-pass. */
 #define VELOCITY_CAMERA_PREV_BUF 3
 #define VELOCITY_CAMERA_CURR_BUF 4
 #define VELOCITY_CAMERA_NEXT_BUF 5
 
 #define CAMERA_BUF_SLOT 6
+#define RBUFS_BUF_SLOT 7
 
 /* Storage Buffers. */
 #define LIGHT_CULL_BUF_SLOT 0
 #define LIGHT_BUF_SLOT 1
 #define LIGHT_ZBIN_BUF_SLOT 2
 #define LIGHT_TILE_BUF_SLOT 3
-#define RBUFS_AOV_BUF_SLOT 5
-#define SAMPLING_BUF_SLOT 6
+/* Only during shadow rendering. */
+#define SHADOW_PAGE_INFO_SLOT 4
+#define SAMPLING_BUF_SLOT 5
 #define CRYPTOMATTE_BUF_SLOT 7
 
 /* Only during pre-pass. */

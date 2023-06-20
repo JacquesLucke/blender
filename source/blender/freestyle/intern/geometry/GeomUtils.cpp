@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2009-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -38,7 +40,8 @@ bool intersect2dSeg2dArea(const Vec2r &min, const Vec2r &max, const Vec2r &A, co
 bool include2dSeg2dArea(const Vec2r &min, const Vec2r &max, const Vec2r &A, const Vec2r &B)
 {
   if ((((max[0] > A[0]) && (A[0] > min[0])) && ((max[0] > B[0]) && (B[0] > min[0]))) &&
-      (((max[1] > A[1]) && (A[1] > min[1])) && ((max[1] > B[1]) && (B[1] > min[1])))) {
+      (((max[1] > A[1]) && (A[1] > min[1])) && ((max[1] > B[1]) && (B[1] > min[1]))))
+  {
     return true;
   }
   return false;

@@ -1,6 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2022 NVIDIA Corporation
- * Copyright 2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2022 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "hydra/render_pass.h"
 #include "hydra/camera.h"
@@ -90,8 +91,8 @@ void HdCyclesRenderPass::_Execute(const HdRenderPassStateSharedPtr &renderPassSt
     const HdRenderPassAovBindingVector &aovBindings = renderPassState->GetAovBindings();
     if (_renderParam->GetAovBindings() != aovBindings ||
         // Need to resync passes when denoising is enabled or disabled to update the pass mode
-        (settingsVersion != _lastSettingsVersion &&
-         scene->integrator->use_denoise_is_modified())) {
+        (settingsVersion != _lastSettingsVersion && scene->integrator->use_denoise_is_modified()))
+    {
       _renderParam->SyncAovBindings(aovBindings);
 
       if (renderDelegate->IsDisplaySupported()) {
@@ -176,8 +177,6 @@ void HdCyclesRenderPass::_Execute(const HdRenderPassStateSharedPtr &renderPassSt
   session->draw();
 }
 
-void HdCyclesRenderPass::_MarkCollectionDirty()
-{
-}
+void HdCyclesRenderPass::_MarkCollectionDirty() {}
 
 HDCYCLES_NAMESPACE_CLOSE_SCOPE

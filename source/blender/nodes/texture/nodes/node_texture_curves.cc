@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup texnodes
@@ -14,13 +15,13 @@
 static bNodeSocketTemplate time_outputs[] = {{SOCK_FLOAT, N_("Value")}, {-1, ""}};
 
 static void time_colorfn(
-    float *out, TexParams *p, bNode *node, bNodeStack **UNUSED(in), short UNUSED(thread))
+    float *out, TexParams *p, bNode *node, bNodeStack ** /*in*/, short /*thread*/)
 {
   /* stack order output: fac */
   float fac = 0.0f;
 
   if (node->custom1 < node->custom2) {
-    fac = (p->cfra - node->custom1) / (float)(node->custom2 - node->custom1);
+    fac = (p->cfra - node->custom1) / float(node->custom2 - node->custom1);
   }
 
   CurveMapping *mapping = static_cast<CurveMapping *>(node->storage);
@@ -30,7 +31,7 @@ static void time_colorfn(
 }
 
 static void time_exec(void *data,
-                      int UNUSED(thread),
+                      int /*thread*/,
                       bNode *node,
                       bNodeExecData *execdata,
                       bNodeStack **in,
@@ -39,20 +40,20 @@ static void time_exec(void *data,
   tex_output(node, execdata, in, out[0], &time_colorfn, static_cast<TexCallData *>(data));
 }
 
-static void time_init(bNodeTree *UNUSED(ntree), bNode *node)
+static void time_init(bNodeTree * /*ntree*/, bNode *node)
 {
   node->custom1 = 1;
   node->custom2 = 250;
   node->storage = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
 }
 
-void register_node_type_tex_curve_time(void)
+void register_node_type_tex_curve_time()
 {
   static bNodeType ntype;
 
   tex_node_type_base(&ntype, TEX_NODE_CURVE_TIME, "Time", NODE_CLASS_INPUT);
-  node_type_socket_templates(&ntype, nullptr, time_outputs);
-  node_type_size_preset(&ntype, NODE_SIZE_LARGE);
+  blender::bke::node_type_socket_templates(&ntype, nullptr, time_outputs);
+  blender::bke::node_type_size_preset(&ntype, blender::bke::eNodeSizePreset::LARGE);
   ntype.initfunc = time_init;
   node_type_storage(&ntype, "CurveMapping", node_free_curves, node_copy_curves);
   ntype.init_exec_fn = node_initexec_curves;
@@ -82,7 +83,7 @@ static void rgb_colorfn(float *out, TexParams *p, bNode *node, bNodeStack **in, 
 }
 
 static void rgb_exec(void *data,
-                     int UNUSED(thread),
+                     int /*thread*/,
                      bNode *node,
                      bNodeExecData *execdata,
                      bNodeStack **in,
@@ -91,18 +92,18 @@ static void rgb_exec(void *data,
   tex_output(node, execdata, in, out[0], &rgb_colorfn, static_cast<TexCallData *>(data));
 }
 
-static void rgb_init(bNodeTree *UNUSED(ntree), bNode *node)
+static void rgb_init(bNodeTree * /*ntree*/, bNode *node)
 {
   node->storage = BKE_curvemapping_add(4, 0.0f, 0.0f, 1.0f, 1.0f);
 }
 
-void register_node_type_tex_curve_rgb(void)
+void register_node_type_tex_curve_rgb()
 {
   static bNodeType ntype;
 
   tex_node_type_base(&ntype, TEX_NODE_CURVE_RGB, "RGB Curves", NODE_CLASS_OP_COLOR);
-  node_type_socket_templates(&ntype, rgb_inputs, rgb_outputs);
-  node_type_size_preset(&ntype, NODE_SIZE_LARGE);
+  blender::bke::node_type_socket_templates(&ntype, rgb_inputs, rgb_outputs);
+  blender::bke::node_type_size_preset(&ntype, blender::bke::eNodeSizePreset::LARGE);
   ntype.initfunc = rgb_init;
   node_type_storage(&ntype, "CurveMapping", node_free_curves, node_copy_curves);
   ntype.init_exec_fn = node_initexec_curves;

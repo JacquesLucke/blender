@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2020 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2020 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw_engine
@@ -53,7 +54,7 @@ template<
      *
      * Useful during development to switch between drawing implementations.
      */
-    typename DrawingMode = ScreenSpaceDrawingMode<OneTextureMethod>>
+    typename DrawingMode = ScreenSpaceDrawingMode<OneTexture>>
 class ImageEngine {
  private:
   const DRWContextState *draw_ctx;
@@ -69,10 +70,10 @@ class ImageEngine {
 
   virtual ~ImageEngine() = default;
 
-  void cache_init()
+  void begin_sync()
   {
     IMAGE_InstanceData *instance_data = vedata->instance_data;
-    drawing_mode.cache_init(vedata);
+    drawing_mode.begin_sync(vedata);
 
     /* Setup full screen view matrix. */
     const ARegion *region = draw_ctx->region;
@@ -82,7 +83,7 @@ class ImageEngine {
     instance_data->view = DRW_view_create(viewmat, winmat, nullptr, nullptr, nullptr);
   }
 
-  void cache_populate()
+  void image_sync()
   {
     IMAGE_InstanceData *instance_data = vedata->instance_data;
     Main *bmain = CTX_data_main(draw_ctx->evil_C);
@@ -99,8 +100,10 @@ class ImageEngine {
     /* Setup the matrix to go from screen UV coordinates to UV texture space coordinates. */
     float image_resolution[2] = {image_buffer ? image_buffer->x : 1024.0f,
                                  image_buffer ? image_buffer->y : 1024.0f};
+    float image_offset[2] = {float(instance_data->image->offset_x),
+                             float(instance_data->image->offset_y)};
     space->init_ss_to_texture_matrix(
-        draw_ctx->region, image_resolution, instance_data->ss_to_texture);
+        draw_ctx->region, image_offset, image_resolution, instance_data->ss_to_texture);
 
     const Scene *scene = DRW_context_state_get()->scene;
     instance_data->sh_params.update(space.get(), scene, instance_data->image, image_buffer);
@@ -113,7 +116,7 @@ class ImageEngine {
     else {
       BKE_image_multiview_index(instance_data->image, iuser);
     }
-    drawing_mode.cache_image(vedata, instance_data->image, iuser);
+    drawing_mode.image_sync(vedata, instance_data->image, iuser);
   }
 
   void draw_finish()
@@ -124,11 +127,11 @@ class ImageEngine {
     instance_data->image = nullptr;
   }
 
-  void draw_scene()
+  void draw_viewport()
   {
-    drawing_mode.draw_scene(vedata);
+    drawing_mode.draw_viewport(vedata);
   }
-};  // namespace blender::draw::image_engine
+};
 
 /* -------------------------------------------------------------------- */
 /** \name Engine Callbacks
@@ -146,8 +149,8 @@ static void IMAGE_cache_init(void *vedata)
 {
   const DRWContextState *draw_ctx = DRW_context_state_get();
   ImageEngine image_engine(draw_ctx, static_cast<IMAGE_Data *>(vedata));
-  image_engine.cache_init();
-  image_engine.cache_populate();
+  image_engine.begin_sync();
+  image_engine.image_sync();
 }
 
 static void IMAGE_cache_populate(void * /*vedata*/, Object * /*ob*/)
@@ -159,7 +162,7 @@ static void IMAGE_draw_scene(void *vedata)
 {
   const DRWContextState *draw_ctx = DRW_context_state_get();
   ImageEngine image_engine(draw_ctx, static_cast<IMAGE_Data *>(vedata));
-  image_engine.draw_scene();
+  image_engine.draw_viewport();
   image_engine.draw_finish();
 }
 
@@ -185,20 +188,20 @@ extern "C" {
 using namespace blender::draw::image_engine;
 
 DrawEngineType draw_engine_image_type = {
-    nullptr,               /* next */
-    nullptr,               /* prev */
-    N_("UV/Image"),        /* idname */
-    &IMAGE_data_size,      /* vedata_size */
-    &IMAGE_engine_init,    /* engine_init */
-    &IMAGE_engine_free,    /* engine_free */
-    &IMAGE_instance_free,  /* instance_free */
-    &IMAGE_cache_init,     /* cache_init */
-    &IMAGE_cache_populate, /* cache_populate */
-    nullptr,               /* cache_finish */
-    &IMAGE_draw_scene,     /* draw_scene */
-    nullptr,               /* view_update */
-    nullptr,               /* id_update */
-    nullptr,               /* render_to_image */
-    nullptr,               /* store_metadata */
+    /*next*/ nullptr,
+    /*prev*/ nullptr,
+    /*idname*/ N_("UV/Image"),
+    /*vedata_size*/ &IMAGE_data_size,
+    /*engine_init*/ &IMAGE_engine_init,
+    /*engine_free*/ &IMAGE_engine_free,
+    /*instance_free*/ &IMAGE_instance_free,
+    /*cache_init*/ &IMAGE_cache_init,
+    /*cache_populate*/ &IMAGE_cache_populate,
+    /*cache_finish*/ nullptr,
+    /*draw_scene*/ &IMAGE_draw_scene,
+    /*view_update*/ nullptr,
+    /*id_update*/ nullptr,
+    /*render_to_image*/ nullptr,
+    /*store_metadata*/ nullptr,
 };
 }

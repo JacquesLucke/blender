@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2014 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2014 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -79,7 +80,7 @@ void gpu_select_query_begin(GPUSelectResult *buffer,
   GPU_scissor_get(g_query_state.scissor);
   GPU_viewport_size_get_i(g_query_state.viewport);
 
-  /* Write to color buffer. Seems to fix issues with selecting alpha blended geom (see T7997). */
+  /* Write to color buffer. Seems to fix issues with selecting alpha blended geom (see #7997). */
   GPU_color_mask(true, true, true, true);
 
   /* In order to save some fill rate we minimize the viewport using rect.
@@ -98,7 +99,7 @@ void gpu_select_query_begin(GPUSelectResult *buffer,
    * objects in the view frustum independently of their order, we need to disable the depth test */
   if (mode == GPU_SELECT_ALL) {
     /* #glQueries on Windows+Intel drivers only works with depth testing turned on.
-     * See T62947 for details */
+     * See #62947 for details */
     GPU_depth_test(GPU_DEPTH_ALWAYS);
     GPU_depth_mask(true);
   }

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup cmpnodes
@@ -31,7 +32,7 @@ namespace blender::nodes::node_composite_keyingscreen_cc {
 
 static void cmp_node_keyingscreen_declare(NodeDeclarationBuilder &b)
 {
-  b.add_output<decl::Color>(N_("Screen"));
+  b.add_output<decl::Color>("Screen").translation_context(BLT_I18NCONTEXT_ID_SCREEN);
 }
 
 static void node_composit_init_keyingscreen(const bContext *C, PointerRNA *ptr)
@@ -49,7 +50,7 @@ static void node_composit_init_keyingscreen(const bContext *C, PointerRNA *ptr)
     id_us_plus(&clip->id);
 
     const MovieTrackingObject *tracking_object = BKE_tracking_object_get_active(&clip->tracking);
-    BLI_strncpy(data->tracking_object, tracking_object->name, sizeof(data->tracking_object));
+    STRNCPY(data->tracking_object, tracking_object->name);
   }
 }
 
@@ -89,6 +90,7 @@ class KeyingScreenOperation : public NodeOperation {
   void execute() override
   {
     get_result("Screen").allocate_invalid();
+    context().set_info_message("Viewport compositor setup not fully supported");
   }
 };
 
@@ -112,6 +114,8 @@ void register_node_type_cmp_keyingscreen()
   node_type_storage(
       &ntype, "NodeKeyingScreenData", node_free_standard_storage, node_copy_standard_storage);
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
+  ntype.realtime_compositor_unsupported_message = N_(
+      "Node not supported in the Viewport compositor");
 
   nodeRegisterType(&ntype);
 }

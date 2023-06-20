@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2019-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # Configuration for developers, with faster builds, error checking and tests.
@@ -12,6 +14,7 @@ set(WITH_BUILDINFO                    OFF CACHE BOOL "" FORCE)
 # developer profile for now.
 if(NOT WIN32)
   set(WITH_COMPILER_ASAN              ON  CACHE BOOL "" FORCE)
+  set(WITH_STRSIZE_DEBUG              ON  CACHE BOOL "" FORCE)
 endif()
 set(WITH_CYCLES_NATIVE_ONLY           ON  CACHE BOOL "" FORCE)
 set(WITH_DOC_MANPAGE                  OFF CACHE BOOL "" FORCE)

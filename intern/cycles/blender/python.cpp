@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include <Python.h>
 
@@ -18,13 +19,14 @@
 #include "util/guiding.h"
 #include "util/log.h"
 #include "util/md5.h"
-#include "util/opengl.h"
 #include "util/openimagedenoise.h"
 #include "util/path.h"
 #include "util/string.h"
 #include "util/task.h"
 #include "util/tbb.h"
 #include "util/types.h"
+
+#include "GPU_state.h"
 
 #ifdef WITH_OSL
 #  include "scene/osl.h"
@@ -62,9 +64,7 @@ static void debug_flags_sync_from_scene(BL::Scene b_scene)
   PointerRNA cscene = RNA_pointer_get(&b_scene.ptr, "cycles");
   /* Synchronize CPU flags. */
   flags.cpu.avx2 = get_boolean(cscene, "debug_use_cpu_avx2");
-  flags.cpu.avx = get_boolean(cscene, "debug_use_cpu_avx");
   flags.cpu.sse41 = get_boolean(cscene, "debug_use_cpu_sse41");
-  flags.cpu.sse3 = get_boolean(cscene, "debug_use_cpu_sse3");
   flags.cpu.sse2 = get_boolean(cscene, "debug_use_cpu_sse2");
   flags.cpu.bvh_layout = (BVHLayout)get_enum(cscene, "debug_bvh_layout");
   /* Synchronize CUDA flags. */
@@ -95,7 +95,7 @@ void python_thread_state_restore(void **python_thread_state)
   *python_thread_state = NULL;
 }
 
-static const char *PyC_UnicodeAsByte(PyObject *py_str, PyObject **coerce)
+static const char *PyC_UnicodeAsBytes(PyObject *py_str, PyObject **coerce)
 {
   const char *result = PyUnicode_AsUTF8(py_str);
   if (result) {
@@ -132,8 +132,8 @@ static PyObject *init_func(PyObject * /*self*/, PyObject *args)
   }
 
   PyObject *path_coerce = nullptr, *user_path_coerce = nullptr;
-  path_init(PyC_UnicodeAsByte(path, &path_coerce),
-            PyC_UnicodeAsByte(user_path, &user_path_coerce));
+  path_init(PyC_UnicodeAsBytes(path, &path_coerce),
+            PyC_UnicodeAsBytes(user_path, &user_path_coerce));
   Py_XDECREF(path_coerce);
   Py_XDECREF(user_path_coerce);
 
@@ -164,7 +164,8 @@ static PyObject *create_func(PyObject * /*self*/, PyObject *args)
                         &pyregion,
                         &pyv3d,
                         &pyrv3d,
-                        &preview_osl)) {
+                        &preview_osl))
+  {
     return NULL;
   }
 
@@ -337,7 +338,7 @@ static PyObject *view_draw_func(PyObject * /*self*/, PyObject *args)
   if (PyLong_AsVoidPtr(pyrv3d)) {
     /* 3d view drawing */
     int viewport[4];
-    glGetIntegerv(GL_VIEWPORT, viewport);
+    GPU_viewport_size_get_i(viewport);
 
     session->view_draw(viewport[2], viewport[3]);
   }
@@ -478,6 +479,7 @@ static PyObject *osl_update_node_func(PyObject * /*self*/, PyObject *args)
 
     /* Read metadata. */
     bool is_bool_param = false;
+    bool hide_value = !param->validdefault;
     ustring param_label = param->name;
 
     for (const OSL::OSLQuery::Parameter &metadata : param->metadata) {
@@ -486,6 +488,9 @@ static PyObject *osl_update_node_func(PyObject * /*self*/, PyObject *args)
           /* Boolean socket. */
           if (metadata.sdefault[0] == "boolean" || metadata.sdefault[0] == "checkBox") {
             is_bool_param = true;
+          }
+          else if (metadata.sdefault[0] == "null") {
+            hide_value = true;
           }
         }
         else if (metadata.name == "label") {
@@ -519,7 +524,8 @@ static PyObject *osl_update_node_func(PyObject * /*self*/, PyObject *args)
     }
     else if (param->type.vecsemantics == TypeDesc::POINT ||
              param->type.vecsemantics == TypeDesc::VECTOR ||
-             param->type.vecsemantics == TypeDesc::NORMAL) {
+             param->type.vecsemantics == TypeDesc::NORMAL)
+    {
       socket_type = "NodeSocketVector";
       data_type = BL::NodeSocket::type_VECTOR;
 
@@ -596,6 +602,9 @@ static PyObject *osl_update_node_func(PyObject * /*self*/, PyObject *args)
             if (b_sock.name() != param_label) {
               b_sock.name(param_label.string());
             }
+            if (b_sock.hide_value() != hide_value) {
+              b_sock.hide_value(hide_value);
+            }
             used_sockets.insert(b_sock.ptr.data);
             found_existing = true;
           }
@@ -634,6 +643,8 @@ static PyObject *osl_update_node_func(PyObject * /*self*/, PyObject *args)
       else if (data_type == BL::NodeSocket::type_BOOLEAN) {
         set_boolean(b_sock.ptr, "default_value", default_boolean);
       }
+
+      b_sock.hide_value(hide_value);
 
       used_sockets.insert(b_sock.ptr.data);
     }
@@ -730,7 +741,8 @@ static PyObject *denoise_func(PyObject * /*self*/, PyObject *args, PyObject *key
                                    &pyscene,
                                    &pyviewlayer,
                                    &pyinput,
-                                   &pyoutput)) {
+                                   &pyoutput))
+  {
     return NULL;
   }
 
@@ -744,7 +756,7 @@ static PyObject *denoise_func(PyObject * /*self*/, PyObject *args, PyObject *key
   RNA_id_pointer_create((ID *)PyLong_AsVoidPtr(pyscene), &sceneptr);
   BL::Scene b_scene(sceneptr);
 
-  DeviceInfo device = blender_device_info(b_preferences, b_scene, true);
+  DeviceInfo device = blender_device_info(b_preferences, b_scene, true, true);
 
   /* Get denoising parameters from view layer. */
   PointerRNA viewlayerptr;
@@ -868,20 +880,23 @@ static PyObject *enable_print_stats_func(PyObject * /*self*/, PyObject * /*args*
 static PyObject *get_device_types_func(PyObject * /*self*/, PyObject * /*args*/)
 {
   vector<DeviceType> device_types = Device::available_types();
-  bool has_cuda = false, has_optix = false, has_hip = false, has_metal = false, has_oneapi = false;
+  bool has_cuda = false, has_optix = false, has_hip = false, has_metal = false, has_oneapi = false,
+       has_hiprt = false;
   foreach (DeviceType device_type, device_types) {
     has_cuda |= (device_type == DEVICE_CUDA);
     has_optix |= (device_type == DEVICE_OPTIX);
     has_hip |= (device_type == DEVICE_HIP);
     has_metal |= (device_type == DEVICE_METAL);
     has_oneapi |= (device_type == DEVICE_ONEAPI);
+    has_hiprt |= (device_type == DEVICE_HIPRT);
   }
-  PyObject *list = PyTuple_New(5);
+  PyObject *list = PyTuple_New(6);
   PyTuple_SET_ITEM(list, 0, PyBool_FromLong(has_cuda));
   PyTuple_SET_ITEM(list, 1, PyBool_FromLong(has_optix));
   PyTuple_SET_ITEM(list, 2, PyBool_FromLong(has_hip));
   PyTuple_SET_ITEM(list, 3, PyBool_FromLong(has_metal));
   PyTuple_SET_ITEM(list, 4, PyBool_FromLong(has_oneapi));
+  PyTuple_SET_ITEM(list, 5, PyBool_FromLong(has_hiprt));
   return list;
 }
 
@@ -1025,6 +1040,14 @@ void *CCL_python_module_init()
   PyModule_AddObject(mod, "with_embree", Py_False);
   Py_INCREF(Py_False);
 #endif /* WITH_EMBREE */
+
+#ifdef WITH_EMBREE_GPU
+  PyModule_AddObject(mod, "with_embree_gpu", Py_True);
+  Py_INCREF(Py_True);
+#else  /* WITH_EMBREE_GPU */
+  PyModule_AddObject(mod, "with_embree_gpu", Py_False);
+  Py_INCREF(Py_False);
+#endif /* WITH_EMBREE_GPU */
 
   if (ccl::openimagedenoise_supported()) {
     PyModule_AddObject(mod, "with_openimagedenoise", Py_True);

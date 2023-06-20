@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spuserpref
@@ -131,10 +132,12 @@ static int preferences_asset_library_add_exec(bContext *UNUSED(C), wmOperator *o
   char dirname[FILE_MAXFILE];
 
   BLI_path_slash_rstrip(path);
-  BLI_split_file_part(path, dirname, sizeof(dirname));
+  BLI_path_split_file_part(path, dirname, sizeof(dirname));
 
   /* NULL is a valid directory path here. A library without path will be created then. */
-  BKE_preferences_asset_library_add(&U, dirname, path);
+  const bUserAssetLibrary *new_library = BKE_preferences_asset_library_add(&U, dirname, path);
+  /* Activate new library in the UI for further setup. */
+  U.active_asset_library = BLI_findindex(&U.asset_libraries, new_library);
   U.runtime.is_dirty = true;
 
   /* There's no dedicated notifier for the Preferences. */
@@ -182,16 +185,32 @@ static void PREFERENCES_OT_asset_library_add(wmOperatorType *ot)
 /** \name Remove Asset Library Operator
  * \{ */
 
+static bool preferences_asset_library_remove_poll(bContext *C)
+{
+  if (BLI_listbase_is_empty(&U.asset_libraries)) {
+    CTX_wm_operator_poll_msg_set(C, "There is no asset library to remove");
+    return false;
+  }
+  return true;
+}
+
 static int preferences_asset_library_remove_exec(bContext *UNUSED(C), wmOperator *op)
 {
   const int index = RNA_int_get(op->ptr, "index");
   bUserAssetLibrary *library = BLI_findlink(&U.asset_libraries, index);
-  if (library) {
-    BKE_preferences_asset_library_remove(&U, library);
-    U.runtime.is_dirty = true;
-    /* Trigger refresh for the Asset Browser. */
-    WM_main_add_notifier(NC_SPACE | ND_SPACE_ASSET_PARAMS, NULL);
+  if (!library) {
+    return OPERATOR_CANCELLED;
   }
+
+  BKE_preferences_asset_library_remove(&U, library);
+  const int count_remaining = BLI_listbase_count(&U.asset_libraries);
+  /* Update active library index to be in range. */
+  CLAMP(U.active_asset_library, 0, count_remaining - 1);
+  U.runtime.is_dirty = true;
+
+  /* Trigger refresh for the Asset Browser. */
+  WM_main_add_notifier(NC_SPACE | ND_SPACE_ASSET_PARAMS, NULL);
+
   return OPERATOR_FINISHED;
 }
 
@@ -203,6 +222,7 @@ static void PREFERENCES_OT_asset_library_remove(wmOperatorType *ot)
       "Remove a path to a .blend file, so the Asset Browser will not attempt to show it anymore";
 
   ot->exec = preferences_asset_library_remove_exec;
+  ot->poll = preferences_asset_library_remove_poll;
 
   ot->flag = OPTYPE_INTERNAL;
 
@@ -218,7 +238,10 @@ static void PREFERENCES_OT_asset_library_remove(wmOperatorType *ot)
 static bool associate_blend_poll(bContext *C)
 {
 #ifdef WIN32
-  UNUSED_VARS(C);
+  if (BLI_windows_is_store_install()) {
+    CTX_wm_operator_poll_msg_set(C, "Not available for Microsoft Store installations");
+    return false;
+  }
   return true;
 #else
   CTX_wm_operator_poll_msg_set(C, "Windows-only operator");
@@ -229,8 +252,22 @@ static bool associate_blend_poll(bContext *C)
 static int associate_blend_exec(bContext *UNUSED(C), wmOperator *op)
 {
 #ifdef WIN32
+  if (BLI_windows_is_store_install()) {
+    BKE_report(
+        op->reports, RPT_ERROR, "Registration not possible from Microsoft Store installations");
+    return OPERATOR_CANCELLED;
+  }
+
+  const bool all_users = (U.uiflag & USER_REGISTER_ALL_USERS);
+
   WM_cursor_wait(true);
-  if (BLI_windows_register_blend_extension(true)) {
+
+  if (all_users && BLI_windows_execute_self("--register-allusers", true, true, true)) {
+    BKE_report(op->reports, RPT_INFO, "File association registered");
+    WM_cursor_wait(false);
+    return OPERATOR_FINISHED;
+  }
+  else if (!all_users && BLI_windows_register_blend_extension(false)) {
     BKE_report(op->reports, RPT_INFO, "File association registered");
     WM_cursor_wait(false);
     return OPERATOR_FINISHED;
@@ -238,6 +275,7 @@ static int associate_blend_exec(bContext *UNUSED(C), wmOperator *op)
   else {
     BKE_report(op->reports, RPT_ERROR, "Unable to register file association");
     WM_cursor_wait(false);
+    MessageBox(0, "Unable to register file association", "Blender", MB_OK | MB_ICONERROR);
     return OPERATOR_CANCELLED;
   }
 #else
@@ -247,7 +285,7 @@ static int associate_blend_exec(bContext *UNUSED(C), wmOperator *op)
 #endif
 }
 
-static void PREFERENCES_OT_associate_blend(struct wmOperatorType *ot)
+static void PREFERENCES_OT_associate_blend(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Register File Association";
@@ -256,6 +294,54 @@ static void PREFERENCES_OT_associate_blend(struct wmOperatorType *ot)
 
   /* api callbacks */
   ot->exec = associate_blend_exec;
+  ot->poll = associate_blend_poll;
+}
+
+static int unassociate_blend_exec(bContext *UNUSED(C), wmOperator *op)
+{
+#ifdef WIN32
+  if (BLI_windows_is_store_install()) {
+    BKE_report(
+        op->reports, RPT_ERROR, "Unregistration not possible from Microsoft Store installations");
+    return OPERATOR_CANCELLED;
+  }
+
+  const bool all_users = (U.uiflag & USER_REGISTER_ALL_USERS);
+
+  WM_cursor_wait(true);
+
+  if (all_users && BLI_windows_execute_self("--unregister-allusers", true, true, true)) {
+    BKE_report(op->reports, RPT_INFO, "File association unregistered");
+    WM_cursor_wait(false);
+    return OPERATOR_FINISHED;
+  }
+  else if (!all_users && BLI_windows_unregister_blend_extension(false)) {
+    BKE_report(op->reports, RPT_INFO, "File association unregistered");
+    WM_cursor_wait(false);
+    return OPERATOR_FINISHED;
+  }
+  else {
+    BKE_report(op->reports, RPT_ERROR, "Unable to unregister file association");
+    WM_cursor_wait(false);
+    MessageBox(0, "Unable to unregister file association", "Blender", MB_OK | MB_ICONERROR);
+    return OPERATOR_CANCELLED;
+  }
+#else
+  UNUSED_VARS(op);
+  BLI_assert_unreachable();
+  return OPERATOR_CANCELLED;
+#endif
+}
+
+static void PREFERENCES_OT_unassociate_blend(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Remove File Association";
+  ot->description = "Remove this installation's associations with .blend files";
+  ot->idname = "PREFERENCES_OT_unassociate_blend";
+
+  /* api callbacks */
+  ot->exec = unassociate_blend_exec;
   ot->poll = associate_blend_poll;
 }
 
@@ -272,4 +358,5 @@ void ED_operatortypes_userpref(void)
   WM_operatortype_append(PREFERENCES_OT_asset_library_remove);
 
   WM_operatortype_append(PREFERENCES_OT_associate_blend);
+  WM_operatortype_append(PREFERENCES_OT_unassociate_blend);
 }

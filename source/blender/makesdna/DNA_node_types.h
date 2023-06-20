@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -16,6 +17,8 @@
 #ifdef __cplusplus
 namespace blender {
 template<typename T> class Span;
+template<typename T> class MutableSpan;
+class IndexRange;
 class StringRef;
 class StringRefNull;
 }  // namespace blender
@@ -27,6 +30,10 @@ namespace blender::bke {
 class bNodeTreeRuntime;
 class bNodeRuntime;
 class bNodeSocketRuntime;
+}  // namespace blender::bke
+namespace blender::bke {
+class bNodeTreeZones;
+class bNodeTreeZone;
 }  // namespace blender::bke
 using NodeDeclarationHandle = blender::nodes::NodeDeclaration;
 using SocketDeclarationHandle = blender::nodes::SocketDeclaration;
@@ -53,10 +60,8 @@ struct bGPdata;
 struct bNodeInstanceHash;
 struct bNodeLink;
 struct bNodePreview;
-struct bNodeTreeExec;
 struct bNodeType;
 struct bNode;
-struct uiBlock;
 
 #define NODE_MAXSTR 64
 
@@ -79,7 +84,7 @@ typedef struct bNodeStack {
   char _pad[4];
 } bNodeStack;
 
-/* ns->datatype, shadetree only */
+/** #bNodeStack.datatype (shade-tree only). */
 #define NS_OSA_VECTORS 1
 #define NS_OSA_VALUES 2
 
@@ -126,12 +131,6 @@ typedef struct bNodeSocket {
   /** Runtime type identifier. */
   char idname[64];
 
-  /**
-   * The location of the sockets, in the view-space of the node editor.
-   * \note These are runtime data-- only calculated when drawing, and could be removed from DNA.
-   */
-  float locx, locy;
-
   /** Default input value used for unlinked sockets. */
   void *default_value;
 
@@ -143,10 +142,7 @@ typedef struct bNodeSocket {
    * output. */
   char attribute_domain;
 
-  char _pad[2];
-
-  /* Runtime-only cache of the number of input links, for multi-input sockets. */
-  short total_inputs;
+  char _pad[4];
 
   /** Custom dynamic defined label, MAX_NAME. */
   char label[64];
@@ -159,9 +155,6 @@ typedef struct bNodeSocket {
    * declarations.
    */
   char *default_attribute_name;
-
-  /** Cached data from execution. */
-  void *cache;
 
   /* internal data to retrieve relations and groups
    * DEPRECATED, now uses the generic identifier string instead
@@ -179,15 +172,21 @@ typedef struct bNodeSocket {
   /** Custom data for inputs, only UI writes in this. */
   bNodeStack ns DNA_DEPRECATED;
 
+  /* UI panel of the socket. */
+  struct bNodePanel *panel;
+
   bNodeSocketRuntimeHandle *runtime;
 
 #ifdef __cplusplus
+  bool is_hidden() const;
   bool is_available() const;
+  bool is_visible() const;
   bool is_multi_input() const;
   bool is_input() const;
   bool is_output() const;
 
   /** Utility to access the value of the socket. */
+  template<typename T> T *default_value_typed();
   template<typename T> const T *default_value_typed() const;
 
   /* The following methods are only available when #bNodeTree.ensure_topology_cache has been
@@ -197,6 +196,10 @@ typedef struct bNodeSocket {
   int index() const;
   /** Socket index in the entire node tree. Inputs and outputs share the same index space. */
   int index_in_tree() const;
+  /** Socket index in the entire node tree. All inputs share the same index space. */
+  int index_in_all_inputs() const;
+  /** Socket index in the entire node tree. All outputs share the same index space. */
+  int index_in_all_outputs() const;
   /** Node this socket belongs to. */
   bNode &owner_node();
   const bNode &owner_node() const;
@@ -234,7 +237,6 @@ typedef enum eNodeSocketDatatype {
   SOCK_RGBA = 2,
   SOCK_SHADER = 3,
   SOCK_BOOLEAN = 4,
-  __SOCK_MESH = 5, /* deprecated */
   SOCK_INT = 6,
   SOCK_STRING = 7,
   SOCK_OBJECT = 8,
@@ -243,6 +245,7 @@ typedef enum eNodeSocketDatatype {
   SOCK_COLLECTION = 11,
   SOCK_TEXTURE = 12,
   SOCK_MATERIAL = 13,
+  SOCK_ROTATION = 14,
 } eNodeSocketDatatype;
 
 /** Socket shape. */
@@ -260,13 +263,14 @@ typedef enum eNodeSocketInOut {
   SOCK_IN = 1 << 0,
   SOCK_OUT = 1 << 1,
 } eNodeSocketInOut;
+ENUM_OPERATORS(eNodeSocketInOut, SOCK_OUT);
 
 /** #bNodeSocket.flag, first bit is selection. */
 typedef enum eNodeSocketFlag {
   /** Hidden is user defined, to hide unused sockets. */
   SOCK_HIDDEN = (1 << 1),
   /** For quick check if socket is linked. */
-  SOCK_IN_USE = (1 << 2),
+  SOCK_IS_LINKED = (1 << 2),
   /** Unavailable is for dynamic sockets. */
   SOCK_UNAVAIL = (1 << 3),
   // /** DEPRECATED  dynamic socket (can be modified by user) */
@@ -289,56 +293,96 @@ typedef enum eNodeSocketFlag {
    * type is obvious and the name takes up too much space.
    */
   SOCK_HIDE_LABEL = (1 << 12),
+  /**
+   * Only used for geometry nodes. Don't show the socket value in the modifier interface.
+   */
+  SOCK_HIDE_IN_MODIFIER = (1 << 13),
 } eNodeSocketFlag;
 
-/** TODO: Limit data in #bNode to what we want to see saved. */
 typedef struct bNode {
   struct bNode *next, *prev;
 
-  /** User-defined properties. */
-  IDProperty *prop;
+  /* Input and output #bNodeSocket. */
+  ListBase inputs, outputs;
 
-  /** Runtime type information. */
-  struct bNodeType *typeinfo;
-  /** Runtime type identifier. */
+  /** The node's name for unique identification and string lookup. MAX_NAME. */
+  char name[64];
+
+  /**
+   * A value that uniquely identifies a node in a node tree even when the name changes.
+   * This also allows referencing nodes more efficiently than with strings.
+   *
+   * Must be set whenever a node is added to a tree, besides a simple tree copy.
+   * Must always be positive.
+   */
+  int32_t identifier;
+
+  int flag;
+
+  /**
+   * String identifier of the type like "FunctionNodeCompare". Stored in files to allow retrieving
+   * the node type for node types including custom nodes defined in Python by addons.
+   */
   char idname[64];
 
-  /** MAX_NAME. */
-  char name[64];
-  int flag;
-  short type;
+  /** Type information retrieved from the #idname. TODO: Move to runtime data. */
+  struct bNodeType *typeinfo;
 
-  char _pad2[6];
+  /**
+   * Integer type used for builtin nodes, allowing cheaper lookup and changing ID names with
+   * versioning code. Avoid using directly if possible, since may not match runtime node type if it
+   * wasn't found.
+   */
+  int16_t type;
+
+  char _pad1[2];
+
+  /** Used for some builtin nodes that store properties but don't have a storage struct . */
+  int16_t custom1, custom2;
+  float custom3, custom4;
+
+  /**
+   * Optional link to libdata.
+   *
+   * \see #bNodeType::initfunc & #bNodeType::freefunc for details on ID user-count.
+   */
+  struct ID *id;
+
+  /** Custom data struct for node properties for storage in files. */
+  void *storage;
+
+  /**
+   * Custom properties often defined by addons to store arbitrary data on nodes. A non-builtin
+   * equivalent to #storage.
+   */
+  IDProperty *prop;
+
+  /** Parent node (for frame nodes). */
+  struct bNode *parent;
+
+  /** Root location in the node canvas (in parent space). */
+  float locx, locy;
+  /**
+   * Custom width and height controlled by users. Height is calculate automatically for most
+   * nodes.
+   */
+  float width, height;
+  /** Additional offset from loc. TODO: Redundant with #locx and #locy, remove/deprecate. */
+  float offsetx, offsety;
+
+  /** Custom user-defined label, MAX_NAME. */
+  char label[64];
 
   /** Custom user-defined color. */
   float color[3];
 
-  ListBase inputs, outputs;
-  /** Parent node. */
-  struct bNode *parent;
-  /** Optional link to libdata. */
-  struct ID *id;
-  /** Custom data, must be struct, for storage in file. */
-  void *storage;
-
-  /** Root offset for drawing (parent space). */
-  float locx, locy;
-  /** Node custom width and height. */
-  float width, height;
-  /** Additional offset from loc. */
-  float offsetx, offsety;
-
-  char _pad0[4];
-
-  /** Custom user-defined label, MAX_NAME. */
-  char label[64];
-  /** To be abused for buttons. */
-  short custom1, custom2;
-  float custom3, custom4;
+  char _pad2[4];
 
   bNodeRuntimeHandle *runtime;
 
 #ifdef __cplusplus
+  /** The index in the owner node tree. */
+  int index() const;
   blender::StringRefNull label_or_name() const;
   bool is_muted() const;
   bool is_reroute() const;
@@ -348,7 +392,7 @@ typedef struct bNode {
   bool is_group_output() const;
   const blender::nodes::NodeDeclaration *declaration() const;
   /** A span containing all internal links when the node is muted. */
-  blender::Span<const bNodeLink *> internal_links() const;
+  blender::Span<bNodeLink> internal_links() const;
 
   /* The following methods are only available when #bNodeTree.ensure_topology_cache has been
    * called. */
@@ -396,7 +440,7 @@ typedef struct bNode {
 /* node is always behind others */
 #define NODE_BACKGROUND (1 << 12)
 /* automatic flag for nodes included in transforms */
-#define NODE_TRANSFORM (1 << 13)
+// #define NODE_TRANSFORM (1 << 13) /* deprecated */
 /* node is active texture */
 
 /* NOTE: take care with this flag since its possible it gets
@@ -468,6 +512,8 @@ typedef struct bNodeLink {
 #ifdef __cplusplus
   bool is_muted() const;
   bool is_available() const;
+  /** Both linked sockets are available and the link is not muted. */
+  bool is_used() const;
 #endif
 
 } bNodeLink;
@@ -478,7 +524,6 @@ typedef struct bNodeLink {
 #define NODE_LINK_TEST (1 << 2)           /* free test flag, undefined */
 #define NODE_LINK_TEMP_HIGHLIGHT (1 << 3) /* Link is highlighted for picking. */
 #define NODE_LINK_MUTED (1 << 4)          /* Link is muted. */
-#define NODE_LINK_DRAGGED (1 << 5)        /* Node link is being dragged by the user. */
 
 /* tree->edit_quality/tree->render_quality */
 #define NTREE_QUALITY_HIGH 0
@@ -492,6 +537,12 @@ typedef struct bNodeLink {
 #define NTREE_CHUNKSIZE_256 256
 #define NTREE_CHUNKSIZE_512 512
 #define NTREE_CHUNKSIZE_1024 1024
+
+/** Panel in node tree for grouping sockets. */
+typedef struct bNodePanel {
+  /* UI name of the panel (not unique) */
+  char *name;
+} bNodePanel;
 
 /* the basis for a Node tree, all links and nodes reside internal here */
 /* only re-usable node trees are in the library though,
@@ -509,9 +560,6 @@ typedef struct bNodeTree {
   /** Runtime type identifier. */
   char idname[64];
 
-  /** Runtime RNA type of the group interface. */
-  struct StructRNA *interface_type;
-
   /** Grease pencil data. */
   struct bGPdata *gpd;
   /** Node tree stores own offset for consistent editor view. */
@@ -527,13 +575,6 @@ typedef struct bNodeTree {
    */
   int cur_index;
   int flag;
-  /** Flag to prevent re-entrant update calls. */
-  short is_updating;
-  /** Generic temporary flag for recursion check (DFS/BFS). */
-  short done;
-
-  /** Specific node type this tree is used for. */
-  int nodetype DNA_DEPRECATED;
 
   /** Quality setting when editing. */
   short edit_quality;
@@ -563,31 +604,26 @@ typedef struct bNodeTree {
 
   char _pad[4];
 
-  /** Execution data.
-   *
-   * XXX It would be preferable to completely move this data out of the underlying node tree,
-   * so node tree execution could finally run independent of the tree itself.
-   * This would allow node trees to be merely linked by other data (materials, textures, etc.),
-   * as ID data is supposed to.
-   * Execution data is generated from the tree once at execution start and can then be used
-   * as long as necessary, even while the tree is being modified.
-   */
-  struct bNodeTreeExec *execdata;
-
-  /* Callbacks. */
-  void (*progress)(void *, float progress);
-  /** \warning may be called by different threads */
-  void (*stats_draw)(void *, const char *str);
-  bool (*test_break)(void *);
-  void (*update_draw)(void *);
-  void *tbh, *prh, *sdh, *udh;
-
   /** Image representing what the node group does. */
   struct PreviewImage *preview;
+
+  /* UI panels */
+  struct bNodePanel **panels_array;
+  int panels_num;
+  int active_panel;
 
   bNodeTreeRuntimeHandle *runtime;
 
 #ifdef __cplusplus
+
+  /** A span containing all nodes in the node tree. */
+  blender::Span<bNode *> all_nodes();
+  blender::Span<const bNode *> all_nodes() const;
+
+  /** Retrieve a node based on its persistent integer identifier. */
+  struct bNode *node_by_id(int32_t identifier);
+  const struct bNode *node_by_id(int32_t identifier) const;
+
   /**
    * Update a run-time cache for the node tree based on it's current state. This makes many methods
    * available which allow efficient lookup for topology information (like neighboring sockets).
@@ -597,9 +633,6 @@ typedef struct bNodeTree {
   /* The following methods are only available when #bNodeTree.ensure_topology_cache has been
    * called. */
 
-  /** A span containing all nodes in the node tree. */
-  blender::Span<bNode *> all_nodes();
-  blender::Span<const bNode *> all_nodes() const;
   /** A span containing all group nodes in the node tree. */
   blender::Span<bNode *> group_nodes();
   blender::Span<const bNode *> group_nodes() const;
@@ -617,6 +650,9 @@ typedef struct bNodeTree {
   blender::Span<const bNode *> nodes_by_type(blender::StringRefNull type_idname) const;
   /** Frame nodes without any parents. */
   blender::Span<bNode *> root_frames() const;
+  /** A span containing all links in the node tree. */
+  blender::Span<bNodeLink *> all_links();
+  blender::Span<const bNodeLink *> all_links() const;
   /**
    * Cached toposort of all nodes. If there are cycles, the returned array is not actually a
    * toposort. However, if a connected component does not contain a cycle, this component is sorted
@@ -635,7 +671,18 @@ typedef struct bNodeTree {
    */
   bool has_undefined_nodes_or_sockets() const;
   /** Get the active group output node. */
+  bNode *group_output_node();
   const bNode *group_output_node() const;
+  /** Get all input nodes of the node group. */
+  blender::Span<const bNode *> group_input_nodes() const;
+  /** Inputs and outputs of the entire node group. */
+  blender::Span<const bNodeSocket *> interface_inputs() const;
+  blender::Span<const bNodeSocket *> interface_outputs() const;
+
+  blender::Span<const bNodePanel *> panels() const;
+  blender::MutableSpan<bNodePanel *> panels_for_write();
+  /** Zones in the node tree. Currently there are only simulation zones in geometry nodes. */
+  const blender::bke::bNodeTreeZones *zones() const;
 #endif
 } bNodeTree;
 
@@ -650,9 +697,9 @@ typedef struct bNodeTree {
 
 /** #NodeTree.flag */
 #define NTREE_DS_EXPAND (1 << 0)            /* for animation editors */
-#define NTREE_COM_OPENCL (1 << 1)           /* use opencl */
+#define NTREE_COM_OPENCL (1 << 1)           /* Use OPENCL. */
 #define NTREE_TWO_PASS (1 << 2)             /* two pass */
-#define NTREE_COM_GROUPNODE_BUFFER (1 << 3) /* use groupnode buffers */
+#define NTREE_COM_GROUPNODE_BUFFER (1 << 3) /* Use group-node buffers. */
 #define NTREE_VIEWER_BORDER (1 << 4)        /* use a border for viewer nodes */
 /* NOTE: DEPRECATED, use (id->tag & LIB_TAG_LOCALIZED) instead. */
 
@@ -663,6 +710,7 @@ typedef struct bNodeTree {
 typedef enum eNodeTreeExecutionMode {
   NTREE_EXECUTION_MODE_TILED = 0,
   NTREE_EXECUTION_MODE_FULL_FRAME = 1,
+  NTREE_EXECUTION_MODE_REALTIME = 2,
 } eNodeTreeExecutionMode;
 
 typedef enum eNodeTreeRuntimeFlag {
@@ -670,6 +718,8 @@ typedef enum eNodeTreeRuntimeFlag {
   NTREE_RUNTIME_FLAG_HAS_IMAGE_ANIMATION = 1 << 0,
   /** There is a material output node in the group. */
   NTREE_RUNTIME_FLAG_HAS_MATERIAL_OUTPUT = 1 << 1,
+  /** There is a simulation zone in the group. */
+  NTREE_RUNTIME_FLAG_HAS_SIMULATION_ZONE = 1 << 2,
 } eNodeTreeRuntimeFlag;
 
 /* socket value structs for input buttons
@@ -700,6 +750,10 @@ typedef struct bNodeSocketValueVector {
   float value[3];
   float min, max;
 } bNodeSocketValueVector;
+
+typedef struct bNodeSocketValueRotation {
+  float value_euler[3];
+} bNodeSocketValueRotation;
 
 typedef struct bNodeSocketValueRGBA {
   float value[4];
@@ -752,15 +806,15 @@ enum {
   CMP_NODE_INPAINT_SIMPLE = 0,
 };
 
-enum {
+typedef enum CMPNodeMaskFlags {
   /* CMP_NODEFLAG_MASK_AA          = (1 << 0), */ /* DEPRECATED */
-  CMP_NODEFLAG_MASK_NO_FEATHER = (1 << 1),
-  CMP_NODEFLAG_MASK_MOTION_BLUR = (1 << 2),
+  CMP_NODE_MASK_FLAG_NO_FEATHER = (1 << 1),
+  CMP_NODE_MASK_FLAG_MOTION_BLUR = (1 << 2),
 
   /* We may want multiple aspect options, exposed as an rna enum. */
-  CMP_NODEFLAG_MASK_FIXED = (1 << 8),
-  CMP_NODEFLAG_MASK_FIXED_SCENE = (1 << 9),
-};
+  CMP_NODE_MASK_FLAG_SIZE_FIXED = (1 << 8),
+  CMP_NODE_MASK_FLAG_SIZE_FIXED_SCENE = (1 << 9),
+} CMPNodeMaskFlags;
 
 enum {
   CMP_NODEFLAG_BLUR_VARIABLE_SIZE = (1 << 0),
@@ -849,7 +903,7 @@ typedef struct NodeBlurData {
 typedef struct NodeDBlurData {
   float center_x, center_y, distance, angle, spin, zoom;
   short iter;
-  char wrap, _pad;
+  char _pad[2];
 } NodeDBlurData;
 
 typedef struct NodeBilateralBlurData {
@@ -857,6 +911,12 @@ typedef struct NodeBilateralBlurData {
   short iter;
   char _pad[2];
 } NodeBilateralBlurData;
+
+typedef struct NodeKuwaharaData {
+  short size;
+  short variation;
+  int smoothing;
+} NodeKuwaharaData;
 
 typedef struct NodeAntiAliasingData {
   float threshold;
@@ -952,7 +1012,7 @@ typedef struct NodeScriptDict {
 typedef struct NodeGlare {
   char quality, type, iter;
   /* XXX angle is only kept for backward/forward compatibility,
-   * was used for two different things, see T50736. */
+   * was used for two different things, see #50736. */
   char angle DNA_DEPRECATED, _pad0, size, star_45, streaks;
   float colmod, mix, threshold, fade;
   float angle_ofs;
@@ -1079,7 +1139,9 @@ typedef struct NodeTexVoronoi {
   int dimensions;
   int feature;
   int distance;
+  int normalize;
   int coloring DNA_DEPRECATED;
+  char _pad[4];
 } NodeTexVoronoi;
 
 typedef struct NodeTexMusgrave {
@@ -1125,12 +1187,11 @@ typedef struct NodeShaderTexPointDensity {
   short interpolation;
   short color_source;
   short ob_color_source;
-  /** Vertex attribute layer for color source, MAX_CUSTOMDATA_LAYER_NAME. */
-  char vertex_attribute_name[64];
   /* Used at runtime only by sampling RNA API. */
   PointDensity pd;
   int cached_resolution;
-  char _pad2[4];
+  /** Vertex attribute layer for color source, MAX_CUSTOMDATA_LAYER_NAME. */
+  char vertex_attribute_name[68];
 } NodeShaderTexPointDensity;
 
 typedef struct NodeShaderPrincipled {
@@ -1497,11 +1558,6 @@ typedef struct NodeGeometryRaycast {
 
   /* eCustomDataType. */
   int8_t data_type;
-
-  /* Deprecated input types in new Ray-cast node. Can be removed when legacy nodes are no longer
-   * supported. */
-  uint8_t input_type_ray_direction;
-  uint8_t input_type_ray_length;
 } NodeGeometryRaycast;
 
 typedef struct NodeGeometryCurveFill {
@@ -1561,8 +1617,8 @@ typedef struct NodeGeometrySeparateGeometry {
 } NodeGeometrySeparateGeometry;
 
 typedef struct NodeGeometryImageTexture {
-  int interpolation;
-  int extension;
+  int8_t interpolation;
+  int8_t extension;
 } NodeGeometryImageTexture;
 
 typedef struct NodeGeometryViewer {
@@ -1577,10 +1633,50 @@ typedef struct NodeGeometryUVUnwrap {
   uint8_t method;
 } NodeGeometryUVUnwrap;
 
+typedef struct NodeSimulationItem {
+  char *name;
+  /** #eNodeSocketDatatype. */
+  short socket_type;
+  /** #eAttrDomain. */
+  short attribute_domain;
+  /**
+   * Generates unique identifier for sockets which stays the same even when the item order or
+   * names change.
+   */
+  int identifier;
+} NodeSimulationItem;
+
+typedef struct NodeGeometrySimulationInput {
+  /** bNode.identifier of the corresponding output node. */
+  int32_t output_node_id;
+} NodeGeometrySimulationInput;
+
+typedef struct NodeGeometrySimulationOutput {
+  NodeSimulationItem *items;
+  int items_num;
+  int active_index;
+  /** Number to give unique IDs to state items. */
+  int next_identifier;
+  int _pad;
+
+#ifdef __cplusplus
+  blender::Span<NodeSimulationItem> items_span() const;
+  blender::MutableSpan<NodeSimulationItem> items_span_for_write();
+  blender::IndexRange items_range() const;
+#endif
+} NodeGeometrySimulationOutput;
+
 typedef struct NodeGeometryDistributePointsInVolume {
   /* GeometryNodePointDistributeVolumeMode. */
   uint8_t mode;
 } NodeGeometryDistributePointsInVolume;
+
+typedef struct NodeGeometrySampleVolume {
+  /* eCustomDataType. */
+  int8_t grid_type;
+  /* GeometryNodeSampleVolumeInterpolationMode */
+  int8_t interpolation_mode;
+} NodeGeometrySampleVolume;
 
 typedef struct NodeFunctionCompare {
   /* NodeCompareOperation */
@@ -1637,7 +1733,7 @@ typedef struct NodeShaderMix {
 
 /* glossy distributions */
 #define SHD_GLOSSY_BECKMANN 0
-#define SHD_GLOSSY_SHARP 1
+#define SHD_GLOSSY_SHARP_DEPRECATED 1 /* deprecated */
 #define SHD_GLOSSY_GGX 2
 #define SHD_GLOSSY_ASHIKHMIN_SHIRLEY 3
 #define SHD_GLOSSY_MULTI_GGX 4
@@ -1754,6 +1850,7 @@ enum {
 #define SHD_IMAGE_EXTENSION_REPEAT 0
 #define SHD_IMAGE_EXTENSION_EXTEND 1
 #define SHD_IMAGE_EXTENSION_CLIP 2
+#define SHD_IMAGE_EXTENSION_MIRROR 3
 
 /* image texture */
 #define SHD_PROJ_FLAT 0
@@ -2062,17 +2159,46 @@ typedef enum CMPNodeToneMapType {
   CMP_NODE_TONE_MAP_PHOTORECEPTOR = 1,
 } CMPNodeToneMapType;
 
+/* Track Position Node. Stored in custom1. */
+typedef enum CMPNodeTrackPositionMode {
+  CMP_NODE_TRACK_POSITION_ABSOLUTE = 0,
+  CMP_NODE_TRACK_POSITION_RELATIVE_START = 1,
+  CMP_NODE_TRACK_POSITION_RELATIVE_FRAME = 2,
+  CMP_NODE_TRACK_POSITION_ABSOLUTE_FRAME = 3,
+} CMPNodeTrackPositionMode;
+
+/* Glare Node. Stored in NodeGlare.type. */
+typedef enum CMPNodeGlareType {
+  CMP_NODE_GLARE_SIMPLE_STAR = 0,
+  CMP_NODE_GLARE_FOG_GLOW = 1,
+  CMP_NODE_GLARE_STREAKS = 2,
+  CMP_NODE_GLARE_GHOST = 3,
+} CMPNodeGlareType;
+
+/* Kuwahara Node. Stored in variation */
+typedef enum CMPNodeKuwahara {
+  CMP_NODE_KUWAHARA_CLASSIC = 0,
+  CMP_NODE_KUWAHARA_ANISOTROPIC = 1,
+} CMPNodeKuwahara;
+
+/* Stabilize 2D node. Stored in custom1. */
+typedef enum CMPNodeStabilizeInterpolation {
+  CMP_NODE_STABILIZE_INTERPOLATION_NEAREST = 0,
+  CMP_NODE_STABILIZE_INTERPOLATION_BILINEAR = 1,
+  CMP_NODE_STABILIZE_INTERPOLATION_BICUBIC = 2,
+} CMPNodeStabilizeInterpolation;
+
+/* Stabilize 2D node. Stored in custom2. */
+typedef enum CMPNodeStabilizeInverse {
+  CMP_NODE_STABILIZE_FLAG_INVERSE = 1,
+} CMPNodeStabilizeInverse;
+
+#define CMP_NODE_PLANE_TRACK_DEFORM_MOTION_BLUR_SAMPLES_MAX 64
+
 /* Plane track deform node. */
-
-enum {
-  CMP_NODEFLAG_PLANETRACKDEFORM_MOTION_BLUR = 1,
-};
-
-/* Stabilization node. */
-
-enum {
-  CMP_NODEFLAG_STABILIZE_INVERSE = 1,
-};
+typedef enum CMPNodePlaneTrackDeformFlags {
+  CMP_NODE_PLANE_TRACK_DEFORM_FLAG_MOTION_BLUR = 1,
+} CMPNodePlaneTrackDeformFlags;
 
 /* Set Alpha Node. */
 
@@ -2100,8 +2226,6 @@ typedef enum CMPNodeCombSepColorMode {
   CMP_NODE_COMBSEP_COLOR_YCC = 3,
   CMP_NODE_COMBSEP_COLOR_YUV = 4,
 } CMPNodeCombSepColorMode;
-
-#define CMP_NODE_PLANETRACKDEFORM_MBLUR_SAMPLES_MAX 64
 
 /* Point Density shader node */
 
@@ -2354,14 +2478,16 @@ typedef enum GeometryNodeDeleteGeometryMode {
   GEO_NODE_DELETE_GEOMETRY_MODE_ONLY_FACE = 2,
 } GeometryNodeDeleteGeometryMode;
 
-typedef enum GeometryNodeRealizeInstancesFlag {
-  GEO_NODE_REALIZE_INSTANCES_LEGACY_BEHAVIOR = (1 << 0),
-} GeometryNodeRealizeInstancesFlag;
-
 typedef enum GeometryNodeScaleElementsMode {
   GEO_NODE_SCALE_ELEMENTS_UNIFORM = 0,
   GEO_NODE_SCALE_ELEMENTS_SINGLE_AXIS = 1,
 } GeometryNodeScaleElementsMode;
+
+typedef enum GeometryNodeSampleVolumeInterpolationMode {
+  GEO_NODE_SAMPLE_VOLUME_INTERPOLATION_MODE_NEAREST = 0,
+  GEO_NODE_SAMPLE_VOLUME_INTERPOLATION_MODE_TRILINEAR = 1,
+  GEO_NODE_SAMPLE_VOLUME_INTERPOLATION_MODE_TRIQUADRATIC = 2,
+} GeometryNodeSampleVolumeInterpolationMode;
 
 typedef enum NodeCombSepColorMode {
   NODE_COMBSEP_COLOR_RGB = 0,

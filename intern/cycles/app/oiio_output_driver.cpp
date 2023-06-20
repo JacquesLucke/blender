@@ -1,7 +1,13 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2021-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2021-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "app/oiio_output_driver.h"
+
+#include "scene/colorspace.h"
+
+#include <OpenImageIO/imagebuf.h>
+#include <OpenImageIO/imagebufalgo.h>
 
 CCL_NAMESPACE_BEGIN
 
@@ -12,9 +18,7 @@ OIIOOutputDriver::OIIOOutputDriver(const string_view filepath,
 {
 }
 
-OIIOOutputDriver::~OIIOOutputDriver()
-{
-}
+OIIOOutputDriver::~OIIOOutputDriver() {}
 
 void OIIOOutputDriver::write_render_tile(const Tile &tile)
 {
@@ -47,11 +51,24 @@ void OIIOOutputDriver::write_render_tile(const Tile &tile)
   }
 
   /* Manipulate offset and stride to convert from bottom-up to top-down convention. */
-  image_output->write_image(TypeDesc::FLOAT,
-                            pixels.data() + (height - 1) * width * 4,
-                            AutoStride,
-                            -width * 4 * sizeof(float),
-                            AutoStride);
+  ImageBuf image_buffer(spec,
+                        pixels.data() + (height - 1) * width * 4,
+                        AutoStride,
+                        -width * 4 * sizeof(float),
+                        AutoStride);
+
+  /* Apply gamma correction for (some) non-linear file formats.
+   * TODO: use OpenColorIO view transform if available. */
+  if (ColorSpaceManager::detect_known_colorspace(
+          u_colorspace_auto, "", image_output->format_name(), true) == u_colorspace_srgb)
+  {
+    const float g = 1.0f / 2.2f;
+    ImageBufAlgo::pow(image_buffer, image_buffer, {g, g, g, 1.0f});
+  }
+
+  /* Write to disk and close */
+  image_buffer.set_write_format(TypeDesc::FLOAT);
+  image_buffer.write(image_output.get());
   image_output->close();
 }
 

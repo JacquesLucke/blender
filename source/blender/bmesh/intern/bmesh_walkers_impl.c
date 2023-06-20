@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bmesh
@@ -930,9 +932,10 @@ static void bmw_EdgeLoopWalker_begin(BMWalker *walker, void *data)
    */
   if ((lwalk->is_boundary == false) &&
       /* Without checking the face count, the 3 edges could be this edge
-       * plus two boundary edges (which would not be stepped over), see T84906. */
+       * plus two boundary edges (which would not be stepped over), see #84906. */
       ((vert_edge_count[0] == 3 && vert_face_count[0] == 3) ||
-       (vert_edge_count[1] == 3 && vert_face_count[1] == 3))) {
+       (vert_edge_count[1] == 3 && vert_face_count[1] == 3)))
+  {
     BMIter iter;
     BMFace *f_iter;
     BMFace *f_best = NULL;
@@ -1005,7 +1008,8 @@ static void *bmw_EdgeLoopWalker_step(BMWalker *walker)
 
       if (bmw_mask_check_edge(walker, nexte) && !BLI_gset_haskey(walker->visit_set, nexte) &&
           /* Never step onto a boundary edge, this gives odd-results. */
-          (BM_edge_is_boundary(nexte) == false)) {
+          (BM_edge_is_boundary(nexte) == false))
+      {
         lwalk = BMW_state_add(walker);
         lwalk->cur = nexte;
         lwalk->lastv = v;
@@ -1027,7 +1031,8 @@ static void *bmw_EdgeLoopWalker_step(BMWalker *walker)
 
       BM_ITER_ELEM (nexte, &eiter, v, BM_EDGES_OF_VERT) {
         if ((nexte->l == NULL) && bmw_mask_check_edge(walker, nexte) &&
-            !BLI_gset_haskey(walker->visit_set, nexte)) {
+            !BLI_gset_haskey(walker->visit_set, nexte))
+        {
           lwalk = BMW_state_add(walker);
           lwalk->cur = nexte;
           lwalk->lastv = v;
@@ -1097,7 +1102,8 @@ static void *bmw_EdgeLoopWalker_step(BMWalker *walker)
 
         /* Initial edge was a boundary, so is this edge and vertex is only a part of this face
          * this lets us walk over the boundary of an ngon which is handy. */
-        (owalk.is_single == true && vert_edge_tot == 2 && BM_edge_is_boundary(e))) {
+        (owalk.is_single == true && vert_edge_tot == 2 && BM_edge_is_boundary(e)))
+    {
       /* Find next boundary edge in the fan. */
       do {
         l = BM_loop_other_edge_loop(l, v);
@@ -1197,8 +1203,8 @@ static void bmw_FaceLoopWalker_begin(BMWalker *walker, void *data)
 {
   BMwFaceLoopWalker *lwalk, owalk, *owalk_pt;
   BMEdge *e = data;
-  /* BMesh *bm = walker->bm; */             /* UNUSED */
-  /* int fcount = BM_edge_face_count(e); */ /* UNUSED */
+  // BMesh *bm = walker->bm;              /* UNUSED */
+  // int fcount = BM_edge_face_count(e);  /* UNUSED */
 
   if (!bmw_FaceLoopWalker_edge_begins_loop(walker, e)) {
     return;
@@ -1546,7 +1552,7 @@ static void *bmw_UVEdgeWalker_step(BMWalker *walker)
   }
 
   /* Go over loops around `l->v` and `l->next->v` and see which ones share `l` and `l->next`
-   * UV's coordinates. in addition, push on `l->next` if necessary. */
+   * UV coordinates. in addition, push on `l->next` if necessary. */
   for (i = 0; i < 2; i++) {
     BMIter liter;
     BMLoop *l_pivot, *l_radial;

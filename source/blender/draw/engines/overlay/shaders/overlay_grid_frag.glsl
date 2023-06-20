@@ -81,7 +81,7 @@ void main()
   }
   else {
     dist = gl_FragCoord.z * 2.0 - 1.0;
-    /* Avoid fading in +Z direction in camera view (see T70193). */
+    /* Avoid fading in +Z direction in camera view (see #70193). */
     dist = flag_test(grid_flag, GRID_CAMERA) ? clamp(dist, 0.0, 1.0) : abs(dist);
     fade = 1.0 - smoothstep(0.0, 0.5, dist - 0.5);
     dist = 1.0; /* Avoid branch after. */
@@ -106,7 +106,8 @@ void main()
     if (flag_test(grid_flag, PLANE_IMAGE) &&
         /* Grid begins to appear when the length of one grid unit is at least
          * (256/grid_size) pixels Value of grid_size defined in `overlay_grid.c`. */
-        !flag_test(grid_flag, CUSTOM_GRID)) {
+        !flag_test(grid_flag, CUSTOM_GRID))
+    {
       grid_res = grid_buf.zoom_factor;
     }
 

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/camera.h"
 #include "scene/mesh.h"
@@ -22,9 +23,7 @@ CCL_NAMESPACE_BEGIN
 #define STITCH_NGON_CENTER_VERT_INDEX_OFFSET 0x60000000
 #define STITCH_NGON_SPLIT_EDGE_CENTER_VERT_TAG (0x60000000 - 1)
 
-DiagSplit::DiagSplit(const SubdParams &params_) : params(params_)
-{
-}
+DiagSplit::DiagSplit(const SubdParams &params_) : params(params_) {}
 
 float3 DiagSplit::to_world(Patch *patch, float2 uv)
 {
@@ -694,7 +693,8 @@ void DiagSplit::post_split()
 
         /* Add to map */
         if (params.mesh->vert_to_stitching_key_map.find(vert) ==
-            params.mesh->vert_to_stitching_key_map.end()) {
+            params.mesh->vert_to_stitching_key_map.end())
+        {
           params.mesh->vert_to_stitching_key_map[vert] = key;
           params.mesh->vert_stitching_map.insert({key, vert});
         }

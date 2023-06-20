@@ -1,5 +1,7 @@
+# SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+#
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2011-2022 Blender Foundation
+
 from __future__ import annotations
 
 bl_info = {
@@ -106,7 +108,7 @@ class CyclesRender(bpy.types.RenderEngine):
             from . import osl
             osl.update_script_node(node, self.report)
         else:
-            self.report({'ERROR'}, "OSL support disabled in this build.")
+            self.report({'ERROR'}, "OSL support disabled in this build")
 
     def update_render_passes(self, scene, srl):
         engine.register_passes(self, scene, srl)

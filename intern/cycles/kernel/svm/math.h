@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -47,7 +48,8 @@ ccl_device_noinline int svm_node_vector_math(KernelGlobals kg,
 
   /* 3 Vector Operators */
   if (type == NODE_VECTOR_MATH_WRAP || type == NODE_VECTOR_MATH_FACEFORWARD ||
-      type == NODE_VECTOR_MATH_MULTIPLY_ADD) {
+      type == NODE_VECTOR_MATH_MULTIPLY_ADD)
+  {
     uint4 extra_node = read_node(kg, &offset);
     c = stack_load_float3(stack, extra_node.x);
   }

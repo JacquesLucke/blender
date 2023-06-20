@@ -1,6 +1,9 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Adapted from code copyright 2009-2010 NVIDIA Corporation
- * Modifications Copyright 2011-2022 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2009-2010 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Adapted code from NVIDIA Corporation. */
 
 #include "bvh/sort.h"
 
@@ -35,7 +38,7 @@ struct BVHReferenceCompare {
 
   /* Compare two references.
    *
-   * Returns value is similar to return value of strcmp().
+   * Returns value is similar to return value of `strcmp()`.
    */
   __forceinline int compare(const BVHReference &ra, const BVHReference &rb) const
   {

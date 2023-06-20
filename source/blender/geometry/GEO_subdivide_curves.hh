@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -17,8 +19,10 @@ namespace blender::geometry {
  *
  * \param selection: A selection of curves to consider when subdividing.
  */
-bke::CurvesGeometry subdivide_curves(const bke::CurvesGeometry &src_curves,
-                                     IndexMask selection,
-                                     const VArray<int> &cuts);
+bke::CurvesGeometry subdivide_curves(
+    const bke::CurvesGeometry &src_curves,
+    const IndexMask &selection,
+    const VArray<int> &cuts,
+    const bke::AnonymousAttributePropagationInfo &propagation_info);
 
 }  // namespace blender::geometry

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __UTIL_TIME_H__
 #define __UTIL_TIME_H__
@@ -52,9 +53,7 @@ class scoped_callback_timer {
  public:
   using callback_type = function<void(double)>;
 
-  explicit scoped_callback_timer(callback_type cb) : cb(cb)
-  {
-  }
+  explicit scoped_callback_timer(callback_type cb) : cb(cb) {}
 
   ~scoped_callback_timer()
   {

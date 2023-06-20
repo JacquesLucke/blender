@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "BLI_float3x3.hh"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_matrix.hh"
 #include "BLI_utildefines.h"
 
 #include "GPU_shader.h"
@@ -38,16 +39,16 @@ void RealizeOnDomainOperation::execute()
   GPU_shader_bind(shader);
 
   /* Transform the input space into the domain space. */
-  const float3x3 local_transformation = domain_.transformation.inverted() *
+  const float3x3 local_transformation = math::invert(domain_.transformation) *
                                         input.domain().transformation;
 
   /* Set the origin of the transformation to be the center of the domain. */
-  const float3x3 transformation = float3x3::from_origin_transformation(
+  const float3x3 transformation = math::from_origin_transform<float3x3>(
       local_transformation, float2(domain_.size) / 2.0f);
 
   /* Invert the transformation because the shader transforms the domain coordinates instead of the
    * input image itself and thus expect the inverse. */
-  const float3x3 inverse_transformation = transformation.inverted();
+  const float3x3 inverse_transformation = math::invert(transformation);
 
   GPU_shader_uniform_mat3_as_mat4(shader, "inverse_transformation", inverse_transformation.ptr());
 
@@ -59,11 +60,16 @@ void RealizeOnDomainOperation::execute()
                                  Interpolation::Bicubic);
   GPU_texture_filter_mode(input.texture(), use_bilinear);
 
-  /* Make out-of-bound texture access return zero by clamping to border color. And make texture
-   * wrap appropriately if the input repeats. */
-  const bool repeats = input.get_realization_options().repeat_x ||
-                       input.get_realization_options().repeat_y;
-  GPU_texture_wrap_mode(input.texture(), repeats, false);
+  /* If the input repeats, set a repeating wrap mode for out-of-bound texture access. Otherwise,
+   * make out-of-bound texture access return zero by setting a clamp to border extend mode. */
+  GPU_texture_extend_mode_x(input.texture(),
+                            input.get_realization_options().repeat_x ?
+                                GPU_SAMPLER_EXTEND_MODE_REPEAT :
+                                GPU_SAMPLER_EXTEND_MODE_CLAMP_TO_BORDER);
+  GPU_texture_extend_mode_y(input.texture(),
+                            input.get_realization_options().repeat_y ?
+                                GPU_SAMPLER_EXTEND_MODE_REPEAT :
+                                GPU_SAMPLER_EXTEND_MODE_CLAMP_TO_BORDER);
 
   input.bind_as_texture(shader, "input_tx");
   result.bind_as_image(shader, "domain_img");
@@ -77,13 +83,25 @@ void RealizeOnDomainOperation::execute()
 
 GPUShader *RealizeOnDomainOperation::get_realization_shader()
 {
-  switch (get_result().type()) {
-    case ResultType::Color:
-      return shader_manager().get("compositor_realize_on_domain_color");
-    case ResultType::Vector:
-      return shader_manager().get("compositor_realize_on_domain_vector");
-    case ResultType::Float:
-      return shader_manager().get("compositor_realize_on_domain_float");
+  if (get_input().get_realization_options().interpolation == Interpolation::Bicubic) {
+    switch (get_result().type()) {
+      case ResultType::Color:
+        return shader_manager().get("compositor_realize_on_domain_bicubic_color");
+      case ResultType::Vector:
+        return shader_manager().get("compositor_realize_on_domain_bicubic_vector");
+      case ResultType::Float:
+        return shader_manager().get("compositor_realize_on_domain_bicubic_float");
+    }
+  }
+  else {
+    switch (get_result().type()) {
+      case ResultType::Color:
+        return shader_manager().get("compositor_realize_on_domain_color");
+      case ResultType::Vector:
+        return shader_manager().get("compositor_realize_on_domain_vector");
+      case ResultType::Float:
+        return shader_manager().get("compositor_realize_on_domain_float");
+    }
   }
 
   BLI_assert_unreachable();

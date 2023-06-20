@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "eevee_defines.hh"
 #include "gpu_shader_create_info.hh"
@@ -38,7 +40,7 @@ GPU_SHADER_CREATE_INFO(eevee_depth_of_field_stabilize)
     .sampler(2, ImageType::FLOAT_2D, "velocity_tx")
     .sampler(3, ImageType::FLOAT_2D, "in_history_tx")
     .sampler(4, ImageType::DEPTH_2D, "depth_tx")
-    .push_constant(Type::BOOL, "use_history")
+    .push_constant(Type::BOOL, "u_use_history")
     .image(0, GPU_RGBA16F, Qualifier::WRITE, ImageType::FLOAT_2D, "out_color_img")
     .image(1, GPU_R16F, Qualifier::WRITE, ImageType::FLOAT_2D, "out_coc_img")
     .image(2, GPU_RGBA16F, Qualifier::WRITE, ImageType::FLOAT_2D, "out_history_img")

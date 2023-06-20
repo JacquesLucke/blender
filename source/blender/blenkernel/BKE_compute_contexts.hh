@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -6,7 +8,11 @@
  * This file implements some specific compute contexts for concepts in Blender.
  */
 
+#include <optional>
+
 #include "BLI_compute_context.hh"
+
+struct bNode;
 
 namespace blender::bke {
 
@@ -32,12 +38,41 @@ class NodeGroupComputeContext : public ComputeContext {
  private:
   static constexpr const char *s_static_type = "NODE_GROUP";
 
-  std::string node_name_;
+  int32_t node_id_;
+
+#ifdef DEBUG
+  std::string debug_node_name_;
+#endif
 
  public:
-  NodeGroupComputeContext(const ComputeContext *parent, std::string node_name);
+  NodeGroupComputeContext(const ComputeContext *parent,
+                          int32_t node_id,
+                          const std::optional<ComputeContextHash> &cached_hash = {});
+  NodeGroupComputeContext(const ComputeContext *parent, const bNode &node);
 
-  StringRefNull node_name() const;
+  int32_t node_id() const
+  {
+    return node_id_;
+  }
+
+ private:
+  void print_current_in_line(std::ostream &stream) const override;
+};
+
+class SimulationZoneComputeContext : public ComputeContext {
+ private:
+  static constexpr const char *s_static_type = "SIMULATION_ZONE";
+
+  int32_t output_node_id_;
+
+ public:
+  SimulationZoneComputeContext(const ComputeContext *parent, int output_node_id);
+  SimulationZoneComputeContext(const ComputeContext *parent, const bNode &node);
+
+  int32_t output_node_id() const
+  {
+    return output_node_id_;
+  }
 
  private:
   void print_current_in_line(std::ostream &stream) const override;

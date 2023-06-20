@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2021-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2021-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -29,7 +30,8 @@ class MetalDevice : public Device {
   id<MTLArgumentEncoder> mtlAncillaryArgEncoder =
       nil; /* encoder used for fetching device pointers from MTLBuffers */
   string source[PSO_NUM];
-  string source_md5[PSO_NUM];
+  string kernels_md5[PSO_NUM];
+  string global_defines_md5[PSO_NUM];
 
   bool capture_enabled = false;
 
@@ -49,7 +51,7 @@ class MetalDevice : public Device {
   int max_threads_per_threadgroup;
 
   int mtlDevId = 0;
-  bool first_error = true;
+  bool has_error = false;
 
   struct MetalMem {
     device_memory *mem = nullptr;
@@ -67,18 +69,39 @@ class MetalDevice : public Device {
   std::recursive_mutex metal_mem_map_mutex;
 
   /* Bindless Textures */
+  bool is_texture(const TextureInfo &tex);
   device_vector<TextureInfo> texture_info;
   bool need_texture_info;
   id<MTLArgumentEncoder> mtlTextureArgEncoder = nil;
+  id<MTLArgumentEncoder> mtlBufferArgEncoder = nil;
+  id<MTLBuffer> buffer_bindings_1d = nil;
   id<MTLBuffer> texture_bindings_2d = nil;
   id<MTLBuffer> texture_bindings_3d = nil;
   std::vector<id<MTLTexture>> texture_slot_map;
 
+  /* BLAS encoding & lookup */
+  id<MTLArgumentEncoder> mtlBlasArgEncoder = nil;
+  id<MTLBuffer> blas_buffer = nil;
+  id<MTLBuffer> blas_lookup_buffer = nil;
+
   bool use_metalrt = false;
   MetalPipelineType kernel_specialization_level = PSO_GENERIC;
-  std::atomic_bool async_compile_and_load = false;
 
-  virtual BVHLayoutMask get_bvh_layout_mask() const override;
+  int device_id = 0;
+
+  static thread_mutex existing_devices_mutex;
+  static std::map<int, MetalDevice *> active_device_ids;
+
+  static bool is_device_cancelled(int device_id);
+
+  static MetalDevice *get_device_by_ID(int device_idID,
+                                       thread_scoped_lock &existing_devices_mutex_lock);
+
+  virtual bool is_ready(string &status) const override;
+
+  virtual void cancel() override;
+
+  virtual BVHLayoutMask get_bvh_layout_mask(uint /*kernel_features*/) const override;
 
   void set_error(const string &error) override;
 
@@ -92,13 +115,17 @@ class MetalDevice : public Device {
 
   bool use_adaptive_compilation();
 
+  bool use_local_atomic_sort() const;
+
+  string preprocess_source(MetalPipelineType pso_type,
+                           const uint kernel_features,
+                           string *source = nullptr);
+
+  bool make_source_and_check_if_compile_needed(MetalPipelineType pso_type);
+
   void make_source(MetalPipelineType pso_type, const uint kernel_features);
 
   virtual bool load_kernels(const uint kernel_features) override;
-
-  void reserve_local_memory(const uint kernel_features);
-
-  void init_host_memory();
 
   void load_texture_info();
 
@@ -112,10 +139,12 @@ class MetalDevice : public Device {
 
   virtual void optimize_for_scene(Scene *scene) override;
 
-  bool compile_and_load(MetalPipelineType pso_type);
+  static void compile_and_load(int device_id, MetalPipelineType pso_type);
 
   /* ------------------------------------------------------------------ */
   /* low-level memory management */
+
+  bool max_working_set_exceeded(size_t safety_margin = 8 * 1024 * 1024) const;
 
   MetalMem *generic_alloc(device_memory &mem);
 

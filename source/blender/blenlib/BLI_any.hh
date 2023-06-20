@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -98,8 +100,8 @@ class Any {
  private:
   /* Makes it possible to use void in the template parameters. */
   using RealExtraInfo =
-      std::conditional_t<std::is_void_v<ExtraInfo>, detail::NoExtraInfo, ExtraInfo>;
-  using Info = detail::AnyTypeInfo<RealExtraInfo>;
+      std::conditional_t<std::is_void_v<ExtraInfo>, blender::detail::NoExtraInfo, ExtraInfo>;
+  using Info = blender::detail::AnyTypeInfo<RealExtraInfo>;
   static constexpr size_t RealInlineBufferCapacity = std::max(InlineBufferCapacity,
                                                               sizeof(std::unique_ptr<int>));
 

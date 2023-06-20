@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -252,7 +253,7 @@ ccl_device float3 curve_tangent_normal(KernelGlobals kg, ccl_private const Shade
 
   if (sd->type & PRIMITIVE_CURVE) {
 
-    tgN = -(-sd->I - sd->dPdu * (dot(sd->dPdu, -sd->I) / len_squared(sd->dPdu)));
+    tgN = -(-sd->wi - sd->dPdu * (dot(sd->dPdu, -sd->wi) / len_squared(sd->dPdu)));
     tgN = normalize(tgN);
 
     /* need to find suitable scaled gd for corrected normal */

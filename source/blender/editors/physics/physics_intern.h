@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2007 by Janne Karhu. All rights reserved. */
+/* SPDX-FileCopyrightText: 2007 by Janne Karhu. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edphys
@@ -114,7 +115,7 @@ void FLUID_OT_bake_guides(struct wmOperatorType *ot);
 void FLUID_OT_free_guides(struct wmOperatorType *ot);
 void FLUID_OT_pause_bake(struct wmOperatorType *ot);
 
-/* dynamicpaint.c */
+/* dynamicpaint.cc */
 
 void DPAINT_OT_bake(struct wmOperatorType *ot);
 /**

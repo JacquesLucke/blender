@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2006 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2006 Blender Foundation. All rights reserved.
 
 # message(STATUS "Configuring makesdna")
 
@@ -55,9 +56,21 @@ set(SRC
   ../../../../intern/guardedalloc/intern/mallocn.c
   ../../../../intern/guardedalloc/intern/mallocn_guarded_impl.c
   ../../../../intern/guardedalloc/intern/mallocn_lockfree_impl.c
+  ../../../../intern/guardedalloc/intern/memory_usage.cc
   ${dna_header_include_file}
   ${dna_header_string_file}
 )
+
+# BLI_mempool.c needs these files for ThreadMutex when
+# compiling in address sanitizer mode.
+if(WITH_COMPILER_ASAN)
+  list(APPEND SRC
+    ../../blenlib/intern/gsqueue.c
+    ../../blenlib/intern/listbase.cc
+    ../../blenlib/intern/threads.cc
+    ../../blenlib/intern/time.c
+  )
+endif()
 
 # SRC_DNA_INC is defined in the parent dir
 
@@ -69,7 +82,9 @@ blender_target_include_dirs(makesdna ${INC})
 blender_target_include_dirs_sys(makesdna ${INC_SYS})
 
 if(WIN32 AND NOT UNIX)
-  target_link_libraries(makesdna ${PTHREADS_LIBRARIES})
+  if(DEFINED PTHREADS_LIBRARIES)
+    target_link_libraries(makesdna ${PTHREADS_LIBRARIES})
+  endif()
 endif()
 
 # Output dna.c
@@ -135,12 +150,20 @@ set(SRC
   ../../blenlib/intern/BLI_mempool.c
   ../../blenlib/intern/endian_switch.c
   ../../blenlib/intern/hash_mm2a.c
-  ../../blenlib/intern/listbase.c
+  ../../blenlib/intern/listbase.cc
 
   ${SRC_DNA_DEFAULTS_INC}
 )
 
 set(LIB
 )
+
+if(WITH_COMPILER_ASAN)
+  list(APPEND SRC
+    ../../blenlib/intern/gsqueue.c
+    ../../blenlib/intern/threads.cc
+    ../../blenlib/intern/time.c
+  )
+endif()
 
 blender_add_lib(bf_dna_blenlib "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

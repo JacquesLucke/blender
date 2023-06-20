@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -60,7 +62,6 @@ enum {
   SIMFACE_NORMAL,
   SIMFACE_COPLANAR,
   SIMFACE_SMOOTH,
-  SIMFACE_FACEMAP,
   SIMFACE_FREESTYLE,
 };
 
@@ -162,7 +163,7 @@ void BM_mesh_esubdivide(BMesh *bm,
                         int seed);
 
 /**
- * Fills first available UV-map with grid-like UV's for all faces with `oflag` set.
+ * Fills first available UV-map with grid-like UVs for all faces with `oflag` set.
  *
  * \param bm: The BMesh to operate on
  * \param x_segments: The x-resolution of the grid

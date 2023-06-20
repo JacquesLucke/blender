@@ -1,9 +1,11 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/background.h"
 #include "device/device.h"
 #include "scene/integrator.h"
+#include "scene/light.h"
 #include "scene/scene.h"
 #include "scene/shader.h"
 #include "scene/shader_graph.h"
@@ -115,9 +117,7 @@ void Background::device_update(Device *device, DeviceScene *dscene, Scene *scene
   clear_modified();
 }
 
-void Background::device_free(Device * /*device*/, DeviceScene * /*dscene*/)
-{
-}
+void Background::device_free(Device * /*device*/, DeviceScene * /*dscene*/) {}
 
 void Background::tag_update(Scene *scene)
 {

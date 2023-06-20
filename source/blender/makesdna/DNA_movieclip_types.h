@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -65,8 +66,7 @@ typedef struct MovieClip {
 
   /** Sequence or movie. */
   int source;
-  /** Last accessed frame number. */
-  int lastframe;
+  int _pad;
   /** Size of last accessed frame. */
   int lastsize[2];
 

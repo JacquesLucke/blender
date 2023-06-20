@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup nodes
@@ -32,12 +33,14 @@
 #include "BKE_image.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
-#include "BKE_node.h"
+#include "BKE_node.hh"
 #include "BKE_node_runtime.hh"
 #include "BKE_texture.h"
 
 #include "NOD_texture.h"
-#include "node_util.h"
+
+#include "node_texture_register.hh"
+#include "node_util.hh"
 
 #include "BLT_translation.h"
 
@@ -90,8 +93,8 @@ typedef struct TexDelegate {
   int type;
 } TexDelegate;
 
-bool tex_node_poll_default(struct bNodeType *ntype,
-                           struct bNodeTree *ntree,
+bool tex_node_poll_default(const struct bNodeType *ntype,
+                           const struct bNodeTree *ntree,
                            const char **r_disabled_hint);
 void tex_node_type_base(struct bNodeType *ntype, int type, const char *name, short nclass);
 

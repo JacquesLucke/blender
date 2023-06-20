@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2016 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spclip
@@ -85,7 +86,7 @@ typedef struct PointTrackPick {
 } PointTrackPick;
 
 /* Pick point track which is closest to the given coordinate.
- * Operates in the original non-stabilized and non-un-distored coordinates. */
+ * Operates in the original non-stabilized and non-un-distorted coordinates. */
 PointTrackPick ed_tracking_pick_point_track(const TrackPickOptions *options,
                                             struct bContext *C,
                                             const float co[2]);
@@ -114,7 +115,7 @@ typedef struct PlaneTrackPick {
 } PlaneTrackPick;
 
 /* Pick plane track which is closest to the given coordinate.
- * Operates in the original non-stabilized and non-un-distored coordinates. */
+ * Operates in the original non-stabilized and non-un-distorted coordinates. */
 PlaneTrackPick ed_tracking_pick_plane_track(const TrackPickOptions *options,
                                             struct bContext *C,
                                             const float co[2]);
@@ -136,7 +137,7 @@ typedef struct TrackingPick {
 } TrackingPick;
 
 /* Pick closest point or plane track (whichever is the closest to the given coordinate).
- * Operates in the original non-stabilized and non-un-distored coordinates. */
+ * Operates in the original non-stabilized and non-un-distorted coordinates. */
 TrackingPick ed_tracking_pick_closest(const TrackPickOptions *options,
                                       bContext *C,
                                       const float co[2]);

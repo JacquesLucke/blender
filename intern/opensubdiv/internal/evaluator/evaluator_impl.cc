@@ -1,20 +1,8 @@
-// Copyright 2018 Blender Foundation. All rights reserved.
-//
-// This program is free software; you can redistribute it and/or
-// modify it under the terms of the GNU General Public License
-// as published by the Free Software Foundation; either version 2
-// of the License, or (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program; if not, write to the Free Software Foundation,
-// Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-//
-// Author: Sergey Sharybin
+/* SPDX-FileCopyrightText: 2018 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * Author: Sergey Sharybin. */
 
 #include "internal/evaluator/evaluator_impl.h"
 
@@ -495,7 +483,8 @@ OpenSubdiv_EvaluatorImpl *openSubdiv_createEvaluatorInternal(
   vector<const StencilTable *> all_face_varying_stencils;
   all_face_varying_stencils.reserve(num_face_varying_channels);
   for (int face_varying_channel = 0; face_varying_channel < num_face_varying_channels;
-       ++face_varying_channel) {
+       ++face_varying_channel)
+  {
     StencilTableFactory::Options face_varying_stencil_options;
     face_varying_stencil_options.generateOffsets = stencil_generate_offsets;
     face_varying_stencil_options.generateIntermediateLevels = stencil_generate_intermediate_levels;
@@ -532,7 +521,8 @@ OpenSubdiv_EvaluatorImpl *openSubdiv_createEvaluatorInternal(
     }
   }
   for (int face_varying_channel = 0; face_varying_channel < num_face_varying_channels;
-       ++face_varying_channel) {
+       ++face_varying_channel)
+  {
     const StencilTable *table = StencilTableFactory::AppendLocalPointStencilTableFaceVarying(
         *refiner,
         all_face_varying_stencils[face_varying_channel],

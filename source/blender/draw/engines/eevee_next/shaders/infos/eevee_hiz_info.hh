@@ -1,10 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "eevee_defines.hh"
 #include "gpu_shader_create_info.hh"
 
 GPU_SHADER_CREATE_INFO(eevee_hiz_data)
-    .sampler(15, ImageType::FLOAT_2D, "hiz_tx")
+    .sampler(HIZ_TEX_SLOT, ImageType::FLOAT_2D, "hiz_tx")
     .uniform_buf(5, "HiZData", "hiz_buf");
 
 GPU_SHADER_CREATE_INFO(eevee_hiz_update)

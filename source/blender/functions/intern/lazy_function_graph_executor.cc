@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /**
  * This file implements the evaluation of a lazy-function graph. It's main objectives are:
@@ -151,14 +153,25 @@ struct NodeState {
    */
   bool node_has_finished = false;
   /**
-   * Set to true once the node is done running for the first time.
+   * Set to true once the always required inputs have been requested.
+   * This happens the first time the node is run.
    */
-  bool had_initialization = false;
+  bool always_used_inputs_requested = false;
+  /**
+   * Set to true when the storage and defaults have been initialized.
+   * This happens the first time the node function is executed.
+   */
+  bool storage_and_defaults_initialized = false;
   /**
    * Nodes with side effects should always be executed when their required inputs have been
    * computed.
    */
   bool has_side_effects = false;
+  /**
+   * Whether this node has enabled multi-threading. If this is true, the node is allowed to call
+   * methods on #Params from multiple threads.
+   */
+  bool enabled_multi_threading = false;
   /**
    * A node is always in one specific schedule state. This helps to ensure that the same node does
    * not run twice at the same time accidentally.
@@ -192,13 +205,49 @@ struct LockedNode {
   Vector<const OutputSocket *> delayed_required_outputs;
   Vector<const OutputSocket *> delayed_unused_outputs;
 
-  LockedNode(const Node &node, NodeState &node_state) : node(node), node_state(node_state)
-  {
-  }
+  LockedNode(const Node &node, NodeState &node_state) : node(node), node_state(node_state) {}
 };
 
 class Executor;
 class GraphExecutorLFParams;
+
+/**
+ * Keeps track of nodes that are currently scheduled on a thread. A node can only be scheduled by
+ * one thread at the same time.
+ */
+struct ScheduledNodes {
+ private:
+  /** Use two stacks of scheduled nodes for different priorities. */
+  Vector<const FunctionNode *> priority_;
+  Vector<const FunctionNode *> normal_;
+
+ public:
+  void schedule(const FunctionNode &node, const bool is_priority)
+  {
+    if (is_priority) {
+      this->priority_.append(&node);
+    }
+    else {
+      this->normal_.append(&node);
+    }
+  }
+
+  const FunctionNode *pop_next_node()
+  {
+    if (!this->priority_.is_empty()) {
+      return this->priority_.pop_last();
+    }
+    if (!this->normal_.is_empty()) {
+      return this->normal_.pop_last();
+    }
+    return nullptr;
+  }
+
+  bool is_empty() const
+  {
+    return this->priority_.is_empty() && this->normal_.is_empty();
+  }
+};
 
 struct CurrentTask {
   /**
@@ -208,7 +257,7 @@ struct CurrentTask {
   /**
    * Nodes that have been scheduled to execute next.
    */
-  Vector<const FunctionNode *> scheduled_nodes;
+  ScheduledNodes scheduled_nodes;
   /**
    * Makes it cheaper to check if there are any scheduled nodes because it avoids locking the
    * mutex.
@@ -241,12 +290,17 @@ class Executor {
 #ifdef FN_LAZY_FUNCTION_DEBUG_THREADS
   std::thread::id current_main_thread_;
 #endif
-  /**
-   * A separate linear allocator for every thread. We could potentially reuse some memory, but that
-   * doesn't seem worth it yet.
-   */
-  threading::EnumerableThreadSpecific<LinearAllocator<>> local_allocators_;
-  LinearAllocator<> *main_local_allocator_ = nullptr;
+
+  struct ThreadLocalStorage {
+    /**
+     * A separate linear allocator for every thread. We could potentially reuse some memory, but
+     * that doesn't seem worth it yet.
+     */
+    LinearAllocator<> allocator;
+    std::optional<destruct_ptr<LocalUserData>> local_user_data;
+  };
+  std::unique_ptr<threading::EnumerableThreadSpecific<ThreadLocalStorage>> thread_locals_;
+  LinearAllocator<> main_allocator_;
   /**
    * Set to false when the first execution ends.
    */
@@ -254,12 +308,22 @@ class Executor {
 
   friend GraphExecutorLFParams;
 
+  /**
+   * Data that is local to the current thread. It is passed around in many places to avoid
+   * retrieving it too often which would be more costly. If this evaluator does not use
+   * multi-threading, this may use the `main_allocator_` and the local user data passed in by the
+   * caller.
+   */
+  struct LocalData {
+    LinearAllocator<> *allocator;
+    LocalUserData *local_user_data;
+  };
+
  public:
   Executor(const GraphExecutor &self) : self_(self), loaded_inputs_(self.graph_inputs_.size())
   {
     /* The indices are necessary, because they are used as keys in #node_states_. */
     BLI_assert(self_.graph_.node_indices_are_valid());
-    main_local_allocator_ = &local_allocators_.local();
   }
 
   ~Executor()
@@ -297,6 +361,8 @@ class Executor {
     };
     BLI_SCOPED_DEFER(deferred_func);
 
+    const LocalData local_data = this->get_local_data();
+
     CurrentTask current_task;
     if (is_first_execution_) {
       this->initialize_node_states();
@@ -305,12 +371,12 @@ class Executor {
       memset(static_cast<void *>(loaded_inputs_.data()), 0, loaded_inputs_.size() * sizeof(bool));
 
       this->set_always_unused_graph_inputs();
-      this->set_defaulted_graph_outputs();
+      this->set_defaulted_graph_outputs(local_data);
 
       /* Retrieve and tag side effect nodes. */
       Vector<const FunctionNode *> side_effect_nodes;
       if (self_.side_effect_provider_ != nullptr) {
-        side_effect_nodes = self_.side_effect_provider_->get_nodes_with_side_effects(*context_);
+        side_effect_nodes = self_.side_effect_provider_->get_nodes_with_side_effects(context);
         for (const FunctionNode *node : side_effect_nodes) {
           const int node_index = node->index_in_graph();
           NodeState &node_state = *node_states_[node_index];
@@ -319,13 +385,13 @@ class Executor {
       }
 
       this->initialize_static_value_usages(side_effect_nodes);
-      this->schedule_side_effect_nodes(side_effect_nodes, current_task);
+      this->schedule_side_effect_nodes(side_effect_nodes, current_task, local_data);
     }
 
-    this->schedule_newly_requested_outputs(current_task);
-    this->forward_newly_provided_inputs(current_task);
+    this->schedule_for_new_output_usages(current_task, local_data);
+    this->forward_newly_provided_inputs(current_task, local_data);
 
-    this->run_task(current_task);
+    this->run_task(current_task, local_data);
 
     if (TaskPool *task_pool = task_pool_.load()) {
       BLI_task_pool_work_and_wait(task_pool);
@@ -338,16 +404,25 @@ class Executor {
     Span<const Node *> nodes = self_.graph_.nodes();
     node_states_.reinitialize(nodes.size());
 
-    /* Construct all node states in parallel. */
-    threading::parallel_for(nodes.index_range(), 256, [&](const IndexRange range) {
-      LinearAllocator<> &allocator = local_allocators_.local();
+    auto construct_node_range = [&](const IndexRange range, LinearAllocator<> &allocator) {
       for (const int i : range) {
         const Node &node = *nodes[i];
         NodeState &node_state = *allocator.construct<NodeState>().release();
         node_states_[i] = &node_state;
         this->construct_initial_node_state(allocator, node, node_state);
       }
-    });
+    };
+    if (nodes.size() <= 256) {
+      construct_node_range(nodes.index_range(), main_allocator_);
+    }
+    else {
+      this->ensure_thread_locals();
+      /* Construct all node states in parallel. */
+      threading::parallel_for(nodes.index_range(), 256, [&](const IndexRange range) {
+        LinearAllocator<> &allocator = thread_locals_->local().allocator;
+        construct_node_range(range, allocator);
+      });
+    }
   }
 
   void construct_initial_node_state(LinearAllocator<> &allocator,
@@ -377,25 +452,35 @@ class Executor {
     std::destroy_at(&node_state);
   }
 
-  void schedule_newly_requested_outputs(CurrentTask &current_task)
+  /**
+   * When the usage of output values changed, propagate that information backwards.
+   */
+  void schedule_for_new_output_usages(CurrentTask &current_task, const LocalData &local_data)
   {
     for (const int graph_output_index : self_.graph_outputs_.index_range()) {
-      if (params_->get_output_usage(graph_output_index) != ValueUsage::Used) {
+      if (params_->output_was_set(graph_output_index)) {
         continue;
       }
-      if (params_->output_was_set(graph_output_index)) {
+      const ValueUsage output_usage = params_->get_output_usage(graph_output_index);
+      if (output_usage == ValueUsage::Maybe) {
         continue;
       }
       const InputSocket &socket = *self_.graph_outputs_[graph_output_index];
       const Node &node = socket.node();
       NodeState &node_state = *node_states_[node.index_in_graph()];
-      this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-        this->set_input_required(locked_node, socket);
-      });
+      this->with_locked_node(
+          node, node_state, current_task, local_data, [&](LockedNode &locked_node) {
+            if (output_usage == ValueUsage::Used) {
+              this->set_input_required(locked_node, socket);
+            }
+            else {
+              this->set_input_unused(locked_node, socket);
+            }
+          });
     }
   }
 
-  void set_defaulted_graph_outputs()
+  void set_defaulted_graph_outputs(const LocalData &local_data)
   {
     for (const int graph_output_index : self_.graph_outputs_.index_range()) {
       const InputSocket &socket = *self_.graph_outputs_[graph_output_index];
@@ -407,7 +492,8 @@ class Executor {
       BLI_assert(default_value != nullptr);
 
       if (self_.logger_ != nullptr) {
-        self_.logger_->log_socket_value(socket, {type, default_value}, *context_);
+        const Context context{context_->storage, context_->user_data, local_data.local_user_data};
+        self_.logger_->log_socket_value(socket, {type, default_value}, context);
       }
 
       void *output_ptr = params_->get_output_data_ptr(graph_output_index);
@@ -510,19 +596,20 @@ class Executor {
   }
 
   void schedule_side_effect_nodes(const Span<const FunctionNode *> side_effect_nodes,
-                                  CurrentTask &current_task)
+                                  CurrentTask &current_task,
+                                  const LocalData &local_data)
   {
     for (const FunctionNode *node : side_effect_nodes) {
       NodeState &node_state = *node_states_[node->index_in_graph()];
-      this->with_locked_node(*node, node_state, current_task, [&](LockedNode &locked_node) {
-        this->schedule_node(locked_node, current_task);
-      });
+      this->with_locked_node(
+          *node, node_state, current_task, local_data, [&](LockedNode &locked_node) {
+            this->schedule_node(locked_node, current_task, false);
+          });
     }
   }
 
-  void forward_newly_provided_inputs(CurrentTask &current_task)
+  void forward_newly_provided_inputs(CurrentTask &current_task, const LocalData &local_data)
   {
-    LinearAllocator<> &allocator = this->get_main_or_local_allocator();
     for (const int graph_input_index : self_.graph_inputs_.index_range()) {
       std::atomic<uint8_t> &was_loaded = loaded_inputs_[graph_input_index];
       if (was_loaded.load()) {
@@ -536,23 +623,25 @@ class Executor {
         /* The value was forwarded before. */
         continue;
       }
-      this->forward_newly_provided_input(current_task, allocator, graph_input_index, input_data);
+      this->forward_newly_provided_input(current_task, local_data, graph_input_index, input_data);
     }
   }
 
   void forward_newly_provided_input(CurrentTask &current_task,
-                                    LinearAllocator<> &allocator,
+                                    const LocalData &local_data,
                                     const int graph_input_index,
                                     void *input_data)
   {
     const OutputSocket &socket = *self_.graph_inputs_[graph_input_index];
     const CPPType &type = socket.type();
-    void *buffer = allocator.allocate(type.size(), type.alignment());
+    void *buffer = local_data.allocator->allocate(type.size(), type.alignment());
     type.move_construct(input_data, buffer);
-    this->forward_value_to_linked_inputs(socket, {type, buffer}, current_task);
+    this->forward_value_to_linked_inputs(socket, {type, buffer}, current_task, local_data);
   }
 
-  void notify_output_required(const OutputSocket &socket, CurrentTask &current_task)
+  void notify_output_required(const OutputSocket &socket,
+                              CurrentTask &current_task,
+                              const LocalData &local_data)
   {
     const Node &node = socket.node();
     const int index_in_node = socket.index();
@@ -575,47 +664,52 @@ class Executor {
         /* The value was forwarded already. */
         return;
       }
-      this->forward_newly_provided_input(
-          current_task, this->get_main_or_local_allocator(), graph_input_index, input_data);
+      this->forward_newly_provided_input(current_task, local_data, graph_input_index, input_data);
       return;
     }
 
     BLI_assert(node.is_function());
-    this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-      if (output_state.usage == ValueUsage::Used) {
-        return;
-      }
-      output_state.usage = ValueUsage::Used;
-      this->schedule_node(locked_node, current_task);
-    });
+    this->with_locked_node(
+        node, node_state, current_task, local_data, [&](LockedNode &locked_node) {
+          if (output_state.usage == ValueUsage::Used) {
+            return;
+          }
+          output_state.usage = ValueUsage::Used;
+          this->schedule_node(locked_node, current_task, false);
+        });
   }
 
-  void notify_output_unused(const OutputSocket &socket, CurrentTask &current_task)
+  void notify_output_unused(const OutputSocket &socket,
+                            CurrentTask &current_task,
+                            const LocalData &local_data)
   {
     const Node &node = socket.node();
     const int index_in_node = socket.index();
     NodeState &node_state = *node_states_[node.index_in_graph()];
     OutputState &output_state = node_state.outputs[index_in_node];
 
-    this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-      output_state.potential_target_sockets -= 1;
-      if (output_state.potential_target_sockets == 0) {
-        BLI_assert(output_state.usage != ValueUsage::Unused);
-        if (output_state.usage == ValueUsage::Maybe) {
-          output_state.usage = ValueUsage::Unused;
-          if (node.is_dummy()) {
-            const int graph_input_index = self_.graph_inputs_.index_of(&socket);
-            params_->set_input_unused(graph_input_index);
+    this->with_locked_node(
+        node, node_state, current_task, local_data, [&](LockedNode &locked_node) {
+          output_state.potential_target_sockets -= 1;
+          if (output_state.potential_target_sockets == 0) {
+            BLI_assert(output_state.usage != ValueUsage::Unused);
+            if (output_state.usage == ValueUsage::Maybe) {
+              output_state.usage = ValueUsage::Unused;
+              if (node.is_dummy()) {
+                const int graph_input_index = self_.graph_inputs_.index_of(&socket);
+                params_->set_input_unused(graph_input_index);
+              }
+              else {
+                /* Schedule as priority node. This allows freeing up memory earlier which results
+                 * in better memory reuse and less copy-on-write copies caused by shared data. */
+                this->schedule_node(locked_node, current_task, true);
+              }
+            }
           }
-          else {
-            this->schedule_node(locked_node, current_task);
-          }
-        }
-      }
-    });
+        });
   }
 
-  void schedule_node(LockedNode &locked_node, CurrentTask &current_task)
+  void schedule_node(LockedNode &locked_node, CurrentTask &current_task, const bool is_priority)
   {
     BLI_assert(locked_node.node.is_function());
     switch (locked_node.node_state.schedule_state) {
@@ -624,10 +718,10 @@ class Executor {
         const FunctionNode &node = static_cast<const FunctionNode &>(locked_node.node);
         if (this->use_multi_threading()) {
           std::lock_guard lock{current_task.mutex};
-          current_task.scheduled_nodes.append(&node);
+          current_task.scheduled_nodes.schedule(node, is_priority);
         }
         else {
-          current_task.scheduled_nodes.append(&node);
+          current_task.scheduled_nodes.schedule(node, is_priority);
         }
         current_task.has_scheduled_nodes.store(true, std::memory_order_relaxed);
         break;
@@ -648,6 +742,7 @@ class Executor {
   void with_locked_node(const Node &node,
                         NodeState &node_state,
                         CurrentTask &current_task,
+                        const LocalData &local_data,
                         const FunctionRef<void(LockedNode &)> f)
   {
     BLI_assert(&node_state == node_states_[node.index_in_graph()]);
@@ -661,64 +756,107 @@ class Executor {
       f(locked_node);
     }
 
-    this->send_output_required_notifications(locked_node.delayed_required_outputs, current_task);
-    this->send_output_unused_notifications(locked_node.delayed_unused_outputs, current_task);
+    this->send_output_required_notifications(
+        locked_node.delayed_required_outputs, current_task, local_data);
+    this->send_output_unused_notifications(
+        locked_node.delayed_unused_outputs, current_task, local_data);
   }
 
   void send_output_required_notifications(const Span<const OutputSocket *> sockets,
-                                          CurrentTask &current_task)
+                                          CurrentTask &current_task,
+                                          const LocalData &local_data)
   {
     for (const OutputSocket *socket : sockets) {
-      this->notify_output_required(*socket, current_task);
+      this->notify_output_required(*socket, current_task, local_data);
     }
   }
 
   void send_output_unused_notifications(const Span<const OutputSocket *> sockets,
-                                        CurrentTask &current_task)
+                                        CurrentTask &current_task,
+                                        const LocalData &local_data)
   {
     for (const OutputSocket *socket : sockets) {
-      this->notify_output_unused(*socket, current_task);
+      this->notify_output_unused(*socket, current_task, local_data);
     }
   }
 
-  void run_task(CurrentTask &current_task)
+  void run_task(CurrentTask &current_task, const LocalData &local_data)
   {
-    while (!current_task.scheduled_nodes.is_empty()) {
-      const FunctionNode &node = *current_task.scheduled_nodes.pop_last();
+    while (const FunctionNode *node = current_task.scheduled_nodes.pop_next_node()) {
       if (current_task.scheduled_nodes.is_empty()) {
         current_task.has_scheduled_nodes.store(false, std::memory_order_relaxed);
       }
-      this->run_node_task(node, current_task);
+      this->run_node_task(*node, current_task, local_data);
     }
   }
 
-  void run_node_task(const FunctionNode &node, CurrentTask &current_task)
+  void run_node_task(const FunctionNode &node,
+                     CurrentTask &current_task,
+                     const LocalData &local_data)
   {
     NodeState &node_state = *node_states_[node.index_in_graph()];
-    LinearAllocator<> &allocator = this->get_main_or_local_allocator();
+    LinearAllocator<> &allocator = *local_data.allocator;
+    Context local_context{context_->storage, context_->user_data, local_data.local_user_data};
     const LazyFunction &fn = node.function();
 
     bool node_needs_execution = false;
-    this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-      BLI_assert(node_state.schedule_state == NodeScheduleState::Scheduled);
-      node_state.schedule_state = NodeScheduleState::Running;
+    this->with_locked_node(
+        node, node_state, current_task, local_data, [&](LockedNode &locked_node) {
+          BLI_assert(node_state.schedule_state == NodeScheduleState::Scheduled);
+          node_state.schedule_state = NodeScheduleState::Running;
 
-      if (node_state.node_has_finished) {
-        return;
-      }
+          if (node_state.node_has_finished) {
+            return;
+          }
 
-      bool required_uncomputed_output_exists = false;
-      for (OutputState &output_state : node_state.outputs) {
-        output_state.usage_for_execution = output_state.usage;
-        if (output_state.usage == ValueUsage::Used && !output_state.has_been_computed) {
-          required_uncomputed_output_exists = true;
-        }
-      }
-      if (!required_uncomputed_output_exists && !node_state.has_side_effects) {
-        return;
-      }
+          bool required_uncomputed_output_exists = false;
+          for (OutputState &output_state : node_state.outputs) {
+            output_state.usage_for_execution = output_state.usage;
+            if (output_state.usage == ValueUsage::Used && !output_state.has_been_computed) {
+              required_uncomputed_output_exists = true;
+            }
+          }
+          if (!required_uncomputed_output_exists && !node_state.has_side_effects) {
+            return;
+          }
 
-      if (!node_state.had_initialization) {
+          if (!node_state.always_used_inputs_requested) {
+            /* Request linked inputs that are always needed. */
+            const Span<Input> fn_inputs = fn.inputs();
+            for (const int input_index : fn_inputs.index_range()) {
+              const Input &fn_input = fn_inputs[input_index];
+              if (fn_input.usage == ValueUsage::Used) {
+                const InputSocket &input_socket = node.input(input_index);
+                if (input_socket.origin() != nullptr) {
+                  this->set_input_required(locked_node, input_socket);
+                }
+              }
+            }
+
+            node_state.always_used_inputs_requested = true;
+          }
+
+          for (const int input_index : node_state.inputs.index_range()) {
+            InputState &input_state = node_state.inputs[input_index];
+            if (input_state.was_ready_for_execution) {
+              continue;
+            }
+            if (input_state.value != nullptr) {
+              input_state.was_ready_for_execution = true;
+              continue;
+            }
+            if (!fn.allow_missing_requested_inputs()) {
+              if (input_state.usage == ValueUsage::Used) {
+                return;
+              }
+            }
+          }
+
+          node_needs_execution = true;
+        });
+
+    if (node_needs_execution) {
+      if (!node_state.storage_and_defaults_initialized) {
         /* Initialize storage. */
         node_state.storage = fn.init_storage(allocator);
 
@@ -733,67 +871,42 @@ class Executor {
           const void *default_value = input_socket.default_value();
           BLI_assert(default_value != nullptr);
           if (self_.logger_ != nullptr) {
-            self_.logger_->log_socket_value(input_socket, {type, default_value}, *context_);
+            self_.logger_->log_socket_value(input_socket, {type, default_value}, local_context);
           }
-          void *buffer = allocator.allocate(type.size(), type.alignment());
-          type.copy_construct(default_value, buffer);
-          this->forward_value_to_input(locked_node, input_state, {type, buffer}, current_task);
-        }
-
-        /* Request linked inputs that are always needed. */
-        const Span<Input> fn_inputs = fn.inputs();
-        for (const int input_index : fn_inputs.index_range()) {
-          const Input &fn_input = fn_inputs[input_index];
-          if (fn_input.usage == ValueUsage::Used) {
-            const InputSocket &input_socket = node.input(input_index);
-            this->set_input_required(locked_node, input_socket);
-          }
-        }
-
-        node_state.had_initialization = true;
-      }
-
-      for (const int input_index : node_state.inputs.index_range()) {
-        InputState &input_state = node_state.inputs[input_index];
-        if (input_state.was_ready_for_execution) {
-          continue;
-        }
-        if (input_state.value != nullptr) {
+          BLI_assert(input_state.value == nullptr);
+          input_state.value = allocator.allocate(type.size(), type.alignment());
+          type.copy_construct(default_value, input_state.value);
           input_state.was_ready_for_execution = true;
-          continue;
         }
-        if (input_state.usage == ValueUsage::Used) {
-          return;
-        }
+
+        node_state.storage_and_defaults_initialized = true;
       }
 
-      node_needs_execution = true;
-    });
-
-    if (node_needs_execution) {
       /* Importantly, the node must not be locked when it is executed. That would result in locks
        * being hold very long in some cases and results in multiple locks being hold by the same
        * thread in the same graph which can lead to deadlocks. */
-      this->execute_node(node, node_state, current_task);
+      this->execute_node(node, node_state, current_task, local_data);
     }
 
-    this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
+    this->with_locked_node(
+        node, node_state, current_task, local_data, [&](LockedNode &locked_node) {
 #ifdef DEBUG
-      if (node_needs_execution) {
-        this->assert_expected_outputs_have_been_computed(locked_node);
-      }
+          if (node_needs_execution) {
+            this->assert_expected_outputs_have_been_computed(locked_node, local_data);
+          }
 #endif
-      this->finish_node_if_possible(locked_node);
-      const bool reschedule_requested = node_state.schedule_state ==
-                                        NodeScheduleState::RunningAndRescheduled;
-      node_state.schedule_state = NodeScheduleState::NotScheduled;
-      if (reschedule_requested && !node_state.node_has_finished) {
-        this->schedule_node(locked_node, current_task);
-      }
-    });
+          this->finish_node_if_possible(locked_node);
+          const bool reschedule_requested = node_state.schedule_state ==
+                                            NodeScheduleState::RunningAndRescheduled;
+          node_state.schedule_state = NodeScheduleState::NotScheduled;
+          if (reschedule_requested && !node_state.node_has_finished) {
+            this->schedule_node(locked_node, current_task, false);
+          }
+        });
   }
 
-  void assert_expected_outputs_have_been_computed(LockedNode &locked_node)
+  void assert_expected_outputs_have_been_computed(LockedNode &locked_node,
+                                                  const LocalData &local_data)
   {
     const FunctionNode &node = static_cast<const FunctionNode &>(locked_node.node);
     const NodeState &node_state = locked_node.node_state;
@@ -815,7 +928,8 @@ class Executor {
     }
     if (!missing_outputs.is_empty()) {
       if (self_.logger_ != nullptr) {
-        self_.logger_->dump_when_outputs_are_missing(node, missing_outputs, *context_);
+        const Context context{context_->storage, context_->user_data, local_data.local_user_data};
+        self_.logger_->dump_when_outputs_are_missing(node, missing_outputs, context);
       }
       BLI_assert_unreachable();
     }
@@ -873,17 +987,22 @@ class Executor {
     }
   }
 
-  void execute_node(const FunctionNode &node, NodeState &node_state, CurrentTask &current_task);
+  void execute_node(const FunctionNode &node,
+                    NodeState &node_state,
+                    CurrentTask &current_task,
+                    const LocalData &local_data);
 
   void set_input_unused_during_execution(const Node &node,
                                          NodeState &node_state,
                                          const int input_index,
-                                         CurrentTask &current_task)
+                                         CurrentTask &current_task,
+                                         const LocalData &local_data)
   {
     const InputSocket &input_socket = node.input(input_index);
-    this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-      this->set_input_unused(locked_node, input_socket);
-    });
+    this->with_locked_node(
+        node, node_state, current_task, local_data, [&](LockedNode &locked_node) {
+          this->set_input_unused(locked_node, input_socket);
+        });
   }
 
   void set_input_unused(LockedNode &locked_node, const InputSocket &input_socket)
@@ -911,13 +1030,15 @@ class Executor {
   void *set_input_required_during_execution(const Node &node,
                                             NodeState &node_state,
                                             const int input_index,
-                                            CurrentTask &current_task)
+                                            CurrentTask &current_task,
+                                            const LocalData &local_data)
   {
     const InputSocket &input_socket = node.input(input_index);
     void *result;
-    this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-      result = this->set_input_required(locked_node, input_socket);
-    });
+    this->with_locked_node(
+        node, node_state, current_task, local_data, [&](LockedNode &locked_node) {
+          result = this->set_input_required(locked_node, input_socket);
+        });
     return result;
   }
 
@@ -949,14 +1070,16 @@ class Executor {
 
   void forward_value_to_linked_inputs(const OutputSocket &from_socket,
                                       GMutablePointer value_to_forward,
-                                      CurrentTask &current_task)
+                                      CurrentTask &current_task,
+                                      const LocalData &local_data)
   {
     BLI_assert(value_to_forward.get() != nullptr);
-    LinearAllocator<> &allocator = this->get_main_or_local_allocator();
     const CPPType &type = *value_to_forward.type();
+    const Context local_context{
+        context_->storage, context_->user_data, local_data.local_user_data};
 
     if (self_.logger_ != nullptr) {
-      self_.logger_->log_socket_value(from_socket, value_to_forward, *context_);
+      self_.logger_->log_socket_value(from_socket, value_to_forward, local_context);
     }
 
     const Span<const InputSocket *> targets = from_socket.targets();
@@ -969,7 +1092,7 @@ class Executor {
 #ifdef DEBUG
       if (input_state.value != nullptr) {
         if (self_.logger_ != nullptr) {
-          self_.logger_->dump_when_input_is_set_twice(*target_socket, from_socket, *context_);
+          self_.logger_->dump_when_input_is_set_twice(*target_socket, from_socket, local_context);
         }
         BLI_assert_unreachable();
       }
@@ -979,13 +1102,14 @@ class Executor {
       BLI_assert(target_socket->origin() == &from_socket);
 
       if (self_.logger_ != nullptr) {
-        self_.logger_->log_socket_value(*target_socket, value_to_forward, *context_);
+        self_.logger_->log_socket_value(*target_socket, value_to_forward, local_context);
       }
       if (target_node.is_dummy()) {
         /* Forward the value to the outside of the graph. */
         const int graph_output_index = self_.graph_outputs_.index_of_try(target_socket);
         if (graph_output_index != -1 &&
-            params_->get_output_usage(graph_output_index) != ValueUsage::Unused) {
+            params_->get_output_usage(graph_output_index) != ValueUsage::Unused)
+        {
           void *dst_buffer = params_->get_output_data_ptr(graph_output_index);
           if (is_last_target) {
             type.move_construct(value_to_forward.get(), dst_buffer);
@@ -997,21 +1121,23 @@ class Executor {
         }
         continue;
       }
-      this->with_locked_node(target_node, node_state, current_task, [&](LockedNode &locked_node) {
-        if (input_state.usage == ValueUsage::Unused) {
-          return;
-        }
-        if (is_last_target) {
-          /* No need to make a copy if this is the last target. */
-          this->forward_value_to_input(locked_node, input_state, value_to_forward, current_task);
-          value_to_forward = {};
-        }
-        else {
-          void *buffer = allocator.allocate(type.size(), type.alignment());
-          type.copy_construct(value_to_forward.get(), buffer);
-          this->forward_value_to_input(locked_node, input_state, {type, buffer}, current_task);
-        }
-      });
+      this->with_locked_node(
+          target_node, node_state, current_task, local_data, [&](LockedNode &locked_node) {
+            if (input_state.usage == ValueUsage::Unused) {
+              return;
+            }
+            if (is_last_target) {
+              /* No need to make a copy if this is the last target. */
+              this->forward_value_to_input(
+                  locked_node, input_state, value_to_forward, current_task);
+              value_to_forward = {};
+            }
+            else {
+              void *buffer = local_data.allocator->allocate(type.size(), type.alignment());
+              type.copy_construct(value_to_forward.get(), buffer);
+              this->forward_value_to_input(locked_node, input_state, {type, buffer}, current_task);
+            }
+          });
     }
     if (value_to_forward.get() != nullptr) {
       value_to_forward.destruct();
@@ -1031,8 +1157,12 @@ class Executor {
 
     if (input_state.usage == ValueUsage::Used) {
       node_state.missing_required_inputs -= 1;
-      if (node_state.missing_required_inputs == 0) {
-        this->schedule_node(locked_node, current_task);
+      if (node_state.missing_required_inputs == 0 ||
+          (locked_node.node.is_function() && static_cast<const FunctionNode &>(locked_node.node)
+                                                 .function()
+                                                 .allow_missing_requested_inputs()))
+      {
+        this->schedule_node(locked_node, current_task, false);
       }
     }
   }
@@ -1044,6 +1174,12 @@ class Executor {
 
   bool try_enable_multi_threading()
   {
+#ifndef WITH_TBB
+    /* The non-TBB task pool has the property that it immediately executes tasks under some
+     * circumstances. This is not supported here because tasks might be scheduled while another
+     * node is in the middle of being executed on the same thread. */
+    return false;
+#endif
     if (this->use_multi_threading()) {
       return true;
     }
@@ -1062,8 +1198,21 @@ class Executor {
     if (BLI_system_thread_count() <= 1) {
       return false;
     }
+    this->ensure_thread_locals();
     task_pool_.store(BLI_task_pool_create(this, TASK_PRIORITY_HIGH));
     return true;
+  }
+
+  void ensure_thread_locals()
+  {
+#ifdef FN_LAZY_FUNCTION_DEBUG_THREADS
+    if (current_main_thread_ != std::this_thread::get_id()) {
+      BLI_assert_unreachable();
+    }
+#endif
+    if (!thread_locals_) {
+      thread_locals_ = std::make_unique<threading::EnumerableThreadSpecific<ThreadLocalStorage>>();
+    }
   }
 
   /**
@@ -1072,14 +1221,13 @@ class Executor {
   void move_scheduled_nodes_to_task_pool(CurrentTask &current_task)
   {
     BLI_assert(this->use_multi_threading());
-    using FunctionNodeVector = Vector<const FunctionNode *>;
-    FunctionNodeVector *nodes = MEM_new<FunctionNodeVector>(__func__);
+    ScheduledNodes *scheduled_nodes = MEM_new<ScheduledNodes>(__func__);
     {
       std::lock_guard lock{current_task.mutex};
       if (current_task.scheduled_nodes.is_empty()) {
         return;
       }
-      *nodes = std::move(current_task.scheduled_nodes);
+      *scheduled_nodes = std::move(current_task.scheduled_nodes);
       current_task.has_scheduled_nodes.store(false, std::memory_order_relaxed);
     }
     /* All nodes are pushed as a single task in the pool. This avoids unnecessary threading
@@ -1088,25 +1236,28 @@ class Executor {
         task_pool_.load(),
         [](TaskPool *pool, void *data) {
           Executor &executor = *static_cast<Executor *>(BLI_task_pool_user_data(pool));
-          FunctionNodeVector &nodes = *static_cast<FunctionNodeVector *>(data);
+          ScheduledNodes &scheduled_nodes = *static_cast<ScheduledNodes *>(data);
           CurrentTask new_current_task;
-          new_current_task.scheduled_nodes = std::move(nodes);
+          new_current_task.scheduled_nodes = std::move(scheduled_nodes);
           new_current_task.has_scheduled_nodes.store(true, std::memory_order_relaxed);
-          executor.run_task(new_current_task);
+          const LocalData local_data = executor.get_local_data();
+          executor.run_task(new_current_task, local_data);
         },
-        nodes,
+        scheduled_nodes,
         true,
-        [](TaskPool * /*pool*/, void *data) {
-          MEM_delete(static_cast<FunctionNodeVector *>(data));
-        });
+        [](TaskPool * /*pool*/, void *data) { MEM_delete(static_cast<ScheduledNodes *>(data)); });
   }
 
-  LinearAllocator<> &get_main_or_local_allocator()
+  LocalData get_local_data()
   {
-    if (this->use_multi_threading()) {
-      return local_allocators_.local();
+    if (!this->use_multi_threading()) {
+      return {&main_allocator_, context_->local_user_data};
     }
-    return *main_local_allocator_;
+    ThreadLocalStorage &local_storage = thread_locals_->local();
+    if (!local_storage.local_user_data.has_value()) {
+      local_storage.local_user_data = context_->user_data->get_local(local_storage.allocator);
+    }
+    return {&local_storage.allocator, local_storage.local_user_data->get()};
   }
 };
 
@@ -1116,22 +1267,36 @@ class GraphExecutorLFParams final : public Params {
   const Node &node_;
   NodeState &node_state_;
   CurrentTask &current_task_;
+  /** Local data of the thread that calls the lazy-function. */
+  const Executor::LocalData &caller_local_data_;
 
  public:
   GraphExecutorLFParams(const LazyFunction &fn,
                         Executor &executor,
                         const Node &node,
                         NodeState &node_state,
-                        CurrentTask &current_task)
-      : Params(fn, executor.use_multi_threading()),
+                        CurrentTask &current_task,
+                        const Executor::LocalData &local_data)
+      : Params(fn, node_state.enabled_multi_threading),
         executor_(executor),
         node_(node),
         node_state_(node_state),
-        current_task_(current_task)
+        current_task_(current_task),
+        caller_local_data_(local_data)
   {
   }
 
  private:
+  Executor::LocalData get_local_data()
+  {
+    if (!node_state_.enabled_multi_threading) {
+      /* Can use the data from the thread-local data from the calling thread. */
+      return caller_local_data_;
+    }
+    /* Need to retrieve the thread-local data for the current thread. */
+    return executor_.get_local_data();
+  }
+
   void *try_get_input_data_ptr_impl(const int index) const override
   {
     const InputState &input_state = node_state_.inputs[index];
@@ -1147,7 +1312,8 @@ class GraphExecutorLFParams final : public Params {
     if (input_state.was_ready_for_execution) {
       return input_state.value;
     }
-    return executor_.set_input_required_during_execution(node_, node_state_, index, current_task_);
+    return executor_.set_input_required_during_execution(
+        node_, node_state_, index, current_task_, this->get_local_data());
   }
 
   void *get_output_data_ptr_impl(const int index) override
@@ -1155,7 +1321,7 @@ class GraphExecutorLFParams final : public Params {
     OutputState &output_state = node_state_.outputs[index];
     BLI_assert(!output_state.has_been_computed);
     if (output_state.value == nullptr) {
-      LinearAllocator<> &allocator = executor_.get_main_or_local_allocator();
+      LinearAllocator<> &allocator = *this->get_local_data().allocator;
       const CPPType &type = node_.output(index).type();
       output_state.value = allocator.allocate(type.size(), type.alignment());
     }
@@ -1168,8 +1334,10 @@ class GraphExecutorLFParams final : public Params {
     BLI_assert(!output_state.has_been_computed);
     BLI_assert(output_state.value != nullptr);
     const OutputSocket &output_socket = node_.output(index);
-    executor_.forward_value_to_linked_inputs(
-        output_socket, {output_socket.type(), output_state.value}, current_task_);
+    executor_.forward_value_to_linked_inputs(output_socket,
+                                             {output_socket.type(), output_state.value},
+                                             current_task_,
+                                             this->get_local_data());
     output_state.value = nullptr;
     output_state.has_been_computed = true;
   }
@@ -1188,12 +1356,17 @@ class GraphExecutorLFParams final : public Params {
 
   void set_input_unused_impl(const int index) override
   {
-    executor_.set_input_unused_during_execution(node_, node_state_, index, current_task_);
+    executor_.set_input_unused_during_execution(
+        node_, node_state_, index, current_task_, this->get_local_data());
   }
 
   bool try_enable_multi_threading_impl() override
   {
-    return executor_.try_enable_multi_threading();
+    const bool success = executor_.try_enable_multi_threading();
+    if (success) {
+      node_state_.enabled_multi_threading = true;
+    }
+    return success;
   }
 };
 
@@ -1204,13 +1377,13 @@ class GraphExecutorLFParams final : public Params {
  */
 inline void Executor::execute_node(const FunctionNode &node,
                                    NodeState &node_state,
-                                   CurrentTask &current_task)
+                                   CurrentTask &current_task,
+                                   const LocalData &local_data)
 {
   const LazyFunction &fn = node.function();
-  GraphExecutorLFParams node_params{fn, *this, node, node_state, current_task};
-  BLI_assert(context_ != nullptr);
-  Context fn_context = *context_;
-  fn_context.storage = node_state.storage;
+  GraphExecutorLFParams node_params{fn, *this, node, node_state, current_task, local_data};
+
+  Context fn_context(node_state.storage, context_->user_data, local_data.local_user_data);
 
   if (self_.logger_ != nullptr) {
     self_.logger_->log_before_node_execute(node, node_params, fn_context);
@@ -1248,6 +1421,9 @@ GraphExecutor::GraphExecutor(const Graph &graph,
       logger_(logger),
       side_effect_provider_(side_effect_provider)
 {
+  /* The graph executor can handle partial execution when there are still missing inputs. */
+  allow_missing_requested_inputs_ = true;
+
   for (const OutputSocket *socket : graph_inputs_) {
     BLI_assert(socket->node().is_dummy());
     inputs_.append({"In", socket->type(), ValueUsage::Maybe});
@@ -1273,6 +1449,22 @@ void *GraphExecutor::init_storage(LinearAllocator<> &allocator) const
 void GraphExecutor::destruct_storage(void *storage) const
 {
   std::destroy_at(static_cast<Executor *>(storage));
+}
+
+std::string GraphExecutor::input_name(const int index) const
+{
+  const lf::OutputSocket &socket = *graph_inputs_[index];
+  std::stringstream ss;
+  ss << socket.node().name() << " - " << socket.name();
+  return ss.str();
+}
+
+std::string GraphExecutor::output_name(const int index) const
+{
+  const lf::InputSocket &socket = *graph_outputs_[index];
+  std::stringstream ss;
+  ss << socket.node().name() << " - " << socket.name();
+  return ss.str();
 }
 
 void GraphExecutorLogger::log_socket_value(const Socket &socket,

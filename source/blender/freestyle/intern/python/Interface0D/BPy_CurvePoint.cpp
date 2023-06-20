@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2004-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -80,7 +82,8 @@ static int CurvePoint_init(BPy_CurvePoint *self, PyObject *args, PyObject *kwds)
                                        &obj1,
                                        &SVertex_Type,
                                        &obj2,
-                                       &t2d)) {
+                                       &t2d))
+  {
     self->cp = new CurvePoint(((BPy_SVertex *)obj1)->sv, ((BPy_SVertex *)obj2)->sv, t2d);
   }
   else if ((void)PyErr_Clear(),
@@ -92,7 +95,8 @@ static int CurvePoint_init(BPy_CurvePoint *self, PyObject *args, PyObject *kwds)
                                        &obj1,
                                        &CurvePoint_Type,
                                        &obj2,
-                                       &t2d)) {
+                                       &t2d))
+  {
     CurvePoint *cp1 = ((BPy_CurvePoint *)obj1)->cp;
     CurvePoint *cp2 = ((BPy_CurvePoint *)obj2)->cp;
     if (!cp1 || cp1->A() == nullptr || cp1->B() == nullptr) {

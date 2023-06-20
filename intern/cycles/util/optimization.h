@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __UTIL_OPTIMIZATION_H__
 #define __UTIL_OPTIMIZATION_H__
@@ -17,9 +18,6 @@
 #    ifdef WITH_KERNEL_SSE2
 #      define WITH_CYCLES_OPTIMIZED_KERNEL_SSE2
 #    endif
-#    ifdef WITH_KERNEL_SSE3
-#      define WITH_CYCLES_OPTIMIZED_KERNEL_SSE3
-#    endif
 
 /* x86-64
  *
@@ -30,14 +28,8 @@
 /* SSE2 is always available on x86-64 CPUs, so auto enable */
 #    define __KERNEL_SSE2__
 /* no SSE2 kernel on x86-64, part of regular kernel */
-#    ifdef WITH_KERNEL_SSE3
-#      define WITH_CYCLES_OPTIMIZED_KERNEL_SSE3
-#    endif
 #    ifdef WITH_KERNEL_SSE41
 #      define WITH_CYCLES_OPTIMIZED_KERNEL_SSE41
-#    endif
-#    ifdef WITH_KERNEL_AVX
-#      define WITH_CYCLES_OPTIMIZED_KERNEL_AVX
 #    endif
 #    ifdef WITH_KERNEL_AVX2
 #      define WITH_CYCLES_OPTIMIZED_KERNEL_AVX2

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -46,7 +48,7 @@ typedef enum ID_Type {
   ID_LI = MAKE_ID2('L', 'I'),        /* Library */
   ID_OB = MAKE_ID2('O', 'B'),        /* Object */
   ID_ME = MAKE_ID2('M', 'E'),        /* Mesh */
-  ID_CU_LEGACY = MAKE_ID2('C', 'U'), /* Curve. ID_CV should be used in the future (see T95355). */
+  ID_CU_LEGACY = MAKE_ID2('C', 'U'), /* Curve. ID_CV should be used in the future (see #95355). */
   ID_MB = MAKE_ID2('M', 'B'),        /* MetaBall */
   ID_MA = MAKE_ID2('M', 'A'),        /* Material */
   ID_TE = MAKE_ID2('T', 'E'),        /* Tex (Texture) */
@@ -68,7 +70,7 @@ typedef enum ID_Type {
   ID_NT = MAKE_ID2('N', 'T'),        /* bNodeTree */
   ID_BR = MAKE_ID2('B', 'R'),        /* Brush */
   ID_PA = MAKE_ID2('P', 'A'),        /* ParticleSettings */
-  ID_GD = MAKE_ID2('G', 'D'),        /* bGPdata, (Grease Pencil) */
+  ID_GD_LEGACY = MAKE_ID2('G', 'D'), /* bGPdata, (legacy Grease Pencil) */
   ID_WM = MAKE_ID2('W', 'M'),        /* WindowManager */
   ID_MC = MAKE_ID2('M', 'C'),        /* MovieClip */
   ID_MSK = MAKE_ID2('M', 'S'),       /* Mask */
@@ -82,6 +84,7 @@ typedef enum ID_Type {
   ID_PT = MAKE_ID2('P', 'T'),        /* PointCloud */
   ID_VO = MAKE_ID2('V', 'O'),        /* Volume */
   ID_SIM = MAKE_ID2('S', 'I'),       /* Simulation (geometry node groups) */
+  ID_GP = MAKE_ID2('G', 'P'),        /* Grease Pencil */
 } ID_Type;
 
 /* Only used as 'placeholder' in .blend files for directly linked data-blocks. */

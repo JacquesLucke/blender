@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/shader_graph.h"
 #include "scene/attribute.h"
@@ -260,6 +261,7 @@ void ShaderGraph::connect(ShaderOutput *from, ShaderInput *to)
 
     if (to->type() == SocketType::CLOSURE) {
       EmissionNode *emission = create_node<EmissionNode>();
+      emission->from_auto_conversion = true;
       emission->set_color(one_float3());
       emission->set_strength(1.0f);
       convert = add(emission);
@@ -1125,9 +1127,6 @@ int ShaderGraph::get_num_closures()
     }
     else if (CLOSURE_IS_BSSRDF(closure_type)) {
       num_closures += 3;
-    }
-    else if (CLOSURE_IS_GLASS(closure_type)) {
-      num_closures += 2;
     }
     else if (CLOSURE_IS_BSDF_MULTISCATTER(closure_type)) {
       num_closures += 2;

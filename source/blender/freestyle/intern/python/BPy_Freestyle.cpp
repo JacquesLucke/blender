@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2008-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -91,6 +93,9 @@ static int ramp_blend_type(const char *type)
   if (STREQ(type, "DIFFERENCE")) {
     return MA_RAMP_DIFF;
   }
+  if (STREQ(type, "EXCLUSION")) {
+    return MA_RAMP_EXCLUSION;
+  }
   if (STREQ(type, "DARKEN")) {
     return MA_RAMP_DARK;
   }
@@ -165,7 +170,8 @@ static PyObject *Freestyle_blendRamp(PyObject * /*self*/, PyObject *args)
                             3,
                             obj1,
                             "argument 2 must be a 3D vector "
-                            "(either a tuple/list of 3 elements or Vector)") == -1) {
+                            "(either a tuple/list of 3 elements or Vector)") == -1)
+  {
     return nullptr;
   }
   if (mathutils_array_parse(b,
@@ -173,7 +179,8 @@ static PyObject *Freestyle_blendRamp(PyObject * /*self*/, PyObject *args)
                             3,
                             obj2,
                             "argument 4 must be a 3D vector "
-                            "(either a tuple/list of 3 elements or Vector)") == -1) {
+                            "(either a tuple/list of 3 elements or Vector)") == -1)
+  {
     return nullptr;
   }
   ramp_blend(type, a, fac, b);
@@ -513,10 +520,10 @@ static PyModuleDef module_definition = {
     /*m_doc*/ module_docstring,
     /*m_size*/ -1,
     /*m_methods*/ module_functions,
-    /*m_slots*/ NULL,
-    /*m_traverse*/ NULL,
-    /*m_clear*/ NULL,
-    /*m_free*/ NULL,
+    /*m_slots*/ nullptr,
+    /*m_traverse*/ nullptr,
+    /*m_clear*/ nullptr,
+    /*m_free*/ nullptr,
 };
 
 //-------------------MODULE INITIALIZATION--------------------------------

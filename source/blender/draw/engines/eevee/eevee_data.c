@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2016 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw_engine
@@ -126,7 +127,7 @@ EEVEE_ObjectMotionData *EEVEE_motion_blur_object_data_get(EEVEE_MotionBlurData *
   /* Assumes that all instances have the same object pointer. This is currently the case because
    * instance objects are temporary objects on the stack. */
   /* WORKAROUND: Duplicate object key for particle system (hairs) to be able to store dupli offset
-   * matrix along with the emitter obmat. (see T97380) */
+   * matrix along with the emitter obmat. (see #97380) */
   key.ob = (void *)((char *)ob + is_psys);
   DupliObject *dup = DRW_object_get_dupli(ob);
   if (dup) {
@@ -243,7 +244,7 @@ static void eevee_view_layer_init(EEVEE_ViewLayerData *sldata)
   sldata->common_ubo = GPU_uniformbuf_create(sizeof(sldata->common_data));
 }
 
-EEVEE_ViewLayerData *EEVEE_view_layer_data_ensure_ex(struct ViewLayer *view_layer)
+EEVEE_ViewLayerData *EEVEE_view_layer_data_ensure_ex(ViewLayer *view_layer)
 {
   EEVEE_ViewLayerData **sldata = (EEVEE_ViewLayerData **)DRW_view_layer_engine_data_ensure_ex(
       view_layer, &draw_engine_eevee_type, &EEVEE_view_layer_data_free);

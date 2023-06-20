@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2014 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2014 Blender Foundation.
 
 # Inspired on the Testing.cmake from Libmv
 
@@ -95,6 +96,9 @@ macro(BLENDER_SRC_GTEST_EX)
       set_tests_properties(${TARGET_NAME} PROPERTIES
         ENVIRONMENT LSAN_OPTIONS=exitcode=0:$ENV{LSAN_OPTIONS}
       )
+      if(WIN32)
+        set_tests_properties(${TARGET_NAME} PROPERTIES ENVIRONMENT "PATH=${CMAKE_INSTALL_PREFIX_WITH_CONFIG}/blender.shared/;$ENV{PATH}")
+      endif()
     endif()
     if(WIN32)
       set_target_properties(${TARGET_NAME} PROPERTIES VS_GLOBAL_VcpkgEnabled "false")

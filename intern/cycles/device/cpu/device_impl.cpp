@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "device/cpu/device_impl.h"
 
@@ -14,7 +15,11 @@
 #endif
 
 #ifdef WITH_EMBREE
-#  include <embree3/rtcore.h>
+#  if EMBREE_MAJOR_VERSION >= 4
+#    include <embree4/rtcore.h>
+#  else
+#    include <embree3/rtcore.h>
+#  endif
 #endif
 
 #include "device/cpu/kernel.h"
@@ -80,7 +85,7 @@ CPUDevice::~CPUDevice()
   texture_info.free();
 }
 
-BVHLayoutMask CPUDevice::get_bvh_layout_mask() const
+BVHLayoutMask CPUDevice::get_bvh_layout_mask(uint /*kernel_features*/) const
 {
   BVHLayoutMask bvh_layout_mask = BVH_LAYOUT_BVH2;
 #ifdef WITH_EMBREE
@@ -261,7 +266,9 @@ void CPUDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
 #ifdef WITH_EMBREE
   if (bvh->params.bvh_layout == BVH_LAYOUT_EMBREE ||
       bvh->params.bvh_layout == BVH_LAYOUT_MULTI_OPTIX_EMBREE ||
-      bvh->params.bvh_layout == BVH_LAYOUT_MULTI_METAL_EMBREE) {
+      bvh->params.bvh_layout == BVH_LAYOUT_MULTI_METAL_EMBREE ||
+      bvh->params.bvh_layout == BVH_LAYOUT_MULTI_EMBREEGPU_EMBREE)
+  {
     BVHEmbree *const bvh_embree = static_cast<BVHEmbree *>(bvh);
     if (refit) {
       bvh_embree->refit(progress);

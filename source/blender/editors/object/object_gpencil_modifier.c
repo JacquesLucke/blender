@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2018 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2018 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edobj
@@ -13,19 +14,20 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_defaults.h"
+#include "DNA_gpencil_legacy_types.h"
 #include "DNA_gpencil_modifier_types.h"
-#include "DNA_gpencil_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
 #include "BLI_listbase.h"
+#include "BLI_string.h"
 #include "BLI_string_utf8.h"
 #include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
-#include "BKE_gpencil.h"
-#include "BKE_gpencil_modifier.h"
+#include "BKE_gpencil_legacy.h"
+#include "BKE_gpencil_modifier_legacy.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
@@ -60,7 +62,7 @@ GpencilModifierData *ED_object_gpencil_modifier_add(
   GpencilModifierData *new_md = NULL;
   const GpencilModifierTypeInfo *mti = BKE_gpencil_modifier_get_info(type);
 
-  if (ob->type != OB_GPENCIL) {
+  if (ob->type != OB_GPENCIL_LEGACY) {
     BKE_reportf(reports, RPT_WARNING, "Modifiers cannot be added to object '%s'", ob->id.name + 2);
     return NULL;
   }
@@ -78,7 +80,7 @@ GpencilModifierData *ED_object_gpencil_modifier_add(
   BLI_addtail(&ob->greasepencil_modifiers, new_md);
 
   if (name) {
-    BLI_strncpy_utf8(new_md->name, name, sizeof(new_md->name));
+    STRNCPY_UTF8(new_md->name, name);
   }
 
   /* make sure modifier data has unique name */
@@ -234,7 +236,7 @@ static bool gpencil_modifier_apply_obdata(
     return false;
   }
 
-  if (ob->type == OB_GPENCIL) {
+  if (ob->type == OB_GPENCIL_LEGACY) {
     if (ELEM(NULL, ob, ob->data)) {
       return false;
     }
@@ -261,7 +263,7 @@ bool ED_object_gpencil_modifier_apply(Main *bmain,
                                       int UNUSED(mode))
 {
 
-  if (ob->type == OB_GPENCIL) {
+  if (ob->type == OB_GPENCIL_LEGACY) {
     if (ob->mode != OB_MODE_OBJECT) {
       BKE_report(reports, RPT_ERROR, "Modifiers cannot be applied in paint, sculpt or edit mode");
       return false;
@@ -551,7 +553,7 @@ static int gpencil_modifier_remove_exec(bContext *C, wmOperator *op)
 
   /* Store name temporarily for report. */
   char name[MAX_NAME];
-  strcpy(name, md->name);
+  STRNCPY(name, md->name);
 
   if (!ED_object_gpencil_modifier_remove(op->reports, bmain, ob, md)) {
     return OPERATOR_CANCELLED;
@@ -734,7 +736,7 @@ static int gpencil_modifier_apply_exec(bContext *C, wmOperator *op)
   char name[MAX_NAME];
   if (do_report) {
     reports_len = BLI_listbase_count(&op->reports->list);
-    strcpy(name, md->name); /* Store name temporarily since the modifier is removed. */
+    STRNCPY(name, md->name); /* Store name temporarily since the modifier is removed. */
   }
 
   if (!ED_object_gpencil_modifier_apply(bmain, op->reports, depsgraph, ob, md, apply_as)) {
@@ -849,7 +851,7 @@ static int gpencil_modifier_copy_to_selected_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  if (obact->type != OB_GPENCIL) {
+  if (obact->type != OB_GPENCIL_LEGACY) {
     BKE_reportf(op->reports,
                 RPT_ERROR,
                 "Source object '%s' is not a grease pencil object",
@@ -862,7 +864,7 @@ static int gpencil_modifier_copy_to_selected_exec(bContext *C, wmOperator *op)
       continue;
     }
 
-    if (ob->type != OB_GPENCIL) {
+    if (ob->type != OB_GPENCIL_LEGACY) {
       BKE_reportf(op->reports,
                   RPT_WARNING,
                   "Destination object '%s' is not a grease pencil object",
@@ -905,7 +907,7 @@ static bool gpencil_modifier_copy_to_selected_poll(bContext *C)
       continue;
     }
 
-    if (ob->type == OB_GPENCIL) {
+    if (ob->type == OB_GPENCIL_LEGACY) {
       found_supported_objects = true;
       break;
     }
@@ -1024,6 +1026,9 @@ static int time_segment_remove_exec(bContext *C, wmOperator *op)
   TimeGpencilModifierData *gpmd = (TimeGpencilModifierData *)gpencil_edit_modifier_property_get(
       op, ob, eGpencilModifierType_Time);
 
+  if (gpmd == NULL) {
+    return OPERATOR_CANCELLED;
+  }
   if (gpmd->segment_active_index < 0 || gpmd->segment_active_index >= gpmd->segments_len) {
     return OPERATOR_CANCELLED;
   }
@@ -1100,6 +1105,9 @@ static int time_segment_move_exec(bContext *C, wmOperator *op)
   TimeGpencilModifierData *gpmd = (TimeGpencilModifierData *)gpencil_edit_modifier_property_get(
       op, ob, eGpencilModifierType_Time);
 
+  if (gpmd == NULL) {
+    return OPERATOR_CANCELLED;
+  }
   if (gpmd->segments_len < 2) {
     return OPERATOR_CANCELLED;
   }

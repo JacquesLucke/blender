@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -16,7 +17,7 @@ ccl_device_inline void integrate_light(KernelGlobals kg,
 {
   /* Setup light sample. */
   Intersection isect ccl_optional_struct_init;
-  integrator_state_read_isect(kg, state, &isect);
+  integrator_state_read_isect(state, &isect);
 
   guiding_record_light_surface_segment(kg, state, &isect);
 
@@ -37,15 +38,8 @@ ccl_device_inline void integrate_light(KernelGlobals kg,
   /* Use visibility flag to skip lights. */
 #ifdef __PASSES__
   const uint32_t path_flag = INTEGRATOR_STATE(state, path, flag);
-
-  if (ls.shader & SHADER_EXCLUDE_ANY) {
-    if (((ls.shader & SHADER_EXCLUDE_DIFFUSE) && (path_flag & PATH_RAY_DIFFUSE)) ||
-        ((ls.shader & SHADER_EXCLUDE_GLOSSY) &&
-         ((path_flag & (PATH_RAY_GLOSSY | PATH_RAY_REFLECT)) ==
-          (PATH_RAY_GLOSSY | PATH_RAY_REFLECT))) ||
-        ((ls.shader & SHADER_EXCLUDE_TRANSMIT) && (path_flag & PATH_RAY_TRANSMIT)) ||
-        ((ls.shader & SHADER_EXCLUDE_SCATTER) && (path_flag & PATH_RAY_VOLUME_SCATTER)))
-      return;
+  if (!is_light_shader_visible_to_path(ls.shader, path_flag)) {
+    return;
   }
 #endif
 
@@ -61,10 +55,7 @@ ccl_device_inline void integrate_light(KernelGlobals kg,
   /* MIS weighting. */
   float mis_weight = 1.0f;
   if (!(path_flag & PATH_RAY_MIS_SKIP)) {
-    /* multiple importance sampling, get regular light pdf,
-     * and compute weight with respect to BSDF pdf */
-    const float mis_ray_pdf = INTEGRATOR_STATE(state, path, mis_ray_pdf);
-    mis_weight = light_sample_mis_weight_forward(kg, mis_ray_pdf, ls.pdf);
+    mis_weight = light_sample_mis_weight_forward_lamp(kg, state, path_flag, &ls, ray_P);
   }
 
   /* Write to render buffer. */

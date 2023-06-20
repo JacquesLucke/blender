@@ -1,8 +1,10 @@
+# SPDX-FileCopyrightText: 2006 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2006 Blender Foundation. All rights reserved.
 
 # Libs that adhere to strict flags
 add_subdirectory(curve_fit_nd)
+add_subdirectory(fmtlib)
 
 # Otherwise we get warnings here that we cant fix in external projects
 remove_strict_flags()
@@ -90,4 +92,8 @@ endif()
 
 if(WITH_COMPOSITOR_CPU)
   add_subdirectory(smaa_areatex)
+endif()
+
+if(WITH_VULKAN_BACKEND)
+  add_subdirectory(vulkan_memory_allocator)
 endif()

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "device/cpu/device.h"
 #include "device/cpu/device_impl.h"
@@ -45,9 +46,7 @@ string device_cpu_capabilities()
 {
   string capabilities = "";
   capabilities += system_cpu_support_sse2() ? "SSE2 " : "";
-  capabilities += system_cpu_support_sse3() ? "SSE3 " : "";
   capabilities += system_cpu_support_sse41() ? "SSE41 " : "";
-  capabilities += system_cpu_support_avx() ? "AVX " : "";
   capabilities += system_cpu_support_avx2() ? "AVX2" : "";
   if (capabilities[capabilities.size() - 1] == ' ')
     capabilities.resize(capabilities.size() - 1);

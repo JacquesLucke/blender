@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -10,13 +12,14 @@
 
 #include "DNA_ID.h"
 #include "DNA_defaults.h"
+#include "DNA_modifier_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_simulation_types.h"
 
 #include "BLI_compiler_compat.h"
 #include "BLI_listbase.h"
 #include "BLI_math.h"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_rand.h"
 #include "BLI_span.hh"
 #include "BLI_string.h"
@@ -24,15 +27,18 @@
 
 #include "BKE_anim_data.h"
 #include "BKE_animsys.h"
+#include "BKE_collection.h"
 #include "BKE_customdata.h"
 #include "BKE_idtype.h"
 #include "BKE_lib_id.h"
 #include "BKE_lib_query.h"
 #include "BKE_lib_remap.h"
 #include "BKE_main.h"
-#include "BKE_node.h"
+#include "BKE_modifier.h"
+#include "BKE_node.hh"
 #include "BKE_pointcache.h"
 #include "BKE_simulation.h"
+#include "BKE_simulation_state.hh"
 
 #include "NOD_geometry.h"
 
@@ -51,7 +57,7 @@ static void simulation_init_data(ID *id)
 
   MEMCPY_STRUCT_AFTER(simulation, DNA_struct_default_get(Simulation), id);
 
-  ntreeAddTreeEmbedded(nullptr, id, "Geometry Nodetree", ntreeType_Geometry->idname);
+  blender::bke::ntreeAddTreeEmbedded(nullptr, id, "Geometry Nodetree", ntreeType_Geometry->idname);
 }
 
 static void simulation_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int flag)
@@ -107,8 +113,17 @@ static void simulation_blend_write(BlendWriter *writer, ID *id, const void *id_a
 
   /* nodetree is integral part of simulation, no libdata */
   if (simulation->nodetree) {
-    BLO_write_struct(writer, bNodeTree, simulation->nodetree);
-    ntreeBlendWrite(writer, simulation->nodetree);
+    BLO_Write_IDBuffer *temp_embedded_id_buffer = BLO_write_allocate_id_buffer();
+    BLO_write_init_id_buffer_from_id(
+        temp_embedded_id_buffer, &simulation->nodetree->id, BLO_write_is_undo(writer));
+    BLO_write_struct_at_address(writer,
+                                bNodeTree,
+                                simulation->nodetree,
+                                BLO_write_get_id_buffer_temp_id(temp_embedded_id_buffer));
+    ntreeBlendWrite(
+        writer,
+        reinterpret_cast<bNodeTree *>(BLO_write_get_id_buffer_temp_id(temp_embedded_id_buffer)));
+    BLO_write_destroy_id_buffer(&temp_embedded_id_buffer);
   }
 }
 
@@ -132,33 +147,33 @@ static void simulation_blend_read_expand(BlendExpander *expander, ID *id)
 }
 
 IDTypeInfo IDType_ID_SIM = {
-    /* id_code */ ID_SIM,
-    /* id_filter */ FILTER_ID_SIM,
-    /* main_listbase_index */ INDEX_ID_SIM,
-    /* struct_size */ sizeof(Simulation),
-    /* name */ "Simulation",
-    /* name_plural */ "simulations",
-    /* translation_context */ BLT_I18NCONTEXT_ID_SIMULATION,
-    /* flags */ IDTYPE_FLAGS_APPEND_IS_REUSABLE,
-    /* asset_type_info */ nullptr,
+    /*id_code*/ ID_SIM,
+    /*id_filter*/ FILTER_ID_SIM,
+    /*main_listbase_index*/ INDEX_ID_SIM,
+    /*struct_size*/ sizeof(Simulation),
+    /*name*/ "Simulation",
+    /*name_plural*/ "simulations",
+    /*translation_context*/ BLT_I18NCONTEXT_ID_SIMULATION,
+    /*flags*/ IDTYPE_FLAGS_APPEND_IS_REUSABLE,
+    /*asset_type_info*/ nullptr,
 
-    /* init_data */ simulation_init_data,
-    /* copy_data */ simulation_copy_data,
-    /* free_data */ simulation_free_data,
-    /* make_local */ nullptr,
-    /* foreach_id */ simulation_foreach_id,
-    /* foreach_cache */ nullptr,
-    /* foreach_path */ nullptr,
-    /* owner_pointer_get */ nullptr,
+    /*init_data*/ simulation_init_data,
+    /*copy_data*/ simulation_copy_data,
+    /*free_data*/ simulation_free_data,
+    /*make_local*/ nullptr,
+    /*foreach_id*/ simulation_foreach_id,
+    /*foreach_cache*/ nullptr,
+    /*foreach_path*/ nullptr,
+    /*owner_pointer_get*/ nullptr,
 
-    /* blend_write */ simulation_blend_write,
-    /* blend_read_data */ simulation_blend_read_data,
-    /* blend_read_lib */ simulation_blend_read_lib,
-    /* blend_read_expand */ simulation_blend_read_expand,
+    /*blend_write*/ simulation_blend_write,
+    /*blend_read_data*/ simulation_blend_read_data,
+    /*blend_read_lib*/ simulation_blend_read_lib,
+    /*blend_read_expand*/ simulation_blend_read_expand,
 
-    /* blend_read_undo_preserve */ nullptr,
+    /*blend_read_undo_preserve*/ nullptr,
 
-    /* lib_override_apply_post */ nullptr,
+    /*lib_override_apply_post*/ nullptr,
 };
 
 void *BKE_simulation_add(Main *bmain, const char *name)
@@ -171,4 +186,18 @@ void BKE_simulation_data_update(Depsgraph * /*depsgraph*/,
                                 Scene * /*scene*/,
                                 Simulation * /*simulation*/)
 {
+}
+
+void BKE_simulation_reset_scene(Scene *scene)
+{
+  FOREACH_SCENE_OBJECT_BEGIN (scene, ob) {
+    LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
+      if (md->type != eModifierType_Nodes) {
+        continue;
+      }
+      NodesModifierData *nmd = (NodesModifierData *)md;
+      nmd->simulation_cache->ptr->reset();
+    }
+  }
+  FOREACH_SCENE_OBJECT_END;
 }

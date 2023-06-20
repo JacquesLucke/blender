@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 by Mike Erwin. All rights reserved. */
+/* SPDX-FileCopyrightText: 2016 by Mike Erwin. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -26,6 +27,14 @@ namespace blender::gpu {
 typedef struct ShaderInput {
   uint32_t name_offset;
   uint32_t name_hash;
+  /**
+   * Location is openGl legacy and its legacy usages should be phased out in Blender 3.7.
+   *
+   * Vulkan backend use location to encode the descriptor set binding. This binding is different
+   * than the binding stored in the binding attribute. In Vulkan the binding inside a descriptor
+   * set must be unique. In future the location will also be used to select the right descriptor
+   * set.
+   */
   int32_t location;
   /** Defined at interface creation or in shader. Only for Samplers, UBOs and Vertex Attributes. */
   int32_t binding;
@@ -57,7 +66,6 @@ class ShaderInterface {
   /** Location of builtin uniforms. Fast access, no lookup needed. */
   int32_t builtins_[GPU_NUM_UNIFORMS];
   int32_t builtin_blocks_[GPU_NUM_UNIFORM_BLOCKS];
-  int32_t builtin_buffers_[GPU_NUM_STORAGE_BUFFERS];
 
   /**
    * Currently only used for `GPU_shader_get_attribute_info`.
@@ -68,10 +76,9 @@ class ShaderInterface {
 
  public:
   ShaderInterface();
-  ShaderInterface(const shader::ShaderCreateInfo &info);
   virtual ~ShaderInterface();
 
-  void debug_print();
+  void debug_print() const;
 
   inline const ShaderInput *attr_get(const char *name) const
   {
@@ -129,17 +136,9 @@ class ShaderInterface {
     return builtin_blocks_[builtin];
   }
 
-  /* Returns binding position. */
-  inline int32_t ssbo_builtin(const GPUStorageBufferBuiltin builtin) const
-  {
-    BLI_assert(builtin >= 0 && builtin < GPU_NUM_STORAGE_BUFFERS);
-    return builtin_buffers_[builtin];
-  }
-
  protected:
   static inline const char *builtin_uniform_name(GPUUniformBuiltin u);
   static inline const char *builtin_uniform_block_name(GPUUniformBlockBuiltin u);
-  static inline const char *builtin_storage_block_name(GPUStorageBufferBuiltin u);
 
   inline uint32_t set_input_name(ShaderInput *input, char *name, uint32_t name_len) const;
   inline void copy_input_name(ShaderInput *input,
@@ -230,18 +229,6 @@ inline const char *ShaderInterface::builtin_uniform_block_name(GPUUniformBlockBu
       return "drw_infos";
     case GPU_UNIFORM_BLOCK_DRW_CLIPPING:
       return "drw_clipping_";
-    default:
-      return nullptr;
-  }
-}
-
-inline const char *ShaderInterface::builtin_storage_block_name(GPUStorageBufferBuiltin u)
-{
-  switch (u) {
-    case GPU_STORAGE_BUFFER_DEBUG_VERTS:
-      return "drw_debug_verts_buf";
-    case GPU_STORAGE_BUFFER_DEBUG_PRINT:
-      return "drw_debug_print_buf";
     default:
       return nullptr;
   }

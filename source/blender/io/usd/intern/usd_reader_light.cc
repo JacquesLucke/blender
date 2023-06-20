@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2021 Tangent Animation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2021 Tangent Animation. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "usd_reader_light.h"
 
@@ -175,7 +176,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         if (pxr::UsdAttribute radius_attr = sphere_light.GetRadiusAttr()) {
           float radius = 0.0f;
           if (radius_attr.Get(&radius, motionSampleTime)) {
-            blight->area_size = radius;
+            blight->radius = radius;
           }
         }
       }
@@ -192,7 +193,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         if (pxr::UsdAttribute radius_attr = sphere_light.GetRadiusAttr()) {
           float radius = 0.0f;
           if (radius_attr.Get(&radius, motionSampleTime)) {
-            blight->area_size = radius;
+            blight->radius = radius;
           }
         }
 

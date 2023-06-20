@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2004-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -48,7 +50,8 @@ static int CurvePointIterator_init(BPy_CurvePointIterator *self, PyObject *args,
   float step;
 
   if (PyArg_ParseTupleAndKeywords(
-          args, kwds, "|O!", (char **)kwlist_1, &CurvePointIterator_Type, &brother)) {
+          args, kwds, "|O!", (char **)kwlist_1, &CurvePointIterator_Type, &brother))
+  {
     if (!brother) {
       self->cp_it = new CurveInternal::CurvePointIterator();
     }
@@ -58,7 +61,8 @@ static int CurvePointIterator_init(BPy_CurvePointIterator *self, PyObject *args,
     }
   }
   else if ((void)PyErr_Clear(),
-           PyArg_ParseTupleAndKeywords(args, kwds, "f", (char **)kwlist_2, &step)) {
+           PyArg_ParseTupleAndKeywords(args, kwds, "f", (char **)kwlist_2, &step))
+  {
     self->cp_it = new CurveInternal::CurvePointIterator(step);
   }
   else {

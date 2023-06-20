@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bpygpu
@@ -14,6 +16,7 @@
 #include "GPU_context.h"
 #include "GPU_platform.h"
 
+#include "gpu_py.h"
 #include "gpu_py_platform.h" /* Own include. */
 
 /* -------------------------------------------------------------------- */
@@ -114,7 +117,7 @@ static PyObject *pygpu_platform_backend_type_get(PyObject *UNUSED(self))
 /** \name Module
  * \{ */
 
-static struct PyMethodDef pygpu_platform__tp_methods[] = {
+static PyMethodDef pygpu_platform__tp_methods[] = {
     {"vendor_get",
      (PyCFunction)pygpu_platform_vendor_get,
      METH_NOARGS,
@@ -155,7 +158,7 @@ PyObject *bpygpu_platform_init(void)
 {
   PyObject *submodule;
 
-  submodule = PyModule_Create(&pygpu_platform_module_def);
+  submodule = bpygpu_create_module(&pygpu_platform_module_def);
 
   return submodule;
 }

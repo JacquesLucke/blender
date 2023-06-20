@@ -1,11 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2022 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw_engine
  */
 
 #pragma once
+
+namespace blender::draw::image_engine {
 
 /**
  * ImageUsage contains data of the image and image user to identify changes that require a rebuild
@@ -47,3 +50,5 @@ struct ImageUsage {
     return !(*this == other);
   }
 };
+
+}  // namespace blender::draw::image_engine

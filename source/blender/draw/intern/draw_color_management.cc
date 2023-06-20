@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2020 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2020 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw
@@ -35,7 +36,8 @@ static float dither_get(eDRWColorManagementType color_management_type, const Sce
 {
   if (ELEM(color_management_type,
            eDRWColorManagementType::ViewTransformAndLook,
-           eDRWColorManagementType::UseRenderSettings)) {
+           eDRWColorManagementType::UseRenderSettings))
+  {
     return scene.r.dither_intensity;
   }
   return 0.0f;
@@ -62,12 +64,13 @@ static eDRWColorManagementType drw_color_management_type_for_space_image(const S
 {
   Image *image = sima.image;
 
-  /* Use inverse logic as there isn't a setting for `Color And Alpha`. */
+  /* Use inverse logic as there isn't a setting for `Color & Alpha`. */
   const eSpaceImage_Flag display_channels_mode = static_cast<eSpaceImage_Flag>(sima.flag);
   const bool display_color_channel = (display_channels_mode & (SI_SHOW_ALPHA | SI_SHOW_ZBUF)) == 0;
 
   if (display_color_channel && image && (image->source != IMA_SRC_GENERATED) &&
-      ((image->flag & IMA_VIEW_AS_RENDER) != 0)) {
+      ((image->flag & IMA_VIEW_AS_RENDER) != 0))
+  {
     return eDRWColorManagementType::UseRenderSettings;
   }
   return eDRWColorManagementType::ViewTransform;

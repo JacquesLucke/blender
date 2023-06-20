@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -88,9 +89,9 @@ LinkNode *BLI_linklist_sort_r(LinkNode *list,
                               void *thunk) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(2);
 
 #define BLI_linklist_prepend_alloca(listp, ptr) \
-  BLI_linklist_prepend_nlink(listp, ptr, alloca(sizeof(LinkNode)))
+  BLI_linklist_prepend_nlink(listp, ptr, (LinkNode *)alloca(sizeof(LinkNode)))
 #define BLI_linklist_append_alloca(list_pair, ptr) \
-  BLI_linklist_append_nlink(list_pair, ptr, alloca(sizeof(LinkNode)))
+  BLI_linklist_append_nlink(list_pair, ptr, (LinkNode *)alloca(sizeof(LinkNode)))
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "node_shader_util.hh"
 
@@ -13,16 +14,14 @@ namespace blender::nodes::node_shader_tex_white_noise_cc {
 static void sh_node_tex_white_noise_declare(NodeDeclarationBuilder &b)
 {
   b.is_function_node();
-  b.add_input<decl::Vector>(N_("Vector"))
-      .min(-10000.0f)
-      .max(10000.0f)
-      .implicit_field(implicit_field_inputs::position);
-  b.add_input<decl::Float>(N_("W")).min(-10000.0f).max(10000.0f).make_available([](bNode &node) {
+  b.add_input<decl::Vector>("Vector").min(-10000.0f).max(10000.0f).implicit_field(
+      implicit_field_inputs::position);
+  b.add_input<decl::Float>("W").min(-10000.0f).max(10000.0f).make_available([](bNode &node) {
     /* Default to 1 instead of 4, because it is faster. */
     node.custom1 = 1;
   });
-  b.add_output<decl::Float>(N_("Value"));
-  b.add_output<decl::Color>(N_("Color"));
+  b.add_output<decl::Float>("Value");
+  b.add_output<decl::Color>("Color");
 }
 
 static void node_shader_buts_white_noise(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -59,11 +58,11 @@ static void node_shader_update_tex_white_noise(bNodeTree *ntree, bNode *node)
   bNodeSocket *sockVector = nodeFindSocket(node, SOCK_IN, "Vector");
   bNodeSocket *sockW = nodeFindSocket(node, SOCK_IN, "W");
 
-  nodeSetSocketAvailability(ntree, sockVector, node->custom1 != 1);
-  nodeSetSocketAvailability(ntree, sockW, node->custom1 == 1 || node->custom1 == 4);
+  bke::nodeSetSocketAvailability(ntree, sockVector, node->custom1 != 1);
+  bke::nodeSetSocketAvailability(ntree, sockW, node->custom1 == 1 || node->custom1 == 4);
 }
 
-class WhiteNoiseFunction : public fn::MultiFunction {
+class WhiteNoiseFunction : public mf::MultiFunction {
  private:
   int dimensions_;
 
@@ -71,7 +70,7 @@ class WhiteNoiseFunction : public fn::MultiFunction {
   WhiteNoiseFunction(int dimensions) : dimensions_(dimensions)
   {
     BLI_assert(dimensions >= 1 && dimensions <= 4);
-    static std::array<fn::MFSignature, 4> signatures{
+    static std::array<mf::Signature, 4> signatures{
         create_signature(1),
         create_signature(2),
         create_signature(3),
@@ -80,24 +79,25 @@ class WhiteNoiseFunction : public fn::MultiFunction {
     this->set_signature(&signatures[dimensions - 1]);
   }
 
-  static fn::MFSignature create_signature(int dimensions)
+  static mf::Signature create_signature(int dimensions)
   {
-    fn::MFSignatureBuilder signature{"WhiteNoise"};
+    mf::Signature signature;
+    mf::SignatureBuilder builder{"WhiteNoise", signature};
 
     if (ELEM(dimensions, 2, 3, 4)) {
-      signature.single_input<float3>("Vector");
+      builder.single_input<float3>("Vector");
     }
     if (ELEM(dimensions, 1, 4)) {
-      signature.single_input<float>("W");
+      builder.single_input<float>("W");
     }
 
-    signature.single_output<float>("Value");
-    signature.single_output<ColorGeometry4f>("Color");
+    builder.single_output<float>("Value", mf::ParamFlag::SupportsUnusedOutput);
+    builder.single_output<ColorGeometry4f>("Color", mf::ParamFlag::SupportsUnusedOutput);
 
-    return signature.build();
+    return signature;
   }
 
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext /*context*/) const override
+  void call(const IndexMask &mask, mf::Params params, mf::Context /*context*/) const override
   {
     int param = ELEM(dimensions_, 2, 3, 4) + ELEM(dimensions_, 1, 4);
 
@@ -113,45 +113,43 @@ class WhiteNoiseFunction : public fn::MultiFunction {
       case 1: {
         const VArray<float> &w = params.readonly_single_input<float>(0, "W");
         if (compute_color) {
-          for (int64_t i : mask) {
+          mask.foreach_index([&](const int64_t i) {
             const float3 c = noise::hash_float_to_float3(w[i]);
             r_color[i] = ColorGeometry4f(c[0], c[1], c[2], 1.0f);
-          }
+          });
         }
         if (compute_value) {
-          for (int64_t i : mask) {
-            r_value[i] = noise::hash_float_to_float(w[i]);
-          }
+          mask.foreach_index(
+              [&](const int64_t i) { r_value[i] = noise::hash_float_to_float(w[i]); });
         }
         break;
       }
       case 2: {
         const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
         if (compute_color) {
-          for (int64_t i : mask) {
+          mask.foreach_index([&](const int64_t i) {
             const float3 c = noise::hash_float_to_float3(float2(vector[i].x, vector[i].y));
             r_color[i] = ColorGeometry4f(c[0], c[1], c[2], 1.0f);
-          }
+          });
         }
         if (compute_value) {
-          for (int64_t i : mask) {
+          mask.foreach_index([&](const int64_t i) {
             r_value[i] = noise::hash_float_to_float(float2(vector[i].x, vector[i].y));
-          }
+          });
         }
         break;
       }
       case 3: {
         const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
         if (compute_color) {
-          for (int64_t i : mask) {
+          mask.foreach_index([&](const int64_t i) {
             const float3 c = noise::hash_float_to_float3(vector[i]);
             r_color[i] = ColorGeometry4f(c[0], c[1], c[2], 1.0f);
-          }
+          });
         }
         if (compute_value) {
-          for (int64_t i : mask) {
-            r_value[i] = noise::hash_float_to_float(vector[i]);
-          }
+          mask.foreach_index(
+              [&](const int64_t i) { r_value[i] = noise::hash_float_to_float(vector[i]); });
         }
         break;
       }
@@ -159,17 +157,17 @@ class WhiteNoiseFunction : public fn::MultiFunction {
         const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
         const VArray<float> &w = params.readonly_single_input<float>(1, "W");
         if (compute_color) {
-          for (int64_t i : mask) {
+          mask.foreach_index([&](const int64_t i) {
             const float3 c = noise::hash_float_to_float3(
                 float4(vector[i].x, vector[i].y, vector[i].z, w[i]));
             r_color[i] = ColorGeometry4f(c[0], c[1], c[2], 1.0f);
-          }
+          });
         }
         if (compute_value) {
-          for (int64_t i : mask) {
+          mask.foreach_index([&](const int64_t i) {
             r_value[i] = noise::hash_float_to_float(
                 float4(vector[i].x, vector[i].y, vector[i].z, w[i]));
-          }
+          });
         }
         break;
       }

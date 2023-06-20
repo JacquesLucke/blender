@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2020 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2020 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup intern_rigidbody
@@ -70,7 +71,8 @@ int plConvexHullGetFaceSize(plConvexHull hull, int n)
 
   for (e_orig = &computer->edges[computer->faces[n]], e = e_orig, count = 0;
        count == 0 || e != e_orig;
-       e = e->getNextEdgeOfFace(), count++) {
+       e = e->getNextEdgeOfFace(), count++)
+  {
     ;
   }
   return count;
@@ -84,7 +86,8 @@ void plConvexHullGetFaceLoops(plConvexHull hull, int n, int *loops)
 
   for (e_orig = &computer->edges[computer->faces[n]], e = e_orig, count = 0;
        count == 0 || e != e_orig;
-       e = e->getNextEdgeOfFace(), count++) {
+       e = e->getNextEdgeOfFace(), count++)
+  {
     loops[count] = e - &computer->edges[0];
   }
 }
@@ -97,7 +100,8 @@ void plConvexHullGetFaceVertices(plConvexHull hull, int n, int *vertices)
 
   for (e_orig = &computer->edges[computer->faces[n]], e = e_orig, count = 0;
        count == 0 || e != e_orig;
-       e = e->getNextEdgeOfFace(), count++) {
+       e = e->getNextEdgeOfFace(), count++)
+  {
     vertices[count] = e->getTargetVertex();
   }
 }

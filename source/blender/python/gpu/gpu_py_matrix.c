@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bpygpu
@@ -24,6 +26,7 @@
 #include "GPU_matrix.h"
 #undef USE_GPU_PY_MATRIX_API
 
+#include "gpu_py.h"
 #include "gpu_py_matrix.h" /* own include */
 
 /* -------------------------------------------------------------------- */
@@ -290,7 +293,8 @@ static PyObject *pygpu_matrix_scale(PyObject *UNUSED(self), PyObject *value)
   float scale[3];
   int len;
   if ((len = mathutils_array_parse(
-           scale, 2, 3, value, "gpu.matrix.scale(): invalid vector arg")) == -1) {
+           scale, 2, 3, value, "gpu.matrix.scale(): invalid vector arg")) == -1)
+  {
     return NULL;
   }
   if (len == 2) {
@@ -330,7 +334,8 @@ static PyObject *pygpu_matrix_translate(PyObject *UNUSED(self), PyObject *value)
   float offset[3];
   int len;
   if ((len = mathutils_array_parse(
-           offset, 2, 3, value, "gpu.matrix.translate(): invalid vector arg")) == -1) {
+           offset, 2, 3, value, "gpu.matrix.translate(): invalid vector arg")) == -1)
+  {
     return NULL;
   }
   if (len == 2) {
@@ -456,7 +461,7 @@ static PyObject *pygpu_matrix_get_normal_matrix(PyObject *UNUSED(self))
 /** \name Module
  * \{ */
 
-static struct PyMethodDef pygpu_matrix__tp_methods[] = {
+static PyMethodDef pygpu_matrix__tp_methods[] = {
     /* Manage Stack */
     {"push", (PyCFunction)pygpu_matrix_push, METH_NOARGS, pygpu_matrix_push_doc},
     {"pop", (PyCFunction)pygpu_matrix_pop, METH_NOARGS, pygpu_matrix_pop_doc},
@@ -542,9 +547,9 @@ PyObject *bpygpu_matrix_init(void)
 {
   PyObject *submodule;
 
-  submodule = PyModule_Create(&pygpu_matrix_module_def);
+  submodule = bpygpu_create_module(&pygpu_matrix_module_def);
 
-  if (PyType_Ready(&PyGPUMatrixStackContext_Type) < 0) {
+  if (bpygpu_finalize_type(&PyGPUMatrixStackContext_Type) < 0) {
     return NULL;
   }
 

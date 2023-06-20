@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -241,7 +242,7 @@ static void flushTransParticles(TransInfo *t)
 static void recalcData_particles(TransInfo *t)
 {
   if (t->state != TRANS_CANCEL) {
-    applySnappingIndividual(t);
+    transform_snap_project_individual_apply(t);
   }
   flushTransParticles(t);
 }
@@ -249,8 +250,8 @@ static void recalcData_particles(TransInfo *t)
 /** \} */
 
 TransConvertTypeInfo TransConvertType_Particle = {
-    /* flags */ T_POINTS,
-    /* createTransData */ createTransParticleVerts,
-    /* recalcData */ recalcData_particles,
-    /* special_aftertrans_update */ NULL,
+    /*flags*/ T_POINTS,
+    /*createTransData*/ createTransParticleVerts,
+    /*recalcData*/ recalcData_particles,
+    /*special_aftertrans_update*/ NULL,
 };

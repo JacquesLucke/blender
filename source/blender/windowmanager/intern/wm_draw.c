@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2007 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2007 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup wm
@@ -64,6 +65,31 @@
 #endif
 
 /* -------------------------------------------------------------------- */
+/** \name Internal Utilities
+ * \{ */
+
+/**
+ * Return true when the cursor is grabbed and wrapped within a region.
+ */
+static bool wm_window_grab_warp_region_is_set(const wmWindow *win)
+{
+  if (ELEM(win->grabcursor, GHOST_kGrabWrap, GHOST_kGrabHide)) {
+    GHOST_TGrabCursorMode mode_dummy;
+    GHOST_TAxisFlag wrap_axis_dummy;
+    int bounds[4] = {0};
+    bool use_software_cursor_dummy = false;
+    GHOST_GetCursorGrabState(
+        win->ghostwin, &mode_dummy, &wrap_axis_dummy, bounds, &use_software_cursor_dummy);
+    if ((bounds[0] != bounds[2]) || (bounds[1] != bounds[3])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name Draw Paint Cursor
  * \{ */
 
@@ -102,8 +128,14 @@ static void wm_paintcursor_draw(bContext *C, ScrArea *area, ARegion *region)
                   region->winrct.ymin,
                   BLI_rcti_size_x(&region->winrct) + 1,
                   BLI_rcti_size_y(&region->winrct) + 1);
-
-      if (ELEM(win->grabcursor, GHOST_kGrabWrap, GHOST_kGrabHide)) {
+      /* Reading the cursor location from the operating-system while the cursor is grabbed
+       * conflicts with grabbing logic that hides the cursor, then keeps it centered to accumulate
+       * deltas without it escaping from the window. In this case we never want to show the actual
+       * cursor coordinates so limit reading the cursor location to when the cursor is grabbed and
+       * wrapping in a region since this is the case when it would otherwise attempt to draw the
+       * cursor outside the view/window. See: #102792. */
+      if ((WM_capabilities_flag() & WM_CAPABILITY_CURSOR_WARP) &&
+          wm_window_grab_warp_region_is_set(win)) {
         int x = 0, y = 0;
         wm_cursor_position_get(win, &x, &y);
         pc->draw(C, x, y, pc->customdata);
@@ -148,7 +180,7 @@ struct GrabState {
 static bool wm_software_cursor_needed(void)
 {
   if (UNLIKELY(g_software_cursor.enabled == -1)) {
-    g_software_cursor.enabled = !GHOST_SupportsCursorWarp();
+    g_software_cursor.enabled = !(WM_capabilities_flag() & WM_CAPABILITY_CURSOR_WARP);
   }
   return g_software_cursor.enabled;
 }
@@ -200,8 +232,9 @@ static void wm_software_cursor_draw_bitmap(const int event_xy[2],
   GPU_blend(GPU_BLEND_ALPHA);
 
   float gl_matrix[4][4];
+  eGPUTextureUsage usage = GPU_TEXTURE_USAGE_GENERAL;
   GPUTexture *texture = GPU_texture_create_2d(
-      "softeare_cursor", bitmap->data_size[0], bitmap->data_size[1], 1, GPU_RGBA8, NULL);
+      "softeare_cursor", bitmap->data_size[0], bitmap->data_size[1], 1, GPU_RGBA8, usage, NULL);
   GPU_texture_update(texture, GPU_DATA_UBYTE, bitmap->data);
   GPU_texture_filter_mode(texture, false);
 
@@ -259,7 +292,7 @@ static void wm_software_cursor_draw_crosshair(const int event_xy[2])
   /* Draw a primitive cross-hair cursor.
    * NOTE: the `win->cursor` could be used for drawing although it's complicated as some cursors
    * are set by the operating-system, where the pixel information isn't easily available. */
-  const float unit = max_ff(U.dpi_fac, 1.0f);
+  const float unit = max_ff(UI_SCALE_FAC, 1.0f);
   uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
   immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
@@ -552,14 +585,12 @@ static const char *wm_area_name(ScrArea *area)
 typedef struct WindowDrawCB {
   struct WindowDrawCB *next, *prev;
 
-  void (*draw)(const struct wmWindow *, void *);
+  void (*draw)(const wmWindow *, void *);
   void *customdata;
 
 } WindowDrawCB;
 
-void *WM_draw_cb_activate(wmWindow *win,
-                          void (*draw)(const struct wmWindow *, void *),
-                          void *customdata)
+void *WM_draw_cb_activate(wmWindow *win, void (*draw)(const wmWindow *, void *), void *customdata)
 {
   WindowDrawCB *wdc = MEM_callocN(sizeof(*wdc), "WindowDrawCB");
 
@@ -634,7 +665,8 @@ static void wm_draw_region_buffer_create(ARegion *region, bool stereo, bool use_
       /* Free offscreen buffer on size changes. Viewport auto resizes. */
       GPUOffScreen *offscreen = region->draw_buffer->offscreen;
       if (offscreen && (GPU_offscreen_width(offscreen) != region->winx ||
-                        GPU_offscreen_height(offscreen) != region->winy)) {
+                        GPU_offscreen_height(offscreen) != region->winy))
+      {
         wm_draw_region_buffer_free(region);
       }
     }
@@ -642,18 +674,17 @@ static void wm_draw_region_buffer_create(ARegion *region, bool stereo, bool use_
 
   if (!region->draw_buffer) {
     if (use_viewport) {
-      /* Allocate viewport which includes an offscreen buffer with depth
-       * multisample, etc. */
+      /* Allocate viewport which includes an off-screen buffer with depth multi-sample, etc. */
       region->draw_buffer = MEM_callocN(sizeof(wmDrawBuffer), "wmDrawBuffer");
       region->draw_buffer->viewport = stereo ? GPU_viewport_stereo_create() :
                                                GPU_viewport_create();
     }
     else {
-      /* Allocate offscreen buffer if it does not exist. This one has no
-       * depth or multisample buffers. 3D view creates own buffers with
+      /* Allocate off-screen buffer if it does not exist. This one has no
+       * depth or multi-sample buffers. 3D view creates own buffers with
        * the data it needs. */
       GPUOffScreen *offscreen = GPU_offscreen_create(
-          region->winx, region->winy, false, GPU_RGBA8, NULL);
+          region->winx, region->winy, false, GPU_RGBA8, GPU_TEXTURE_USAGE_SHADER_READ, NULL);
       if (!offscreen) {
         WM_report(RPT_ERROR, "Region could not be drawn!");
         return;
@@ -793,12 +824,12 @@ void wm_draw_region_blend(ARegion *region, int view, bool blend)
     alpha = 1.0f;
   }
 
-  /* Not the same layout as rectf/recti. */
+  /* Not the same layout as #rctf/#rcti. */
   const float rectt[4] = {rect_tex.xmin, rect_tex.ymin, rect_tex.xmax, rect_tex.ymax};
   const float rectg[4] = {rect_geo.xmin, rect_geo.ymin, rect_geo.xmax, rect_geo.ymax};
 
   if (blend) {
-    /* Regions drawn offscreen have premultiplied alpha. */
+    /* Regions drawn off-screen have pre-multiplied alpha. */
     GPU_blend(GPU_BLEND_ALPHA_PREMULT);
   }
 
@@ -811,13 +842,13 @@ void wm_draw_region_blend(ARegion *region, int view, bool blend)
   int color_loc = GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_COLOR);
   int rect_tex_loc = GPU_shader_get_uniform(shader, "rect_icon");
   int rect_geo_loc = GPU_shader_get_uniform(shader, "rect_geom");
-  int texture_bind_loc = GPU_shader_get_texture_binding(shader, "image");
+  int texture_bind_loc = GPU_shader_get_sampler_binding(shader, "image");
 
   GPU_texture_bind(texture, texture_bind_loc);
 
-  GPU_shader_uniform_vector(shader, rect_tex_loc, 4, 1, rectt);
-  GPU_shader_uniform_vector(shader, rect_geo_loc, 4, 1, rectg);
-  GPU_shader_uniform_vector(shader, color_loc, 4, 1, (const float[4]){1, 1, 1, 1});
+  GPU_shader_uniform_float_ex(shader, rect_tex_loc, 4, 1, rectt);
+  GPU_shader_uniform_float_ex(shader, rect_geo_loc, 4, 1, rectg);
+  GPU_shader_uniform_float_ex(shader, color_loc, 4, 1, (const float[4]){1, 1, 1, 1});
 
   GPUBatch *quad = GPU_batch_preset_quad();
   GPU_batch_set_shader(quad, shader);
@@ -863,6 +894,9 @@ static void wm_draw_window_offscreen(bContext *C, wmWindow *win, bool stereo)
 
     /* Compute UI layouts for dynamically size regions. */
     LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
+      if (region->flag & RGN_FLAG_POLL_FAILED) {
+        continue;
+      }
       /* Dynamic region may have been flagged as too small because their size on init is 0.
        * ARegion.visible is false then, as expected. The layout should still be created then, so
        * the region size can be updated (it may turn out to be not too small then). */
@@ -871,7 +905,8 @@ static void wm_draw_window_offscreen(bContext *C, wmWindow *win, bool stereo)
                                      !(region->flag & RGN_FLAG_HIDDEN);
 
       if ((region->visible || ignore_visibility) && region->do_draw && region->type &&
-          region->type->layout) {
+          region->type->layout)
+      {
         CTX_wm_region_set(C, region);
         ED_region_do_layout(C, region);
         CTX_wm_region_set(C, NULL);
@@ -922,6 +957,7 @@ static void wm_draw_window_offscreen(bContext *C, wmWindow *win, bool stereo)
         }
       }
       else {
+        wm_draw_region_stereo_set(bmain, area, region, STEREO_LEFT_ID);
         wm_draw_region_buffer_create(region, false, use_viewport);
         wm_draw_region_bind(region, 0);
         ED_region_do_draw(C, region);
@@ -1115,7 +1151,8 @@ static void wm_draw_window(bContext *C, wmWindow *win)
      * stereo methods, but it's less efficient than drawing directly. */
     const int width = WM_window_pixels_x(win);
     const int height = WM_window_pixels_y(win);
-    GPUOffScreen *offscreen = GPU_offscreen_create(width, height, false, GPU_RGBA8, NULL);
+    GPUOffScreen *offscreen = GPU_offscreen_create(
+        width, height, false, GPU_RGBA8, GPU_TEXTURE_USAGE_SHADER_READ, NULL);
 
     if (offscreen) {
       GPUTexture *texture = GPU_offscreen_color_texture(offscreen);
@@ -1162,19 +1199,93 @@ static void wm_draw_surface(bContext *C, wmSurface *surface)
   wm_window_clear_drawable(CTX_wm_manager(C));
   wm_surface_make_drawable(surface);
 
-  GPU_context_begin_frame(surface->gpu_ctx);
+  GPU_context_begin_frame(surface->blender_gpu_context);
 
   surface->draw(C);
 
-  GPU_context_end_frame(surface->gpu_ctx);
+  GPU_context_end_frame(surface->blender_gpu_context);
 
   /* Avoid interference with window drawable */
   wm_surface_clear_drawable();
 }
 
-uint *WM_window_pixels_read_offscreen(bContext *C, wmWindow *win, int r_size[2])
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Window Screen Shot Utility (Front-Buffer & Off-Screen)
+ *
+ * Include here since it can involve low level buffer switching.
+ * \{ */
+
+uint8_t *WM_window_pixels_read_from_frontbuffer(const wmWindowManager *wm,
+                                                const wmWindow *win,
+                                                int r_size[2])
 {
-  /* NOTE(@campbellbarton): There is a problem reading the windows front-buffer after redrawing
+  /* Don't assert as file-save uses this for a screenshot, where redrawing isn't an option
+   * because of the side-effects of drawing a window on save.
+   * In this case the thumbnail might not work and there are currently no better alternatives. */
+  // BLI_assert(WM_capabilities_flag() & WM_CAPABILITY_GPU_FRONT_BUFFER_READ);
+
+  /* WARNING: Reading from the front-buffer immediately after drawing may fail,
+   * for a slower but more reliable version of this function
+   * #WM_window_pixels_read_from_offscreen should be preferred.
+   * See it's comments for details on why it's needed, see also #98462. */
+  bool setup_context = wm->windrawable != win;
+
+  if (setup_context) {
+    GHOST_ActivateWindowDrawingContext(win->ghostwin);
+    GPU_context_active_set(win->gpuctx);
+  }
+
+  r_size[0] = WM_window_pixels_x(win);
+  r_size[1] = WM_window_pixels_y(win);
+  const uint rect_len = r_size[0] * r_size[1];
+  uint8_t *rect = MEM_mallocN(4 * sizeof(uint8_t) * rect_len, __func__);
+
+  GPU_frontbuffer_read_color(0, 0, r_size[0], r_size[1], 4, GPU_DATA_UBYTE, rect);
+
+  if (setup_context) {
+    if (wm->windrawable) {
+      GHOST_ActivateWindowDrawingContext(wm->windrawable->ghostwin);
+      GPU_context_active_set(wm->windrawable->gpuctx);
+    }
+  }
+
+  /* Clear alpha, it is not set to a meaningful value in OpenGL. */
+  uchar *cp = (uchar *)rect;
+  uint i;
+  for (i = 0, cp += 3; i < rect_len; i++, cp += 4) {
+    *cp = 0xff;
+  }
+  return rect;
+}
+
+void WM_window_pixels_read_sample_from_frontbuffer(const wmWindowManager *wm,
+                                                   const wmWindow *win,
+                                                   const int pos[2],
+                                                   float r_col[3])
+{
+  BLI_assert(WM_capabilities_flag() & WM_CAPABILITY_GPU_FRONT_BUFFER_READ);
+  bool setup_context = wm->windrawable != win;
+
+  if (setup_context) {
+    GHOST_ActivateWindowDrawingContext(win->ghostwin);
+    GPU_context_active_set(win->gpuctx);
+  }
+
+  GPU_frontbuffer_read_color(pos[0], pos[1], 1, 1, 3, GPU_DATA_FLOAT, r_col);
+
+  if (setup_context) {
+    if (wm->windrawable) {
+      GHOST_ActivateWindowDrawingContext(wm->windrawable->ghostwin);
+      GPU_context_active_set(wm->windrawable->gpuctx);
+    }
+  }
+}
+
+uint8_t *WM_window_pixels_read_from_offscreen(bContext *C, wmWindow *win, int r_size[2])
+{
+  /* NOTE(@ideasman42): There is a problem reading the windows front-buffer after redrawing
    * the window in some cases (typically to clear UI elements such as menus or search popup).
    * With EGL `eglSurfaceAttrib(..)` may support setting the `EGL_SWAP_BEHAVIOR` attribute to
    * `EGL_BUFFER_PRESERVED` however not all implementations support this.
@@ -1182,27 +1293,76 @@ uint *WM_window_pixels_read_offscreen(bContext *C, wmWindow *win, int r_size[2])
    * not to initialize at all.
    * Confusingly there are some cases where this *does* work, depending on the state of the window
    * and prior calls to swap-buffers, however ensuring the state exactly as needed to satisfy a
-   * particular GPU back-end is fragile, see T98462.
+   * particular GPU back-end is fragile, see #98462.
    *
    * So provide an alternative to #WM_window_pixels_read that avoids using the front-buffer. */
 
-  /* Draw into an off-screen buffer and read it's contents. */
+  /* Draw into an off-screen buffer and read its contents. */
   r_size[0] = WM_window_pixels_x(win);
   r_size[1] = WM_window_pixels_y(win);
 
-  GPUOffScreen *offscreen = GPU_offscreen_create(r_size[0], r_size[1], false, GPU_RGBA8, NULL);
+  GPUOffScreen *offscreen = GPU_offscreen_create(
+      r_size[0], r_size[1], false, GPU_RGBA8, GPU_TEXTURE_USAGE_SHADER_READ, NULL);
   if (UNLIKELY(!offscreen)) {
     return NULL;
   }
 
   const uint rect_len = r_size[0] * r_size[1];
-  uint *rect = MEM_mallocN(sizeof(*rect) * rect_len, __func__);
+  uint8_t *rect = MEM_mallocN(4 * sizeof(uint8_t) * rect_len, __func__);
   GPU_offscreen_bind(offscreen, false);
   wm_draw_window_onscreen(C, win, -1);
   GPU_offscreen_unbind(offscreen, false);
-  GPU_offscreen_read_pixels(offscreen, GPU_DATA_UBYTE, rect);
+  GPU_offscreen_read_color(offscreen, GPU_DATA_UBYTE, rect);
   GPU_offscreen_free(offscreen);
   return rect;
+}
+
+bool WM_window_pixels_read_sample_from_offscreen(bContext *C,
+                                                 wmWindow *win,
+                                                 const int pos[2],
+                                                 float r_col[3])
+{
+  /* A version of #WM_window_pixels_read_from_offscreen that reads a single sample. */
+  const int size[2] = {WM_window_pixels_x(win), WM_window_pixels_y(win)};
+  zero_v3(r_col);
+
+  /* While this shouldn't happen, return in the case it does. */
+  BLI_assert((uint)pos[0] < (uint)size[0] && (uint)pos[1] < (uint)size[1]);
+  if (!((uint)pos[0] < (uint)size[0] && (uint)pos[1] < (uint)size[1])) {
+    return false;
+  }
+
+  GPUOffScreen *offscreen = GPU_offscreen_create(
+      size[0], size[1], false, GPU_RGBA8, GPU_TEXTURE_USAGE_SHADER_READ, NULL);
+  if (UNLIKELY(!offscreen)) {
+    return false;
+  }
+
+  float rect_pixel[4];
+  GPU_offscreen_bind(offscreen, false);
+  wm_draw_window_onscreen(C, win, -1);
+  GPU_offscreen_unbind(offscreen, false);
+  GPU_offscreen_read_color_region(offscreen, GPU_DATA_FLOAT, pos[0], pos[1], 1, 1, rect_pixel);
+  GPU_offscreen_free(offscreen);
+  copy_v3_v3(r_col, rect_pixel);
+  return true;
+}
+
+uint8_t *WM_window_pixels_read(bContext *C, wmWindow *win, int r_size[2])
+{
+  if (WM_capabilities_flag() & WM_CAPABILITY_GPU_FRONT_BUFFER_READ) {
+    return WM_window_pixels_read_from_frontbuffer(CTX_wm_manager(C), win, r_size);
+  }
+  return WM_window_pixels_read_from_offscreen(C, win, r_size);
+}
+
+bool WM_window_pixels_read_sample(bContext *C, wmWindow *win, const int pos[2], float r_col[3])
+{
+  if (WM_capabilities_flag() & WM_CAPABILITY_GPU_FRONT_BUFFER_READ) {
+    WM_window_pixels_read_sample_from_frontbuffer(CTX_wm_manager(C), win, pos, r_col);
+    return true;
+  }
+  return WM_window_pixels_read_sample_from_offscreen(C, win, pos, r_col);
 }
 
 /** \} */
@@ -1330,8 +1490,8 @@ void wm_draw_update(bContext *C)
     GHOST_TWindowState state = GHOST_GetWindowState(win->ghostwin);
 
     if (state == GHOST_kWindowStateMinimized) {
-      /* do not update minimized windows, gives issues on Intel (see T33223)
-       * and AMD (see T50856). it seems logical to skip update for invisible
+      /* do not update minimized windows, gives issues on Intel (see #33223)
+       * and AMD (see #50856). it seems logical to skip update for invisible
        * window anyway.
        */
       continue;
@@ -1347,7 +1507,7 @@ void wm_draw_update(bContext *C)
       wm_window_make_drawable(wm, win);
 
       /* notifiers for screen redraw */
-      ED_screen_ensure_updated(wm, win, screen);
+      ED_screen_ensure_updated(C, wm, win, screen);
 
       wm_draw_window(C, win);
       wm_draw_update_clear_window(C, win);

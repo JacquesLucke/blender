@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2007 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2007 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup imbuf
@@ -85,7 +86,7 @@ struct ImBuf *IMB_thumb_load_blend(const char *blen_path,
 /**
  * Special function for previewing fonts.
  */
-struct ImBuf *IMB_thumb_load_font(const char *filepath, unsigned int x, unsigned int y);
+struct ImBuf *IMB_thumb_load_font(const char *filename, unsigned int x, unsigned int y);
 bool IMB_thumb_load_font_get_hash(char *r_hash);
 
 /* Threading */

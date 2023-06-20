@@ -1,6 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2022 NVIDIA Corporation
- * Copyright 2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2022 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "hydra/render_buffer.h"
 #include "hydra/session.h"
@@ -11,13 +12,9 @@
 
 HDCYCLES_NAMESPACE_OPEN_SCOPE
 
-HdCyclesRenderBuffer::HdCyclesRenderBuffer(const SdfPath &bprimId) : HdRenderBuffer(bprimId)
-{
-}
+HdCyclesRenderBuffer::HdCyclesRenderBuffer(const SdfPath &bprimId) : HdRenderBuffer(bprimId) {}
 
-HdCyclesRenderBuffer::~HdCyclesRenderBuffer()
-{
-}
+HdCyclesRenderBuffer::~HdCyclesRenderBuffer() {}
 
 void HdCyclesRenderBuffer::Finalize(HdRenderParam *renderParam)
 {
@@ -94,9 +91,7 @@ bool HdCyclesRenderBuffer::IsMapped() const
   return _mapped != 0;
 }
 
-void HdCyclesRenderBuffer::Resolve()
-{
-}
+void HdCyclesRenderBuffer::Resolve() {}
 
 bool HdCyclesRenderBuffer::IsConverged() const
 {

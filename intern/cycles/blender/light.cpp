@@ -1,8 +1,10 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/light.h"
 
+#include "blender/light_linking.h"
 #include "blender/sync.h"
 #include "blender/util.h"
 
@@ -24,7 +26,7 @@ void BlenderSync::sync_light(BL::Object &b_parent,
   Light *light = light_map.find(key);
 
   /* Check if the transform was modified, in case a linked collection is moved we do not get a
-   * specific depsgraph update (T88515). This also mimics the behavior for Objects. */
+   * specific depsgraph update (#88515). This also mimics the behavior for Objects. */
   const bool tfm_updated = (light && light->get_tfm() != tfm);
 
   /* Update if either object or light data changed. */
@@ -37,6 +39,8 @@ void BlenderSync::sync_light(BL::Object &b_parent,
     }
   }
 
+  light->name = b_light.name().c_str();
+
   /* type */
   switch (b_light.type()) {
     case BL::Light::type_POINT: {
@@ -48,6 +52,8 @@ void BlenderSync::sync_light(BL::Object &b_parent,
     case BL::Light::type_SPOT: {
       BL::SpotLight b_spot_light(b_light);
       light->set_size(b_spot_light.shadow_soft_size());
+      light->set_axisu(transform_get_column(&tfm, 0));
+      light->set_axisv(transform_get_column(&tfm, 1));
       light->set_light_type(LIGHT_SPOT);
       light->set_spot_angle(b_spot_light.spot_size());
       light->set_spot_smooth(b_spot_light.spot_blend());
@@ -75,19 +81,19 @@ void BlenderSync::sync_light(BL::Object &b_parent,
       switch (b_area_light.shape()) {
         case BL::AreaLight::shape_SQUARE:
           light->set_sizev(light->get_sizeu());
-          light->set_round(false);
+          light->set_ellipse(false);
           break;
         case BL::AreaLight::shape_RECTANGLE:
           light->set_sizev(b_area_light.size_y());
-          light->set_round(false);
+          light->set_ellipse(false);
           break;
         case BL::AreaLight::shape_DISK:
           light->set_sizev(light->get_sizeu());
-          light->set_round(true);
+          light->set_ellipse(true);
           break;
         case BL::AreaLight::shape_ELLIPSE:
           light->set_sizev(b_area_light.size_y());
-          light->set_round(true);
+          light->set_ellipse(true);
           break;
       }
       light->set_light_type(LIGHT_AREA);
@@ -143,8 +149,16 @@ void BlenderSync::sync_light(BL::Object &b_parent,
   light->set_use_scatter((visibility & PATH_RAY_VOLUME_SCATTER) != 0);
   light->set_is_shadow_catcher(b_ob_info.real_object.is_shadow_catcher());
 
-  /* lightgroup */
-  light->set_lightgroup(ustring(b_ob_info.real_object.lightgroup()));
+  /* Light group and linking. */
+  string lightgroup = b_ob_info.real_object.lightgroup();
+  if (lightgroup.empty()) {
+    lightgroup = b_parent.lightgroup();
+  }
+  light->set_lightgroup(ustring(lightgroup));
+  light->set_light_set_membership(
+      BlenderLightLink::get_light_set_membership(PointerRNA_NULL, b_ob_info.real_object));
+  light->set_shadow_set_membership(
+      BlenderLightLink::get_shadow_set_membership(PointerRNA_NULL, b_ob_info.real_object));
 
   /* tag */
   light->tag_update(scene);
@@ -167,7 +181,8 @@ void BlenderSync::sync_background_light(BL::SpaceView3D &b_v3d, bool use_portal)
       ObjectKey key(b_world, 0, b_world, false);
 
       if (light_map.add_or_update(&light, b_world, b_world, key) || world_recalc ||
-          b_world.ptr.data != world_map) {
+          b_world.ptr.data != world_map)
+      {
         light->set_light_type(LIGHT_BACKGROUND);
         if (sampling_method == SAMPLING_MANUAL) {
           light->set_map_resolution(get_int(cworld, "sample_map_resolution"));

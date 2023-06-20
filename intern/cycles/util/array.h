@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __UTIL_ARRAY_H__
 #define __UTIL_ARRAY_H__
@@ -23,9 +24,7 @@ CCL_NAMESPACE_BEGIN
 
 template<typename T, size_t alignment = MIN_ALIGNMENT_CPU_DATA_TYPES> class array {
  public:
-  array() : data_(NULL), datasize_(0), capacity_(0)
-  {
-  }
+  array() : data_(NULL), datasize_(0), capacity_(0) {}
 
   explicit array(size_t newsize)
   {

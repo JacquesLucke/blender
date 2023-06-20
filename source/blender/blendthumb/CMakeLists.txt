@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2006 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2006 Blender Foundation. All rights reserved.
 
 # -----------------------------------------------------------------------------
 # Shared Thumbnail Extraction Logic
@@ -50,5 +51,7 @@ else()
   add_executable(blender-thumbnailer ${SRC} ${SRC_CMD})
   setup_platform_linker_flags(blender-thumbnailer)
   target_link_libraries(blender-thumbnailer bf_blenlib)
-  target_link_libraries(blender-thumbnailer ${PTHREADS_LIBRARIES})
+  if(DEFINED PTHREADS_LIBRARIES)
+    target_link_libraries(blender-thumbnailer ${PTHREADS_LIBRARIES})
+  endif()
 endif()

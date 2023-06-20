@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "BLI_index_range.hh"
 #include "BLI_strict_flags.h"
@@ -219,17 +221,6 @@ TEST(index_range, TakeBackLargeN)
   EXPECT_EQ(slice.size(), 4);
 }
 
-TEST(index_range, AsSpan)
-{
-  IndexRange range = IndexRange(4, 6);
-  Span<int64_t> span = range.as_span();
-  EXPECT_EQ(span.size(), 6);
-  EXPECT_EQ(span[0], 4);
-  EXPECT_EQ(span[1], 5);
-  EXPECT_EQ(span[2], 6);
-  EXPECT_EQ(span[3], 7);
-}
-
 TEST(index_range, constexpr_)
 {
   constexpr IndexRange range = IndexRange(1, 1);
@@ -287,6 +278,24 @@ TEST(index_range, SplitByAlignment)
   {
     AlignedIndexRanges ranges = split_index_range_by_alignment(IndexRange(3, 5), 8);
     EXPECT_EQ(ranges.prefix, IndexRange(3, 5));
+    EXPECT_EQ(ranges.aligned, IndexRange());
+    EXPECT_EQ(ranges.suffix, IndexRange());
+  }
+  {
+    AlignedIndexRanges ranges = split_index_range_by_alignment(IndexRange(64), 64);
+    EXPECT_EQ(ranges.prefix, IndexRange());
+    EXPECT_EQ(ranges.aligned, IndexRange(64));
+    EXPECT_EQ(ranges.suffix, IndexRange());
+  }
+  {
+    AlignedIndexRanges ranges = split_index_range_by_alignment(IndexRange(64, 64), 64);
+    EXPECT_EQ(ranges.prefix, IndexRange());
+    EXPECT_EQ(ranges.aligned, IndexRange(64, 64));
+    EXPECT_EQ(ranges.suffix, IndexRange());
+  }
+  {
+    AlignedIndexRanges ranges = split_index_range_by_alignment(IndexRange(4, 8), 64);
+    EXPECT_EQ(ranges.prefix, IndexRange(4, 8));
     EXPECT_EQ(ranges.aligned, IndexRange());
     EXPECT_EQ(ranges.suffix, IndexRange());
   }

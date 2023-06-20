@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2020 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2020 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup Alembic
@@ -31,9 +32,7 @@ using Alembic::Abc::OStringArrayProperty;
 
 namespace blender::io::alembic {
 
-CustomPropertiesExporter::CustomPropertiesExporter(ABCAbstractWriter *owner) : owner_(owner)
-{
-}
+CustomPropertiesExporter::CustomPropertiesExporter(ABCAbstractWriter *owner) : owner_(owner) {}
 
 void CustomPropertiesExporter::write_all(const IDProperty *group)
 {
@@ -54,7 +53,7 @@ void CustomPropertiesExporter::write(const IDProperty *id_property)
 
   switch (id_property->type) {
     case IDP_STRING: {
-      /* The Alembic library doesn't accept NULL-terminated character arrays. */
+      /* The Alembic library doesn't accept null-terminated character arrays. */
       const std::string prop_value(IDP_String(id_property), id_property->len - 1);
       set_scalar_property<OStringArrayProperty, std::string>(id_property->name, prop_value);
       break;
@@ -69,6 +68,9 @@ void CustomPropertiesExporter::write(const IDProperty *id_property)
     case IDP_DOUBLE:
       set_scalar_property<ODoubleArrayProperty, double>(id_property->name,
                                                         IDP_Double(id_property));
+      break;
+    case IDP_BOOLEAN:
+      set_scalar_property<OBoolArrayProperty, bool>(id_property->name, IDP_Bool(id_property));
       break;
     case IDP_ARRAY:
       write_array(id_property);
@@ -98,6 +100,11 @@ void CustomPropertiesExporter::write_array(const IDProperty *id_property)
     case IDP_DOUBLE: {
       const double *array = (double *)IDP_Array(id_property);
       set_array_property<ODoubleArrayProperty, double>(id_property->name, array, id_property->len);
+      break;
+    }
+    case IDP_BOOLEAN: {
+      const int8_t *array = static_cast<const int8_t *>(IDP_Array(id_property));
+      set_array_property<OBoolArrayProperty, int8_t>(id_property->name, array, id_property->len);
       break;
     }
   }
@@ -165,7 +172,7 @@ void CustomPropertiesExporter::write_idparray_of_numbers(const IDProperty *idp_a
   BLI_assert(idp_rows[0].type == IDP_ARRAY);
 
   const int subtype = idp_rows[0].subtype;
-  if (!ELEM(subtype, IDP_INT, IDP_FLOAT, IDP_DOUBLE)) {
+  if (!ELEM(subtype, IDP_INT, IDP_FLOAT, IDP_DOUBLE, IDP_BOOLEAN)) {
     /* Non-numerical types are not supported. */
     return;
   }
@@ -181,6 +188,9 @@ void CustomPropertiesExporter::write_idparray_of_numbers(const IDProperty *idp_a
     case IDP_DOUBLE:
       write_idparray_flattened_typed<ODoubleArrayProperty, double>(idp_array);
       break;
+    case IDP_BOOLEAN:
+      write_idparray_flattened_typed<OBoolArrayProperty, int8_t>(idp_array);
+      break;
   }
 }
 
@@ -192,7 +202,7 @@ void CustomPropertiesExporter::write_idparray_flattened_typed(const IDProperty *
 
   const IDProperty *idp_rows = (IDProperty *)IDP_Array(idp_array);
   BLI_assert(idp_rows[0].type == IDP_ARRAY);
-  BLI_assert(ELEM(idp_rows[0].subtype, IDP_INT, IDP_FLOAT, IDP_DOUBLE));
+  BLI_assert(ELEM(idp_rows[0].subtype, IDP_INT, IDP_FLOAT, IDP_DOUBLE, IDP_BOOLEAN));
 
   const uint64_t num_rows = idp_array->len;
   std::vector<BlenderValueType> matrix_values;

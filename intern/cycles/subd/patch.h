@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __SUBD_PATCH_H__
 #define __SUBD_PATCH_H__
@@ -11,9 +12,7 @@ CCL_NAMESPACE_BEGIN
 
 class Patch {
  public:
-  Patch() : patch_index(0), shader(0), from_ngon(false)
-  {
-  }
+  Patch() : patch_index(0), shader(0), from_ngon(false) {}
 
   virtual ~Patch() = default;
 

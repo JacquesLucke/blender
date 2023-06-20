@@ -1,11 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "BLI_task.hh"
+#include "BLI_array_utils.hh"
 
 #include "DNA_pointcloud_types.h"
 
 #include "BKE_attribute_math.hh"
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 
 #include "node_geometry_util.hh"
 
@@ -15,14 +17,16 @@ using blender::Array;
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Geometry>(N_("Points")).supported_type(GEO_COMPONENT_TYPE_POINT_CLOUD);
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).supports_field().hide_value();
-  b.add_output<decl::Geometry>(N_("Mesh"));
+  b.add_input<decl::Geometry>("Points").supported_type(GeometryComponent::Type::PointCloud);
+  b.add_input<decl::Bool>("Selection").default_value(true).field_on_all().hide_value();
+  b.add_output<decl::Geometry>("Mesh").propagate_all();
 }
 
 /* One improvement would be to move the attribute arrays directly to the mesh when possible. */
-static void geometry_set_points_to_vertices(GeometrySet &geometry_set,
-                                            Field<bool> &selection_field)
+static void geometry_set_points_to_vertices(
+    GeometrySet &geometry_set,
+    Field<bool> &selection_field,
+    const AnonymousAttributePropagationInfo &propagation_info)
 {
   const PointCloud *points = geometry_set.get_pointcloud_for_read();
   if (points == nullptr) {
@@ -34,37 +38,54 @@ static void geometry_set_points_to_vertices(GeometrySet &geometry_set,
     return;
   }
 
-  bke::PointCloudFieldContext field_context{*points};
+  const bke::PointCloudFieldContext field_context{*points};
   fn::FieldEvaluator selection_evaluator{field_context, points->totpoint};
   selection_evaluator.add(selection_field);
   selection_evaluator.evaluate();
   const IndexMask selection = selection_evaluator.get_evaluated_as_mask(0);
 
   Map<AttributeIDRef, AttributeKind> attributes;
-  geometry_set.gather_attributes_for_propagation(
-      {GEO_COMPONENT_TYPE_POINT_CLOUD}, GEO_COMPONENT_TYPE_MESH, false, attributes);
+  geometry_set.gather_attributes_for_propagation({GeometryComponent::Type::PointCloud},
+                                                 GeometryComponent::Type::Mesh,
+                                                 false,
+                                                 propagation_info,
+                                                 attributes);
 
-  Mesh *mesh = BKE_mesh_new_nomain(selection.size(), 0, 0, 0, 0);
-  geometry_set.replace_mesh(mesh);
+  Mesh *mesh;
+  if (selection.size() == points->totpoint) {
+    /* Create a mesh without positions so the attribute can be shared. */
+    mesh = BKE_mesh_new_nomain(0, 0, 0, 0);
+    CustomData_free_layer_named(&mesh->vdata, "position", mesh->totvert);
+    mesh->totvert = selection.size();
+  }
+  else {
+    mesh = BKE_mesh_new_nomain(selection.size(), 0, 0, 0);
+  }
 
   const AttributeAccessor src_attributes = points->attributes();
   MutableAttributeAccessor dst_attributes = mesh->attributes_for_write();
 
-  for (Map<AttributeIDRef, AttributeKind>::Item entry : attributes.items()) {
-    const AttributeIDRef attribute_id = entry.key;
+  for (MapItem<AttributeIDRef, AttributeKind> entry : attributes.items()) {
+    const AttributeIDRef id = entry.key;
     const eCustomDataType data_type = entry.value.data_type;
-    GVArray src = src_attributes.lookup_or_default(attribute_id, ATTR_DOMAIN_POINT, data_type);
-    GSpanAttributeWriter dst = dst_attributes.lookup_or_add_for_write_only_span(
-        attribute_id, ATTR_DOMAIN_POINT, data_type);
-    if (dst && src) {
-      src.materialize_compressed_to_uninitialized(selection, dst.span.data());
+    const GAttributeReader src = src_attributes.lookup(id);
+    if (selection.size() == points->totpoint && src.sharing_info && src.varray.is_span()) {
+      const bke::AttributeInitShared init(src.varray.get_internal_span().data(),
+                                          *src.sharing_info);
+      dst_attributes.add(id, ATTR_DOMAIN_POINT, data_type, init);
+    }
+    else {
+      GSpanAttributeWriter dst = dst_attributes.lookup_or_add_for_write_only_span(
+          id, ATTR_DOMAIN_POINT, data_type);
+      array_utils::gather(src.varray, selection, dst.span);
       dst.finish();
     }
   }
 
-  mesh->loose_edges_tag_none();
+  mesh->tag_loose_edges_none();
 
-  geometry_set.keep_only_during_modify({GEO_COMPONENT_TYPE_MESH});
+  geometry_set.replace_mesh(mesh);
+  geometry_set.keep_only_during_modify({GeometryComponent::Type::Mesh});
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
@@ -73,7 +94,8 @@ static void node_geo_exec(GeoNodeExecParams params)
   Field<bool> selection_field = params.extract_input<Field<bool>>("Selection");
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-    geometry_set_points_to_vertices(geometry_set, selection_field);
+    geometry_set_points_to_vertices(
+        geometry_set, selection_field, params.get_output_propagation_info("Mesh"));
   });
 
   params.set_output("Mesh", std::move(geometry_set));

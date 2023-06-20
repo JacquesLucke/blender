@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -25,9 +26,7 @@ class Tile {
   int window_x = 0, window_y = 0;
   int window_width = 0, window_height = 0;
 
-  Tile()
-  {
-  }
+  Tile() {}
 };
 
 /* --------------------------------------------------------------------

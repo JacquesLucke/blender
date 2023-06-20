@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2021 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2021 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw
@@ -28,15 +29,18 @@ void DRW_texture_pool_free(DRWTexturePool *pool);
  * If no texture was found, create one and add it to the pool.
  * DEPRECATED: Use DRW_texture_pool_texture_acquire instead and do it just before rendering.
  */
-GPUTexture *DRW_texture_pool_query(
-    DRWTexturePool *pool, int width, int height, eGPUTextureFormat format, void *user);
+GPUTexture *DRW_texture_pool_query(DRWTexturePool *pool,
+                                   int width,
+                                   int height,
+                                   eGPUTextureFormat format,
+                                   eGPUTextureUsage usage,
+                                   void *user);
+
 /**
  * Returns a temporary texture that needs to be released after use. Texture content is undefined.
  */
-GPUTexture *DRW_texture_pool_texture_acquire(DRWTexturePool *pool,
-                                             int width,
-                                             int height,
-                                             eGPUTextureFormat format);
+GPUTexture *DRW_texture_pool_texture_acquire(
+    DRWTexturePool *pool, int width, int height, eGPUTextureFormat format, eGPUTextureUsage usage);
 /**
  * Releases a previously acquired texture.
  */

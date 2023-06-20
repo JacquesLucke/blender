@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -35,12 +36,12 @@ enum eArrowDirection {
 
 static void drawArrow(const uint pos_id, const enum eArrowDirection dir)
 {
-  int offset = 5.0f * UI_DPI_FAC;
-  int length = (6.0f * UI_DPI_FAC) + (4.0f * U.pixelsize);
-  int size = (3.0f * UI_DPI_FAC) + (2.0f * U.pixelsize);
+  int offset = 5.0f * UI_SCALE_FAC;
+  int length = (6.0f * UI_SCALE_FAC) + (4.0f * U.pixelsize);
+  int size = (3.0f * UI_SCALE_FAC) + (2.0f * U.pixelsize);
 
   /* To line up the arrow point nicely, one end has to be extended by half its width. But
-   * being on a 45 degree angle, Pythagoras says a movement of sqrt(2)/2 * (line width /2) */
+   * being on a 45 degree angle, Pythagoras says a movement of `sqrt(2) / 2 * (line width / 2)`. */
   float adjust = (M_SQRT2 * ARROW_WIDTH / 4.0f);
 
   if (ELEM(dir, LEFT, DOWN)) {
@@ -121,7 +122,7 @@ void transform_draw_cursor_draw(bContext *UNUSED(C), int x, int y, void *customd
     immUniform1i("colors_len", 0); /* "simple" mode */
     immUniformThemeColor3(TH_VIEW_OVERLAY);
     immUniform1f("dash_width", DASH_LENGTH);
-    immUniform1f("dash_factor", 0.5f);
+    immUniform1f("udash_factor", 0.5f);
     immBegin(GPU_PRIM_LINES, 2);
     immVertex2fv(pos_id, cent);
     immVertex2f(pos_id, tmval[0], tmval[1]);

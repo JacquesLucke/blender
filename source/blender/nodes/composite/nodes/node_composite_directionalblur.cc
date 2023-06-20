@@ -1,14 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2006 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2006 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup cmpnodes
  */
 
-#include "BLI_float3x3.hh"
 #include "BLI_math_base.hh"
-#include "BLI_math_vec_types.hh"
-#include "BLI_math_vector.hh"
+#include "BLI_math_matrix.hh"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -26,10 +25,10 @@ NODE_STORAGE_FUNCS(NodeDBlurData)
 
 static void cmp_node_directional_blur_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Color>(N_("Image"))
+  b.add_input<decl::Color>("Image")
       .default_value({1.0f, 1.0f, 1.0f, 1.0f})
       .compositor_domain_priority(0);
-  b.add_output<decl::Color>(N_("Image"));
+  b.add_output<decl::Color>("Image");
 }
 
 static void node_composit_init_dblur(bNodeTree * /*ntree*/, bNode *node)
@@ -46,7 +45,6 @@ static void node_composit_buts_dblur(uiLayout *layout, bContext * /*C*/, Pointer
   uiLayout *col;
 
   uiItemR(layout, ptr, "iterations", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
-  uiItemR(layout, ptr, "use_wrap", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
 
   col = uiLayoutColumn(layout, true);
   uiItemL(col, IFACE_("Center:"), ICON_NONE);
@@ -91,7 +89,7 @@ class DirectionalBlurOperation : public NodeOperation {
     input_image.bind_as_texture(shader, "input_tx");
 
     GPU_texture_filter_mode(input_image.texture(), true);
-    GPU_texture_wrap_mode(input_image.texture(), false, false);
+    GPU_texture_extend_mode(input_image.texture(), GPU_SAMPLER_EXTEND_MODE_CLAMP_TO_BORDER);
 
     const Domain domain = compute_domain();
     Result &output_image = get_result("Image");
@@ -112,7 +110,8 @@ class DirectionalBlurOperation : public NodeOperation {
   {
     const float diagonal_length = math::length(float2(get_input("Image").domain().size));
     const float translation_amount = diagonal_length * node_storage(bnode()).distance;
-    const float3x3 rotation = float3x3::from_rotation(-node_storage(bnode()).angle);
+    const float2x2 rotation = math::from_rotation<float2x2>(
+        math::AngleRadian(-node_storage(bnode()).angle));
     return rotation * float2(-translation_amount / get_iterations(), 0.0f);
   }
 
@@ -138,13 +137,13 @@ class DirectionalBlurOperation : public NodeOperation {
   float3x3 get_transformation()
   {
     /* Construct the transformation that will be applied on each iteration. */
-    const float3x3 transformation = float3x3::from_translation_rotation_scale(
-        get_translation(), get_rotation(), get_scale());
+    const float3x3 transformation = math::from_loc_rot_scale<float3x3>(
+        get_translation(), math::AngleRadian(get_rotation()), get_scale());
     /* Change the origin of the transformation to the user-specified origin. */
-    const float3x3 origin_transformation = float3x3::from_origin_transformation(transformation,
-                                                                                get_origin());
+    const float3x3 origin_transformation = math::from_origin_transform<float3x3>(transformation,
+                                                                                 get_origin());
     /* The shader will transform the coordinates, not the image itself, so take the inverse. */
-    return origin_transformation.inverted();
+    return math::invert(origin_transformation);
   }
 
   /* The actual number of iterations is 2 to the power of the user supplied iterations. The power

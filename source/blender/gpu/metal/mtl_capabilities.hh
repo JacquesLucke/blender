@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -16,7 +18,15 @@ namespace gpu {
 #define MTL_MAX_SAMPLER_SLOTS MTL_MAX_TEXTURE_SLOTS
 /* Max limit without using bind-less for samplers. */
 #define MTL_MAX_DEFAULT_SAMPLERS 16
-#define MTL_MAX_UNIFORM_BUFFER_BINDINGS 31
+/* Total maximum buffers which can be bound to an encoder, for use within a shader.
+ * Uniform buffers and storage buffers share the set of available bind buffers.
+ * The total number of buffer bindings must be <= MTL_MAX_BUFFER_BINDINGS
+ * We also require an additional 3 core buffers for:
+ * - Argument buffer for bindless resources (e.g. samplers)
+ * - Transform feedback buffer
+ * - Default push constant block
+ * Along with up to 6+1 buffers for vertex data, and index data. */
+#define MTL_MAX_BUFFER_BINDINGS 31
 #define MTL_MAX_VERTEX_INPUT_ATTRIBUTES 31
 #define MTL_MAX_UNIFORMS_PER_BLOCK 64
 
@@ -36,6 +46,7 @@ struct MTLCapabilities {
   bool supports_memory_barriers = false;
   bool supports_sampler_border_color = false;
   bool supports_argument_buffers_tier2 = false;
+  bool supports_texture_gather = false;
 
   /* GPU Family */
   bool supports_family_mac1 = false;

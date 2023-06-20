@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "util/system.h"
 
@@ -204,22 +205,10 @@ bool system_cpu_support_sse2()
   return caps.sse2;
 }
 
-bool system_cpu_support_sse3()
-{
-  CPUCapabilities &caps = system_cpu_capabilities();
-  return caps.sse3;
-}
-
 bool system_cpu_support_sse41()
 {
   CPUCapabilities &caps = system_cpu_capabilities();
   return caps.sse41;
-}
-
-bool system_cpu_support_avx()
-{
-  CPUCapabilities &caps = system_cpu_capabilities();
-  return caps.avx;
 }
 
 bool system_cpu_support_avx2()
@@ -234,20 +223,11 @@ bool system_cpu_support_sse2()
   return false;
 }
 
-bool system_cpu_support_sse3()
-{
-  return false;
-}
-
 bool system_cpu_support_sse41()
 {
   return false;
 }
 
-bool system_cpu_support_avx()
-{
-  return false;
-}
 bool system_cpu_support_avx2()
 {
   return false;

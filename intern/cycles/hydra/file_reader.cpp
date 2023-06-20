@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "hydra/file_reader.h"
 #include "hydra/camera.h"
@@ -32,17 +33,11 @@ class DummyHdTask : public HdTask {
   }
 
  protected:
-  void Sync(HdSceneDelegate *delegate, HdTaskContext *ctx, HdDirtyBits *dirtyBits) override
-  {
-  }
+  void Sync(HdSceneDelegate *delegate, HdTaskContext *ctx, HdDirtyBits *dirtyBits) override {}
 
-  void Prepare(HdTaskContext *ctx, HdRenderIndex *render_index) override
-  {
-  }
+  void Prepare(HdTaskContext *ctx, HdRenderIndex *render_index) override {}
 
-  void Execute(HdTaskContext *ctx) override
-  {
-  }
+  void Execute(HdTaskContext *ctx) override {}
 
   const TfTokenVector &GetRenderTags() const override
   {

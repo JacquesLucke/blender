@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -10,160 +12,75 @@ extern "C" {
 
 extern struct bNodeTreeType *ntreeType_Geometry;
 
-void register_node_tree_type_geo(void);
-
-void register_node_type_geo_group(void);
 void register_node_type_geo_custom_group(bNodeType *ntype);
 
-void register_node_type_geo_accumulate_field(void);
-void register_node_type_geo_attribute_capture(void);
-void register_node_type_geo_attribute_domain_size(void);
-void register_node_type_geo_attribute_separate_xyz(void);
-void register_node_type_geo_attribute_statistic(void);
-void register_node_type_geo_boolean(void);
-void register_node_type_geo_bounding_box(void);
-void register_node_type_geo_collection_info(void);
-void register_node_type_geo_convex_hull(void);
-void register_node_type_geo_curve_endpoint_selection(void);
-void register_node_type_geo_curve_fill(void);
-void register_node_type_geo_curve_fillet(void);
-void register_node_type_geo_curve_handle_type_selection(void);
-void register_node_type_geo_curve_length(void);
-void register_node_type_geo_curve_primitive_arc(void);
-void register_node_type_geo_curve_primitive_bezier_segment(void);
-void register_node_type_geo_curve_primitive_circle(void);
-void register_node_type_geo_curve_primitive_line(void);
-void register_node_type_geo_curve_primitive_quadratic_bezier(void);
-void register_node_type_geo_curve_primitive_quadrilateral(void);
-void register_node_type_geo_curve_primitive_spiral(void);
-void register_node_type_geo_curve_primitive_star(void);
-void register_node_type_geo_curve_resample(void);
-void register_node_type_geo_curve_reverse(void);
-void register_node_type_geo_curve_sample(void);
-void register_node_type_geo_curve_set_handle_type(void);
-void register_node_type_geo_curve_spline_parameter(void);
-void register_node_type_geo_curve_spline_type(void);
-void register_node_type_geo_curve_subdivide(void);
-void register_node_type_geo_curve_to_mesh(void);
-void register_node_type_geo_curve_to_points(void);
-void register_node_type_geo_curve_topology_curve_of_point(void);
-void register_node_type_geo_curve_topology_points_of_curve(void);
-void register_node_type_geo_curve_trim(void);
-void register_node_type_geo_deform_curves_on_surface(void);
-void register_node_type_geo_delete_geometry(void);
-void register_node_type_geo_distribute_points_in_volume(void);
-void register_node_type_geo_distribute_points_on_faces(void);
-void register_node_type_geo_dual_mesh(void);
-void register_node_type_geo_duplicate_elements(void);
-void register_node_type_geo_edge_paths_to_curves(void);
-void register_node_type_geo_edge_paths_to_selection(void);
-void register_node_type_geo_edge_split(void);
-void register_node_type_geo_extrude_mesh(void);
-void register_node_type_geo_field_at_index(void);
-void register_node_type_geo_flip_faces(void);
-void register_node_type_geo_geometry_to_instance(void);
-void register_node_type_geo_image_info(void);
-void register_node_type_geo_image_texture(void);
-void register_node_type_geo_input_curve_handles(void);
-void register_node_type_geo_input_curve_tilt(void);
-void register_node_type_geo_input_id(void);
-void register_node_type_geo_input_index(void);
-void register_node_type_geo_input_instance_rotation(void);
-void register_node_type_geo_input_instance_scale(void);
-void register_node_type_geo_input_material_index(void);
-void register_node_type_geo_input_material(void);
-void register_node_type_geo_input_mesh_edge_angle(void);
-void register_node_type_geo_input_mesh_edge_neighbors(void);
-void register_node_type_geo_input_mesh_edge_vertices(void);
-void register_node_type_geo_input_mesh_face_area(void);
-void register_node_type_geo_input_mesh_face_is_planar(void);
-void register_node_type_geo_input_mesh_face_neighbors(void);
-void register_node_type_geo_input_mesh_island(void);
-void register_node_type_geo_input_mesh_vertex_neighbors(void);
-void register_node_type_geo_input_named_attribute(void);
-void register_node_type_geo_input_normal(void);
-void register_node_type_geo_input_position(void);
-void register_node_type_geo_input_radius(void);
-void register_node_type_geo_input_scene_time(void);
-void register_node_type_geo_input_shade_smooth(void);
-void register_node_type_geo_input_shortest_edge_paths(void);
-void register_node_type_geo_input_spline_cyclic(void);
-void register_node_type_geo_input_spline_length(void);
-void register_node_type_geo_input_spline_resolution(void);
-void register_node_type_geo_input_tangent(void);
-void register_node_type_geo_instance_on_points(void);
-void register_node_type_geo_instances_to_points(void);
-void register_node_type_geo_interpolate_domain(void);
-void register_node_type_geo_is_viewport(void);
-void register_node_type_geo_join_geometry(void);
-void register_node_type_geo_material_replace(void);
-void register_node_type_geo_material_selection(void);
-void register_node_type_geo_merge_by_distance(void);
-void register_node_type_geo_mesh_face_set_boundaries(void);
-void register_node_type_geo_mesh_primitive_circle(void);
-void register_node_type_geo_mesh_primitive_cone(void);
-void register_node_type_geo_mesh_primitive_cube(void);
-void register_node_type_geo_mesh_primitive_cylinder(void);
-void register_node_type_geo_mesh_primitive_grid(void);
-void register_node_type_geo_mesh_primitive_ico_sphere(void);
-void register_node_type_geo_mesh_primitive_line(void);
-void register_node_type_geo_mesh_primitive_uv_sphere(void);
-void register_node_type_geo_mesh_subdivide(void);
-void register_node_type_geo_mesh_to_curve(void);
-void register_node_type_geo_mesh_to_points(void);
-void register_node_type_geo_mesh_to_volume(void);
-void register_node_type_geo_mesh_topology_corners_of_face(void);
-void register_node_type_geo_mesh_topology_corners_of_vertex(void);
-void register_node_type_geo_mesh_topology_edges_of_corner(void);
-void register_node_type_geo_mesh_topology_edges_of_vertex(void);
-void register_node_type_geo_mesh_topology_face_of_corner(void);
-void register_node_type_geo_mesh_topology_offset_corner_in_face(void);
-void register_node_type_geo_mesh_topology_vertex_of_corner(void);
-void register_node_type_geo_object_info(void);
-void register_node_type_geo_offset_point_in_curve(void);
-void register_node_type_geo_points_to_vertices(void);
-void register_node_type_geo_points_to_volume(void);
-void register_node_type_geo_points(void);
-void register_node_type_geo_proximity(void);
-void register_node_type_geo_raycast(void);
-void register_node_type_geo_realize_instances(void);
-void register_node_type_geo_remove_attribute(void);
-void register_node_type_geo_rotate_instances(void);
-void register_node_type_geo_sample_index(void);
-void register_node_type_geo_sample_nearest_surface(void);
-void register_node_type_geo_sample_nearest(void);
-void register_node_type_geo_sample_uv_surface(void);
-void register_node_type_geo_scale_elements(void);
-void register_node_type_geo_scale_instances(void);
-void register_node_type_geo_select_by_handle_type(void);
-void register_node_type_geo_separate_components(void);
-void register_node_type_geo_separate_geometry(void);
-void register_node_type_geo_self_object(void);
-void register_node_type_geo_set_curve_handles(void);
-void register_node_type_geo_set_curve_normal(void);
-void register_node_type_geo_set_curve_radius(void);
-void register_node_type_geo_set_curve_tilt(void);
-void register_node_type_geo_set_id(void);
-void register_node_type_geo_set_material_index(void);
-void register_node_type_geo_set_material(void);
-void register_node_type_geo_set_point_radius(void);
-void register_node_type_geo_set_position(void);
-void register_node_type_geo_set_shade_smooth(void);
-void register_node_type_geo_set_spline_cyclic(void);
-void register_node_type_geo_set_spline_resolution(void);
-void register_node_type_geo_store_named_attribute(void);
-void register_node_type_geo_string_join(void);
-void register_node_type_geo_string_to_curves(void);
-void register_node_type_geo_subdivision_surface(void);
-void register_node_type_geo_switch(void);
-void register_node_type_geo_transform(void);
-void register_node_type_geo_translate_instances(void);
-void register_node_type_geo_triangulate(void);
-void register_node_type_geo_uv_pack_islands(void);
-void register_node_type_geo_uv_unwrap(void);
-void register_node_type_geo_viewer(void);
-void register_node_type_geo_volume_cube(void);
-void register_node_type_geo_volume_to_mesh(void);
+/* -------------------------------------------------------------------- */
+/** \name Simulation Input Node
+ * \{ */
+
+struct bNode *NOD_geometry_simulation_input_get_paired_output(
+    struct bNodeTree *node_tree, const struct bNode *simulation_input_node);
+
+/**
+ * Pair a simulation input node with an output node.
+ * \return True if pairing the node was successful.
+ */
+bool NOD_geometry_simulation_input_pair_with_output(const struct bNodeTree *node_tree,
+                                                    struct bNode *simulation_input_node,
+                                                    const struct bNode *simulation_output_node);
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Simulation Output Node
+ * \{ */
+
+bool NOD_geometry_simulation_output_item_socket_type_supported(eNodeSocketDatatype socket_type);
+
+/**
+ * Set a unique item name.
+ * \return True if the unique name differs from the original name.
+ */
+bool NOD_geometry_simulation_output_item_set_unique_name(struct NodeGeometrySimulationOutput *sim,
+                                                         struct NodeSimulationItem *item,
+                                                         const char *name,
+                                                         const char *defname);
+
+/**
+ * Find the node owning this simulation state item.
+ */
+bNode *NOD_geometry_simulation_output_find_node_by_item(struct bNodeTree *ntree,
+                                                        const struct NodeSimulationItem *item);
+
+bool NOD_geometry_simulation_output_contains_item(struct NodeGeometrySimulationOutput *sim,
+                                                  const struct NodeSimulationItem *item);
+struct NodeSimulationItem *NOD_geometry_simulation_output_get_active_item(
+    struct NodeGeometrySimulationOutput *sim);
+void NOD_geometry_simulation_output_set_active_item(struct NodeGeometrySimulationOutput *sim,
+                                                    struct NodeSimulationItem *item);
+struct NodeSimulationItem *NOD_geometry_simulation_output_find_item(
+    struct NodeGeometrySimulationOutput *sim, const char *name);
+struct NodeSimulationItem *NOD_geometry_simulation_output_add_item(
+    struct NodeGeometrySimulationOutput *sim, short socket_type, const char *name);
+struct NodeSimulationItem *NOD_geometry_simulation_output_insert_item(
+    struct NodeGeometrySimulationOutput *sim, short socket_type, const char *name, int index);
+struct NodeSimulationItem *NOD_geometry_simulation_output_add_item_from_socket(
+    struct NodeGeometrySimulationOutput *sim,
+    const struct bNode *from_node,
+    const struct bNodeSocket *from_sock);
+struct NodeSimulationItem *NOD_geometry_simulation_output_insert_item_from_socket(
+    struct NodeGeometrySimulationOutput *sim,
+    const struct bNode *from_node,
+    const struct bNodeSocket *from_sock,
+    int index);
+void NOD_geometry_simulation_output_remove_item(struct NodeGeometrySimulationOutput *sim,
+                                                struct NodeSimulationItem *item);
+void NOD_geometry_simulation_output_clear_items(struct NodeGeometrySimulationOutput *sim);
+void NOD_geometry_simulation_output_move_item(struct NodeGeometrySimulationOutput *sim,
+                                              int from_index,
+                                              int to_index);
+
+/** \} */
 
 #ifdef __cplusplus
 }

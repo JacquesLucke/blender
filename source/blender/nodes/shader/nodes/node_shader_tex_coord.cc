@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "node_shader_util.hh"
 
@@ -12,13 +13,13 @@ namespace blender::nodes::node_shader_tex_coord_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_output<decl::Vector>(N_("Generated"));
-  b.add_output<decl::Vector>(N_("Normal"));
-  b.add_output<decl::Vector>(N_("UV"));
-  b.add_output<decl::Vector>(N_("Object"));
-  b.add_output<decl::Vector>(N_("Camera"));
-  b.add_output<decl::Vector>(N_("Window"));
-  b.add_output<decl::Vector>(N_("Reflection"));
+  b.add_output<decl::Vector>("Generated");
+  b.add_output<decl::Vector>("Normal");
+  b.add_output<decl::Vector>("UV");
+  b.add_output<decl::Vector>("Object");
+  b.add_output<decl::Vector>("Camera");
+  b.add_output<decl::Vector>("Window");
+  b.add_output<decl::Vector>("Reflection");
 }
 
 static void node_shader_buts_tex_coord(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -54,7 +55,7 @@ static int node_shader_gpu_tex_coord(GPUMaterial *mat,
     /* Normalize some vectors after dFdx/dFdy offsets.
      * This is the case for interpolated, non linear functions.
      * The resulting vector can still be a bit wrong but not as much.
-     * (see T70644) */
+     * (see #70644) */
     if (ELEM(i, 1, 6)) {
       GPU_link(mat,
                "vector_math_normalize",

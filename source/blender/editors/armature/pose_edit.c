@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edarmature
@@ -10,6 +11,8 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
+
+#include "BLT_translation.h"
 
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
@@ -77,7 +80,7 @@ Object *ED_pose_object_from_context(bContext *C)
   return ob;
 }
 
-bool ED_object_posemode_enter_ex(struct Main *bmain, Object *ob)
+bool ED_object_posemode_enter_ex(Main *bmain, Object *ob)
 {
   BLI_assert(BKE_id_is_editable(bmain, &ob->id));
   bool ok = false;
@@ -100,7 +103,7 @@ bool ED_object_posemode_enter_ex(struct Main *bmain, Object *ob)
 bool ED_object_posemode_enter(bContext *C, Object *ob)
 {
   ReportList *reports = CTX_wm_reports(C);
-  struct Main *bmain = CTX_data_main(C);
+  Main *bmain = CTX_data_main(C);
   if (!BKE_id_is_editable(bmain, &ob->id)) {
     BKE_report(reports, RPT_WARNING, "Cannot pose libdata");
     return false;
@@ -112,7 +115,7 @@ bool ED_object_posemode_enter(bContext *C, Object *ob)
   return ok;
 }
 
-bool ED_object_posemode_exit_ex(struct Main *bmain, Object *ob)
+bool ED_object_posemode_exit_ex(Main *bmain, Object *ob)
 {
   bool ok = false;
   if (ob) {
@@ -127,7 +130,7 @@ bool ED_object_posemode_exit_ex(struct Main *bmain, Object *ob)
 }
 bool ED_object_posemode_exit(bContext *C, Object *ob)
 {
-  struct Main *bmain = CTX_data_main(C);
+  Main *bmain = CTX_data_main(C);
   bool ok = ED_object_posemode_exit_ex(bmain, ob);
   if (ok) {
     WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_OBJECT, NULL);
@@ -427,13 +430,15 @@ static int pose_clear_paths_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-/* operator callback/wrapper */
-static int pose_clear_paths_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static char *pose_clear_paths_description(bContext *UNUSED(C),
+                                          wmOperatorType *UNUSED(ot),
+                                          PointerRNA *ptr)
 {
-  if ((event->modifier & KM_SHIFT) && !RNA_struct_property_is_set(op->ptr, "only_selected")) {
-    RNA_boolean_set(op->ptr, "only_selected", true);
+  const bool only_selected = RNA_boolean_get(ptr, "only_selected");
+  if (only_selected) {
+    return BLI_strdup(TIP_("Clear motion paths of selected bones"));
   }
-  return pose_clear_paths_exec(C, op);
+  return BLI_strdup(TIP_("Clear motion paths of all bones"));
 }
 
 void POSE_OT_paths_clear(wmOperatorType *ot)
@@ -441,19 +446,21 @@ void POSE_OT_paths_clear(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Clear Bone Paths";
   ot->idname = "POSE_OT_paths_clear";
-  ot->description = "Clear path caches for all bones, hold Shift key for selected bones only";
 
   /* api callbacks */
-  ot->invoke = pose_clear_paths_invoke;
   ot->exec = pose_clear_paths_exec;
   ot->poll = ED_operator_posemode_exclusive;
+  ot->get_description = pose_clear_paths_description;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   /* properties */
-  ot->prop = RNA_def_boolean(
-      ot->srna, "only_selected", false, "Only Selected", "Only clear paths from selected bones");
+  ot->prop = RNA_def_boolean(ot->srna,
+                             "only_selected",
+                             false,
+                             "Only Selected",
+                             "Only clear motion paths of selected bones");
   RNA_def_property_flag(ot->prop, PROP_SKIP_SAVE);
 }
 
@@ -562,7 +569,7 @@ static int pose_autoside_names_exec(bContext *C, wmOperator *op)
   /* loop through selected bones, auto-naming them */
   CTX_DATA_BEGIN_WITH_ID (C, bPoseChannel *, pchan, selected_pose_bones, Object *, ob) {
     bArmature *arm = ob->data;
-    BLI_strncpy(newname, pchan->name, sizeof(newname));
+    STRNCPY(newname, pchan->name);
     if (bone_autoside_name(newname, 1, axis, pchan->bone->head[axis], pchan->bone->tail[axis])) {
       ED_armature_bone_rename(bmain, arm, pchan->name, newname);
     }
@@ -854,7 +861,7 @@ static int pose_bone_layers_exec(bContext *C, wmOperator *op)
   /* Make sure that the pose bone data is up to date.
    * (May not always be the case after undo/redo e.g.).
    */
-  struct Main *bmain = CTX_data_main(C);
+  Main *bmain = CTX_data_main(C);
   wmWindow *win = CTX_wm_window(C);
   View3D *v3d = CTX_wm_view3d(C); /* This may be NULL in a lot of cases. */
   const Scene *scene = WM_window_get_active_scene(win);

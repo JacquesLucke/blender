@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -13,23 +15,18 @@ NODE_STORAGE_FUNCS(NodeGeometryCurveFillet)
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Geometry>(N_("Curve")).supported_type(GEO_COMPONENT_TYPE_CURVE);
-  b.add_input<decl::Int>(N_("Count"))
-      .default_value(1)
-      .min(1)
-      .max(1000)
-      .supports_field()
-      .make_available([](bNode &node) { node_storage(node).mode = GEO_NODE_CURVE_FILLET_POLY; });
-  b.add_input<decl::Float>(N_("Radius"))
+  b.add_input<decl::Geometry>("Curve").supported_type(GeometryComponent::Type::Curve);
+  b.add_input<decl::Int>("Count").default_value(1).min(1).max(1000).field_on_all().make_available(
+      [](bNode &node) { node_storage(node).mode = GEO_NODE_CURVE_FILLET_POLY; });
+  b.add_input<decl::Float>("Radius")
       .min(0.0f)
       .max(FLT_MAX)
       .subtype(PropertySubType::PROP_DISTANCE)
       .default_value(0.25f)
-      .supports_field();
-  b.add_input<decl::Bool>(N_("Limit Radius"))
-      .description(
-          N_("Limit the maximum value of the radius in order to avoid overlapping fillets"));
-  b.add_output<decl::Geometry>(N_("Curve"));
+      .field_on_all();
+  b.add_input<decl::Bool>("Limit Radius")
+      .description("Limit the maximum value of the radius in order to avoid overlapping fillets");
+  b.add_output<decl::Geometry>("Curve").propagate_all();
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -49,7 +46,7 @@ static void node_update(bNodeTree *ntree, bNode *node)
   const NodeGeometryCurveFillet &storage = node_storage(*node);
   const GeometryNodeCurveFilletMode mode = (GeometryNodeCurveFilletMode)storage.mode;
   bNodeSocket *poly_socket = static_cast<bNodeSocket *>(node->inputs.first)->next;
-  nodeSetSocketAvailability(ntree, poly_socket, mode == GEO_NODE_CURVE_FILLET_POLY);
+  bke::nodeSetSocketAvailability(ntree, poly_socket, mode == GEO_NODE_CURVE_FILLET_POLY);
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
@@ -67,14 +64,17 @@ static void node_geo_exec(GeoNodeExecParams params)
     count_field.emplace(params.extract_input<Field<int>>("Count"));
   }
 
+  const AnonymousAttributePropagationInfo &propagation_info = params.get_output_propagation_info(
+      "Curve");
+
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
     if (!geometry_set.has_curves()) {
       return;
     }
 
     const Curves &curves_id = *geometry_set.get_curves_for_read();
-    const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
-    bke::CurvesFieldContext context{curves, ATTR_DOMAIN_POINT};
+    const bke::CurvesGeometry &curves = curves_id.geometry.wrap();
+    const bke::CurvesFieldContext context{curves, ATTR_DOMAIN_POINT};
     fn::FieldEvaluator evaluator{context, curves.points_num()};
     evaluator.add(radius_field);
 
@@ -82,7 +82,11 @@ static void node_geo_exec(GeoNodeExecParams params)
       case GEO_NODE_CURVE_FILLET_BEZIER: {
         evaluator.evaluate();
         bke::CurvesGeometry dst_curves = geometry::fillet_curves_bezier(
-            curves, curves.curves_range(), evaluator.get_evaluated<float>(0), limit_radius);
+            curves,
+            curves.curves_range(),
+            evaluator.get_evaluated<float>(0),
+            limit_radius,
+            propagation_info);
         Curves *dst_curves_id = bke::curves_new_nomain(std::move(dst_curves));
         bke::curves_copy_parameters(curves_id, *dst_curves_id);
         geometry_set.replace_curves(dst_curves_id);
@@ -96,7 +100,8 @@ static void node_geo_exec(GeoNodeExecParams params)
             curves.curves_range(),
             evaluator.get_evaluated<float>(0),
             evaluator.get_evaluated<int>(1),
-            limit_radius);
+            limit_radius,
+            propagation_info);
         Curves *dst_curves_id = bke::curves_new_nomain(std::move(dst_curves));
         bke::curves_copy_parameters(curves_id, *dst_curves_id);
         geometry_set.replace_curves(dst_curves_id);

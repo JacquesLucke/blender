@@ -1,20 +1,8 @@
-// Copyright 2021 Blender Foundation. All rights reserved.
-//
-// This program is free software; you can redistribute it and/or
-// modify it under the terms of the GNU General Public License
-// as published by the Free Software Foundation; either version 2
-// of the License, or (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program; if not, write to the Free Software Foundation,
-// Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-//
-// Author: Sergey Sharybin
+/* SPDX-FileCopyrightText: 2021 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * Author: Sergey Sharybin. */
 
 #ifndef OPENSUBDIV_EVAL_OUTPUT_H_
 #define OPENSUBDIV_EVAL_OUTPUT_H_
@@ -89,27 +77,17 @@ class EvalOutputAPI::EvalOutput {
   // The following interfaces are dependant on the actual evaluator type (CPU, OpenGL, etc.) which
   // have slightly different APIs to access patch arrays, as well as different types for their
   // data structure. They need to be overridden in the specific instances of the EvalOutput derived
-  // classes if needed, while the interfaces above are overriden through VolatileEvalOutput.
+  // classes if needed, while the interfaces above are overridden through VolatileEvalOutput.
 
-  virtual void fillPatchArraysBuffer(OpenSubdiv_Buffer * /*patch_arrays_buffer*/)
-  {
-  }
+  virtual void fillPatchArraysBuffer(OpenSubdiv_Buffer * /*patch_arrays_buffer*/) {}
 
-  virtual void wrapPatchIndexBuffer(OpenSubdiv_Buffer * /*patch_index_buffer*/)
-  {
-  }
+  virtual void wrapPatchIndexBuffer(OpenSubdiv_Buffer * /*patch_index_buffer*/) {}
 
-  virtual void wrapPatchParamBuffer(OpenSubdiv_Buffer * /*patch_param_buffer*/)
-  {
-  }
+  virtual void wrapPatchParamBuffer(OpenSubdiv_Buffer * /*patch_param_buffer*/) {}
 
-  virtual void wrapSrcBuffer(OpenSubdiv_Buffer * /*src_buffer*/)
-  {
-  }
+  virtual void wrapSrcBuffer(OpenSubdiv_Buffer * /*src_buffer*/) {}
 
-  virtual void wrapSrcVertexDataBuffer(OpenSubdiv_Buffer * /*src_buffer*/)
-  {
-  }
+  virtual void wrapSrcVertexDataBuffer(OpenSubdiv_Buffer * /*src_buffer*/) {}
 
   virtual void fillFVarPatchArraysBuffer(const int /*face_varying_channel*/,
                                          OpenSubdiv_Buffer * /*patch_arrays_buffer*/)
@@ -143,9 +121,7 @@ namespace {
 // storage.
 template<typename T> class RawDataWrapperBuffer {
  public:
-  RawDataWrapperBuffer(T *data) : data_(data)
-  {
-  }
+  RawDataWrapperBuffer(T *data) : data_(data) {}
 
   T *BindCpuBuffer()
   {

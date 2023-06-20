@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup stl
@@ -8,7 +10,7 @@
 
 #include <cstdint>
 
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_set.hh"
 #include "BLI_vector.hh"
 #include "BLI_vector_set.hh"
@@ -65,7 +67,7 @@ class STLMeshHelper {
                     const float3 &b,
                     const float3 &c,
                     const float3 &custom_normal);
-  Mesh *to_mesh(Main *bmain, char *mesh_name);
+  Mesh *to_mesh();
 };
 
 }  // namespace blender::io::stl

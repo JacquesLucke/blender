@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "integrator/work_balancer.h"
 
@@ -62,7 +63,7 @@ bool work_balance_do_rebalance(vector<WorkBalanceInfo> &work_balance_infos)
   bool has_big_difference = false;
 
   for (const WorkBalanceInfo &info : work_balance_infos) {
-    const double time_target = lerp(info.time_spent, time_average, lerp_weight);
+    const double time_target = mix(info.time_spent, time_average, lerp_weight);
     const double new_weight = info.weight * time_target / info.time_spent;
     new_weights.push_back(new_weight);
     total_weight += new_weight;

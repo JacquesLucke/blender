@@ -1,10 +1,13 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "util/thread.h"
 
 #include "util/system.h"
 #include "util/windows.h"
+
+#include <system_error>
 
 CCL_NAMESPACE_BEGIN
 

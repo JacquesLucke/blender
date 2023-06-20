@@ -1,8 +1,10 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma once
-
-/**
+/** \file
+ * \ingroup nodes
+ *
  * Many geometry nodes related UI features need access to data produced during evaluation. Not only
  * is the final output required but also the intermediate results. Those features include attribute
  * search, node warnings, socket inspection and the viewer node.
@@ -24,6 +26,8 @@
  *   created when it is actually used by UI code.
  */
 
+#pragma once
+
 #include <chrono>
 
 #include "BLI_compute_context.hh"
@@ -33,6 +37,7 @@
 
 #include "BKE_attribute.h"
 #include "BKE_geometry_set.hh"
+#include "BKE_node_tree_zones.hh"
 #include "BKE_viewer_path.h"
 
 #include "FN_field.hh"
@@ -40,8 +45,6 @@
 #include "DNA_node_types.h"
 
 struct SpaceNode;
-struct SpaceSpreadsheet;
-struct NodesModifierData;
 
 namespace blender::nodes::geo_eval_log {
 
@@ -89,9 +92,7 @@ class GenericValueLog : public ValueLog {
    */
   GMutablePointer value;
 
-  GenericValueLog(const GMutablePointer value) : value(value)
-  {
-  }
+  GenericValueLog(const GMutablePointer value) : value(value) {}
 
   ~GenericValueLog();
 };
@@ -122,12 +123,13 @@ struct GeometryAttributeInfo {
 class GeometryInfoLog : public ValueLog {
  public:
   Vector<GeometryAttributeInfo> attributes;
-  Vector<GeometryComponentType> component_types;
+  Vector<bke::GeometryComponent::Type> component_types;
 
   struct MeshInfo {
     int verts_num, edges_num, faces_num;
   };
   struct CurveInfo {
+    int points_num;
     int splines_num;
   };
   struct PointCloudInfo {
@@ -147,7 +149,7 @@ class GeometryInfoLog : public ValueLog {
   std::optional<InstancesInfo> instances_info;
   std::optional<EditDataInfo> edit_data_info;
 
-  GeometryInfoLog(const GeometrySet &geometry_set);
+  GeometryInfoLog(const bke::GeometrySet &geometry_set);
 };
 
 /**
@@ -156,7 +158,7 @@ class GeometryInfoLog : public ValueLog {
  */
 class ViewerNodeLog {
  public:
-  GeometrySet geometry;
+  bke::GeometrySet geometry;
 };
 
 using Clock = std::chrono::steady_clock;
@@ -169,36 +171,36 @@ using TimePoint = Clock::time_point;
 class GeoTreeLogger {
  public:
   std::optional<ComputeContextHash> parent_hash;
-  std::optional<std::string> group_node_name;
+  std::optional<int32_t> group_node_id;
   Vector<ComputeContextHash> children_hashes;
 
   LinearAllocator<> *allocator = nullptr;
 
   struct WarningWithNode {
-    StringRefNull node_name;
+    int32_t node_id;
     NodeWarning warning;
   };
   struct SocketValueLog {
-    StringRefNull node_name;
-    StringRefNull socket_identifier;
+    int32_t node_id;
+    int socket_index;
     destruct_ptr<ValueLog> value;
   };
   struct NodeExecutionTime {
-    StringRefNull node_name;
+    int32_t node_id;
     TimePoint start;
     TimePoint end;
   };
   struct ViewerNodeLogWithNode {
-    StringRefNull node_name;
+    int32_t node_id;
     destruct_ptr<ViewerNodeLog> viewer_log;
   };
   struct AttributeUsageWithNode {
-    StringRefNull node_name;
+    int32_t node_id;
     StringRefNull attribute_name;
     NamedAttributeUsage usage;
   };
   struct DebugMessage {
-    StringRefNull node_name;
+    int32_t node_id;
     StringRefNull message;
   };
 
@@ -214,7 +216,7 @@ class GeoTreeLogger {
   ~GeoTreeLogger();
 
   void log_value(const bNode &node, const bNodeSocket &socket, GPointer value);
-  void log_viewer_node(const bNode &viewer_node, GeometrySet geometry);
+  void log_viewer_node(const bNode &viewer_node, bke::GeometrySet geometry);
 };
 
 /**
@@ -230,13 +232,13 @@ class GeoNodeLog {
   /** Warnings generated for that node. */
   Vector<NodeWarning> warnings;
   /**
-   * Time spend in that node. For node groups this is the sum of the run times of the nodes
+   * Time spent in this node. For node groups this is the sum of the run times of the nodes
    * inside.
    */
   std::chrono::nanoseconds run_time{0};
-  /** Maps from socket identifiers to their values. */
-  Map<StringRefNull, ValueLog *> input_values_;
-  Map<StringRefNull, ValueLog *> output_values_;
+  /** Maps from socket indices to their values. */
+  Map<int, ValueLog *> input_values_;
+  Map<int, ValueLog *> output_values_;
   /** Maps from attribute name to their usage flags. */
   Map<StringRefNull, NamedAttributeUsage> used_named_attributes;
   /** Messages that are used for debugging purposes during development. */
@@ -269,8 +271,8 @@ class GeoTreeLog {
   bool reduced_debug_messages_ = false;
 
  public:
-  Map<StringRefNull, GeoNodeLog> nodes;
-  Map<StringRefNull, ViewerNodeLog *, 0> viewer_node_logs;
+  Map<int32_t, GeoNodeLog> nodes;
+  Map<int32_t, ViewerNodeLog *, 0> viewer_node_logs;
   Vector<NodeWarning> all_warnings;
   std::chrono::nanoseconds run_time_sum{0};
   Vector<const GeometryAttributeInfo *> existing_attributes;
@@ -332,7 +334,11 @@ class GeoModifierLog {
   /**
    * Utility accessor to logged data.
    */
-  static GeoTreeLog *get_tree_log_for_node_editor(const SpaceNode &snode);
+  static Map<const bke::bNodeTreeZone *, ComputeContextHash>
+  get_context_hash_by_zone_for_node_editor(const SpaceNode &snode, StringRefNull modifier_name);
+
+  static Map<const bke::bNodeTreeZone *, GeoTreeLog *> get_tree_log_by_zone_for_node_editor(
+      const SpaceNode &snode);
   static const ViewerNodeLog *find_viewer_node_log_for_path(const ViewerPath &viewer_path);
 };
 

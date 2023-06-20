@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2011-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # see "cmake --help-policy CMP0003"
@@ -167,7 +169,7 @@ add_library(bli_lib
   "../../../source/blender/blenlib/intern/rct.c"
   "../../../source/blender/blenlib/intern/string.c"
   "../../../source/blender/blenlib/intern/string_utf8.c"
-  "../../../source/blender/blenlib/intern/listbase.c"
+  "../../../source/blender/blenlib/intern/listbase.cc"
   "../../../source/blender/blenlib/intern/math_color.c"
   "../../../source/blender/blenlib/intern/math_geom.c"
   "../../../source/blender/blenlib/intern/math_matrix.c"
@@ -224,28 +226,30 @@ string(APPEND CMAKE_CXX_FLAGS " ${PLATFORM_CFLAGS}")
 
 # Gears (C)
 add_executable(gears_c
-    ${CMAKE_SOURCE_DIR}/gears/GHOST_C-Test.c)
+  ${CMAKE_SOURCE_DIR}/gears/GHOST_C-Test.c
+)
 
 target_link_libraries(gears_c
-    ghost_lib
-    string_lib
-    ${OPENGL_gl_LIBRARY}
-    ${CMAKE_DL_LIBS}
-    ${PLATFORM_LINKLIBS}
-    )
+  ghost_lib
+  string_lib
+  ${OPENGL_gl_LIBRARY}
+  ${CMAKE_DL_LIBS}
+  ${PLATFORM_LINKLIBS}
+)
 
 
 # Gears (C++)
 add_executable(gears_cpp
-    ${CMAKE_SOURCE_DIR}/gears/GHOST_Test.cpp)
+  ${CMAKE_SOURCE_DIR}/gears/GHOST_Test.cpp
+)
 
 target_link_libraries(gears_cpp
-    ghost_lib
-    string_lib
-    ${OPENGL_gl_LIBRARY}
-    ${CMAKE_DL_LIBS}
-    ${PLATFORM_LINKLIBS}
-    )
+  ghost_lib
+  string_lib
+  ${OPENGL_gl_LIBRARY}
+  ${CMAKE_DL_LIBS}
+  ${PLATFORM_LINKLIBS}
+)
 
 
 # MultiTest (C)

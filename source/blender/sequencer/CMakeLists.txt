@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2011 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2011 Blender Foundation. All rights reserved.
 
 set(INC
   .
@@ -42,6 +43,8 @@ set(SRC
   SEQ_proxy.h
   SEQ_relations.h
   SEQ_render.h
+  SEQ_retiming.h
+  SEQ_retiming.hh
   SEQ_select.h
   SEQ_sequencer.h
   SEQ_sound.h
@@ -76,6 +79,7 @@ set(SRC
   intern/strip_add.c
   intern/strip_edit.c
   intern/strip_relations.c
+  intern/strip_retiming.cc
   intern/strip_select.c
   intern/strip_time.c
   intern/strip_time.h
@@ -90,15 +94,16 @@ set(LIB
 )
 
 if(WITH_AUDASPACE)
-  add_definitions(-DWITH_AUDASPACE)
-
   list(APPEND INC_SYS
     ${AUDASPACE_C_INCLUDE_DIRS}
   )
-  list(APPEND LIB
-    ${AUDASPACE_C_LIBRARIES}
-    ${AUDASPACE_PY_LIBRARIES}
-  )
+  if(WITH_SYSTEM_AUDASPACE)
+    list(APPEND LIB
+      ${AUDASPACE_C_LIBRARIES}
+      ${AUDASPACE_PY_LIBRARIES}
+    )
+  endif()
+  add_definitions(-DWITH_AUDASPACE)
 endif()
 
 blender_add_lib(bf_sequencer "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

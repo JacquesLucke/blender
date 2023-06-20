@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup intern_iksolver
@@ -339,9 +340,7 @@ void IK_QSphericalSegment::UpdateAngleApply()
 
 // IK_QNullSegment
 
-IK_QNullSegment::IK_QNullSegment() : IK_QSegment(0, false)
-{
-}
+IK_QNullSegment::IK_QNullSegment() : IK_QSegment(0, false) {}
 
 // IK_QRevoluteSegment
 
@@ -427,9 +426,7 @@ void IK_QRevoluteSegment::SetWeight(int axis, double weight)
 
 // IK_QSwingSegment
 
-IK_QSwingSegment::IK_QSwingSegment() : IK_QSegment(2, false), m_limit_x(false), m_limit_z(false)
-{
-}
+IK_QSwingSegment::IK_QSwingSegment() : IK_QSegment(2, false), m_limit_x(false), m_limit_z(false) {}
 
 void IK_QSwingSegment::SetBasis(const Matrix3d &basis)
 {

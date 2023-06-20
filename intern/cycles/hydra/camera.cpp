@@ -1,6 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2022 NVIDIA Corporation
- * Copyright 2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2022 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "hydra/camera.h"
 #include "hydra/session.h"
@@ -51,9 +52,7 @@ HdCyclesCamera::HdCyclesCamera(const SdfPath &sprimId) : HdCamera(sprimId)
 #endif
 }
 
-HdCyclesCamera::~HdCyclesCamera()
-{
-}
+HdCyclesCamera::~HdCyclesCamera() {}
 
 HdDirtyBits HdCyclesCamera::GetInitialDirtyBitsMask() const
 {

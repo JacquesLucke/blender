@@ -103,15 +103,20 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 set StatusFile=%BUILD_DIR%\%1_%2.log
-set path=%BUILD_DIR%\downloads\mingw\mingw64\msys\1.0\bin\;%BUILD_DIR%\downloads\nasm-2.12.01\;%path%
+set original_path=%path%
+set oiio_paths=%Staging%\%BuildDir%%ARCH%R\Release\openimageio\bin
+set boost_paths=%Staging%\%BuildDir%%ARCH%R\Release\boost\lib
+set openexr_paths=%Staging%\%BuildDir%%ARCH%R\Release\openexr\bin
+set imath_paths=%Staging%\%BuildDir%%ARCH%R\Release\imath\bin
+set tbb_paths=%Staging%\%BuildDir%%ARCH%R\Release\tbb\bin
+set path=%BUILD_DIR%\downloads\mingw\mingw64\msys\1.0\bin\;%BUILD_DIR%\downloads\nasm-2.12.01\;%original_path%;%boost_paths%;%oiio_paths%;%openexr_paths%;%imath_paths%;%tbb_paths%
 mkdir %STAGING%\%BuildDir%%ARCH%R
 cd %Staging%\%BuildDir%%ARCH%R
 echo %DATE% %TIME% : Start > %StatusFile%
 cmake -G "%CMAKE_BUILDER%" %CMAKE_BUILD_ARCH% -Thost=x64  %SOURCE_DIR% -DPACKAGE_DIR=%BUILD_DIR%/packages -DDOWNLOAD_DIR=%BUILD_DIR%/downloads -DBUILD_MODE=Release -DHARVEST_TARGET=%HARVEST_DIR%/%HARVESTROOT%%VSVER_SHORT%/
 echo %DATE% %TIME% : Release Configuration done >> %StatusFile%
 if "%dobuild%" == "1" (
-	msbuild /m:1 "ll.vcxproj" /p:Configuration=Release /fl /flp:logfile=BlenderDeps_llvm.log;Verbosity=normal
-	msbuild /m:1 "BlenderDependencies.sln" /p:Configuration=Release /fl /flp:logfile=BlenderDeps.log;Verbosity=minimal  /verbosity:minimal
+	msbuild -maxcpucount:1 "BlenderDependencies.sln" /p:Configuration=Release /fl /flp:logfile=BlenderDeps.log;Verbosity=minimal  /verbosity:minimal
 	echo %DATE% %TIME% : Release Build done >> %StatusFile%
 	cmake --build . --target Harvest_Release_Results  > Harvest_Release.txt
 )
@@ -120,11 +125,16 @@ if "%NODEBUG%" == "1" goto exit
 cd %BUILD_DIR%
 mkdir %STAGING%\%BuildDir%%ARCH%D
 cd %Staging%\%BuildDir%%ARCH%D
+set oiio_paths=%Staging%\%BuildDir%%ARCH%D\Debug\openimageio\bin
+set boost_paths=%Staging%\%BuildDir%%ARCH%D\Debug\boost\lib
+set openexr_paths=%Staging%\%BuildDir%%ARCH%D\Debug\openexr\bin
+set imath_paths=%Staging%\%BuildDir%%ARCH%D\Debug\imath\bin
+set tbb_paths=%Staging%\%BuildDir%%ARCH%D\Debug\tbb\bin
+set path=%BUILD_DIR%\downloads\mingw\mingw64\msys\1.0\bin\;%BUILD_DIR%\downloads\nasm-2.12.01\;%original_path%;%boost_paths%;%oiio_paths%;%openexr_paths%;%imath_paths%;%tbb_paths%
 cmake -G "%CMAKE_BUILDER%" %CMAKE_BUILD_ARCH% -Thost=x64 %SOURCE_DIR% -DPACKAGE_DIR=%BUILD_DIR%/packages -DDOWNLOAD_DIR=%BUILD_DIR%/downloads -DCMAKE_BUILD_TYPE=Debug -DBUILD_MODE=Debug -DHARVEST_TARGET=%HARVEST_DIR%/%HARVESTROOT%%VSVER_SHORT%/  %CMAKE_DEBUG_OPTIONS%
 echo %DATE% %TIME% : Debug Configuration done >> %StatusFile%
 if "%dobuild%" == "1" (
-	msbuild /m:1 "ll.vcxproj" /p:Configuration=Debug /fl /flp:logfile=BlenderDeps_llvm.log;;Verbosity=normal 
-	msbuild /m:1 "BlenderDependencies.sln" /p:Configuration=Debug /verbosity:n /fl /flp:logfile=BlenderDeps.log;;Verbosity=normal
+	msbuild -maxcpucount:1 "BlenderDependencies.sln" /p:Configuration=Debug /verbosity:n /fl /flp:logfile=BlenderDeps.log;;Verbosity=normal
 	echo %DATE% %TIME% : Debug Build done >> %StatusFile%
 	cmake --build . --target Harvest_Debug_Results> Harvest_Debug.txt
 )
@@ -132,4 +142,5 @@ echo %DATE% %TIME% : Debug Harvest done >> %StatusFile%
 cd %BUILD_DIR%
 
 :exit
+set path=%original_path%
 Echo .

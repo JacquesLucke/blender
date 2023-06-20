@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -76,14 +78,17 @@ struct CurvePoint : public CurveSegment {
  * [0, range_size) can be iterated over an arbitrary amount of times in between.
  */
 class IndexRangeCyclic {
-  /* Index to the start and end of the iterated range.
+  /**
+   * Index to the start and end of the iterated range.
    */
   int start_ = 0;
   int end_ = 0;
-  /* Size of the underlying iterable range.
+  /**
+   * Size of the underlying iterable range.
    */
   int range_size_ = 0;
-  /* Number of times the range end is passed when the range is iterated.
+  /**
+   * Number of times the range end is passed when the range is iterated.
    */
   int cycles_ = 0;
 
@@ -130,8 +135,10 @@ class IndexRangeCyclic {
     }
 
     const int num_remaining = iterator_size - num_until_loop;
-    const int num_full_cycles = num_remaining /
-                                iterable_range_size; /* Integer division (rounded down). */
+
+    /* Integer division (rounded down). */
+    const int num_full_cycles = num_remaining / iterable_range_size;
+
     const int end_index = num_remaining - num_full_cycles * iterable_range_size;
     return IndexRangeCyclic(start_index, end_index, iterable_range_size, num_full_cycles + 1);
   }
@@ -468,84 +475,60 @@ class IndexRangeCyclic {
  * ranges, assuming that all curves have the same number of control points in #src_curves
  * and #dst_curves.
  */
-void copy_point_data(const CurvesGeometry &src_curves,
-                     const CurvesGeometry &dst_curves,
-                     Span<IndexRange> curve_ranges,
-                     GSpan src,
-                     GMutableSpan dst);
-
-void copy_point_data(const CurvesGeometry &src_curves,
-                     const CurvesGeometry &dst_curves,
-                     IndexMask src_curve_selection,
+void copy_point_data(OffsetIndices<int> src_points_by_curve,
+                     OffsetIndices<int> dst_points_by_curve,
+                     const IndexMask &src_curve_selection,
                      GSpan src,
                      GMutableSpan dst);
 
 template<typename T>
-void copy_point_data(const CurvesGeometry &src_curves,
-                     const CurvesGeometry &dst_curves,
-                     IndexMask src_curve_selection,
+void copy_point_data(OffsetIndices<int> src_points_by_curve,
+                     OffsetIndices<int> dst_points_by_curve,
+                     const IndexMask &src_curve_selection,
                      Span<T> src,
                      MutableSpan<T> dst)
 {
-  copy_point_data(src_curves, dst_curves, src_curve_selection, GSpan(src), GMutableSpan(dst));
+  copy_point_data(src_points_by_curve,
+                  dst_points_by_curve,
+                  src_curve_selection,
+                  GSpan(src),
+                  GMutableSpan(dst));
 }
 
-void fill_points(const CurvesGeometry &curves,
-                 IndexMask curve_selection,
+void fill_points(OffsetIndices<int> points_by_curve,
+                 const IndexMask &curve_selection,
                  GPointer value,
                  GMutableSpan dst);
 
 template<typename T>
-void fill_points(const CurvesGeometry &curves,
-                 IndexMask curve_selection,
+void fill_points(const OffsetIndices<int> points_by_curve,
+                 const IndexMask &curve_selection,
                  const T &value,
                  MutableSpan<T> dst)
 {
-  fill_points(curves, curve_selection, &value, dst);
-}
-
-void fill_points(const CurvesGeometry &curves,
-                 Span<IndexRange> curve_ranges,
-                 GPointer value,
-                 GMutableSpan dst);
-
-template<typename T>
-void fill_points(const CurvesGeometry &curves,
-                 Span<IndexRange> curve_ranges,
-                 const T &value,
-                 MutableSpan<T> dst)
-{
-  fill_points(curves, curve_ranges, &value, dst);
+  fill_points(points_by_curve, curve_selection, &value, dst);
 }
 
 /**
- * Copy only the information on the point domain, but not the offsets or any point attributes,
- * meant for operations that change the number of points but not the number of curves.
+ * Create new curves with the same number of curves as the input, but no points. Copy all curve
+ * domain attributes to the new curves, except the offsets encoding the size of each curve.
+ *
+ * Used for operations that change the number of points but not the number of curves, allowing
+ * creation of the new offsets directly inside the new array.
+ *
  * \warning The returned curves have invalid offsets!
  */
 bke::CurvesGeometry copy_only_curve_domain(const bke::CurvesGeometry &src_curves);
 
-/**
- * Copy the size of every curve in #curve_ranges to the corresponding index in #counts.
- */
-void fill_curve_counts(const bke::CurvesGeometry &curves,
-                       Span<IndexRange> curve_ranges,
-                       MutableSpan<int> counts);
-
-/**
- * Turn an array of sizes into the offset at each index including all previous sizes.
- */
-void accumulate_counts_to_offsets(MutableSpan<int> counts_to_offsets, int start_offset = 0);
-
 IndexMask indices_for_type(const VArray<int8_t> &types,
                            const std::array<int, CURVE_TYPES_NUM> &type_counts,
                            const CurveType type,
-                           const IndexMask selection,
-                           Vector<int64_t> &r_indices);
+                           const IndexMask &selection,
+                           IndexMaskMemory &memory);
 
 void foreach_curve_by_type(const VArray<int8_t> &types,
                            const std::array<int, CURVE_TYPES_NUM> &type_counts,
-                           IndexMask selection,
+                           const IndexMask &selection,
                            FunctionRef<void(IndexMask)> catmull_rom_fn,
                            FunctionRef<void(IndexMask)> poly_fn,
                            FunctionRef<void(IndexMask)> bezier_fn,

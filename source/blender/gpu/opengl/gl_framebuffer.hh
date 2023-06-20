@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2020 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2020 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -34,9 +35,9 @@ class GLFrameBuffer : public FrameBuffer {
   /** Copy of the GL state. Contains ONLY color attachments enums for slot binding. */
   GLenum gl_attachments_[GPU_FB_MAX_COLOR_ATTACHMENT] = {0};
   /** Internal frame-buffers are immutable. */
-  bool immutable_;
+  bool immutable_ = false;
   /** True is the frame-buffer has its first color target using the GPU_SRGB8_A8 format. */
-  bool srgb_;
+  bool srgb_ = false;
   /** True is the frame-buffer has been bound using the GL_FRAMEBUFFER_SRGB feature. */
   bool enabled_srgb_ = false;
 

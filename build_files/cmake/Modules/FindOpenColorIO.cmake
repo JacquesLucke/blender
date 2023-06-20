@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2012 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2012 Blender Foundation.
 
 # - Find OpenColorIO library
 # Find the native OpenColorIO includes and library
@@ -24,6 +25,7 @@ SET(_opencolorio_FIND_COMPONENTS
   yaml-cpp
   expat
   pystring
+  minizip
 )
 
 SET(_opencolorio_SEARCH_DIRS

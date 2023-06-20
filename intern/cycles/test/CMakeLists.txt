@@ -1,7 +1,8 @@
+# SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+#
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2011-2022 Blender Foundation
 
-if(WITH_GTESTS)
+if(WITH_GTESTS AND WITH_CYCLES_LOGGING)
   Include(GTestTesting)
 
   # Otherwise we get warnings here that we can't fix in external projects
@@ -45,19 +46,6 @@ set(SRC
 # Disable AVX tests on macOS. Rosetta has problems running them, and other
 # platforms should be enough to verify AVX operations are implemented correctly.
 if(NOT APPLE)
-  if(CXX_HAS_SSE)
-    list(APPEND SRC
-      util_float8_sse2_test.cpp
-    )
-    set_source_files_properties(util_float8_avx_test.cpp PROPERTIES COMPILE_FLAGS "${CYCLES_SSE2_KERNEL_FLAGS}")
-  endif()
-
-  if(CXX_HAS_AVX)
-    list(APPEND SRC
-      util_float8_avx_test.cpp
-    )
-    set_source_files_properties(util_float8_avx_test.cpp PROPERTIES COMPILE_FLAGS "${CYCLES_AVX_KERNEL_FLAGS}")
-  endif()
   if(CXX_HAS_AVX2)
     list(APPEND SRC
       util_float8_avx2_test.cpp
@@ -66,6 +54,6 @@ if(NOT APPLE)
   endif()
 endif()
 
-if(WITH_GTESTS)
+if(WITH_GTESTS AND WITH_CYCLES_LOGGING)
   blender_src_gtest(cycles "${SRC}" "${LIB}")
 endif()

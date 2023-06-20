@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2021 Blender Foundation.
- */
+/* SPDX-FileCopyrightText: 2021 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup eevee
@@ -10,11 +10,11 @@
 
 #include "eevee_engine.h"
 
-#include "BKE_gpencil.h"
+#include "BKE_gpencil_legacy.h"
 #include "BKE_object.h"
 #include "DEG_depsgraph_query.h"
 #include "DNA_curves_types.h"
-#include "DNA_gpencil_types.h"
+#include "DNA_gpencil_legacy_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_particle_types.h"
 
@@ -27,7 +27,7 @@ namespace blender::eevee {
  *
  * \{ */
 
-static void draw_data_init_cb(struct DrawData *dd)
+static void draw_data_init_cb(DrawData *dd)
 {
   /* Object has just been created or was never evaluated by the engine. */
   dd->recalc = ID_RECALC_ALL;
@@ -36,11 +36,12 @@ static void draw_data_init_cb(struct DrawData *dd)
 ObjectHandle &SyncModule::sync_object(Object *ob)
 {
   DrawEngineType *owner = (DrawEngineType *)&DRW_engine_viewport_eevee_next_type;
-  struct DrawData *dd = DRW_drawdata_ensure(
+  DrawData *dd = DRW_drawdata_ensure(
       (ID *)ob, owner, sizeof(eevee::ObjectHandle), draw_data_init_cb, nullptr);
   ObjectHandle &eevee_dd = *reinterpret_cast<ObjectHandle *>(dd);
 
   if (eevee_dd.object_key.ob == nullptr) {
+    ob = DEG_get_original_object(ob);
     eevee_dd.object_key = ObjectKey(ob);
   }
 
@@ -48,7 +49,6 @@ ObjectHandle &SyncModule::sync_object(Object *ob)
                            ID_RECALC_GEOMETRY;
   if ((eevee_dd.recalc & recalc_flags) != 0) {
     inst_.sampling.reset();
-    UNUSED_VARS(inst_);
   }
 
   return eevee_dd;
@@ -57,7 +57,7 @@ ObjectHandle &SyncModule::sync_object(Object *ob)
 WorldHandle &SyncModule::sync_world(::World *world)
 {
   DrawEngineType *owner = (DrawEngineType *)&DRW_engine_viewport_eevee_next_type;
-  struct DrawData *dd = DRW_drawdata_ensure(
+  DrawData *dd = DRW_drawdata_ensure(
       (ID *)world, owner, sizeof(eevee::WorldHandle), draw_data_init_cb, nullptr);
   WorldHandle &eevee_dd = *reinterpret_cast<WorldHandle *>(dd);
 
@@ -71,7 +71,7 @@ WorldHandle &SyncModule::sync_world(::World *world)
 SceneHandle &SyncModule::sync_scene(::Scene *scene)
 {
   DrawEngineType *owner = (DrawEngineType *)&DRW_engine_viewport_eevee_next_type;
-  struct DrawData *dd = DRW_drawdata_ensure(
+  DrawData *dd = DRW_drawdata_ensure(
       (ID *)scene, owner, sizeof(eevee::SceneHandle), draw_data_init_cb, nullptr);
   SceneHandle &eevee_dd = *reinterpret_cast<SceneHandle *>(dd);
 
@@ -127,13 +127,13 @@ void SyncModule::sync_mesh(Object *ob,
     if (geom == nullptr) {
       continue;
     }
-    Material *material = material_array.materials[i];
-    geometry_call(material->shading.sub_pass, geom, res_handle);
-    geometry_call(material->prepass.sub_pass, geom, res_handle);
-    geometry_call(material->shadow.sub_pass, geom, res_handle);
+    Material &material = material_array.materials[i];
+    geometry_call(material.shading.sub_pass, geom, res_handle);
+    geometry_call(material.prepass.sub_pass, geom, res_handle);
+    geometry_call(material.shadow.sub_pass, geom, res_handle);
 
-    is_shadow_caster = is_shadow_caster || material->shadow.sub_pass != nullptr;
-    is_alpha_blend = is_alpha_blend || material->is_alpha_blend_transparent;
+    is_shadow_caster = is_shadow_caster || material.shadow.sub_pass != nullptr;
+    is_alpha_blend = is_alpha_blend || material.is_alpha_blend_transparent;
 
     GPUMaterial *gpu_material = material_array.gpu_materials[i];
     ::Material *mat = GPU_material_get_material(gpu_material);
@@ -141,8 +141,9 @@ void SyncModule::sync_mesh(Object *ob,
   }
 
   inst_.manager->extract_object_attributes(res_handle, ob_ref, material_array.gpu_materials);
+
+  inst_.shadows.sync_object(ob_handle, res_handle, is_shadow_caster, is_alpha_blend);
   inst_.cryptomatte.sync_object(ob, res_handle);
-  // shadows.sync_object(ob, ob_handle, is_shadow_caster, is_alpha_blend);
 }
 
 /** \} */
@@ -236,7 +237,7 @@ static void gpencil_stroke_sync(bGPDlayer * /*gpl*/,
 {
   gpIterData &iter = *(gpIterData *)thunk;
 
-  Material *material = iter.material_array.materials[gps->mat_nr];
+  Material *material = &iter.material_array.materials[gps->mat_nr];
   MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(iter.ob, gps->mat_nr + 1);
 
   bool hide_material = (gp_style->flag & GP_MATERIAL_HIDE) != 0;
@@ -280,9 +281,9 @@ void SyncModule::sync_gpencil(Object *ob, ObjectHandle &ob_handle, ResourceHandl
 
   gpencil_drawcall_flush(iter);
 
-  // bool is_caster = true;      /* TODO material.shadow.sub_pass. */
-  // bool is_alpha_blend = true; /* TODO material.is_alpha_blend. */
-  // shadows.sync_object(ob, ob_handle, is_caster, is_alpha_blend);
+  bool is_caster = true;      /* TODO material.shadow.sub_pass. */
+  bool is_alpha_blend = true; /* TODO material.is_alpha_blend. */
+  inst_.shadows.sync_object(ob_handle, res_handle, is_caster, is_alpha_blend);
 }
 
 /** \} */
@@ -347,9 +348,9 @@ void SyncModule::sync_curves(Object *ob,
   /* TODO(fclem) Hair velocity. */
   // shading_passes.velocity.gpencil_add(ob, ob_handle);
 
-  // bool is_caster = material.shadow.sub_pass != nullptr;
-  // bool is_alpha_blend = material.is_alpha_blend_transparent;
-  // shadows.sync_object(ob, ob_handle, is_caster, is_alpha_blend);
+  bool is_caster = material.shadow.sub_pass != nullptr;
+  bool is_alpha_blend = material.is_alpha_blend_transparent;
+  inst_.shadows.sync_object(ob_handle, res_handle, is_caster, is_alpha_blend);
 }
 
 /** \} */

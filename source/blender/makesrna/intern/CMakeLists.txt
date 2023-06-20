@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2006 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2006 Blender Foundation. All rights reserved.
 
 if(CMAKE_COMPILER_IS_GNUCC)
   # add here so we fail early.
@@ -11,7 +12,7 @@ if(HAVE_MALLOC_STATS_H)
   add_definitions(-DHAVE_MALLOC_STATS_H)
 endif()
 
-# files rna_access.c rna_define.c makesrna.c intentionally excluded.
+# files rna_access.cc rna_define.c makesrna.c intentionally excluded.
 set(DEFSRC
   rna_ID.c
   rna_action.c
@@ -29,38 +30,38 @@ set(DEFSRC
   rna_color.c
   rna_constraint.c
   rna_context.c
-  rna_curve.c
+  rna_curve.cc
   rna_curveprofile.c
-  rna_curves.c
+  rna_curves.cc
   rna_depsgraph.c
   rna_dynamicpaint.c
   rna_fcurve.c
   rna_fluid.c
-  rna_gpencil.c
-  rna_gpencil_modifier.c
+  rna_gpencil_legacy.c
+  rna_gpencil_legacy_modifier.c
   rna_image.c
   rna_key.c
-  rna_lattice.c
+  rna_lattice.cc
   rna_layer.c
   rna_light.c
   rna_lightprobe.c
   rna_linestyle.c
   rna_main.c
-  rna_mask.c
+  rna_mask.cc
   rna_material.c
-  rna_mesh.c
-  rna_meta.c
+  rna_mesh.cc
+  rna_meta.cc
   rna_modifier.c
   rna_movieclip.c
   rna_nla.c
-  rna_nodetree.c
-  rna_object.c
+  rna_nodetree.cc
+  rna_object.cc
   rna_object_force.c
   rna_packedfile.c
   rna_palette.c
   rna_particle.c
   rna_pointcloud.c
-  rna_pose.c
+  rna_pose.cc
   rna_render.c
   rna_rigidbody.c
   rna_rna.c
@@ -70,14 +71,14 @@ set(DEFSRC
   rna_sequencer.c
   rna_shader_fx.c
   rna_sound.c
-  rna_space.c
+  rna_space.cc
   rna_speaker.c
   rna_test.c
   rna_text.c
   rna_texture.c
   rna_timeline.c
   rna_tracking.c
-  rna_ui.c
+  rna_ui.cc
   rna_userdef.c
   rna_vfont.c
   rna_volume.c
@@ -90,8 +91,10 @@ set(DEFSRC
 
 if(WITH_EXPERIMENTAL_FEATURES)
   add_definitions(-DWITH_SIMULATION_DATABLOCK)
+  add_definitions(-DWITH_GREASE_PENCIL_V3)
   list(APPEND DEFSRC
     rna_simulation.c
+    rna_grease_pencil.c
   )
 endif()
 
@@ -100,23 +103,23 @@ set(APISRC
   rna_animation_api.c
   rna_armature_api.c
   rna_camera_api.c
-  rna_curve_api.c
+  rna_curve_api.cc
   rna_fcurve_api.c
   rna_image_api.c
-  rna_lattice_api.c
+  rna_lattice_api.cc
   rna_main_api.c
   rna_material_api.c
-  rna_mesh_api.c
+  rna_mesh_api.cc
   rna_meta_api.c
-  rna_object_api.c
+  rna_object_api.cc
   rna_pose_api.c
   rna_scene_api.c
   rna_sequencer_api.c
   rna_sound_api.c
-  rna_space_api.c
+  rna_space_api.cc
   rna_text_api.c
   rna_texture_api.c
-  rna_ui_api.c
+  rna_ui_api.cc
   rna_vfont_api.c
   rna_wm_api.c
   rna_wm_gizmo_api.c
@@ -134,18 +137,42 @@ set_source_files_properties(${GENSRC} PROPERTIES GENERATED TRUE)
 # CFLAGS for Generated Files
 #
 # less strict flags for generated source
+set(GENSRC_FLAGS)
 set(GENSRC_CFLAGS)
+set(GENSRC_CXXFLAGS)
 if(CMAKE_COMPILER_IS_GNUCC OR (CMAKE_C_COMPILER_ID MATCHES "Clang"))
   set(GENSRC_CFLAGS "-Wno-missing-prototypes")
+  set(GENSRC_CXXFLAGS "-Wno-missing-declarations")
 endif()
 if(CMAKE_C_COMPILER_ID MATCHES "Clang")
-  string(APPEND GENSRC_CFLAGS " -Wno-missing-variable-declarations")
+  string(APPEND GENSRC_FLAGS " -Wno-missing-variable-declarations")
+elseif(MSVC)
+  # Restore warn C4100 (unreferenced formal parameter) back to w4
+  remove_cc_flag(/w34100)
+endif()
+
+set(GENSRC_C ${GENSRC})
+list(FILTER GENSRC_C INCLUDE REGEX ".*\.c$")
+set(GENSRC_CXX ${GENSRC})
+list(FILTER GENSRC_CXX INCLUDE REGEX ".*\.cc$")
+
+if(GENSRC_FLAGS)
+  set_source_files_properties(${GENSRC} PROPERTIES COMPILE_FLAGS "${GENSRC_FLAGS}")
 endif()
 
 if(GENSRC_CFLAGS)
-  set_source_files_properties(${GENSRC} PROPERTIES COMPILE_FLAGS "${GENSRC_CFLAGS}")
+  set_source_files_properties(${GENSRC_C} PROPERTIES COMPILE_FLAGS "${GENSRC_CFLAGS}")
 endif()
+
+if(GENSRC_CXXFLAGS)
+  set_source_files_properties(${GENSRC_CXX} PROPERTIES COMPILE_FLAGS "${GENSRC_CXXFLAGS}")
+endif()
+
+unset(GENSRC_C)
+unset(GENSRC_CXX)
+unset(GENSRC_FLAGS)
 unset(GENSRC_CFLAGS)
+unset(GENSRC_CXXFLAGS)
 
 
 # NOTE: Disable clang-tidy because generated files are stored outside of the source,
@@ -178,6 +205,7 @@ set(SRC
   ../../../../intern/guardedalloc/intern/mallocn.c
   ../../../../intern/guardedalloc/intern/mallocn_guarded_impl.c
   ../../../../intern/guardedalloc/intern/mallocn_lockfree_impl.c
+  ../../../../intern/guardedalloc/intern/memory_usage.cc
 
   # Needed for defaults.
   ../../../../release/datafiles/userdef/userdef_default.c
@@ -241,28 +269,12 @@ if(WITH_IMAGE_OPENEXR)
   add_definitions(-DWITH_OPENEXR)
 endif()
 
-if(WITH_OPENIMAGEIO)
-  add_definitions(-DWITH_OPENIMAGEIO)
-endif()
-
-if(WITH_IMAGE_TIFF)
-  add_definitions(-DWITH_TIFF)
-endif()
-
 if(WITH_IMAGE_OPENJPEG)
   add_definitions(-DWITH_OPENJPEG)
 endif()
 
-if(WITH_IMAGE_DDS)
-  add_definitions(-DWITH_DDS)
-endif()
-
 if(WITH_IMAGE_CINEON)
   add_definitions(-DWITH_CINEON)
-endif()
-
-if(WITH_IMAGE_HDR)
-  add_definitions(-DWITH_HDR)
 endif()
 
 if(WITH_IMAGE_WEBP)
@@ -270,15 +282,16 @@ if(WITH_IMAGE_WEBP)
 endif()
 
 if(WITH_AUDASPACE)
-  add_definitions(-DWITH_AUDASPACE)
-
   list(APPEND INC_SYS
     ${AUDASPACE_C_INCLUDE_DIRS}
   )
-  list(APPEND LIB
-    ${AUDASPACE_C_LIBRARIES}
-    ${AUDASPACE_PY_LIBRARIES}
-  )
+  if(WITH_SYSTEM_AUDASPACE)
+    list(APPEND LIB
+      ${AUDASPACE_C_LIBRARIES}
+      ${AUDASPACE_PY_LIBRARIES}
+    )
+  endif()
+  add_definitions(-DWITH_AUDASPACE)
 endif()
 
 if(WITH_CODEC_FFMPEG)
@@ -388,6 +401,14 @@ if(WITH_XR_OPENXR)
   add_definitions(-DWITH_XR_OPENXR)
 endif()
 
+if(WITH_VULKAN_METAL)
+  add_definitions(-DWITH_VULKAN_METAL)
+endif()
+
+if(WITH_VULKAN_BACKEND)
+  add_definitions(-DWITH_VULKAN_BACKEND)
+endif()
+
 if(WITH_GMP)
   add_definitions(-DWITH_GMP)
 endif()
@@ -404,7 +425,9 @@ target_link_libraries(makesrna bf_dna)
 target_link_libraries(makesrna bf_dna_blenlib)
 
 if(WIN32 AND NOT UNIX)
-  target_link_libraries(makesrna ${PTHREADS_LIBRARIES})
+  if(DEFINED PTHREADS_LIBRARIES)
+    target_link_libraries(makesrna ${PTHREADS_LIBRARIES})
+  endif()
 endif()
 
 # Output `rna_*_gen.c`.
@@ -412,13 +435,13 @@ endif()
 # `valgrind --leak-check=full --track-origins=yes`
 add_custom_command(
   OUTPUT ${GENSRC}
-  COMMAND "$<TARGET_FILE:makesrna>" ${CMAKE_CURRENT_BINARY_DIR}/  ${CMAKE_CURRENT_BINARY_DIR}/../
+  COMMAND "$<TARGET_FILE:makesrna>" ${CMAKE_CURRENT_BINARY_DIR}/ ${CMAKE_CURRENT_BINARY_DIR}/../
   DEPENDS makesrna
 )
 
 # Build bf_rna
 set(SRC
-  rna_access.c
+  rna_access.cc
   rna_access_compare_override.c
   rna_path.cc
   ${GENSRC}
@@ -427,7 +450,7 @@ set(SRC
   rna_access_internal.h
   rna_internal.h
   rna_internal_types.h
-  rna_mesh_utils.h
+  rna_mesh_utils.hh
 )
 
 set(LIB
@@ -440,7 +463,7 @@ set(LIB
   bf_editor_curve
   bf_editor_curves
   bf_editor_gizmo_library
-  bf_editor_gpencil
+  bf_editor_gpencil_legacy
   bf_editor_io
   bf_editor_mesh
   bf_editor_object

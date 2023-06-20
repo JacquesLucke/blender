@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation, Joshua Leung. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation, Joshua Leung. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -9,6 +10,8 @@
 
 /** Temp constant defined for these functions only. */
 #define NLASTRIP_MIN_LEN_THRESH 0.1f
+
+#include "DNA_listBase.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,15 +37,21 @@ struct PropertyRNA;
 /* Data Management */
 
 /**
- * Remove the given NLA strip from the NLA track it occupies, free the strip's data,
- * and the strip itself.
+ * Create new NLA Track.
+ * The returned pointer is owned by the caller.
  */
-void BKE_nlastrip_free(ListBase *strips, struct NlaStrip *strip, bool do_id_user);
+struct NlaTrack *BKE_nlatrack_new(void);
+
 /**
- * Remove the given NLA track from the set of NLA tracks, free the track's data,
- * and the track itself.
+ * Frees the given NLA strip, and calls #BKE_nlastrip_remove_and_free to
+ * remove and free all children strips.
  */
-void BKE_nlatrack_free(ListBase *tracks, struct NlaTrack *nlt, bool do_id_user);
+void BKE_nlastrip_free(struct NlaStrip *strip, bool do_id_user);
+/**
+ * Remove & Frees all NLA strips from the given NLA track,
+ * then frees (doesn't remove) the track itself.
+ */
+void BKE_nlatrack_free(struct NlaTrack *nlt, bool do_id_user);
 /**
  * Free the elements of type NLA Tracks provided in the given list, but do not free
  * the list itself since that is not free-standing
@@ -86,16 +95,77 @@ void BKE_nla_tracks_copy_from_adt(struct Main *bmain,
                                   int flag);
 
 /**
- * Add a NLA Track to the given AnimData.
- * \param prev: NLA-Track to add the new one after.
+ * Inserts a given NLA track before a specified NLA track within the
+ * passed NLA track list.
  */
-struct NlaTrack *BKE_nlatrack_add(struct AnimData *adt,
-                                  struct NlaTrack *prev,
-                                  bool is_liboverride);
+void BKE_nlatrack_insert_before(ListBase *nla_tracks,
+                                struct NlaTrack *next,
+                                struct NlaTrack *new_track,
+                                bool is_liboverride);
+
+/**
+ * Inserts a given NLA track after a specified NLA track within the
+ * passed NLA track list.
+ */
+void BKE_nlatrack_insert_after(ListBase *nla_tracks,
+                               struct NlaTrack *prev,
+                               struct NlaTrack *new_track,
+                               bool is_liboverride);
+
+/**
+ * Calls #BKE_nlatrack_new to create a new NLA track, inserts it before the
+ * given NLA track with #BKE_nlatrack_insert_before.
+ */
+struct NlaTrack *BKE_nlatrack_new_before(ListBase *nla_tracks,
+                                         struct NlaTrack *next,
+                                         bool is_liboverride);
+
+/**
+ * Calls #BKE_nlatrack_new to create a new NLA track, inserts it after the
+ * given NLA track with #BKE_nlatrack_insert_after.
+ */
+struct NlaTrack *BKE_nlatrack_new_after(ListBase *nla_tracks,
+                                        struct NlaTrack *prev,
+                                        bool is_liboverride);
+
+/**
+ * Calls #BKE_nlatrack_new to create a new NLA track, inserts it as the head of the
+ * NLA track list with #BKE_nlatrack_new_before.
+ */
+struct NlaTrack *BKE_nlatrack_new_head(ListBase *nla_tracks, bool is_liboverride);
+
+/**
+ * Calls #BKE_nlatrack_new to create a new NLA track, inserts it as the tail of the
+ * NLA track list with #BKE_nlatrack_new_after.
+ */
+struct NlaTrack *BKE_nlatrack_new_tail(ListBase *nla_tracks, const bool is_liboverride);
+
+/**
+ * Removes the given NLA track from the list of tracks provided.
+ */
+void BKE_nlatrack_remove(ListBase *tracks, struct NlaTrack *nlt);
+
+/**
+ * Remove the given NLA track from the list of NLA tracks, free the track's data,
+ * and the track itself.
+ */
+void BKE_nlatrack_remove_and_free(ListBase *tracks, struct NlaTrack *nlt, bool do_id_user);
+
 /**
  * Create a NLA Strip referencing the given Action.
  */
 struct NlaStrip *BKE_nlastrip_new(struct bAction *act);
+
+/*
+ * Removes the given NLA strip from the list of strips provided.
+ */
+void BKE_nlastrip_remove(ListBase *strips, struct NlaStrip *strip);
+
+/*
+ * Removes the given NLA strip from the list of strips provided, and frees it's memory.
+ */
+void BKE_nlastrip_remove_and_free(ListBase *strips, struct NlaStrip *strip, const bool do_id_user);
+
 /**
  * Add new NLA-strip to the top of the NLA stack - i.e.
  * into the last track if space, or a new one otherwise.
@@ -131,7 +201,15 @@ void BKE_nlastrips_sort_strips(ListBase *strips);
 
 /**
  * Add the given NLA-Strip to the given list of strips, assuming that it
- * isn't currently a member of another list
+ * isn't currently a member of another list, NULL, or conflicting with existing
+ * strips position.
+ */
+void BKE_nlastrips_add_strip_unsafe(ListBase *strips, struct NlaStrip *strip);
+
+/**
+ * NULL checks incoming strip and verifies no overlap / invalid
+ * configuration against other strips in NLA Track before calling
+ * #BKE_nlastrips_add_strip_unsafe.
  */
 bool BKE_nlastrips_add_strip(ListBase *strips, struct NlaStrip *strip);
 
@@ -201,10 +279,15 @@ bool BKE_nlatrack_has_space(struct NlaTrack *nlt, float start, float end);
 void BKE_nlatrack_sort_strips(struct NlaTrack *nlt);
 
 /**
- * Add the given NLA-Strip to the given NLA-Track, assuming that it
- * isn't currently attached to another one.
+ * Add the given NLA-Strip to the given NLA-Track.
+ * Calls #BKE_nlastrips_add_strip to check if strip can be added.
  */
 bool BKE_nlatrack_add_strip(struct NlaTrack *nlt, struct NlaStrip *strip, bool is_liboverride);
+
+/**
+ * Remove the NLA-Strip from the given NLA-Track.
+ */
+void BKE_nlatrack_remove_strip(struct NlaTrack *track, struct NlaStrip *strip);
 
 /**
  * Get the extents of the given NLA-Track including gaps between strips,
@@ -294,6 +377,11 @@ void BKE_nlastrip_recalculate_bounds(struct NlaStrip *strip);
  * the overall NLA animation result is unchanged.
  */
 void BKE_nlastrip_recalculate_bounds_sync_action(struct NlaStrip *strip);
+
+/**
+ * Recalculate the blend-in and blend-out values after a strip transform update.
+ */
+void BKE_nlastrip_recalculate_blend(struct NlaStrip *strip);
 
 /**
  * Find (and set) a unique name for a strip from the whole AnimData block

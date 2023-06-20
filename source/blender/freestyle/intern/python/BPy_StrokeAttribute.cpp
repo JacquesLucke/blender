@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2004-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -80,7 +82,8 @@ static int StrokeAttribute_init(BPy_StrokeAttribute *self, PyObject *args, PyObj
   float red, green, blue, alpha, thickness_right, thickness_left, t;
 
   if (PyArg_ParseTupleAndKeywords(
-          args, kwds, "|O!", (char **)kwlist_1, &StrokeAttribute_Type, &obj1)) {
+          args, kwds, "|O!", (char **)kwlist_1, &StrokeAttribute_Type, &obj1))
+  {
     if (!obj1) {
       self->sa = new StrokeAttribute();
     }
@@ -97,7 +100,8 @@ static int StrokeAttribute_init(BPy_StrokeAttribute *self, PyObject *args, PyObj
                                        &obj1,
                                        &StrokeAttribute_Type,
                                        &obj2,
-                                       &t)) {
+                                       &t))
+  {
     self->sa = new StrokeAttribute(
         *(((BPy_StrokeAttribute *)obj1)->sa), *(((BPy_StrokeAttribute *)obj2)->sa), t);
   }
@@ -111,7 +115,8 @@ static int StrokeAttribute_init(BPy_StrokeAttribute *self, PyObject *args, PyObj
                                        &blue,
                                        &alpha,
                                        &thickness_right,
-                                       &thickness_left)) {
+                                       &thickness_left))
+  {
     self->sa = new StrokeAttribute(red, green, blue, alpha, thickness_right, thickness_left);
   }
   else {

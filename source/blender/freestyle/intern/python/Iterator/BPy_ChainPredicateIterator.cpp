@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2004-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -93,7 +95,8 @@ static int ChainPredicateIterator_init(BPy_ChainPredicateIterator *self,
            *obj6 = nullptr;
 
   if (PyArg_ParseTupleAndKeywords(
-          args, kwds, "O!", (char **)kwlist_1, &ChainPredicateIterator_Type, &obj1)) {
+          args, kwds, "O!", (char **)kwlist_1, &ChainPredicateIterator_Type, &obj1))
+  {
     self->cp_it = new ChainPredicateIterator(*(((BPy_ChainPredicateIterator *)obj1)->cp_it));
     self->upred = ((BPy_ChainPredicateIterator *)obj1)->upred;
     self->bpred = ((BPy_ChainPredicateIterator *)obj1)->bpred;
@@ -117,7 +120,8 @@ static int ChainPredicateIterator_init(BPy_ChainPredicateIterator *self,
                                        check_begin,
                                        &obj5,
                                        &PyBool_Type,
-                                       &obj6)) {
+                                       &obj6))
+  {
     UnaryPredicate1D *up1D = ((BPy_UnaryPredicate1D *)obj1)->up1D;
     BinaryPredicate1D *bp1D = ((BPy_BinaryPredicate1D *)obj2)->bp1D;
     bool restrict_to_selection = (!obj3) ? true : bool_from_PyBool(obj3);

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2019 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2019 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -7,13 +8,16 @@
 
 #pragma once
 
+#include "BKE_global.h"
+
+#include "DRW_gpu_wrapper.hh"
 #include "DRW_render.h"
 
-#include "overlay_shader_shared.h"
+#include "UI_resources.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "draw_handle.hh"
+
+#include "overlay_shader_shared.h"
 
 #ifdef __APPLE__
 #  define USE_GEOM_SHADER_WORKAROUND 1
@@ -69,6 +73,7 @@ typedef struct OVERLAY_PassList {
   DRWPass *edit_gpencil_ps;
   DRWPass *edit_gpencil_gizmos_ps;
   DRWPass *edit_gpencil_curve_ps;
+  DRWPass *edit_grease_pencil_ps;
   DRWPass *edit_lattice_ps;
   DRWPass *edit_mesh_depth_ps[2];
   DRWPass *edit_mesh_verts_ps[2];
@@ -76,6 +81,7 @@ typedef struct OVERLAY_PassList {
   DRWPass *edit_mesh_faces_ps[2];
   DRWPass *edit_mesh_faces_cage_ps[2];
   DRWPass *edit_curves_points_ps[2];
+  DRWPass *edit_curves_lines_ps[2];
   DRWPass *edit_mesh_analysis_ps;
   DRWPass *edit_mesh_normals_ps;
   DRWPass *edit_particle_ps;
@@ -119,6 +125,7 @@ typedef struct OVERLAY_PassList {
   DRWPass *pointcloud_ps;
   DRWPass *sculpt_mask_ps;
   DRWPass *sculpt_curves_selection_ps;
+  DRWPass *sculpt_curves_cage_ps;
   DRWPass *volume_ps;
   DRWPass *wireframe_ps;
   DRWPass *wireframe_xray_ps;
@@ -176,6 +183,9 @@ typedef struct OVERLAY_ExtraCallBuffers {
 
   DRWCallBuffer *groundline;
 
+  DRWCallBuffer *light_icon_inner;
+  DRWCallBuffer *light_icon_outer;
+  DRWCallBuffer *light_icon_sun_rays;
   DRWCallBuffer *light_point;
   DRWCallBuffer *light_sun;
   DRWCallBuffer *light_spot;
@@ -241,6 +251,7 @@ typedef struct OVERLAY_PrivateData {
   DRWShadingGroup *edit_lattice_wires_grp;
   DRWShadingGroup *edit_gpencil_points_grp;
   DRWShadingGroup *edit_gpencil_wires_grp;
+  DRWShadingGroup *edit_grease_pencil_points_grp;
   DRWShadingGroup *edit_gpencil_curve_handle_grp;
   DRWShadingGroup *edit_gpencil_curve_points_grp;
   DRWShadingGroup *edit_mesh_depth_grp[2];
@@ -264,6 +275,7 @@ typedef struct OVERLAY_PrivateData {
   DRWShadingGroup *edit_uv_face_dots_grp;
   DRWShadingGroup *edit_uv_stretching_grp;
   DRWShadingGroup *edit_curves_points_grp[2];
+  DRWShadingGroup *edit_curves_lines_grp[2];
   DRWShadingGroup *extra_grid_grp;
   DRWShadingGroup *facing_grp[2];
   DRWShadingGroup *fade_grp[2];
@@ -285,6 +297,7 @@ typedef struct OVERLAY_PrivateData {
   DRWShadingGroup *pointcloud_dots_grp;
   DRWShadingGroup *sculpt_mask_grp;
   DRWShadingGroup *sculpt_curves_selection_grp;
+  DRWShadingGroup *sculpt_curves_cage_lines_grp;
   DRWShadingGroup *viewer_attribute_curve_grp;
   DRWShadingGroup *viewer_attribute_curves_grp;
   DRWShadingGroup *viewer_attribute_mesh_grp;
@@ -305,7 +318,7 @@ typedef struct OVERLAY_PrivateData {
   DRWView *view_edit_verts;
   DRWView *view_edit_text;
   DRWView *view_reference_images;
-  DRWView *view_edit_curves_points;
+  DRWView *view_edit_curves;
 
   /** TODO: get rid of this. */
   ListBase bg_movie_clips;
@@ -360,6 +373,7 @@ typedef struct OVERLAY_PrivateData {
     int flag; /** Copy of #v3d->overlay.edit_flag. */
   } edit_mesh;
   struct {
+    bool do_points;
     bool do_zbufclip;
   } edit_curves;
   struct {
@@ -428,10 +442,6 @@ typedef struct OVERLAY_StorageList {
   struct OVERLAY_PrivateData *pd;
 } OVERLAY_StorageList;
 
-typedef struct OVERLAY_Instance {
-  GPUUniformBuf *grid_ubo;
-} OVERLAY_Instance;
-
 typedef struct OVERLAY_Data {
   void *engine_type;
   OVERLAY_FramebufferList *fbl;
@@ -439,7 +449,7 @@ typedef struct OVERLAY_Data {
   OVERLAY_PassList *psl;
   OVERLAY_StorageList *stl;
 
-  OVERLAY_Instance *instance;
+  void *instance;
 } OVERLAY_Data;
 
 typedef struct OVERLAY_DupliData {
@@ -452,7 +462,7 @@ typedef struct OVERLAY_DupliData {
   short base_flag;
 } OVERLAY_DupliData;
 
-typedef struct BoneInstanceData {
+struct BoneInstanceData {
   /* Keep sync with bone instance vertex format (OVERLAY_InstanceFormats) */
   union {
     float mat[4][4];
@@ -469,7 +479,12 @@ typedef struct BoneInstanceData {
       float _pad03[3], amax_b;
     };
   };
-} BoneInstanceData;
+
+  BoneInstanceData() = default;
+  /* Constructor used by metaball overlays and expected to be used for drawing
+   * metaball_wire_sphere with armature wire shader that produces wide-lines. */
+  BoneInstanceData(Object *ob, const float *pos, const float radius, const float color[4]);
+};
 
 typedef struct OVERLAY_InstanceFormats {
   struct GPUVertFormat *instance_pos;
@@ -542,11 +557,15 @@ void OVERLAY_edit_curve_cache_populate(OVERLAY_Data *vedata, Object *ob);
 void OVERLAY_edit_surf_cache_populate(OVERLAY_Data *vedata, Object *ob);
 void OVERLAY_edit_curve_draw(OVERLAY_Data *vedata);
 
-void OVERLAY_edit_gpencil_cache_init(OVERLAY_Data *vedata);
-void OVERLAY_gpencil_cache_init(OVERLAY_Data *vedata);
-void OVERLAY_gpencil_cache_populate(OVERLAY_Data *vedata, Object *ob);
-void OVERLAY_gpencil_draw(OVERLAY_Data *vedata);
-void OVERLAY_edit_gpencil_draw(OVERLAY_Data *vedata);
+void OVERLAY_edit_gpencil_legacy_cache_init(OVERLAY_Data *vedata);
+void OVERLAY_gpencil_legacy_cache_init(OVERLAY_Data *vedata);
+void OVERLAY_gpencil_legacy_cache_populate(OVERLAY_Data *vedata, Object *ob);
+void OVERLAY_gpencil_legacy_draw(OVERLAY_Data *vedata);
+void OVERLAY_edit_gpencil_legacy_draw(OVERLAY_Data *vedata);
+
+void OVERLAY_edit_grease_pencil_cache_init(OVERLAY_Data *vedata);
+void OVERLAY_edit_grease_pencil_cache_populate(OVERLAY_Data *vedata, Object *ob);
+void OVERLAY_edit_grease_pencil_draw(OVERLAY_Data *vedata);
 
 void OVERLAY_edit_lattice_cache_init(OVERLAY_Data *vedata);
 void OVERLAY_edit_lattice_cache_populate(OVERLAY_Data *vedata, Object *ob);
@@ -684,6 +703,7 @@ void OVERLAY_sculpt_draw(OVERLAY_Data *vedata);
 void OVERLAY_sculpt_curves_cache_init(OVERLAY_Data *vedata);
 void OVERLAY_sculpt_curves_cache_populate(OVERLAY_Data *vedata, Object *ob);
 void OVERLAY_sculpt_curves_draw(OVERLAY_Data *vedata);
+void OVERLAY_sculpt_curves_draw_wires(OVERLAY_Data *vedata);
 
 void OVERLAY_viewer_attribute_cache_init(OVERLAY_Data *vedata);
 void OVERLAY_viewer_attribute_cache_populate(OVERLAY_Data *vedata, Object *object);
@@ -724,6 +744,7 @@ GPUShader *OVERLAY_shader_edit_gpencil_wire(void);
 GPUShader *OVERLAY_shader_edit_lattice_point(void);
 GPUShader *OVERLAY_shader_edit_lattice_wire(void);
 GPUShader *OVERLAY_shader_edit_mesh_analysis(void);
+GPUShader *OVERLAY_shader_edit_mesh_depth(void);
 GPUShader *OVERLAY_shader_edit_mesh_edge(bool use_flat_interp);
 GPUShader *OVERLAY_shader_edit_mesh_face(void);
 GPUShader *OVERLAY_shader_edit_mesh_facedot(void);
@@ -773,6 +794,7 @@ GPUShader *OVERLAY_shader_particle_dot(void);
 GPUShader *OVERLAY_shader_particle_shape(void);
 GPUShader *OVERLAY_shader_sculpt_mask(void);
 GPUShader *OVERLAY_shader_sculpt_curves_selection(void);
+GPUShader *OVERLAY_shader_sculpt_curves_cage(void);
 GPUShader *OVERLAY_shader_viewer_attribute_curve(void);
 GPUShader *OVERLAY_shader_viewer_attribute_curves(void);
 GPUShader *OVERLAY_shader_viewer_attribute_mesh(void);
@@ -786,7 +808,3 @@ GPUShader *OVERLAY_shader_xray_fade(void);
 OVERLAY_InstanceFormats *OVERLAY_shader_instance_formats_get(void);
 
 void OVERLAY_shader_free(void);
-
-#ifdef __cplusplus
-}
-#endif

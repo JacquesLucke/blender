@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2020 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2020 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edinterface
@@ -15,14 +16,14 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "interface_intern.h"
+#include "interface_intern.hh"
 
 /* -------------------------------------------------------------------- */
 /** \name Text Field Undo Stack
  * \{ */
 
 struct uiUndoStack_Text_State {
-  struct uiUndoStack_Text_State *next, *prev;
+  uiUndoStack_Text_State *next, *prev;
   int cursor_index;
   char text[0];
 };
@@ -95,7 +96,7 @@ void ui_textedit_undo_push(uiUndoStack_Text *stack, const char *text, int cursor
   BLI_addtail(&stack->states, stack->current);
 }
 
-uiUndoStack_Text *ui_textedit_undo_stack_create(void)
+uiUndoStack_Text *ui_textedit_undo_stack_create()
 {
   uiUndoStack_Text *stack = MEM_new<uiUndoStack_Text>(__func__);
   stack->current = nullptr;

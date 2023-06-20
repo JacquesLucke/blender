@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2017 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2017 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spoutliner
@@ -52,7 +53,8 @@ void outliner_viewcontext_init(const bContext *C, TreeViewContext *tvc)
 
     if ((tvc->obact->type == OB_ARMATURE) ||
         /* This could be made into its own function. */
-        ((tvc->obact->type == OB_MESH) && tvc->obact->mode & OB_MODE_WEIGHT_PAINT)) {
+        ((tvc->obact->type == OB_MESH) && tvc->obact->mode & OB_MODE_WEIGHT_PAINT))
+    {
       tvc->ob_pose = BKE_object_pose_armature_get(tvc->obact);
     }
   }
@@ -133,9 +135,11 @@ TreeElement *outliner_find_item_at_x_in_row(const SpaceOutliner *space_outliner,
                                             bool *r_is_merged_icon,
                                             bool *r_is_over_icon)
 {
-  /* if parent_te is opened, it doesn't show children in row */
+  TreeStoreElem *parent_tselem = TREESTORE(parent_te);
   TreeElement *te = parent_te;
-  if (!TSELEM_OPEN(TREESTORE(parent_te), space_outliner)) {
+
+  /* If parent_te is opened, or it is a ViewLayer, it doesn't show children in row. */
+  if (!TSELEM_OPEN(parent_tselem, space_outliner) && parent_tselem->type != TSE_R_LAYER) {
     te = outliner_find_item_at_x_in_row_recursive(parent_te, view_co_x, r_is_merged_icon);
   }
 
@@ -292,7 +296,8 @@ bool outliner_tree_traverse(const SpaceOutliner *space_outliner,
       /* skip */
     }
     else if (!outliner_tree_traverse(
-                 space_outliner, &subtree, filter_te_flag, filter_tselem_flag, func, customdata)) {
+                 space_outliner, &subtree, filter_te_flag, filter_tselem_flag, func, customdata))
+    {
       return false;
     }
   }

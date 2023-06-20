@@ -1,13 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup cmpnodes
  */
 
 #include "BLI_math_base.h"
-
-#include "BLT_translation.h"
 
 #include "DNA_movieclip_types.h"
 
@@ -24,13 +23,13 @@ namespace blender::nodes::node_composite_keying_cc {
 
 static void cmp_node_keying_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Color>(N_("Image")).default_value({0.8f, 0.8f, 0.8f, 1.0f});
-  b.add_input<decl::Color>(N_("Key Color")).default_value({1.0f, 1.0f, 1.0f, 1.0f});
-  b.add_input<decl::Float>(N_("Garbage Matte")).hide_value();
-  b.add_input<decl::Float>(N_("Core Matte")).hide_value();
-  b.add_output<decl::Color>(N_("Image"));
-  b.add_output<decl::Float>(N_("Matte"));
-  b.add_output<decl::Float>(N_("Edges"));
+  b.add_input<decl::Color>("Image").default_value({0.8f, 0.8f, 0.8f, 1.0f});
+  b.add_input<decl::Color>("Key Color").default_value({1.0f, 1.0f, 1.0f, 1.0f});
+  b.add_input<decl::Float>("Garbage Matte").hide_value();
+  b.add_input<decl::Float>("Core Matte").hide_value();
+  b.add_output<decl::Color>("Image");
+  b.add_output<decl::Float>("Matte");
+  b.add_output<decl::Float>("Edges");
 }
 
 static void node_composit_init_keying(bNodeTree * /*ntree*/, bNode *node)
@@ -76,6 +75,7 @@ class KeyingOperation : public NodeOperation {
     get_input("Image").pass_through(get_result("Image"));
     get_result("Matte").allocate_invalid();
     get_result("Edges").allocate_invalid();
+    context().set_info_message("Viewport compositor setup not fully supported");
   }
 };
 
@@ -99,6 +99,8 @@ void register_node_type_cmp_keying()
   node_type_storage(
       &ntype, "NodeKeyingData", node_free_standard_storage, node_copy_standard_storage);
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
+  ntype.realtime_compositor_unsupported_message = N_(
+      "Node not supported in the Viewport compositor");
 
   nodeRegisterType(&ntype);
 }

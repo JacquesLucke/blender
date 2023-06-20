@@ -1,11 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup cmpnodes
  */
 
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 
 #include "BKE_context.h"
 #include "BKE_lib_id.h"
@@ -31,12 +32,12 @@ namespace blender::nodes::node_composite_movieclip_cc {
 
 static void cmp_node_movieclip_declare(NodeDeclarationBuilder &b)
 {
-  b.add_output<decl::Color>(N_("Image"));
-  b.add_output<decl::Float>(N_("Alpha"));
-  b.add_output<decl::Float>(N_("Offset X"));
-  b.add_output<decl::Float>(N_("Offset Y"));
-  b.add_output<decl::Float>(N_("Scale"));
-  b.add_output<decl::Float>(N_("Angle"));
+  b.add_output<decl::Color>("Image");
+  b.add_output<decl::Float>("Alpha");
+  b.add_output<decl::Float>("Offset X");
+  b.add_output<decl::Float>("Offset Y");
+  b.add_output<decl::Float>("Scale");
+  b.add_output<decl::Float>("Angle");
 }
 
 static void init(const bContext *C, PointerRNA *ptr)
@@ -128,7 +129,7 @@ class MovieClipOperation : public NodeOperation {
     GPUShader *shader = shader_manager().get("compositor_convert_color_to_half_color");
     GPU_shader_bind(shader);
 
-    const int input_unit = GPU_shader_get_texture_binding(shader, "input_tx");
+    const int input_unit = GPU_shader_get_sampler_binding(shader, "input_tx");
     GPU_texture_bind(movie_clip_texture, input_unit);
 
     result.bind_as_image(shader, "output_img");
@@ -162,7 +163,7 @@ class MovieClipOperation : public NodeOperation {
     GPUShader *shader = shader_manager().get("compositor_extract_alpha_from_color");
     GPU_shader_bind(shader);
 
-    const int input_unit = GPU_shader_get_texture_binding(shader, "input_tx");
+    const int input_unit = GPU_shader_get_sampler_binding(shader, "input_tx");
     GPU_texture_bind(movie_clip_texture, input_unit);
 
     result.bind_as_image(shader, "output_img");

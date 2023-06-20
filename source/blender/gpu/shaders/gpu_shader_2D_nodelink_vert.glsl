@@ -1,5 +1,5 @@
 /**
- * 2D Quadratic Bezier thick line drawing
+ * 2D Cubic Bezier thick line drawing
  */
 
 #define MID_VERTEX 65
@@ -16,11 +16,11 @@ void main(void)
   const float end_gradient_threshold = 0.65;
 
 #ifdef USE_INSTANCE
-#  define colStart (colid_doarrow[0] < 3 ? start_color : node_link_data.colors[colid_doarrow[0]])
-#  define colEnd (colid_doarrow[1] < 3 ? end_color : node_link_data.colors[colid_doarrow[1]])
+#  define colStart (colid_doarrow[0] < 3u ? start_color : node_link_data.colors[colid_doarrow[0]])
+#  define colEnd (colid_doarrow[1] < 3u ? end_color : node_link_data.colors[colid_doarrow[1]])
 #  define colShadow node_link_data.colors[colid_doarrow[2]]
-#  define doArrow (colid_doarrow[3] != 0)
-#  define doMuted (domuted[0] != 0)
+#  define doArrow (colid_doarrow[3] != 0u)
+#  define doMuted (domuted[0] != 0u)
 #else
   vec2 P0 = node_link_data.bezierPts[0].xy;
   vec2 P1 = node_link_data.bezierPts[1].xy;
@@ -84,8 +84,9 @@ void main(void)
 
   vec2 tangent = ((P1 - P0) * one_minus_t2_3 + (P2 - P1) * 6.0 * (t - t2) + (P3 - P2) * t2_3);
 
-  /* tangent space at t */
-  tangent = normalize(tangent);
+  /* Tangent space at t. If the inner and outer control points overlap, the tangent is invalid.
+   * Use the vector between the sockets instead. */
+  tangent = is_zero(tangent) ? normalize(P3 - P0) : normalize(tangent);
   vec2 normal = tangent.yx * vec2(-1.0, 1.0);
 
   /* Position vertex on the curve tangent space */
@@ -111,7 +112,8 @@ void main(void)
   /* If the link is not muted or is not a reroute arrow the points are squashed to the center of
    * the line. Magic numbers are defined in drawnode.c */
   if ((expand.x == 1.0 && !doMuted) ||
-      (expand.y != 1.0 && (pos.x < 0.70 || pos.x > 0.71) && !doArrow)) {
+      (expand.y != 1.0 && (pos.x < 0.70 || pos.x > 0.71) && !doArrow))
+  {
     gl_Position.xy *= 0.0;
   }
 }

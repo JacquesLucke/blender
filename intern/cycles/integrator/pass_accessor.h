@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -108,6 +109,11 @@ class PassAccessor {
                               const Destination &destination) const;
   /* Set pass data for the given render buffers. Used for baking to read from passes. */
   bool set_render_tile_pixels(RenderBuffers *render_buffers, const Source &source);
+
+  const PassAccessInfo &get_pass_access_info() const
+  {
+    return pass_access_info_;
+  }
 
  protected:
   virtual void init_kernel_film_convert(KernelFilmConvert *kfilm_convert,

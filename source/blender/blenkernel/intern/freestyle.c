@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2013 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2013 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -98,7 +99,7 @@ static void copy_lineset(FreestyleLineSet *new_lineset, FreestyleLineSet *linese
   new_lineset->edge_types = lineset->edge_types;
   new_lineset->exclude_edge_types = lineset->exclude_edge_types;
   new_lineset->group = lineset->group;
-  strcpy(new_lineset->name, lineset->name);
+  STRNCPY(new_lineset->name, lineset->name);
 
   if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
     id_us_plus((ID *)new_lineset->linestyle);
@@ -180,13 +181,13 @@ FreestyleLineSet *BKE_freestyle_lineset_add(struct Main *bmain,
   lineset->exclude_edge_types = 0;
   lineset->group = NULL;
   if (name) {
-    BLI_strncpy(lineset->name, name, sizeof(lineset->name));
+    STRNCPY(lineset->name, name);
   }
   else if (lineset_index > 0) {
-    BLI_snprintf(lineset->name, sizeof(lineset->name), "LineSet %i", lineset_index + 1);
+    SNPRINTF(lineset->name, "LineSet %i", lineset_index + 1);
   }
   else {
-    strcpy(lineset->name, "LineSet");
+    STRNCPY(lineset->name, "LineSet");
   }
   BKE_freestyle_lineset_unique_name(config, lineset);
 
@@ -228,7 +229,8 @@ short BKE_freestyle_lineset_get_active_index(FreestyleConfig *config)
   short i;
 
   for (lineset = (FreestyleLineSet *)config->linesets.first, i = 0; lineset;
-       lineset = lineset->next, i++) {
+       lineset = lineset->next, i++)
+  {
     if (lineset->flags & FREESTYLE_LINESET_CURRENT) {
       return i;
     }
@@ -242,7 +244,8 @@ void BKE_freestyle_lineset_set_active_index(FreestyleConfig *config, short index
   short i;
 
   for (lineset = (FreestyleLineSet *)config->linesets.first, i = 0; lineset;
-       lineset = lineset->next, i++) {
+       lineset = lineset->next, i++)
+  {
     if (i == index) {
       lineset->flags |= FREESTYLE_LINESET_CURRENT;
     }

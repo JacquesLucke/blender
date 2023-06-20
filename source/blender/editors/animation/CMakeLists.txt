@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
@@ -17,13 +19,15 @@ set(INC
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
+set(INC_SYS
+)
 
 set(SRC
   anim_channels_defines.c
   anim_channels_edit.c
   anim_deps.c
   anim_draw.c
-  anim_filter.c
+  anim_filter.cc
   anim_ipo_utils.c
   anim_markers.c
   anim_motion_paths.c

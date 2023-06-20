@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2004-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -57,7 +59,8 @@ static int LocalAverageDepthF1D___init__(BPy_LocalAverageDepthF1D *self,
   double d;
 
   if (!PyArg_ParseTupleAndKeywords(
-          args, kwds, "d|O!", (char **)kwlist, &d, &IntegrationType_Type, &obj)) {
+          args, kwds, "d|O!", (char **)kwlist, &d, &IntegrationType_Type, &obj))
+  {
     return -1;
   }
   IntegrationType t = (obj) ? IntegrationType_from_BPy_IntegrationType(obj) : MEAN;

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -7,7 +9,7 @@
  * output of a modified mesh.
  *
  * This API handles the case when the modifier stack outputs a mesh which does not have
- * #Mesh data (#MPoly, #MLoop, #MEdge, #MVert).
+ * #Mesh data (#Mesh::polys(), corner verts, corner edges, edges, etc).
  * Currently this is used so the resulting mesh can have #BMEditMesh data,
  * postponing the converting until it's needed or avoiding conversion entirely
  * which can be an expensive operation.
@@ -27,6 +29,7 @@
 
 #include "BLI_ghash.h"
 #include "BLI_math.h"
+#include "BLI_math_vector.hh"
 #include "BLI_task.hh"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
@@ -34,18 +37,19 @@
 #include "BKE_editmesh.h"
 #include "BKE_editmesh_cache.h"
 #include "BKE_lib_id.h"
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 #include "BKE_mesh_runtime.h"
 #include "BKE_mesh_wrapper.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_subdiv.h"
-#include "BKE_subdiv_mesh.h"
+#include "BKE_subdiv_mesh.hh"
 #include "BKE_subdiv_modifier.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
+using blender::float3;
 using blender::Span;
 
 Mesh *BKE_mesh_wrapper_from_editmesh_with_coords(BMEditMesh *em,
@@ -150,12 +154,19 @@ void BKE_mesh_wrapper_ensure_mdata(Mesh *me)
 
 bool BKE_mesh_wrapper_minmax(const Mesh *me, float min[3], float max[3])
 {
+  using namespace blender;
   switch (me->runtime->wrapper_type) {
     case ME_WRAPPER_TYPE_BMESH:
       return BKE_editmesh_cache_calc_minmax(me->edit_mesh, me->runtime->edit_data, min, max);
     case ME_WRAPPER_TYPE_MDATA:
-    case ME_WRAPPER_TYPE_SUBD:
-      return BKE_mesh_minmax(me, min, max);
+    case ME_WRAPPER_TYPE_SUBD: {
+      if (const std::optional<Bounds<float3>> bounds = me->bounds_min_max()) {
+        copy_v3_v3(min, math::min(bounds->min, float3(min)));
+        copy_v3_v3(max, math::max(bounds->max, float3(max)));
+        return true;
+      }
+      return false;
+    }
   }
   BLI_assert_unreachable();
   return false;
@@ -192,9 +203,9 @@ void BKE_mesh_wrapper_vert_coords_copy(const Mesh *me,
     case ME_WRAPPER_TYPE_MDATA:
     case ME_WRAPPER_TYPE_SUBD: {
       BLI_assert(vert_coords_len <= me->totvert);
-      const Span<MVert> verts = me->verts();
+      const Span<float3> positions = me->vert_positions();
       for (int i = 0; i < vert_coords_len; i++) {
-        copy_v3_v3(vert_coords[i], verts[i].co);
+        copy_v3_v3(vert_coords[i], positions[i]);
       }
       return;
     }
@@ -230,9 +241,9 @@ void BKE_mesh_wrapper_vert_coords_copy_with_mat4(const Mesh *me,
     case ME_WRAPPER_TYPE_MDATA:
     case ME_WRAPPER_TYPE_SUBD: {
       BLI_assert(vert_coords_len == me->totvert);
-      const Span<MVert> verts = me->verts();
+      const Span<float3> positions = me->vert_positions();
       for (int i = 0; i < vert_coords_len; i++) {
-        mul_v3_m4v3(vert_coords[i], mat, verts[i].co);
+        mul_v3_m4v3(vert_coords[i], mat, positions[i]);
       }
       return;
     }
@@ -339,7 +350,7 @@ static Mesh *mesh_wrapper_ensure_subdivision(Mesh *me)
 
   if (use_clnors) {
     float(*lnors)[3] = static_cast<float(*)[3]>(
-        CustomData_get_layer(&subdiv_mesh->ldata, CD_NORMAL));
+        CustomData_get_layer_for_write(&subdiv_mesh->ldata, CD_NORMAL, subdiv_mesh->totloop));
     BLI_assert(lnors != nullptr);
     BKE_mesh_set_custom_normals(subdiv_mesh, lnors);
     CustomData_set_layer_flag(&me->ldata, CD_NORMAL, CD_FLAG_TEMPORARY);
@@ -349,7 +360,7 @@ static Mesh *mesh_wrapper_ensure_subdivision(Mesh *me)
     BKE_mesh_calc_normals_split(subdiv_mesh);
   }
 
-  if (subdiv != runtime_data->subdiv) {
+  if (!ELEM(subdiv, runtime_data->subdiv_cpu, runtime_data->subdiv_gpu)) {
     BKE_subdiv_free(subdiv);
   }
 

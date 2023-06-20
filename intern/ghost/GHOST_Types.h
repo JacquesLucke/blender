@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup GHOST
@@ -8,6 +9,9 @@
 #pragma once
 
 #include <stdint.h>
+
+/* This is used by `GHOST_C-api.h` too, cannot use C++ conventions. */
+// NOLINTBEGIN: modernize-use-using
 
 #ifdef WITH_CXX_GUARDEDALLOC
 #  include "MEM_guardedalloc.h"
@@ -61,9 +65,9 @@ typedef struct {
 } GHOST_CursorBitmapRef;
 
 typedef enum {
-  GHOST_glStereoVisual = (1 << 0),
-  GHOST_glDebugContext = (1 << 1),
-} GHOST_GLFlags;
+  GHOST_gpuStereoVisual = (1 << 0),
+  GHOST_gpuDebugContext = (1 << 1),
+} GHOST_GPUFlags;
 
 typedef enum GHOST_DialogOptions {
   GHOST_DialogWarning = (1 << 0),
@@ -73,6 +77,45 @@ typedef enum GHOST_DialogOptions {
 typedef void *GHOST_TUserDataPtr;
 
 typedef enum { GHOST_kFailure = 0, GHOST_kSuccess } GHOST_TSuccess;
+
+/**
+ * Static flag (relating to the back-ends support for features).
+ *
+ * \note When adding new capabilities, add to #GHOST_CAPABILITY_FLAG_ALL,
+ * then mask out of from the `getCapabilities(..)` callback with an explanation for why
+ * the feature is not supported.
+ */
+typedef enum {
+  /**
+   * Set when warping the cursor is supported (re-positioning the users cursor).
+   */
+  GHOST_kCapabilityCursorWarp = (1 << 0),
+  /**
+   * Set when getting/setting the window position is supported.
+   */
+  GHOST_kCapabilityWindowPosition = (1 << 1),
+  /**
+   * Set when a separate primary clipboard is supported.
+   * This is a convention for X11/WAYLAND, select text & MMB to paste (without an explicit copy).
+   */
+  GHOST_kCapabilityPrimaryClipboard = (1 << 2),
+  /**
+   * Support for reading the front-buffer.
+   */
+  GHOST_kCapabilityGPUReadFrontBuffer = (1 << 3),
+  /**
+   * Set when there is support for system clipboard copy/paste.
+   */
+  GHOST_kCapabilityClipboardImages = (1 << 4),
+} GHOST_TCapabilityFlag;
+
+/**
+ * Back-ends should use this, masking out features which are not supported
+ * with notes as to why those features cannot be supported.
+ */
+#define GHOST_CAPABILITY_FLAG_ALL \
+  (GHOST_kCapabilityCursorWarp | GHOST_kCapabilityWindowPosition | \
+   GHOST_kCapabilityPrimaryClipboard | GHOST_kCapabilityGPUReadFrontBuffer)
 
 /* Xtilt and Ytilt represent how much the pen is tilted away from
  * vertically upright in either the X or Y direction, with X and Y the
@@ -128,14 +171,15 @@ typedef enum {
   GHOST_kModifierKeyNum
 } GHOST_TModifierKey;
 
+/**
+ * \note these values are stored in #wmWindow::windowstate,
+ * don't change, only add new values.
+ */
 typedef enum {
   GHOST_kWindowStateNormal = 0,
-  GHOST_kWindowStateMaximized,
-  GHOST_kWindowStateMinimized,
-  GHOST_kWindowStateFullScreen,
-  GHOST_kWindowStateEmbedded,
-  // GHOST_kWindowStateModified,
-  // GHOST_kWindowStateUnModified,
+  GHOST_kWindowStateMaximized = 1,
+  GHOST_kWindowStateMinimized = 2,
+  GHOST_kWindowStateFullScreen = 3,
 } GHOST_TWindowState;
 
 typedef enum {
@@ -177,20 +221,53 @@ typedef enum {
 typedef enum {
   GHOST_kEventUnknown = 0,
 
-  GHOST_kEventCursorMove, /* Mouse move event. */
-  GHOST_kEventButtonDown, /* Mouse button event. */
-  GHOST_kEventButtonUp,   /* Mouse button event. */
-  GHOST_kEventWheel,      /* Mouse wheel event. */
-  GHOST_kEventTrackpad,   /* Trackpad event. */
+  /** Mouse move event.
+   *
+   * \note #GHOST_GetEventData returns #GHOST_TEventCursorData.
+   */
+  GHOST_kEventCursorMove,
+  /** Mouse button down event. */
+  GHOST_kEventButtonDown,
+  /** Mouse button up event. */
+  GHOST_kEventButtonUp,
+  /**
+   * Mouse wheel event.
+   *
+   * \note #GHOST_GetEventData returns #GHOST_TEventWheelData.
+   */
+  GHOST_kEventWheel,
+  /**
+   * Trackpad event.
+   *
+   * \note #GHOST_GetEventData returns #GHOST_TEventTrackpadData.
+   */
+  GHOST_kEventTrackpad,
 
 #ifdef WITH_INPUT_NDOF
-  GHOST_kEventNDOFMotion, /* N degree of freedom device motion event. */
-  GHOST_kEventNDOFButton, /* N degree of freedom device button event. */
+  /**
+   * N degree of freedom device motion event.
+   *
+   * \note #GHOST_GetEventData returns #GHOST_TEventNDOFMotionData.
+   */
+  GHOST_kEventNDOFMotion,
+  /**
+   * N degree of freedom device button event.
+   *
+   * \note #GHOST_GetEventData returns #GHOST_TEventNDOFButtonData.
+   */
+  GHOST_kEventNDOFButton,
 #endif
 
+  /**
+   * Keyboard up/down events.
+   *
+   * Includes repeat events, check #GHOST_TEventKeyData::is_repeat
+   * if detecting repeat events is needed.
+   *
+   * \note #GHOST_GetEventData returns #GHOST_TEventKeyData.
+   */
   GHOST_kEventKeyDown,
   GHOST_kEventKeyUp,
-  //  GHOST_kEventKeyAuto,
 
   GHOST_kEventQuitRequest,
 
@@ -198,6 +275,8 @@ typedef enum {
   GHOST_kEventWindowActivate,
   GHOST_kEventWindowDeactivate,
   GHOST_kEventWindowUpdate,
+  /** Client side window decorations have changed and need to be redrawn. */
+  GHOST_kEventWindowUpdateDecor,
   GHOST_kEventWindowSize,
   GHOST_kEventWindowMove,
   GHOST_kEventWindowDPIHintChanged,
@@ -603,7 +682,7 @@ typedef struct {
 typedef struct {
   int flags;
   GHOST_TDrawingContextType context_type;
-} GHOST_GLSettings;
+} GHOST_GPUSettings;
 
 typedef enum {
   /** Axis that cursor grab will wrap. */
@@ -813,3 +892,5 @@ typedef struct GHOST_XrControllerModelData {
 } GHOST_XrControllerModelData;
 
 #endif /* WITH_XR_OPENXR */
+
+// NOLINTEND: modernize-use-using

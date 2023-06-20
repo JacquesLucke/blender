@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_curves.hh"
 
@@ -8,14 +10,11 @@ namespace blender::nodes::node_geo_set_curve_radius_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Geometry>(N_("Curve")).supported_type(GEO_COMPONENT_TYPE_CURVE);
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().supports_field();
-  b.add_input<decl::Float>(N_("Radius"))
-      .min(0.0f)
-      .default_value(0.005f)
-      .supports_field()
-      .subtype(PROP_DISTANCE);
-  b.add_output<decl::Geometry>(N_("Curve"));
+  b.add_input<decl::Geometry>("Curve").supported_type(GeometryComponent::Type::Curve);
+  b.add_input<decl::Bool>("Selection").default_value(true).hide_value().field_on_all();
+  b.add_input<decl::Float>("Radius").min(0.0f).default_value(0.005f).field_on_all().subtype(
+      PROP_DISTANCE);
+  b.add_output<decl::Geometry>("Curve").propagate_all();
 }
 
 static void set_radius(bke::CurvesGeometry &curves,
@@ -29,7 +28,7 @@ static void set_radius(bke::CurvesGeometry &curves,
   AttributeWriter<float> radii = attributes.lookup_or_add_for_write<float>("radius",
                                                                            ATTR_DOMAIN_POINT);
 
-  bke::CurvesFieldContext field_context{curves, ATTR_DOMAIN_POINT};
+  const bke::CurvesFieldContext field_context{curves, ATTR_DOMAIN_POINT};
   fn::FieldEvaluator evaluator{field_context, curves.points_num()};
   evaluator.set_selection(selection_field);
   evaluator.add_with_destination(radius_field, radii.varray);
@@ -46,7 +45,7 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
     if (Curves *curves_id = geometry_set.get_curves_for_write()) {
-      set_radius(bke::CurvesGeometry::wrap(curves_id->geometry), selection_field, radii_field);
+      set_radius(curves_id->geometry.wrap(), selection_field, radii_field);
     }
   });
 

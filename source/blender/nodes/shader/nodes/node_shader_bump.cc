@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup shdnodes
@@ -16,19 +17,15 @@ namespace blender::nodes::node_shader_bump_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Float>(N_("Strength"))
+  b.add_input<decl::Float>("Strength")
       .default_value(1.0f)
       .min(0.0f)
       .max(1.0f)
       .subtype(PROP_FACTOR);
-  b.add_input<decl::Float>(N_("Distance")).default_value(1.0f).min(0.0f).max(1000.0f);
-  b.add_input<decl::Float>(N_("Height"))
-      .default_value(1.0f)
-      .min(-1000.0f)
-      .max(1000.0f)
-      .hide_value();
-  b.add_input<decl::Vector>(N_("Normal")).min(-1.0f).max(1.0f).hide_value();
-  b.add_output<decl::Vector>(N_("Normal"));
+  b.add_input<decl::Float>("Distance").default_value(1.0f).min(0.0f).max(1000.0f);
+  b.add_input<decl::Float>("Height").default_value(1.0f).min(-1000.0f).max(1000.0f).hide_value();
+  b.add_input<decl::Vector>("Normal").min(-1.0f).max(1.0f).hide_value();
+  b.add_output<decl::Vector>("Normal");
 }
 
 static void node_shader_buts_bump(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -59,6 +56,14 @@ static int gpu_shader_bump(GPUMaterial *mat,
 
   const char *height_function = GPU_material_split_sub_function(mat, GPU_FLOAT, &in[2].link);
 
+  /* TODO (Miguel Pozo):
+   * Currently, this doesn't compute the actual differentials, just the height at dX and dY
+   * offsets. The actual differentials are computed inside the GLSL node_bump function by
+   * subtracting the height input. This avoids redundant computations when the height input is
+   * also needed by regular nodes as part in the main function (See #103903 for context).
+   * A better option would be to add a "value" input socket (in this case the height) to the
+   * differentiate node, but currently this kind of intermediate nodes are pruned in the
+   * code generation process (see #104265), so we need to fix that first. */
   GPUNodeLink *dheight = GPU_differentiate_float_function(height_function);
 
   float invert = (node->custom1) ? -1.0 : 1.0;

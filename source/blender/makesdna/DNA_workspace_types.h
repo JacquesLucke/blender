@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -186,7 +188,7 @@ typedef struct WorkSpaceDataRelation {
   /** The value for this parent-data/workspace relation. */
   void *value;
 
-  /** Reference to the actual parent window, wmWindow->winid. Used in read/write code. */
+  /** Reference to the actual parent window, #wmWindow.winid. Used in read/write code. */
   int parentid;
   char _pad_0[4];
 } WorkSpaceDataRelation;

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2004 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2004 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edmesh
@@ -16,6 +17,8 @@
 #include "BKE_editmesh.h"
 #include "BKE_layer.h"
 #include "BKE_report.h"
+
+#include "BLT_translation.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -138,7 +141,8 @@ static float edbm_rip_edge_side_measure(
   score = len_v2v2(e_v1_co, e_v2_co);
 
   if (dist_squared_to_line_segment_v2(fmval_tweak, e_v1_co, e_v2_co) >
-      dist_squared_to_line_segment_v2(fmval, e_v1_co, e_v2_co)) {
+      dist_squared_to_line_segment_v2(fmval, e_v1_co, e_v2_co))
+  {
     return score;
   }
   return -score;
@@ -291,6 +295,7 @@ static EdgeLoopPair *edbm_ripsel_looptag_helper(BMesh *bm)
     BM_edge_loop_pair(e_last, &lp->l_a, &lp->l_b);
 
     BLI_assert(tot == uid_end - uid_start);
+    UNUSED_VARS_NDEBUG(tot);
 
 #if 0
     printf("%s: found contiguous edge loop of (%d)\n", __func__, uid_end - uid_start);
@@ -767,7 +772,7 @@ static int edbm_rip_invoke__vert(bContext *C, const wmEvent *event, Object *obed
           if (do_fill) {
             /* Only needed when filling...
              * Also, we never want to tag best edge,
-             * that one won't change during split. See T44618. */
+             * that one won't change during split. See #44618. */
             if (larr[larr_len]->e == e_best) {
               BM_elem_flag_enable(larr[larr_len]->prev->e, BM_ELEM_TAG);
             }
@@ -1099,6 +1104,8 @@ static int edbm_rip_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 void MESH_OT_rip(wmOperatorType *ot)
 {
+  PropertyRNA *prop;
+
   /* identifiers */
   ot->name = "Rip";
   ot->idname = "MESH_OT_rip";
@@ -1113,5 +1120,6 @@ void MESH_OT_rip(wmOperatorType *ot)
 
   /* to give to transform */
   Transform_Properties(ot, P_PROPORTIONAL | P_MIRROR_DUMMY);
-  RNA_def_boolean(ot->srna, "use_fill", false, "Fill", "Fill the ripped region");
+  prop = RNA_def_boolean(ot->srna, "use_fill", false, "Fill", "Fill the ripped region");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_MESH);
 }

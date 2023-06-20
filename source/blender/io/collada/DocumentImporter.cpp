@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2009-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup collada
@@ -161,9 +163,7 @@ void DocumentImporter::cancel(const COLLADAFW::String &errorMessage)
    * The latter sounds better. */
 }
 
-void DocumentImporter::start()
-{
-}
+void DocumentImporter::start() {}
 
 void DocumentImporter::finish()
 {
@@ -265,7 +265,7 @@ void DocumentImporter::translate_anim_recursive(COLLADAFW::Node *node,
                                                 COLLADAFW::Node *par = nullptr,
                                                 Object *parob = nullptr)
 {
-  /* The split in T29246, root_map must point at actual root when
+  /* The split in #29246, root_map must point at actual root when
    * calculating bones in apply_curves_as_matrix. - actual root is the root node.
    * This has to do with inverse bind poses being world space
    * (the sources for skinned bones' rest-poses) and the way
@@ -601,7 +601,8 @@ std::vector<Object *> *DocumentImporter::write_node(COLLADAFW::Node *node,
             pair_iter = object_map.equal_range(node_id);
         for (std::multimap<COLLADAFW::UniqueId, Object *>::iterator it2 = pair_iter.first;
              it2 != pair_iter.second;
-             it2++) {
+             it2++)
+        {
           Object *source_ob = (Object *)it2->second;
           COLLADAFW::Node *source_node = node_map[node_id];
           ob = create_instance_node(source_ob, source_node, node, sce, is_library_node);
@@ -936,7 +937,7 @@ bool DocumentImporter::writeImage(const COLLADAFW::Image *image)
   char absolute_path[FILE_MAX];
   const char *workpath;
 
-  BLI_split_dir_part(this->import_settings->filepath, dir, sizeof(dir));
+  BLI_path_split_dir_part(this->import_settings->filepath, dir, sizeof(dir));
   BLI_path_join(absolute_path, sizeof(absolute_path), dir, imagepath.c_str());
   if (BLI_exists(absolute_path)) {
     workpath = absolute_path;
@@ -1017,9 +1018,9 @@ bool DocumentImporter::writeLight(const COLLADAFW::Light *light)
     et->setData("clipsta", &(lamp->clipsta));
     et->setData("clipend", &(lamp->clipend));
     et->setData("bias", &(lamp->bias));
-    et->setData("soft", &(lamp->soft));
     et->setData("bufsize", &(lamp->bufsize));
     et->setData("buffers", &(lamp->buffers));
+    et->setData("radius", &(lamp->radius));
     et->setData("area_shape", &(lamp->area_shape));
     et->setData("area_size", &(lamp->area_size));
     et->setData("area_sizey", &(lamp->area_sizey));

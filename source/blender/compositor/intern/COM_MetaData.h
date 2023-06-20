@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2021 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2021 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -60,7 +61,7 @@ struct MetaDataExtractCallbackData {
   static void extract_cryptomatte_meta_data(void *_data,
                                             const char *propname,
                                             char *propvalue,
-                                            int UNUSED(len));
+                                            int /*len*/);
 };
 
 }  // namespace blender::compositor

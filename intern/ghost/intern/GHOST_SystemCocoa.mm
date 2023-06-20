@@ -1,29 +1,36 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "GHOST_SystemCocoa.h"
+#include "GHOST_SystemCocoa.hh"
 
-#include "GHOST_DisplayManagerCocoa.h"
-#include "GHOST_EventButton.h"
-#include "GHOST_EventCursor.h"
-#include "GHOST_EventDragnDrop.h"
-#include "GHOST_EventKey.h"
-#include "GHOST_EventString.h"
-#include "GHOST_EventTrackpad.h"
-#include "GHOST_EventWheel.h"
-#include "GHOST_TimerManager.h"
-#include "GHOST_TimerTask.h"
-#include "GHOST_WindowCocoa.h"
-#include "GHOST_WindowManager.h"
+#include "GHOST_DisplayManagerCocoa.hh"
+#include "GHOST_EventButton.hh"
+#include "GHOST_EventCursor.hh"
+#include "GHOST_EventDragnDrop.hh"
+#include "GHOST_EventKey.hh"
+#include "GHOST_EventString.hh"
+#include "GHOST_EventTrackpad.hh"
+#include "GHOST_EventWheel.hh"
+#include "GHOST_TimerManager.hh"
+#include "GHOST_TimerTask.hh"
+#include "GHOST_WindowCocoa.hh"
+#include "GHOST_WindowManager.hh"
 
-#include "GHOST_ContextCGL.h"
+/* Don't generate OpenGL deprecation warning. This is a known thing, and is not something easily
+ * solvable in a short term. */
+#ifdef __clang__
+#  pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
+#include "GHOST_ContextCGL.hh"
 
 #ifdef WITH_VULKAN_BACKEND
-#  include "GHOST_ContextVK.h"
+#  include "GHOST_ContextVK.hh"
 #endif
 
 #ifdef WITH_INPUT_NDOF
-#  include "GHOST_NDOFManagerCocoa.h"
+#  include "GHOST_NDOFManagerCocoa.hh"
 #endif
 
 #include "AssertMacros.h"
@@ -423,8 +430,7 @@ extern "C" int GHOST_HACK_getFirstFile(char buf[FIRSTFILEBUFLG])
 - (void)applicationWillTerminate:(NSNotification *)aNotification
 {
 #if 0
-  G.is_break = false; /* Let Cocoa perform the termination at the end. */
-  WM_exit(C);
+  WM_exit(C, EXIT_SUCCESS);
 #endif
 }
 
@@ -524,9 +530,7 @@ GHOST_SystemCocoa::GHOST_SystemCocoa()
   m_last_warp_timestamp = 0;
 }
 
-GHOST_SystemCocoa::~GHOST_SystemCocoa()
-{
-}
+GHOST_SystemCocoa::~GHOST_SystemCocoa() {}
 
 GHOST_TSuccess GHOST_SystemCocoa::init()
 {
@@ -693,7 +697,7 @@ GHOST_IWindow *GHOST_SystemCocoa::createWindow(const char *title,
                                                uint32_t width,
                                                uint32_t height,
                                                GHOST_TWindowState state,
-                                               GHOST_GLSettings glSettings,
+                                               GHOST_GPUSettings gpuSettings,
                                                const bool exclusive,
                                                const bool is_dialog,
                                                const GHOST_IWindow *parentWindow)
@@ -722,9 +726,9 @@ GHOST_IWindow *GHOST_SystemCocoa::createWindow(const char *title,
                                    width,
                                    height,
                                    state,
-                                   glSettings.context_type,
-                                   glSettings.flags & GHOST_glStereoVisual,
-                                   glSettings.flags & GHOST_glDebugContext,
+                                   gpuSettings.context_type,
+                                   gpuSettings.flags & GHOST_gpuStereoVisual,
+                                   gpuSettings.flags & GHOST_gpuDebugContext,
                                    is_dialog,
                                    (GHOST_WindowCocoa *)parentWindow);
 
@@ -752,12 +756,12 @@ GHOST_IWindow *GHOST_SystemCocoa::createWindow(const char *title,
  * Never explicitly delete the context, use #disposeContext() instead.
  * \return The new context (or 0 if creation failed).
  */
-GHOST_IContext *GHOST_SystemCocoa::createOffscreenContext(GHOST_GLSettings glSettings)
+GHOST_IContext *GHOST_SystemCocoa::createOffscreenContext(GHOST_GPUSettings gpuSettings)
 {
 #ifdef WITH_VULKAN_BACKEND
-  if (glSettings.context_type == GHOST_kDrawingContextTypeVulkan) {
-    const bool debug_context = (glSettings.flags & GHOST_glDebugContext) != 0;
-    GHOST_Context *context = new GHOST_ContextVK(false, NULL, 1, 0, debug_context);
+  if (gpuSettings.context_type == GHOST_kDrawingContextTypeVulkan) {
+    const bool debug_context = (gpuSettings.flags & GHOST_gpuDebugContext) != 0;
+    GHOST_Context *context = new GHOST_ContextVK(false, NULL, 1, 2, debug_context);
     if (!context->initializeDrawingContext()) {
       delete context;
       return NULL;
@@ -766,7 +770,7 @@ GHOST_IContext *GHOST_SystemCocoa::createOffscreenContext(GHOST_GLSettings glSet
   }
 #endif
 
-  GHOST_Context *context = new GHOST_ContextCGL(false, NULL, NULL, NULL, glSettings.context_type);
+  GHOST_Context *context = new GHOST_ContextCGL(false, NULL, NULL, NULL, gpuSettings.context_type);
   if (context->initializeDrawingContext())
     return context;
   else
@@ -894,6 +898,17 @@ GHOST_TSuccess GHOST_SystemCocoa::getButtons(GHOST_Buttons &buttons) const
   return GHOST_kSuccess;
 }
 
+GHOST_TCapabilityFlag GHOST_SystemCocoa::getCapabilities() const
+{
+  return GHOST_TCapabilityFlag(
+      GHOST_CAPABILITY_FLAG_ALL &
+      ~(
+          /* Cocoa has no support for a primary selection clipboard. */
+          GHOST_kCapabilityPrimaryClipboard |
+          /* This Cocoa back-end has not yet implemented image copy/paste. */
+          GHOST_kCapabilityClipboardImages));
+}
+
 #pragma mark Event handlers
 
 /**
@@ -950,7 +965,8 @@ bool GHOST_SystemCocoa::processEvents(bool waitForEvent)
       // special hotkeys to switch between views, so override directly
 
       if ([event type] == NSEventTypeKeyDown && [event keyCode] == kVK_Tab &&
-          ([event modifierFlags] & NSEventModifierFlagControl)) {
+          ([event modifierFlags] & NSEventModifierFlagControl))
+      {
         handleKeyEvent(event);
       }
       else {
@@ -1242,9 +1258,10 @@ GHOST_TSuccess GHOST_SystemCocoa::handleDraggingEvent(GHOST_TEventType eventType
             return GHOST_kFailure;
 
           if (([bitmapImage bitsPerPixel] == 32) && (([bitmapImage bitmapFormat] & 0x5) == 0) &&
-              ![bitmapImage isPlanar]) {
+              ![bitmapImage isPlanar])
+          {
             /* Try a fast copy if the image is a meshed RGBA 32bit bitmap. */
-            toIBuf = (uint8_t *)ibuf->rect;
+            toIBuf = ibuf->byte_buffer.data;
             rasterRGB = (uint8_t *)[bitmapImage bitmapData];
             for (y = 0; y < imgSize.height; y++) {
               to_i = (imgSize.height - y - 1) * imgSize.width;
@@ -1321,7 +1338,7 @@ GHOST_TSuccess GHOST_SystemCocoa::handleDraggingEvent(GHOST_TEventType eventType
             }
 
             /* Copy the image to ibuf, flipping it vertically. */
-            toIBuf = (uint8_t *)ibuf->rect;
+            toIBuf = ibuf->byte_buffer.data;
             for (y = 0; y < imgSize.height; y++) {
               for (x = 0; x < imgSize.width; x++) {
                 to_i = (imgSize.height - y - 1) * imgSize.width + x;
@@ -1388,7 +1405,9 @@ bool GHOST_SystemCocoa::handleOpenDocumentRequest(void *filepathStr)
     [[windowsList objectAtIndex:0] makeKeyAndOrderFront:nil];
   }
 
-  GHOST_Window *window = (GHOST_Window *)m_windowManager->getActiveWindow();
+  GHOST_Window *window = m_windowManager->getWindows().empty() ?
+                             NULL :
+                             (GHOST_Window *)m_windowManager->getWindows().front();
 
   if (!window) {
     return NO;
@@ -1901,8 +1920,8 @@ GHOST_TSuccess GHOST_SystemCocoa::handleKeyEvent(void *eventPtr)
             GHOST_kKeyLeftControl,
             false));
       }
-      if ((modifiers & NSEventModifierFlagOption) !=
-          (m_modifierMask & NSEventModifierFlagOption)) {
+      if ((modifiers & NSEventModifierFlagOption) != (m_modifierMask & NSEventModifierFlagOption))
+      {
         pushEvent(new GHOST_EventKey(
             [event timestamp] * 1000,
             (modifiers & NSEventModifierFlagOption) ? GHOST_kEventKeyDown : GHOST_kEventKeyUp,
@@ -1943,7 +1962,7 @@ char *GHOST_SystemCocoa::getClipboard(bool selection) const
 
     NSPasteboard *pasteBoard = [NSPasteboard generalPasteboard];
 
-    NSString *textPasted = [pasteBoard stringForType:NSStringPboardType];
+    NSString *textPasted = [pasteBoard stringForType:NSPasteboardTypeString];
 
     if (textPasted == nil) {
       return NULL;
@@ -1978,8 +1997,8 @@ void GHOST_SystemCocoa::putClipboard(const char *buffer, bool selection) const
   @autoreleasepool {
 
     NSPasteboard *pasteBoard = NSPasteboard.generalPasteboard;
-    [pasteBoard declareTypes:@[ NSStringPboardType ] owner:nil];
+    [pasteBoard declareTypes:@[ NSPasteboardTypeString ] owner:nil];
     NSString *textToCopy = [NSString stringWithCString:buffer encoding:NSUTF8StringEncoding];
-    [pasteBoard setString:textToCopy forType:NSStringPboardType];
+    [pasteBoard setString:textToCopy forType:NSPasteboardTypeString];
   }
 }

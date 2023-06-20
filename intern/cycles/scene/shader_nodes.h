@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __NODES_H__
 #define __NODES_H__
@@ -53,9 +54,7 @@ class TextureMapping {
 
 class TextureNode : public ShaderNode {
  public:
-  explicit TextureNode(const NodeType *node_type) : ShaderNode(node_type)
-  {
-  }
+  explicit TextureNode(const NodeType *node_type) : ShaderNode(node_type) {}
   TextureMapping tex_mapping;
   NODE_SOCKET_API_STRUCT_MEMBER(float3, tex_mapping, translation)
   NODE_SOCKET_API_STRUCT_MEMBER(float3, tex_mapping, rotation)
@@ -169,11 +168,15 @@ class SkyTextureNode : public TextureNode {
   NODE_SOCKET_API(float3, vector)
   ImageHandle handle;
 
+  void simplify_settings(Scene *scene);
+
   float get_sun_size()
   {
     /* Clamping for numerical precision. */
     return fmaxf(sun_size, 0.0005f);
   }
+
+  float get_sun_average_radiance();
 };
 
 class OutputNode : public ShaderNode {
@@ -252,8 +255,12 @@ class VoronoiTextureNode : public TextureNode {
   NODE_SOCKET_API(int, dimensions)
   NODE_SOCKET_API(NodeVoronoiDistanceMetric, metric)
   NODE_SOCKET_API(NodeVoronoiFeature, feature)
+  NODE_SOCKET_API(bool, use_normalize)
   NODE_SOCKET_API(float, w)
   NODE_SOCKET_API(float, scale)
+  NODE_SOCKET_API(float, detail)
+  NODE_SOCKET_API(float, roughness)
+  NODE_SOCKET_API(float, lacunarity)
   NODE_SOCKET_API(float, exponent)
   NODE_SOCKET_API(float, smoothness)
   NODE_SOCKET_API(float, randomness)
@@ -441,7 +448,7 @@ class ConvertNode : public ShaderNode {
   };
   ustring value_string;
 
-  static const int MAX_TYPE = 12;
+  static const int MAX_TYPE = 13;
   static bool register_types();
   static Node *create(const NodeType *type);
   static const NodeType *node_types[MAX_TYPE][MAX_TYPE];
@@ -491,27 +498,6 @@ class BsdfNode : public BsdfBaseNode {
   NODE_SOCKET_API(float3, color)
   NODE_SOCKET_API(float3, normal)
   NODE_SOCKET_API(float, surface_mix_weight)
-};
-
-class AnisotropicBsdfNode : public BsdfNode {
- public:
-  SHADER_NODE_CLASS(AnisotropicBsdfNode)
-
-  NODE_SOCKET_API(float3, tangent)
-  NODE_SOCKET_API(float, roughness)
-  NODE_SOCKET_API(float, anisotropy)
-  NODE_SOCKET_API(float, rotation)
-  NODE_SOCKET_API(ClosureType, distribution)
-
-  ClosureType get_closure_type()
-  {
-    return distribution;
-  }
-  void attributes(Shader *shader, AttributeRequestSet *attributes);
-  bool has_attribute_dependency()
-  {
-    return true;
-  }
 };
 
 class DiffuseBsdfNode : public BsdfNode {
@@ -622,12 +608,23 @@ class GlossyBsdfNode : public BsdfNode {
     return distribution;
   }
 
+  NODE_SOCKET_API(float3, tangent)
   NODE_SOCKET_API(float, roughness)
+  NODE_SOCKET_API(float, anisotropy)
+  NODE_SOCKET_API(float, rotation)
   NODE_SOCKET_API(ClosureType, distribution)
+
+  void attributes(Shader *shader, AttributeRequestSet *attributes);
+  bool has_attribute_dependency()
+  {
+    return true;
+  }
 
  private:
   float roughness_orig;
   ClosureType distribution_orig;
+
+  bool is_isotropic();
 };
 
 class GlassBsdfNode : public BsdfNode {
@@ -721,6 +718,8 @@ class EmissionNode : public ShaderNode {
   NODE_SOCKET_API(float3, color)
   NODE_SOCKET_API(float, strength)
   NODE_SOCKET_API(float, surface_mix_weight)
+
+  bool from_auto_conversion = false;
 };
 
 class BackgroundNode : public ShaderNode {
@@ -1525,10 +1524,15 @@ class OSLNode final : public ShaderNode {
   ShaderNode *clone(ShaderGraph *graph) const;
 
   char *input_default_value();
-  void add_input(ustring name, SocketType::Type type);
+  void add_input(ustring name, SocketType::Type type, const int flags = 0);
   void add_output(ustring name, SocketType::Type type);
 
   SHADER_NODE_NO_CLONE_CLASS(OSLNode)
+
+  bool has_surface_emission()
+  {
+    return has_emission;
+  }
 
   /* Ideally we could better detect this, but we can't query this now. */
   bool has_spatial_varying()
@@ -1551,6 +1555,7 @@ class OSLNode final : public ShaderNode {
 
   string filepath;
   string bytecode_hash;
+  bool has_emission;
 };
 
 class NormalMapNode : public ShaderNode {

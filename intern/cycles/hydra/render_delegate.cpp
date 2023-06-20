@@ -1,6 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2022 NVIDIA Corporation
- * Copyright 2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2022 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "hydra/render_delegate.h"
 #include "hydra/camera.h"
@@ -123,7 +124,8 @@ HdCyclesDelegate::HdCyclesDelegate(const HdRenderSettingsMap &settingsMap,
   for (const auto &setting : settingsMap) {
     // Skip over the settings known to be used for initialization only
     if (setting.first == HdCyclesRenderSettingsTokens->device ||
-        setting.first == HdCyclesRenderSettingsTokens->threads) {
+        setting.first == HdCyclesRenderSettingsTokens->threads)
+    {
       continue;
     }
 
@@ -131,9 +133,7 @@ HdCyclesDelegate::HdCyclesDelegate(const HdRenderSettingsMap &settingsMap,
   }
 }
 
-HdCyclesDelegate::~HdCyclesDelegate()
-{
-}
+HdCyclesDelegate::~HdCyclesDelegate() {}
 
 void HdCyclesDelegate::SetDrivers(const HdDriverVector &drivers)
 {
@@ -286,7 +286,8 @@ HdSprim *HdCyclesDelegate::CreateSprim(const TfToken &typeId, const SdfPath &spr
   }
   if (typeId == HdPrimTypeTokens->diskLight || typeId == HdPrimTypeTokens->distantLight ||
       typeId == HdPrimTypeTokens->domeLight || typeId == HdPrimTypeTokens->rectLight ||
-      typeId == HdPrimTypeTokens->sphereLight) {
+      typeId == HdPrimTypeTokens->sphereLight)
+  {
     return new HdCyclesLight(sprimId, typeId);
   }
   if (typeId == HdPrimTypeTokens->extComputation) {
@@ -402,7 +403,8 @@ HdAovDescriptor HdCyclesDelegate::GetDefaultAovDescriptor(const TfToken &name) c
     return HdAovDescriptor(HdFormatFloat32Vec3, false, VtValue(GfVec3f(0.0f)));
   }
   if (name == HdAovTokens->primId || name == HdAovTokens->instanceId ||
-      name == HdAovTokens->elementId) {
+      name == HdAovTokens->elementId)
+  {
     return HdAovDescriptor(HdFormatInt32, false, VtValue(-1));
   }
 

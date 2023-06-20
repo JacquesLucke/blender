@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -20,6 +21,10 @@ struct bConstraint;
   float iloc[3]; \
   /** Individual data center. */ \
   float center[3]; \
+  /** Value pointer for special transforms. */ \
+  float *val; \
+  /** Old value. */ \
+  float ival; \
   /** Various flags. */ \
   int flag
 
@@ -114,10 +119,6 @@ typedef struct TransData {
   float rdist;
   /** Factor of the transformation (for Proportional Editing). */
   float factor;
-  /** Value pointer for special transforms. */
-  float *val;
-  /** Old value. */
-  float ival;
   /** Transformation matrix from data space to global space. */
   float mtx[3][3];
   /** Transformation matrix from global space to data space. */

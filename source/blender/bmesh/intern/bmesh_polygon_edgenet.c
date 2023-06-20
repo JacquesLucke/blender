@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bmesh
@@ -261,6 +263,8 @@ static bool bm_face_split_edgenet_find_loop_walk(BMVert *v_init,
                                                  const uint edge_order_len,
                                                  BMEdge *e_pair[2])
 {
+  UNUSED_VARS_NDEBUG(edge_order_len);
+
   /* fast-path for the common case (avoid push-pop).
    * Also avoids tagging as visited since we know we
    * can't reach these verts some other way */
@@ -323,8 +327,8 @@ static bool bm_face_split_edgenet_find_loop_walk(BMVert *v_init,
     /* in rare cases there may be edges with a single connecting vertex */
     if (e_next != e_first) {
       do {
-        if (BM_ELEM_API_FLAG_TEST(e_next, EDGE_NET) &&
-            (bm_edge_flagged_radial_count(e_next) < 2)) {
+        if (BM_ELEM_API_FLAG_TEST(e_next, EDGE_NET) && (bm_edge_flagged_radial_count(e_next) < 2))
+        {
           BMVert *v_next;
 
           v_next = BM_edge_other_vert(e_next, v);
@@ -472,7 +476,7 @@ bool BM_face_split_edgenet(BMesh *bm,
   }
 
   /* These arrays used to be stack memory, however they can be
-   * large for single faces with complex edge-nets, see: T65980. */
+   * large for single faces with complex edge-nets, see: #65980. */
 
   /* over-alloc (probably 2-4 is only used in most cases), for the biggest-fan */
   edge_order = MEM_mallocN(sizeof(*edge_order) * edge_order_len, __func__);
@@ -501,7 +505,7 @@ bool BM_face_split_edgenet(BMesh *bm,
    * however in rare cases verts are added multiple times to the queue,
    * that on its own is harmless but in _very_ rare cases,
    * the queue will overflow its maximum size,
-   * so we better be strict about this! see: T51539 */
+   * so we better be strict about this! see: #51539 */
 
   for (i = 0; i < edge_net_len; i++) {
     BM_ELEM_API_FLAG_ENABLE(edge_net[i], EDGE_NET);
@@ -523,13 +527,9 @@ bool BM_face_split_edgenet(BMesh *bm,
 
   while ((v = STACK_POP(vert_queue))) {
     BM_ELEM_API_FLAG_DISABLE(v, VERT_IN_QUEUE);
-    if (bm_face_split_edgenet_find_loop(v,
-                                        f->no,
-                                        face_normal_matrix,
-                                        edge_order,
-                                        edge_order_len,
-                                        face_verts,
-                                        &face_verts_len)) {
+    if (bm_face_split_edgenet_find_loop(
+            v, f->no, face_normal_matrix, edge_order, edge_order_len, face_verts, &face_verts_len))
+    {
       BMFace *f_new;
 
       f_new = BM_face_create_verts(bm, face_verts, face_verts_len, f, BM_CREATE_NOP, false);
@@ -557,7 +557,8 @@ bool BM_face_split_edgenet(BMesh *bm,
         do {
           /* Avoid adding to queue multiple times (not common but happens). */
           if (!BM_ELEM_API_FLAG_TEST(l_iter->v, VERT_IN_QUEUE) &&
-              bm_face_split_edgenet_find_loop_pair_exists(l_iter->v)) {
+              bm_face_split_edgenet_find_loop_pair_exists(l_iter->v))
+          {
             STACK_PUSH(vert_queue, l_iter->v);
             BM_ELEM_API_FLAG_ENABLE(l_iter->v, VERT_IN_QUEUE);
           }
@@ -706,7 +707,7 @@ BLI_INLINE bool edge_isect_verts_point_2d(const BMEdge *e,
                                           float r_isect[2])
 {
   /* This bias seems like it could be too large,
-   * mostly its not needed, see T52329 for example where it is. */
+   * mostly its not needed, see #52329 for example where it is. */
   const float endpoint_bias = 1e-4f;
   return ((isect_seg_seg_v2_point_ex(
                v_a->co, v_b->co, e->v1->co, e->v2->co, endpoint_bias, r_isect) == 1) &&
@@ -821,8 +822,8 @@ static void bvhtree_test_edges_isect_2d_ray_cb(void *user_data,
 
   /* direction is normalized, so this will be the distance */
   float dist_new;
-  if (isect_ray_seg_v2(
-          data->v_origin->co, ray->direction, e->v1->co, e->v2->co, &dist_new, NULL)) {
+  if (isect_ray_seg_v2(data->v_origin->co, ray->direction, e->v1->co, e->v2->co, &dist_new, NULL))
+  {
     /* avoid float precision issues, possible this is greater,
      * check above zero to allow some overlap
      * (and needed for partial-connect which will overlap vertices) */
@@ -893,8 +894,8 @@ static BMEdge *test_edges_isect_2d_vert(const struct EdgeGroup_FindConnection_Ar
     float t_best = 1.0f;
     for (uint i = 0; i < args->edge_arr_new_len; i++) {
       float co_isect[2];
-      if (UNLIKELY(
-              edge_isect_verts_point_2d(args->edge_arr_new[i], v_origin, v_other, co_isect))) {
+      if (UNLIKELY(edge_isect_verts_point_2d(args->edge_arr_new[i], v_origin, v_other, co_isect)))
+      {
         const float t_test = line_point_factor_v2(co_isect, v_origin->co, v_other->co);
         if (t_test < t_best) {
           t_best = t_test;
@@ -1007,7 +1008,8 @@ static int bm_face_split_edgenet_find_connection(const struct EdgeGroup_FindConn
         BMVert *v_iter = v_pair[j];
         if (BM_elem_flag_test(v_iter, VERT_IS_VALID)) {
           if (direction_sign ? (v_iter->co[SORT_AXIS] > v_origin->co[SORT_AXIS]) :
-                               (v_iter->co[SORT_AXIS] < v_origin->co[SORT_AXIS])) {
+                               (v_iter->co[SORT_AXIS] < v_origin->co[SORT_AXIS]))
+          {
             BLI_SMALLSTACK_PUSH(vert_search, v_iter);
             BLI_SMALLSTACK_PUSH(vert_blacklist, v_iter);
             BM_elem_flag_disable(v_iter, VERT_IS_VALID);
@@ -1159,7 +1161,7 @@ static BMVert *bm_face_split_edgenet_partial_connect(BMesh *bm, BMVert *v_delimi
 
     BLI_assert(v_delimit->e != NULL);
 
-    /* Degenerate, avoid eternal loop, see: T59074. */
+    /* Degenerate, avoid eternal loop, see: #59074. */
 #  if 0
     BLI_assert(v_split->e != NULL);
 #  else
@@ -1376,7 +1378,8 @@ bool BM_face_split_edgenet_connect_islands(BMesh *bm,
     struct EdgeGroupIsland **group_arr_p = &group_arr[group_arr_len];
 
     for (struct EdgeGroupIsland *g = (void *)group_head; g;
-         g = (struct EdgeGroupIsland *)g->edge_links.next) {
+         g = (struct EdgeGroupIsland *)g->edge_links.next)
+    {
       LinkNode *edge_links = g->edge_links.link;
 
       /* init with *any* different verts */
@@ -1481,7 +1484,7 @@ bool BM_face_split_edgenet_connect_islands(BMesh *bm,
   /* Now create bvh tree
    *
    * Note that a large epsilon is used because meshes with dimensions of around 100+ need it.
-   * see T52329. */
+   * see #52329. */
   BVHTree *bvhtree = BLI_bvhtree_new(edge_arr_len, 1e-4f, 8, 8);
   for (uint i = 0; i < edge_arr_len; i++) {
     const float e_cos[2][3] = {
@@ -1633,7 +1636,7 @@ finally:
     struct TempVertPair *tvp = temp_vert_pairs.list;
     do {
       /* its _very_ unlikely the edge exists,
-       * however splicing may cause this. see: T48012 */
+       * however splicing may cause this. see: #48012 */
       if (!BM_edge_exists(tvp->v_orig, tvp->v_temp)) {
         BM_vert_splice(bm, tvp->v_orig, tvp->v_temp);
       }

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/constant_fold.h"
 #include "scene/shader_graph.h"
@@ -386,6 +387,46 @@ void ConstantFolder::fold_mix_color(NodeMix type, bool clamp_factor, bool clamp)
   }
 }
 
+void ConstantFolder::fold_mix_float(bool clamp_factor, bool clamp) const
+{
+  ShaderInput *fac_in = node->input("Factor");
+  ShaderInput *float1_in = node->input("A");
+  ShaderInput *float2_in = node->input("B");
+
+  float fac = clamp_factor ? saturatef(node->get_float(fac_in->socket_type)) :
+                             node->get_float(fac_in->socket_type);
+  bool fac_is_zero = !fac_in->link && fac == 0.0f;
+  bool fac_is_one = !fac_in->link && fac == 1.0f;
+
+  /* remove no-op node when factor is 0.0 */
+  if (fac_is_zero) {
+    if (try_bypass_or_make_constant(float1_in, clamp)) {
+      return;
+    }
+  }
+
+  /* remove useless mix floats nodes */
+  if (float1_in->link && float2_in->link) {
+    if (float1_in->link == float2_in->link) {
+      try_bypass_or_make_constant(float1_in, clamp);
+      return;
+    }
+  }
+  else if (!float1_in->link && !float2_in->link) {
+    float value1 = node->get_float(float1_in->socket_type);
+    float value2 = node->get_float(float2_in->socket_type);
+    if (value1 == value2) {
+      try_bypass_or_make_constant(float1_in, clamp);
+      return;
+    }
+  }
+  /* remove no-op mix float node when factor is 1.0 */
+  if (fac_is_one) {
+    try_bypass_or_make_constant(float2_in, clamp);
+    return;
+  }
+}
+
 void ConstantFolder::fold_math(NodeMathType type) const
 {
   ShaderInput *value1_in = node->input("Value1");
@@ -530,7 +571,8 @@ void ConstantFolder::fold_mapping(NodeMappingType type) const
       /* Check all use values are zero, note location is not used by vector and normal types. */
       (is_zero(location_in) || type == NODE_MAPPING_TYPE_VECTOR ||
        type == NODE_MAPPING_TYPE_NORMAL) &&
-      is_zero(rotation_in) && is_one(scale_in)) {
+      is_zero(rotation_in) && is_one(scale_in))
+  {
     try_bypass_or_make_constant(vector_in);
   }
 }

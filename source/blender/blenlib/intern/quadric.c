@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bli
@@ -13,7 +14,7 @@
  * even though input/output are floats in some cases.
  *
  * This is done because the cases quadrics are useful
- * often need high precision, see T44780.
+ * often need high precision, see #44780.
  */
 
 #include "BLI_math.h"

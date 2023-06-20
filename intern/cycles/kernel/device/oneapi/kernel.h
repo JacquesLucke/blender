@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2021-2022 Intel Corporation */
+/* SPDX-FileCopyrightText: 2021-2022 Intel Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -32,6 +33,8 @@ struct KernelContext {
   SyclQueue *queue;
   /* Pointer to USM device memory with all global/constant allocation on this device */
   void *kernel_globals;
+  /* We needs this additional data for some kernels. */
+  int scene_max_shaders;
 };
 
 /* Use extern C linking so that the symbols can be easily load from the dynamic library at runtime.
@@ -47,10 +50,14 @@ CYCLES_KERNEL_ONEAPI_EXPORT size_t oneapi_kernel_preferred_local_size(
 CYCLES_KERNEL_ONEAPI_EXPORT bool oneapi_enqueue_kernel(KernelContext *context,
                                                        int kernel,
                                                        size_t global_size,
+                                                       const unsigned int kernel_features,
+                                                       bool use_hardware_raytracing,
                                                        void **args);
 CYCLES_KERNEL_ONEAPI_EXPORT bool oneapi_load_kernels(SyclQueue *queue,
-                                                     const unsigned int requested_features);
+                                                     const unsigned int kernel_features,
+                                                     bool use_hardware_raytracing);
 #  ifdef __cplusplus
 }
+
 #  endif
 #endif /* WITH_ONEAPI */

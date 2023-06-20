@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2022 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup texnodes
@@ -48,13 +49,13 @@ static void colorfn(float *out, TexParams *p, bNode *node, bNodeStack **in, shor
   }
 }
 
-static void update(bNodeTree *UNUSED(ntree), bNode *node)
+static void update(bNodeTree * /*ntree*/, bNode *node)
 {
   node_combsep_color_label(&node->inputs, (NodeCombSepColorMode)node->custom1);
 }
 
 static void exec(void *data,
-                 int UNUSED(thread),
+                 int /*thread*/,
                  bNode *node,
                  bNodeExecData *execdata,
                  bNodeStack **in,
@@ -63,12 +64,12 @@ static void exec(void *data,
   tex_output(node, execdata, in, out[0], &colorfn, static_cast<TexCallData *>(data));
 }
 
-void register_node_type_tex_combine_color(void)
+void register_node_type_tex_combine_color()
 {
   static bNodeType ntype;
 
   tex_node_type_base(&ntype, TEX_NODE_COMBINE_COLOR, "Combine Color", NODE_CLASS_OP_COLOR);
-  node_type_socket_templates(&ntype, inputs, outputs);
+  blender::bke::node_type_socket_templates(&ntype, inputs, outputs);
   ntype.exec_fn = exec;
   ntype.updatefunc = update;
 

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup obj
@@ -8,12 +10,10 @@
 
 #include <optional>
 
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
-
-#include "bmesh.h"
-#include "bmesh_tools.h"
+#include "BLI_virtual_array.hh"
 
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
@@ -28,20 +28,6 @@ const int NOT_FOUND = -1;
 /** Any negative number other than `NOT_FOUND` to initialize usually non-negative numbers. */
 const int NEGATIVE_INIT = -10;
 
-/**
- * #std::unique_ptr than handles freeing #BMesh.
- */
-struct CustomBMeshDeleter {
-  void operator()(BMesh *bmesh)
-  {
-    if (bmesh) {
-      BM_mesh_free(bmesh);
-    }
-  }
-};
-
-using unique_bmesh_ptr = std::unique_ptr<BMesh, CustomBMeshDeleter>;
-
 class OBJMesh : NonCopyable {
  private:
   /**
@@ -49,11 +35,16 @@ class OBJMesh : NonCopyable {
    * sometimes builds an Object in a temporary space that doesn't persist.
    */
   Object export_object_eval_;
-  Mesh *export_mesh_eval_;
-  /**
-   * For curves which are converted to mesh, and triangulated meshes, a new mesh is allocated.
-   */
-  bool mesh_eval_needs_free_ = false;
+  /** A pointer to #owned_export_mesh_ or the object'ed evaluated/original mesh. */
+  const Mesh *export_mesh_;
+  /** A mesh owned here, if created or modified for the export. May be null. */
+  Mesh *owned_export_mesh_ = nullptr;
+  Span<float3> mesh_positions_;
+  Span<int2> mesh_edges_;
+  OffsetIndices<int> mesh_polys_;
+  Span<int> mesh_corner_verts_;
+  VArray<bool> sharp_faces_;
+
   /**
    * Final transform of an object obtained from export settings (up_axis, forward_axis) and the
    * object's world transform matrix.
@@ -63,17 +54,14 @@ class OBJMesh : NonCopyable {
   bool mirrored_transform_;
 
   /**
-   * Total UV vertices in a mesh's texture map.
+   * Per-loop UV index.
    */
-  int tot_uv_vertices_ = 0;
-  /**
-   * Per-polygon-per-vertex UV vertex indices.
-   */
-  Vector<Vector<int>> uv_indices_;
+  Vector<int> loop_to_uv_index_;
   /*
    * UV vertices.
    */
   Vector<float2> uv_coords_;
+
   /**
    * Per-loop normal index.
    */
@@ -164,7 +152,7 @@ class OBJMesh : NonCopyable {
   /**
    * Calculate vertex indices of all vertices of the polygon at the given index.
    */
-  Vector<int> calc_poly_vertex_indices(int poly_index) const;
+  Span<int> calc_poly_vertex_indices(int poly_index) const;
   /**
    * Calculate UV vertex coordinates of an Object.
    * Stores the coordinates and UV vertex indices in the member variables.
@@ -230,23 +218,19 @@ class OBJMesh : NonCopyable {
     return i < 0 || i >= poly_order_.size() ? i : poly_order_[i];
   }
 
-  Mesh *get_mesh() const
+  const Mesh *get_mesh() const
   {
-    return export_mesh_eval_;
+    return export_mesh_;
   }
 
  private:
+  /** Override the mesh from the export scene's object. Takes ownership of the mesh. */
+  void set_mesh(Mesh *mesh);
   /**
-   * Free the mesh if _the exporter_ created it.
+   * Triangulate the mesh pointed to by this object, potentially replacing it with a newly created
+   * mesh.
    */
-  void free_mesh_if_needed();
-  /**
-   * Allocate a new Mesh with triangulated polygons.
-   *
-   * The returned mesh can be the same as the old one.
-   * \return Owning pointer to the new Mesh, and whether a new Mesh was created.
-   */
-  std::pair<Mesh *, bool> triangulate_mesh_eval();
+  void triangulate_mesh_eval();
   /**
    * Set the final transform after applying axes settings and an Object's world transform.
    */

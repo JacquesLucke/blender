@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __UTIL_MATH_INTERSECT_H__
 #define __UTIL_MATH_INTERSECT_H__
@@ -216,17 +217,15 @@ ccl_device_forceinline bool ray_triangle_intersect(const float3 ray_P,
 
 ccl_device_forceinline bool ray_triangle_intersect_self(const float3 ray_P,
                                                         const float3 ray_D,
-                                                        const float3 tri_a,
-                                                        const float3 tri_b,
-                                                        const float3 tri_c)
+                                                        const float3 verts[3])
 {
   /* Matches logic in ray_triangle_intersect, self intersection test to validate
    * if a ray is going to hit self or might incorrectly hit a neighboring triangle. */
 
   /* Calculate vertices relative to ray origin. */
-  const float3 v0 = tri_a - ray_P;
-  const float3 v1 = tri_b - ray_P;
-  const float3 v2 = tri_c - ray_P;
+  const float3 v0 = verts[0] - ray_P;
+  const float3 v1 = verts[1] - ray_P;
+  const float3 v2 = verts[2] - ray_P;
 
   /* Calculate triangle edges. */
   const float3 e0 = v2 - v0;
@@ -257,8 +256,8 @@ ccl_device bool ray_quad_intersect(float3 ray_P,
                                    float ray_tmin,
                                    float ray_tmax,
                                    float3 quad_P,
-                                   float3 quad_u,
-                                   float3 quad_v,
+                                   float3 inv_quad_u,
+                                   float3 inv_quad_v,
                                    float3 quad_n,
                                    ccl_private float3 *isect_P,
                                    ccl_private float *isect_t,
@@ -273,11 +272,11 @@ ccl_device bool ray_quad_intersect(float3 ray_P,
   }
   const float3 hit = ray_P + t * ray_D;
   const float3 inplane = hit - quad_P;
-  const float u = dot(inplane, quad_u) / dot(quad_u, quad_u);
+  const float u = dot(inplane, inv_quad_u);
   if (u < -0.5f || u > 0.5f) {
     return false;
   }
-  const float v = dot(inplane, quad_v) / dot(quad_v, quad_v);
+  const float v = dot(inplane, inv_quad_v);
   if (v < -0.5f || v > 0.5f) {
     return false;
   }

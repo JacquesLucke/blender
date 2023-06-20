@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -50,7 +52,10 @@ typedef enum eGPBrush_Presets {
   GP_BRUSH_PRESET_CLONE_STROKE = 208,
 
   /* Weight Paint 300-399. */
-  GP_BRUSH_PRESET_DRAW_WEIGHT = 300,
+  GP_BRUSH_PRESET_WEIGHT_DRAW = 300,
+  GP_BRUSH_PRESET_WEIGHT_BLUR = 301,
+  GP_BRUSH_PRESET_WEIGHT_AVERAGE = 302,
+  GP_BRUSH_PRESET_WEIGHT_SMEAR = 303,
 } eGPBrush_Presets;
 
 /* BrushGpencilSettings->flag */
@@ -187,6 +192,9 @@ typedef enum eGP_BrushIcons {
   GP_BRUSH_ICON_GPBRUSH_PINCH = 26,
   GP_BRUSH_ICON_GPBRUSH_CLONE = 27,
   GP_BRUSH_ICON_GPBRUSH_WEIGHT = 28,
+  GP_BRUSH_ICON_GPBRUSH_BLUR = 29,
+  GP_BRUSH_ICON_GPBRUSH_AVERAGE = 30,
+  GP_BRUSH_ICON_GPBRUSH_SMEAR = 31,
 } eGP_BrushIcons;
 
 typedef enum eBrushCurvePreset {
@@ -412,6 +420,7 @@ typedef enum eBrushFlags2 {
   BRUSH_CLOTH_USE_COLLISION = (1 << 6),
   BRUSH_AREA_RADIUS_PRESSURE = (1 << 7),
   BRUSH_GRAB_SILHOUETTE = (1 << 8),
+  BRUSH_USE_COLOR_AS_DISPLACEMENT = (1 << 9),
 } eBrushFlags2;
 
 typedef enum {
@@ -606,6 +615,9 @@ typedef enum eBrushGPSculptTool {
 /* BrushGpencilSettings->brush type */
 typedef enum eBrushGPWeightTool {
   GPWEIGHT_TOOL_DRAW = 0,
+  GPWEIGHT_TOOL_BLUR = 1,
+  GPWEIGHT_TOOL_AVERAGE = 2,
+  GPWEIGHT_TOOL_SMEAR = 3,
 } eBrushGPWeightTool;
 
 /* direction that the brush displaces along */
@@ -649,7 +661,6 @@ typedef enum eBrushCurvesSculptDensityMode {
 } eBrushCurvesSculptDensityMode;
 
 #define MAX_BRUSH_PIXEL_RADIUS 500
-#define GP_MAX_BRUSH_PIXEL_RADIUS 1000
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2008 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2008 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup wm
@@ -185,7 +186,7 @@ static void wm_gesture_draw_line(wmGesture *gt)
   immUniform4f("color", 0.4f, 0.4f, 0.4f, 1.0f);
   immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
   immUniform1f("dash_width", 8.0f);
-  immUniform1f("dash_factor", 0.5f);
+  immUniform1f("udash_factor", 0.5f);
 
   float xmin = (float)rect->xmin;
   float ymin = (float)rect->ymin;
@@ -228,7 +229,7 @@ static void wm_gesture_draw_rect(wmGesture *gt)
   immUniform4f("color", 0.4f, 0.4f, 0.4f, 1.0f);
   immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
   immUniform1f("dash_width", 8.0f);
-  immUniform1f("dash_factor", 0.5f);
+  immUniform1f("udash_factor", 0.5f);
 
   imm_draw_box_wire_2d(
       shdr_pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, (float)rect->ymax);
@@ -267,7 +268,7 @@ static void wm_gesture_draw_circle(wmGesture *gt)
   immUniform4f("color", 0.4f, 0.4f, 0.4f, 1.0f);
   immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
   immUniform1f("dash_width", 4.0f);
-  immUniform1f("dash_factor", 0.5f);
+  immUniform1f("udash_factor", 0.5f);
 
   imm_draw_circle_wire_2d(shdr_pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, 40);
 
@@ -326,7 +327,7 @@ static void draw_filled_lasso(wmGesture *gt)
 
     IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_SHUFFLE_COLOR);
     GPU_shader_bind(state.shader);
-    GPU_shader_uniform_vector(
+    GPU_shader_uniform_float_ex(
         state.shader, GPU_shader_get_uniform(state.shader, "shuffle"), 4, 1, red);
 
     immDrawPixelsTexTiled(
@@ -371,7 +372,7 @@ static void wm_gesture_draw_lasso(wmGesture *gt, bool filled)
   immUniform4f("color", 0.4f, 0.4f, 0.4f, 1.0f);
   immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
   immUniform1f("dash_width", 2.0f);
-  immUniform1f("dash_factor", 0.5f);
+  immUniform1f("udash_factor", 0.5f);
 
   immBegin((gt->type == WM_GESTURE_LASSO) ? GPU_PRIM_LINE_LOOP : GPU_PRIM_LINE_STRIP, numverts);
 
@@ -405,7 +406,7 @@ static void wm_gesture_draw_cross(wmWindow *win, wmGesture *gt)
   immUniform4f("color", 0.4f, 0.4f, 0.4f, 1.0f);
   immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
   immUniform1f("dash_width", 8.0f);
-  immUniform1f("dash_factor", 0.5f);
+  immUniform1f("udash_factor", 0.5f);
 
   immBegin(GPU_PRIM_LINES, 4);
 
@@ -436,7 +437,7 @@ void wm_gesture_draw(wmWindow *win)
 
   GPU_line_width(1.0f);
   for (; gt; gt = gt->next) {
-    /* all in subwindow space */
+    /* All in sub-window space. */
     wmViewport(&gt->winrct);
 
     if (gt->type == WM_GESTURE_RECT) {

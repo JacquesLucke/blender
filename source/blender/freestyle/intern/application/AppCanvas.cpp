@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2008-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -213,8 +215,6 @@ void AppCanvas::RenderStroke(Stroke *iStroke)
   }
 }
 
-void AppCanvas::update()
-{
-}
+void AppCanvas::update() {}
 
 } /* namespace Freestyle */

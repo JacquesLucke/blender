@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/colorspace.h"
 
@@ -72,7 +73,8 @@ ColorSpaceProcessor *ColorSpaceManager::get_processor(ustring colorspace)
 bool ColorSpaceManager::colorspace_is_data(ustring colorspace)
 {
   if (colorspace == u_colorspace_auto || colorspace == u_colorspace_raw ||
-      colorspace == u_colorspace_srgb) {
+      colorspace == u_colorspace_srgb)
+  {
     return false;
   }
 
@@ -95,16 +97,19 @@ bool ColorSpaceManager::colorspace_is_data(ustring colorspace)
 }
 
 ustring ColorSpaceManager::detect_known_colorspace(ustring colorspace,
+                                                   const char *file_colorspace,
                                                    const char *file_format,
                                                    bool is_float)
 {
   if (colorspace == u_colorspace_auto) {
     /* Auto detect sRGB or raw if none specified. */
     if (is_float) {
-      bool srgb = (colorspace == "sRGB" || colorspace == "GammaCorrected" ||
-                   (colorspace.empty() &&
-                    (strcmp(file_format, "png") == 0 || strcmp(file_format, "tiff") == 0 ||
-                     strcmp(file_format, "dpx") == 0 || strcmp(file_format, "jpeg2000") == 0)));
+      bool srgb = (strcmp(file_colorspace, "sRGB") == 0 ||
+                   strcmp(file_colorspace, "GammaCorrected") == 0 ||
+                   (file_colorspace[0] == '\0' &&
+                    (strcmp(file_format, "png") == 0 || strcmp(file_format, "jpeg") == 0 ||
+                     strcmp(file_format, "tiff") == 0 || strcmp(file_format, "dpx") == 0 ||
+                     strcmp(file_format, "jpeg2000") == 0)));
       return srgb ? u_colorspace_srgb : u_colorspace_raw;
     }
     else {
@@ -197,14 +202,16 @@ void ColorSpaceManager::is_builtin_colorspace(ustring colorspace,
 
     /* Make sure that there is no channel crosstalk. */
     if (fabsf(cR[1]) > 1e-5f || fabsf(cR[2]) > 1e-5f || fabsf(cG[0]) > 1e-5f ||
-        fabsf(cG[2]) > 1e-5f || fabsf(cB[0]) > 1e-5f || fabsf(cB[1]) > 1e-5f) {
+        fabsf(cG[2]) > 1e-5f || fabsf(cB[0]) > 1e-5f || fabsf(cB[1]) > 1e-5f)
+    {
       is_scene_linear = false;
       is_srgb = false;
       break;
     }
     /* Make sure that the three primaries combine linearly. */
     if (!compare_floats(cR[0], cW[0], 1e-6f, 64) || !compare_floats(cG[1], cW[1], 1e-6f, 64) ||
-        !compare_floats(cB[2], cW[2], 1e-6f, 64)) {
+        !compare_floats(cB[2], cW[2], 1e-6f, 64))
+    {
       is_scene_linear = false;
       is_srgb = false;
       break;
@@ -436,6 +443,13 @@ void ColorSpaceManager::free_memory()
 #ifdef WITH_OCIO
   map_free_memory(cached_colorspaces);
   map_free_memory(cached_processors);
+#endif
+}
+
+void ColorSpaceManager::init_fallback_config()
+{
+#ifdef WITH_OCIO
+  OCIO::SetCurrentConfig(OCIO::Config::CreateRaw());
 #endif
 }
 

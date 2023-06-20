@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __CONSTANT_FOLD_H__
 #define __CONSTANT_FOLD_H__
@@ -52,6 +53,7 @@ class ConstantFolder {
   /* Specific nodes. */
   void fold_mix(NodeMix type, bool clamp) const;
   void fold_mix_color(NodeMix type, bool clamp_factor, bool clamp) const;
+  void fold_mix_float(bool clamp_factor, bool clamp) const;
   void fold_math(NodeMathType type) const;
   void fold_vector_math(NodeVectorMathType type) const;
   void fold_mapping(NodeMappingType type) const;

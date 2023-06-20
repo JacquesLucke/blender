@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2021 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2021 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -22,6 +23,8 @@
 #include "gpu_shader_create_info.hh"
 #include "gpu_shader_dependency_private.h"
 
+#include "GPU_context.h"
+
 extern "C" {
 #define SHADER_SOURCE(datatoc, filename, filepath) extern char datatoc[];
 #include "glsl_compositor_source_list.h"
@@ -36,7 +39,7 @@ extern "C" {
 namespace blender::gpu {
 
 using GPUSourceDictionnary = Map<StringRef, struct GPUSource *>;
-using GPUFunctionDictionnary = Map<StringRef, struct GPUFunction *>;
+using GPUFunctionDictionnary = Map<StringRef, GPUFunction *>;
 
 struct GPUSource {
   StringRefNull fullpath;
@@ -109,8 +112,11 @@ struct GPUSource {
         string_preprocess();
       }
       if ((source.find("drw_debug_") != StringRef::not_found) &&
+          /* Avoid this file as it is a false positive match (matches "drw_debug_print_buf"). */
+          filename != "draw_debug_print_display_vert.glsl" &&
           /* Avoid these two files where it makes no sense to add the dependency. */
-          !ELEM(filename, "common_debug_draw_lib.glsl", "draw_debug_draw_display_vert.glsl")) {
+          !ELEM(filename, "common_debug_draw_lib.glsl", "draw_debug_draw_display_vert.glsl"))
+      {
         builtins |= shader::BuiltinBits::USE_DEBUG_DRAW;
       }
       check_no_quotes();
@@ -192,7 +198,7 @@ struct GPUSource {
   /**
    * Some drivers completely forbid quote characters even in unused preprocessor directives.
    * We fix the cases where we can't manually patch in `enum_preprocess()`.
-   * This check ensure none are present in non-patched sources. (see T97545)
+   * This check ensure none are present in non-patched sources. (see #97545)
    */
   void check_no_quotes()
   {
@@ -212,7 +218,7 @@ struct GPUSource {
 
   /**
    * Some drivers completely forbid string characters even in unused preprocessor directives.
-   * This fixes the cases we cannot manually patch: Shared headers #includes. (see T97545)
+   * This fixes the cases we cannot manually patch: Shared headers #includes. (see #97545)
    * TODO(fclem): This could be done during the datatoc step.
    */
   void quote_preprocess()
@@ -267,6 +273,12 @@ struct GPUSource {
     int64_t cursor = -1;
     int64_t last_pos = 0;
     const bool is_cpp = filename.endswith(".hh");
+
+    /* Metal Shading language is based on C++ and supports C++-style enumerations.
+     * For these cases, we do not need to perform auto-replacement. */
+    if (is_cpp && GPU_backend_get_type() == GPU_BACKEND_METAL) {
+      return;
+    }
 
     while (true) {
       cursor = find_keyword(input, "enum ", cursor + 1);
@@ -432,6 +444,11 @@ struct GPUSource {
     int64_t cursor = -1;
     StringRef func_return_type, func_name, func_args;
     while (function_parse(input, cursor, func_return_type, func_name, func_args)) {
+      /* Main functions needn't be handled because they are the entry point of the shader. */
+      if (func_name == "main") {
+        continue;
+      }
+
       GPUFunction *func = MEM_new<GPUFunction>(__func__);
       func_name.copy(func->name, sizeof(func->name));
       func->source = reinterpret_cast<void *>(this);
@@ -802,6 +819,8 @@ struct GPUSource {
       }
       dependencies.append_non_duplicates(dependency_source);
     }
+    /* Precedes an eternal loop (quiet CLANG's `unreachable-code` warning). */
+    BLI_assert_unreachable();
     return 0;
   }
 

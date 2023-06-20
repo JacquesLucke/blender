@@ -1,9 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "BLI_math_matrix.h"
+#include "BLI_math_matrix.hh"
 
 #include "BKE_geometry_set_instances.hh"
 #include "BKE_instances.hh"
+
+#include "DNA_object_types.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -16,14 +20,15 @@ NODE_STORAGE_FUNCS(NodeGeometryObjectInfo)
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Object>(N_("Object")).hide_label();
-  b.add_input<decl::Bool>(N_("As Instance"))
-      .description(N_("Output the entire object as single instance. "
-                      "This allows instancing non-geometry object types"));
-  b.add_output<decl::Vector>(N_("Location"));
-  b.add_output<decl::Vector>(N_("Rotation"));
-  b.add_output<decl::Vector>(N_("Scale"));
-  b.add_output<decl::Geometry>(N_("Geometry"));
+  b.add_input<decl::Object>("Object").hide_label();
+  b.add_input<decl::Bool>("As Instance")
+      .description(
+          "Output the entire object as single instance. "
+          "This allows instancing non-geometry object types");
+  b.add_output<decl::Vector>("Location");
+  b.add_output<decl::Vector>("Rotation");
+  b.add_output<decl::Vector>("Scale");
+  b.add_output<decl::Geometry>("Geometry");
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -45,19 +50,20 @@ static void node_geo_exec(GeoNodeExecParams params)
     return;
   }
 
-  const float4x4 &object_matrix = object->object_to_world;
+  const float4x4 object_matrix = float4x4(object->object_to_world);
   const float4x4 transform = float4x4(self_object->world_to_object) * object_matrix;
 
+  float3 location, scale;
+  math::EulerXYZ rotation;
   if (transform_space_relative) {
-    params.set_output("Location", transform.translation());
-    params.set_output("Rotation", transform.to_euler());
-    params.set_output("Scale", transform.scale());
+    math::to_loc_rot_scale(transform, location, rotation, scale);
   }
   else {
-    params.set_output("Location", object_matrix.translation());
-    params.set_output("Rotation", object_matrix.to_euler());
-    params.set_output("Scale", object_matrix.scale());
+    math::to_loc_rot_scale(object_matrix, location, rotation, scale);
   }
+  params.set_output("Location", location);
+  params.set_output("Rotation", float3(rotation));
+  params.set_output("Scale", scale);
 
   if (params.output_is_required("Geometry")) {
     if (object == self_object) {

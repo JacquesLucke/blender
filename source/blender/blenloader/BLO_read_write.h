@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup blenloader
@@ -42,7 +44,6 @@ typedef struct BlendWriter BlendWriter;
 
 struct BlendFileReadReport;
 struct Main;
-struct ReportList;
 
 /* -------------------------------------------------------------------- */
 /** \name Blend Write API
@@ -159,9 +160,27 @@ void blo_write_id_struct(BlendWriter *writer,
   blo_write_id_struct(writer, BLO_get_struct_id(writer, struct_name), id_address, id)
 
 /**
+ * Specific code to prepare IDs to be written.
+ *
+ * Required for writing properly embedded IDs currently.
+ *
+ * \note Once there is a better generic handling of embedded IDs,
+ * this may go back to private code in `writefile.c`.
+ */
+typedef struct BLO_Write_IDBuffer BLO_Write_IDBuffer;
+
+BLO_Write_IDBuffer *BLO_write_allocate_id_buffer(void);
+void BLO_write_init_id_buffer_from_id(BLO_Write_IDBuffer *id_buffer,
+                                      struct ID *id,
+                                      const bool is_undo);
+struct ID *BLO_write_get_id_buffer_temp_id(BLO_Write_IDBuffer *id_buffer);
+void BLO_write_destroy_id_buffer(BLO_Write_IDBuffer **id_buffer);
+
+/**
  * Write raw data.
  */
 void BLO_write_raw(BlendWriter *writer, size_t size_in_bytes, const void *data_ptr);
+void BLO_write_int8_array(BlendWriter *writer, uint num, const int8_t *data_ptr);
 void BLO_write_int32_array(BlendWriter *writer, uint num, const int32_t *data_ptr);
 void BLO_write_uint32_array(BlendWriter *writer, uint num, const uint32_t *data_ptr);
 void BLO_write_float_array(BlendWriter *writer, uint num, const float *data_ptr);
@@ -228,6 +247,7 @@ void BLO_read_list(BlendDataReader *reader, struct ListBase *list);
 
 /* Update data pointers and correct byte-order if necessary. */
 
+void BLO_read_int8_array(BlendDataReader *reader, int array_size, int8_t **ptr_p);
 void BLO_read_int32_array(BlendDataReader *reader, int array_size, int32_t **ptr_p);
 void BLO_read_uint32_array(BlendDataReader *reader, int array_size, uint32_t **ptr_p);
 void BLO_read_float_array(BlendDataReader *reader, int array_size, float **ptr_p);
@@ -253,10 +273,23 @@ struct BlendFileReadReport *BLO_read_data_reports(BlendDataReader *reader);
  * However, now only pointers to ID data blocks are updated.
  * \{ */
 
-ID *BLO_read_get_new_id_address(BlendLibReader *reader, struct Library *lib, struct ID *id);
+/**
+ * Search for the new address of given `id`,
+ * during library linking part of blend-file reading process.
+ *
+ * \param self_id: the ID owner of the given `id` pointer. Note that it may be an embedded ID.
+ * \param do_linked_only: If `true`, only return found pointer if it is a linked ID. Used to
+ * prevent linked data to point to local IDs.
+ * \return the new address of the given ID pointer, or null if not found.
+ */
+ID *BLO_read_get_new_id_address(BlendLibReader *reader,
+                                struct ID *self_id,
+                                const bool do_linked_only,
+                                struct ID *id) ATTR_NONNULL(2);
 
-#define BLO_read_id_address(reader, lib, id_ptr_p) \
-  *((void **)id_ptr_p) = (void *)BLO_read_get_new_id_address((reader), (lib), (ID *)*(id_ptr_p))
+#define BLO_read_id_address(reader, self_id, id_ptr_p) \
+  *((void **)id_ptr_p) = (void *)BLO_read_get_new_id_address( \
+      (reader), (self_id), (self_id) && ID_IS_LINKED(self_id), (ID *)*(id_ptr_p))
 
 /* Misc. */
 
@@ -287,7 +320,7 @@ void BLO_expand_id(BlendExpander *expander, struct ID *id);
  * This function ensures that reports are printed,
  * in the case of library linking errors this is important!
  *
- * NOTE(@campbellbarton) a kludge but better than doubling up on prints,
+ * NOTE(@ideasman42) a kludge but better than doubling up on prints,
  * we could alternatively have a versions of a report function which forces printing.
  */
 void BLO_reportf_wrap(struct BlendFileReadReport *reports,

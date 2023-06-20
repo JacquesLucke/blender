@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -11,6 +13,7 @@
 #include "BLI_sys_types.h"
 
 #include "DNA_object_enums.h"
+#include "DNA_userdef_enums.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,7 +23,6 @@ struct Base;
 struct BoundBox;
 struct Curve;
 struct Depsgraph;
-struct GeometrySet;
 struct GpencilModifierData;
 struct HookGpencilModifierData;
 struct HookModifierData;
@@ -33,7 +35,6 @@ struct Object;
 struct RegionView3D;
 struct RigidBodyWorld;
 struct Scene;
-struct ShaderFxData;
 struct SubsurfModifierData;
 struct View3D;
 struct ViewLayer;
@@ -236,7 +237,7 @@ bool BKE_object_obdata_is_libdata(const struct Object *ob);
  */
 struct Object *BKE_object_duplicate(struct Main *bmain,
                                     struct Object *ob,
-                                    uint dupflag,
+                                    eDupli_ID_Flags dupflag,
                                     uint duplicate_options);
 
 /**
@@ -372,7 +373,7 @@ void BKE_object_dimensions_get(struct Object *ob, float r_vec[3]);
  * typically this caused by parenting, constraints or delta-scale.
  *
  * Re-using these values from the object causes a feedback loop
- * when multiple values are modified at once in some situations. see: T69536.
+ * when multiple values are modified at once in some situations. see: #69536.
  */
 void BKE_object_dimensions_set_ex(struct Object *ob,
                                   const float value[3],
@@ -456,6 +457,9 @@ void BKE_object_eval_uber_transform(struct Depsgraph *depsgraph, struct Object *
 void BKE_object_eval_uber_data(struct Depsgraph *depsgraph,
                                struct Scene *scene,
                                struct Object *ob);
+
+void BKE_object_eval_light_linking(struct Depsgraph *depsgraph, struct Object *object);
+
 /**
  * Assign #Object.data after modifier stack evaluation.
  */
@@ -507,9 +511,9 @@ void BKE_object_handle_update_ex(struct Depsgraph *depsgraph,
 void BKE_object_sculpt_data_create(struct Object *ob);
 
 bool BKE_object_obdata_texspace_get(struct Object *ob,
-                                    char **r_texflag,
-                                    float **r_loc,
-                                    float **r_size);
+                                    char **r_texspace_flag,
+                                    float **r_texspace_location,
+                                    float **r_texspace_size);
 
 struct Mesh *BKE_object_get_evaluated_mesh_no_subsurf(const struct Object *object);
 /** Get evaluated mesh for given object. */

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -77,6 +78,11 @@ ccl_device float3 svm_mix_div(float t, float3 col1, float3 col2)
 ccl_device float3 svm_mix_diff(float t, float3 col1, float3 col2)
 {
   return interp(col1, fabs(col1 - col2), t);
+}
+
+ccl_device float3 svm_mix_exclusion(float t, float3 col1, float3 col2)
+{
+  return max(interp(col1, col1 + col2 - 2.0f * col1 * col2, t), zero_float3());
 }
 
 ccl_device float3 svm_mix_dark(float t, float3 col1, float3 col2)
@@ -266,6 +272,8 @@ ccl_device_noinline_cpu float3 svm_mix(NodeMix type, float t, float3 c1, float3 
       return svm_mix_div(t, c1, c2);
     case NODE_MIX_DIFF:
       return svm_mix_diff(t, c1, c2);
+    case NODE_MIX_EXCLUSION:
+      return svm_mix_exclusion(t, c1, c2);
     case NODE_MIX_DARK:
       return svm_mix_dark(t, c1, c2);
     case NODE_MIX_LIGHT:

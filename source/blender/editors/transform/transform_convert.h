@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -17,7 +18,6 @@ extern "C" {
 struct BMEditMesh;
 struct BMesh;
 struct BezTriple;
-struct FCurve;
 struct ListBase;
 struct Object;
 struct TransData;
@@ -84,15 +84,6 @@ bool transform_mode_use_local_origins(const TransInfo *t);
 void transform_around_single_fallback_ex(TransInfo *t, int data_len_all);
 void transform_around_single_fallback(TransInfo *t);
 /**
- * Called during special_aftertrans_update to make sure selected keyframes replace
- * any other keyframes which may reside on that frame (that is not selected).
- *
- * \param sel_flag: The flag (bezt.f1/2/3) value to use to determine selection. Usually `SELECT`,
- *                  but may want to use a different one at times (if caller does not operate on
- *                  selection).
- */
-void posttrans_fcurve_clean(struct FCurve *fcu, int sel_flag, bool use_handle);
-/**
  * Little helper function for ObjectToTransData used to give certain
  * constraints (ChildOf, FollowPath, and others that may be added)
  * inverse corrections for transform, so that they aren't in CrazySpace.
@@ -144,11 +135,15 @@ extern TransConvertTypeInfo TransConvertType_Cursor3D;
 
 extern TransConvertTypeInfo TransConvertType_Curve;
 
+/* transform_convert_curves.cc */
+
+extern TransConvertTypeInfo TransConvertType_Curves;
+
 /* transform_convert_graph.c */
 
 extern TransConvertTypeInfo TransConvertType_Graph;
 
-/* transform_convert_gpencil.c */
+/* transform_convert_gpencil_legacy.c */
 
 extern TransConvertTypeInfo TransConvertType_GPencil;
 
@@ -266,7 +261,7 @@ extern TransConvertTypeInfo TransConvertType_PaintCurve;
 
 extern TransConvertTypeInfo TransConvertType_Particle;
 
-/* transform_convert_sculpt.c */
+/* transform_convert_sculpt.cc */
 
 extern TransConvertTypeInfo TransConvertType_Sculpt;
 
@@ -281,6 +276,10 @@ extern TransConvertTypeInfo TransConvertType_SequencerImage;
 /* transform_convert_tracking.c */
 
 extern TransConvertTypeInfo TransConvertType_Tracking;
+
+/* transform_convert_tracking_curves.c */
+
+extern TransConvertTypeInfo TransConvertType_TrackingCurves;
 
 #ifdef __cplusplus
 }

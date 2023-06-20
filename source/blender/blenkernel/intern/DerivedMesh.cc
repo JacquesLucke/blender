@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -24,7 +25,7 @@
 #include "BLI_blenlib.h"
 #include "BLI_linklist.h"
 #include "BLI_math.h"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_task.h"
 #include "BLI_task.hh"
 #include "BLI_utildefines.h"
@@ -42,7 +43,7 @@
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_material.h"
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 #include "BKE_mesh_iterators.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_mesh_runtime.h"
@@ -71,6 +72,9 @@ using blender::float3;
 using blender::IndexRange;
 using blender::Span;
 using blender::VArray;
+using blender::bke::GeometryOwnershipType;
+using blender::bke::GeometrySet;
+using blender::bke::MeshComponent;
 
 /* very slow! enable for testing only! */
 //#define USE_MODIFIER_VALIDATE
@@ -82,8 +86,6 @@ using blender::VArray;
 #  define ASSERT_IS_VALID_MESH(mesh)
 #endif
 
-static ThreadRWMutex loops_cache_lock = PTHREAD_RWLOCK_INITIALIZER;
-
 static void mesh_init_origspace(Mesh *mesh);
 static void editbmesh_calc_modifier_final_normals(Mesh *mesh_final,
                                                   const CustomData_MeshMasks *final_datamask);
@@ -92,91 +94,71 @@ static void editbmesh_calc_modifier_final_normals_or_defer(
 
 /* -------------------------------------------------------------------- */
 
-static MVert *dm_getVertArray(DerivedMesh *dm)
+static float *dm_getVertArray(DerivedMesh *dm)
 {
-  MVert *mvert = (MVert *)CustomData_get_layer(&dm->vertData, CD_MVERT);
+  float(*positions)[3] = (float(*)[3])CustomData_get_layer_named_for_write(
+      &dm->vertData, CD_PROP_FLOAT3, "position", dm->getNumVerts(dm));
 
-  if (!mvert) {
-    mvert = (MVert *)CustomData_add_layer(
-        &dm->vertData, CD_MVERT, CD_SET_DEFAULT, nullptr, dm->getNumVerts(dm));
-    CustomData_set_layer_flag(&dm->vertData, CD_MVERT, CD_FLAG_TEMPORARY);
-    dm->copyVertArray(dm, mvert);
+  if (!positions) {
+    positions = (float(*)[3])CustomData_add_layer_named(
+        &dm->vertData, CD_PROP_FLOAT3, CD_SET_DEFAULT, dm->getNumVerts(dm), "position");
+    CustomData_set_layer_flag(&dm->vertData, CD_PROP_FLOAT3, CD_FLAG_TEMPORARY);
+    dm->copyVertArray(dm, positions);
   }
 
-  return mvert;
+  return (float *)positions;
 }
 
-static MEdge *dm_getEdgeArray(DerivedMesh *dm)
+static vec2i *dm_getEdgeArray(DerivedMesh *dm)
 {
-  MEdge *medge = (MEdge *)CustomData_get_layer(&dm->edgeData, CD_MEDGE);
+  vec2i *edge = (vec2i *)CustomData_get_layer_named_for_write(
+      &dm->edgeData, CD_PROP_INT32_2D, ".edge_verts", dm->getNumEdges(dm));
 
-  if (!medge) {
-    medge = (MEdge *)CustomData_add_layer(
-        &dm->edgeData, CD_MEDGE, CD_SET_DEFAULT, nullptr, dm->getNumEdges(dm));
-    CustomData_set_layer_flag(&dm->edgeData, CD_MEDGE, CD_FLAG_TEMPORARY);
-    dm->copyEdgeArray(dm, medge);
+  if (!edge) {
+    edge = (vec2i *)CustomData_add_layer_named(
+        &dm->edgeData, CD_PROP_INT32_2D, CD_SET_DEFAULT, dm->getNumEdges(dm), ".edge_verts");
+    CustomData_set_layer_flag(&dm->edgeData, CD_PROP_INT32_2D, CD_FLAG_TEMPORARY);
+    dm->copyEdgeArray(dm, edge);
   }
 
-  return medge;
+  return edge;
 }
 
-static MLoop *dm_getLoopArray(DerivedMesh *dm)
+static int *dm_getCornerVertArray(DerivedMesh *dm)
 {
-  MLoop *mloop = (MLoop *)CustomData_get_layer(&dm->loopData, CD_MLOOP);
+  int *corner_verts = (int *)CustomData_get_layer_named_for_write(
+      &dm->loopData, CD_PROP_INT32, ".corner_vert", dm->getNumLoops(dm));
 
-  if (!mloop) {
-    mloop = (MLoop *)CustomData_add_layer(
-        &dm->loopData, CD_MLOOP, CD_SET_DEFAULT, nullptr, dm->getNumLoops(dm));
-    CustomData_set_layer_flag(&dm->loopData, CD_MLOOP, CD_FLAG_TEMPORARY);
-    dm->copyLoopArray(dm, mloop);
+  if (!corner_verts) {
+    corner_verts = (int *)CustomData_add_layer_named(
+        &dm->loopData, CD_PROP_INT32, CD_SET_DEFAULT, dm->getNumLoops(dm), ".corner_vert");
+    dm->copyCornerVertArray(dm, corner_verts);
   }
 
-  return mloop;
+  return corner_verts;
 }
 
-static MPoly *dm_getPolyArray(DerivedMesh *dm)
+static int *dm_getCornerEdgeArray(DerivedMesh *dm)
 {
-  MPoly *mpoly = (MPoly *)CustomData_get_layer(&dm->polyData, CD_MPOLY);
+  int *corner_edges = (int *)CustomData_get_layer_named(
+      &dm->loopData, CD_PROP_INT32, ".corner_edge");
 
-  if (!mpoly) {
-    mpoly = (MPoly *)CustomData_add_layer(
-        &dm->polyData, CD_MPOLY, CD_SET_DEFAULT, nullptr, dm->getNumPolys(dm));
-    CustomData_set_layer_flag(&dm->polyData, CD_MPOLY, CD_FLAG_TEMPORARY);
-    dm->copyPolyArray(dm, mpoly);
+  if (!corner_edges) {
+    corner_edges = (int *)CustomData_add_layer_named(
+        &dm->loopData, CD_PROP_INT32, CD_SET_DEFAULT, dm->getNumLoops(dm), ".corner_edge");
+    dm->copyCornerEdgeArray(dm, corner_edges);
   }
 
-  return mpoly;
+  return corner_edges;
 }
 
-static int dm_getNumLoopTri(DerivedMesh *dm)
+static int *dm_getPolyArray(DerivedMesh *dm)
 {
-  const int numlooptris = poly_to_tri_count(dm->getNumPolys(dm), dm->getNumLoops(dm));
-  BLI_assert(ELEM(dm->looptris.num, 0, numlooptris));
-  return numlooptris;
-}
-
-static const MLoopTri *dm_getLoopTriArray(DerivedMesh *dm)
-{
-  MLoopTri *looptri;
-
-  BLI_rw_mutex_lock(&loops_cache_lock, THREAD_LOCK_READ);
-  looptri = dm->looptris.array;
-  BLI_rw_mutex_unlock(&loops_cache_lock);
-
-  if (looptri != nullptr) {
-    BLI_assert(dm->getNumLoopTri(dm) == dm->looptris.num);
+  if (!dm->poly_offsets) {
+    dm->poly_offsets = MEM_cnew_array<int>(dm->getNumPolys(dm) + 1, __func__);
+    dm->copyPolyArray(dm, dm->poly_offsets);
   }
-  else {
-    BLI_rw_mutex_lock(&loops_cache_lock, THREAD_LOCK_WRITE);
-    /* We need to ensure array is still nullptr inside mutex-protected code,
-     * some other thread might have already recomputed those looptris. */
-    if (dm->looptris.array == nullptr) {
-      dm->recalcLoopTri(dm);
-    }
-    looptri = dm->looptris.array;
-    BLI_rw_mutex_unlock(&loops_cache_lock);
-  }
-  return looptri;
+  return dm->poly_offsets;
 }
 
 void DM_init_funcs(DerivedMesh *dm)
@@ -184,13 +166,9 @@ void DM_init_funcs(DerivedMesh *dm)
   /* default function implementations */
   dm->getVertArray = dm_getVertArray;
   dm->getEdgeArray = dm_getEdgeArray;
-  dm->getLoopArray = dm_getLoopArray;
+  dm->getCornerVertArray = dm_getCornerVertArray;
+  dm->getCornerEdgeArray = dm_getCornerEdgeArray;
   dm->getPolyArray = dm_getPolyArray;
-
-  dm->getLoopTriArray = dm_getLoopTriArray;
-
-  /* Sub-types handle getting actual data. */
-  dm->getNumLoopTri = dm_getNumLoopTri;
 
   dm->getVertDataArray = DM_get_vert_data_layer;
   dm->getEdgeDataArray = DM_get_edge_data_layer;
@@ -215,8 +193,6 @@ void DM_init(DerivedMesh *dm,
 
   DM_init_funcs(dm);
 
-  dm->needsFree = 1;
-
   /* Don't use #CustomData_reset because we don't want to touch custom-data. */
   copy_vn_i(dm->vertData.typemap, CD_NUMTYPES, -1);
   copy_vn_i(dm->edgeData.typemap, CD_NUMTYPES, -1);
@@ -235,11 +211,13 @@ void DM_from_template(DerivedMesh *dm,
                       int numPolys)
 {
   const CustomData_MeshMasks *mask = &CD_MASK_DERIVEDMESH;
-  CustomData_copy(&source->vertData, &dm->vertData, mask->vmask, CD_SET_DEFAULT, numVerts);
-  CustomData_copy(&source->edgeData, &dm->edgeData, mask->emask, CD_SET_DEFAULT, numEdges);
-  CustomData_copy(&source->faceData, &dm->faceData, mask->fmask, CD_SET_DEFAULT, numTessFaces);
-  CustomData_copy(&source->loopData, &dm->loopData, mask->lmask, CD_SET_DEFAULT, numLoops);
-  CustomData_copy(&source->polyData, &dm->polyData, mask->pmask, CD_SET_DEFAULT, numPolys);
+  CustomData_copy_layout(&source->vertData, &dm->vertData, mask->vmask, CD_SET_DEFAULT, numVerts);
+  CustomData_copy_layout(&source->edgeData, &dm->edgeData, mask->emask, CD_SET_DEFAULT, numEdges);
+  CustomData_copy_layout(
+      &source->faceData, &dm->faceData, mask->fmask, CD_SET_DEFAULT, numTessFaces);
+  CustomData_copy_layout(&source->loopData, &dm->loopData, mask->lmask, CD_SET_DEFAULT, numLoops);
+  CustomData_copy_layout(&source->polyData, &dm->polyData, mask->pmask, CD_SET_DEFAULT, numPolys);
+  dm->poly_offsets = static_cast<int *>(MEM_dupallocN(source->poly_offsets));
 
   dm->type = type;
   dm->numVertData = numVerts;
@@ -249,61 +227,16 @@ void DM_from_template(DerivedMesh *dm,
   dm->numPolyData = numPolys;
 
   DM_init_funcs(dm);
-
-  dm->needsFree = 1;
 }
 
-bool DM_release(DerivedMesh *dm)
+void DM_release(DerivedMesh *dm)
 {
-  if (dm->needsFree) {
-    CustomData_free(&dm->vertData, dm->numVertData);
-    CustomData_free(&dm->edgeData, dm->numEdgeData);
-    CustomData_free(&dm->faceData, dm->numTessFaceData);
-    CustomData_free(&dm->loopData, dm->numLoopData);
-    CustomData_free(&dm->polyData, dm->numPolyData);
-
-    MEM_SAFE_FREE(dm->looptris.array);
-    dm->looptris.num = 0;
-    dm->looptris.num_alloc = 0;
-
-    return true;
-  }
-
-  CustomData_free_temporary(&dm->vertData, dm->numVertData);
-  CustomData_free_temporary(&dm->edgeData, dm->numEdgeData);
-  CustomData_free_temporary(&dm->faceData, dm->numTessFaceData);
-  CustomData_free_temporary(&dm->loopData, dm->numLoopData);
-  CustomData_free_temporary(&dm->polyData, dm->numPolyData);
-
-  return false;
-}
-
-void DM_ensure_looptri_data(DerivedMesh *dm)
-{
-  const uint totpoly = dm->numPolyData;
-  const uint totloop = dm->numLoopData;
-  const int looptris_num = poly_to_tri_count(totpoly, totloop);
-
-  BLI_assert(dm->looptris.array_wip == nullptr);
-
-  SWAP(MLoopTri *, dm->looptris.array, dm->looptris.array_wip);
-
-  if ((looptris_num > dm->looptris.num_alloc) || (looptris_num < dm->looptris.num_alloc * 2) ||
-      (totpoly == 0)) {
-    MEM_SAFE_FREE(dm->looptris.array_wip);
-    dm->looptris.num_alloc = 0;
-    dm->looptris.num = 0;
-  }
-
-  if (totpoly) {
-    if (dm->looptris.array_wip == nullptr) {
-      dm->looptris.array_wip = (MLoopTri *)MEM_malloc_arrayN(
-          looptris_num, sizeof(*dm->looptris.array_wip), __func__);
-      dm->looptris.num_alloc = looptris_num;
-    }
-
-    dm->looptris.num = looptris_num;
-  }
+  CustomData_free(&dm->vertData, dm->numVertData);
+  CustomData_free(&dm->edgeData, dm->numEdgeData);
+  CustomData_free(&dm->faceData, dm->numTessFaceData);
+  CustomData_free(&dm->loopData, dm->numLoopData);
+  CustomData_free(&dm->polyData, dm->numPolyData);
+  MEM_SAFE_FREE(dm->poly_offsets);
 }
 
 void BKE_mesh_runtime_eval_to_meshkey(Mesh *me_deformed, Mesh *me, KeyBlock *kb)
@@ -348,41 +281,33 @@ static void mesh_set_only_copy(Mesh *mesh, const CustomData_MeshMasks *mask)
 #endif
 }
 
-void *DM_get_vert_data_layer(DerivedMesh *dm, int type)
+void *DM_get_vert_data_layer(DerivedMesh *dm, const eCustomDataType type)
 {
-  if (type == CD_MVERT) {
-    return dm->getVertArray(dm);
-  }
-
-  return CustomData_get_layer(&dm->vertData, type);
+  return CustomData_get_layer_for_write(&dm->vertData, type, dm->getNumVerts(dm));
 }
 
-void *DM_get_edge_data_layer(DerivedMesh *dm, int type)
+void *DM_get_edge_data_layer(DerivedMesh *dm, const eCustomDataType type)
 {
-  if (type == CD_MEDGE) {
-    return dm->getEdgeArray(dm);
-  }
-
-  return CustomData_get_layer(&dm->edgeData, type);
+  return CustomData_get_layer_for_write(&dm->edgeData, type, dm->getNumEdges(dm));
 }
 
-void *DM_get_poly_data_layer(DerivedMesh *dm, int type)
+void *DM_get_poly_data_layer(DerivedMesh *dm, const eCustomDataType type)
 {
-  return CustomData_get_layer(&dm->polyData, type);
+  return CustomData_get_layer_for_write(&dm->polyData, type, dm->getNumPolys(dm));
 }
 
-void *DM_get_loop_data_layer(DerivedMesh *dm, int type)
+void *DM_get_loop_data_layer(DerivedMesh *dm, const eCustomDataType type)
 {
-  return CustomData_get_layer(&dm->loopData, type);
+  return CustomData_get_layer_for_write(&dm->loopData, type, dm->getNumLoops(dm));
 }
 
 void DM_copy_vert_data(
-    DerivedMesh *source, DerivedMesh *dest, int source_index, int dest_index, int count)
+    const DerivedMesh *source, DerivedMesh *dest, int source_index, int dest_index, int count)
 {
   CustomData_copy_data(&source->vertData, &dest->vertData, source_index, dest_index, count);
 }
 
-void DM_interp_vert_data(DerivedMesh *source,
+void DM_interp_vert_data(const DerivedMesh *source,
                          DerivedMesh *dest,
                          int *src_indices,
                          float *weights,
@@ -459,7 +384,7 @@ static Mesh *create_orco_mesh(Object *ob, Mesh *me, BMEditMesh *em, int layer)
     BKE_mesh_ensure_default_orig_index_customdata(mesh);
   }
   else {
-    mesh = BKE_mesh_copy_for_eval(me, true);
+    mesh = BKE_mesh_copy_for_eval(me);
   }
 
   orco = get_orco_coords(ob, em, layer, &free);
@@ -474,7 +399,8 @@ static Mesh *create_orco_mesh(Object *ob, Mesh *me, BMEditMesh *em, int layer)
   return mesh;
 }
 
-static void add_orco_mesh(Object *ob, BMEditMesh *em, Mesh *mesh, Mesh *mesh_orco, int layer)
+static void add_orco_mesh(
+    Object *ob, BMEditMesh *em, Mesh *mesh, Mesh *mesh_orco, const eCustomDataType layer)
 {
   float(*orco)[3], (*layerorco)[3];
   int totvert, free;
@@ -502,10 +428,10 @@ static void add_orco_mesh(Object *ob, BMEditMesh *em, Mesh *mesh, Mesh *mesh_orc
       BKE_mesh_orco_verts_transform((Mesh *)ob->data, orco, totvert, 0);
     }
 
-    if (!(layerorco = (float(*)[3])CustomData_get_layer(&mesh->vdata, layer))) {
-      CustomData_add_layer(&mesh->vdata, layer, CD_SET_DEFAULT, nullptr, mesh->totvert);
-
-      layerorco = (float(*)[3])CustomData_get_layer(&mesh->vdata, layer);
+    layerorco = (float(*)[3])CustomData_get_layer_for_write(&mesh->vdata, layer, mesh->totvert);
+    if (!layerorco) {
+      layerorco = (float(*)[3])CustomData_add_layer(
+          &mesh->vdata, eCustomDataType(layer), CD_SET_DEFAULT, mesh->totvert);
     }
 
     memcpy(layerorco, orco, sizeof(float[3]) * totvert);
@@ -578,7 +504,7 @@ static void mesh_calc_finalize(const Mesh *mesh_input, Mesh *mesh_eval)
 {
   /* Make sure the name is the same. This is because mesh allocation from template does not
    * take care of naming. */
-  BLI_strncpy(mesh_eval->id.name, mesh_input->id.name, sizeof(mesh_eval->id.name));
+  STRNCPY(mesh_eval->id.name, mesh_input->id.name);
   /* Make evaluated mesh to share same edit mesh pointer as original and copied meshes. */
   mesh_eval->edit_mesh = mesh_input->edit_mesh;
 }
@@ -639,7 +565,7 @@ static Mesh *modifier_modify_mesh_and_geometry_set(ModifierData *md,
 
     /* Return an empty mesh instead of null. */
     if (mesh_output == nullptr) {
-      mesh_output = BKE_mesh_new_nomain(0, 0, 0, 0, 0);
+      mesh_output = BKE_mesh_new_nomain(0, 0, 0, 0);
       BKE_mesh_copy_parameters_for_eval(mesh_output, input_mesh);
     }
   }
@@ -647,7 +573,28 @@ static Mesh *modifier_modify_mesh_and_geometry_set(ModifierData *md,
   return mesh_output;
 }
 
-static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
+static void set_rest_position(Mesh &mesh)
+{
+  using namespace blender;
+  using namespace blender::bke;
+  MutableAttributeAccessor attributes = mesh.attributes_for_write();
+  const AttributeReader positions = attributes.lookup<float3>("position");
+  attributes.remove("rest_position");
+  if (positions) {
+    if (positions.sharing_info && positions.varray.is_span()) {
+      attributes.add<float3>("rest_position",
+                             ATTR_DOMAIN_POINT,
+                             AttributeInitShared(positions.varray.get_internal_span().data(),
+                                                 *positions.sharing_info));
+    }
+    else {
+      attributes.add<float3>(
+          "rest_position", ATTR_DOMAIN_POINT, AttributeInitVArray(positions.varray));
+    }
+  }
+}
+
+static void mesh_calc_modifiers(Depsgraph *depsgraph,
                                 const Scene *scene,
                                 Object *ob,
                                 const bool use_deform,
@@ -661,24 +608,16 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
                                 GeometrySet **r_geometry_set)
 {
   using namespace blender::bke;
-  /* Input and final mesh. Final mesh is only created the moment the first
-   * constructive modifier is executed, or a deform modifier needs normals
-   * or certain data layers. */
+  /* Input mesh shouldn't be modified. */
   Mesh *mesh_input = (Mesh *)ob->data;
+  /* The final mesh is the result of calculating all enabled modifiers. */
   Mesh *mesh_final = nullptr;
+  /* The result of calculating all leading deform modifiers. */
   Mesh *mesh_deform = nullptr;
   /* This geometry set contains the non-mesh data that might be generated by modifiers. */
   GeometrySet geometry_set_final;
 
   BLI_assert((mesh_input->id.tag & LIB_TAG_COPIED_ON_WRITE_EVAL_RESULT) == 0);
-
-  /* Deformed vertex locations array. Deform only modifier need this type of
-   * float array rather than MVert*. Tracked along with mesh_final as an
-   * optimization to avoid copying coordinates back and forth if there are
-   * multiple sequential deform only modifiers. */
-  float(*deformed_verts)[3] = nullptr;
-  int num_deformed_verts = mesh_input->totvert;
-  bool isPrevDeform = false;
 
   /* Mesh with constructive modifiers but no deformation applied. Tracked
    * along with final mesh if undeformed / orco coordinates are requested
@@ -697,12 +636,10 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
   const bool sculpt_dyntopo = (sculpt_mode && ob->sculpt->bm) && !use_render;
 
   /* Modifier evaluation contexts for different types of modifiers. */
-  ModifierApplyFlag apply_render = use_render ? MOD_APPLY_RENDER : (ModifierApplyFlag)0;
-  ModifierApplyFlag apply_cache = use_cache ? MOD_APPLY_USECACHE : (ModifierApplyFlag)0;
-  const ModifierEvalContext mectx = {
-      depsgraph, ob, (ModifierApplyFlag)(apply_render | apply_cache)};
-  const ModifierEvalContext mectx_orco = {
-      depsgraph, ob, (ModifierApplyFlag)(apply_render | MOD_APPLY_ORCO)};
+  ModifierApplyFlag apply_render = use_render ? MOD_APPLY_RENDER : ModifierApplyFlag(0);
+  ModifierApplyFlag apply_cache = use_cache ? MOD_APPLY_USECACHE : ModifierApplyFlag(0);
+  const ModifierEvalContext mectx = {depsgraph, ob, apply_render | apply_cache};
+  const ModifierEvalContext mectx_orco = {depsgraph, ob, apply_render | MOD_APPLY_ORCO};
 
   /* Get effective list of modifiers to execute. Some effects like shape keys
    * are added as virtual modifiers before the user created modifiers. */
@@ -740,16 +677,10 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
 
   if (ob->modifier_flag & OB_MODIFIER_FLAG_ADD_REST_POSITION) {
     if (mesh_final == nullptr) {
-      mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
+      mesh_final = BKE_mesh_copy_for_eval(mesh_input);
       ASSERT_IS_VALID_MESH(mesh_final);
     }
-    MutableAttributeAccessor attributes = mesh_final->attributes_for_write();
-    SpanAttributeWriter<float3> rest_positions =
-        attributes.lookup_or_add_for_write_only_span<float3>("rest_position", ATTR_DOMAIN_POINT);
-    if (rest_positions && attributes.domain_size(ATTR_DOMAIN_POINT) > 0) {
-      attributes.lookup<float3>("position").materialize(rest_positions.span);
-      rest_positions.finish();
-    }
+    set_rest_position(*mesh_final);
   }
 
   /* Apply all leading deform modifiers. */
@@ -762,20 +693,17 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
       }
 
       if (mti->type == eModifierTypeType_OnlyDeform && !sculpt_dyntopo) {
-        if (!deformed_verts) {
-          deformed_verts = BKE_mesh_vert_coords_alloc(mesh_input, &num_deformed_verts);
+        blender::bke::ScopedModifierTimer modifier_timer{*md};
+        if (!mesh_final) {
+          mesh_final = BKE_mesh_copy_for_eval(mesh_input);
+          ASSERT_IS_VALID_MESH(mesh_final);
         }
-        else if (isPrevDeform && mti->dependsOnNormals && mti->dependsOnNormals(md)) {
-          if (mesh_final == nullptr) {
-            mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
-            ASSERT_IS_VALID_MESH(mesh_final);
-          }
-          BKE_mesh_vert_coords_apply(mesh_final, deformed_verts);
-        }
-
-        BKE_modifier_deform_verts(md, &mectx, mesh_final, deformed_verts, num_deformed_verts);
-
-        isPrevDeform = true;
+        BKE_modifier_deform_verts(
+            md,
+            &mectx,
+            mesh_final,
+            reinterpret_cast<float(*)[3]>(mesh_final->vert_positions_for_write().data()),
+            mesh_final->totvert);
       }
       else {
         break;
@@ -786,11 +714,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
      * places that wish to use the original mesh but with deformed
      * coordinates (like vertex paint). */
     if (r_deform) {
-      mesh_deform = BKE_mesh_copy_for_eval(mesh_input, true);
-
-      if (deformed_verts) {
-        BKE_mesh_vert_coords_apply(mesh_deform, deformed_verts);
-      }
+      mesh_deform = BKE_mesh_copy_for_eval(mesh_final ? mesh_final : mesh_input);
     }
   }
 
@@ -848,6 +772,8 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
       continue;
     }
 
+    blender::bke::ScopedModifierTimer modifier_timer{*md};
+
     /* Add orco mesh as layer if needed by this modifier. */
     if (mesh_final && mesh_orco && mti->requiredDataMask) {
       CustomData_MeshMasks mask = {0};
@@ -857,36 +783,20 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
       }
     }
 
-    /* How to apply modifier depends on (a) what we already have as
-     * a result of previous modifiers (could be a Mesh or just
-     * deformed vertices) and (b) what type the modifier is. */
     if (mti->type == eModifierTypeType_OnlyDeform) {
-      /* No existing verts to deform, need to build them. */
-      if (!deformed_verts) {
-        if (mesh_final) {
-          /* Deforming a mesh, read the vertex locations
-           * out of the mesh and deform them. Once done with this
-           * run of deformers verts will be written back. */
-          deformed_verts = BKE_mesh_vert_coords_alloc(mesh_final, &num_deformed_verts);
-        }
-        else {
-          deformed_verts = BKE_mesh_vert_coords_alloc(mesh_input, &num_deformed_verts);
-        }
+      if (!mesh_final) {
+        mesh_final = BKE_mesh_copy_for_eval(mesh_input);
+        ASSERT_IS_VALID_MESH(mesh_final);
       }
-      /* if this is not the last modifier in the stack then recalculate the normals
-       * to avoid giving bogus normals to the next modifier see: T23673. */
-      else if (isPrevDeform && mti->dependsOnNormals && mti->dependsOnNormals(md)) {
-        if (mesh_final == nullptr) {
-          mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
-          ASSERT_IS_VALID_MESH(mesh_final);
-        }
-        BKE_mesh_vert_coords_apply(mesh_final, deformed_verts);
-      }
-      BKE_modifier_deform_verts(md, &mectx, mesh_final, deformed_verts, num_deformed_verts);
+      BKE_modifier_deform_verts(
+          md,
+          &mectx,
+          mesh_final,
+          reinterpret_cast<float(*)[3]>(mesh_final->vert_positions_for_write().data()),
+          mesh_final->totvert);
     }
     else {
       bool check_for_needs_mapping = false;
-      /* apply vertex coordinates or build a Mesh as necessary */
       if (mesh_final != nullptr) {
         if (have_non_onlydeform_modifiers_appled == false) {
           /* If we only deformed, we won't have initialized #CD_ORIGINDEX.
@@ -895,13 +805,9 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         }
       }
       else {
-        mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
+        mesh_final = BKE_mesh_copy_for_eval(mesh_input);
         ASSERT_IS_VALID_MESH(mesh_final);
         check_for_needs_mapping = true;
-      }
-
-      if (deformed_verts) {
-        BKE_mesh_vert_coords_apply(mesh_final, deformed_verts);
       }
 
       have_non_onlydeform_modifiers_appled = true;
@@ -921,21 +827,24 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
             ((nextmask.vmask | nextmask.emask | nextmask.pmask) & CD_MASK_ORIGINDEX)) {
           /* calc */
           CustomData_add_layer(
-              &mesh_final->vdata, CD_ORIGINDEX, CD_CONSTRUCT, nullptr, mesh_final->totvert);
+              &mesh_final->vdata, CD_ORIGINDEX, CD_CONSTRUCT, mesh_final->totvert);
           CustomData_add_layer(
-              &mesh_final->edata, CD_ORIGINDEX, CD_CONSTRUCT, nullptr, mesh_final->totedge);
+              &mesh_final->edata, CD_ORIGINDEX, CD_CONSTRUCT, mesh_final->totedge);
           CustomData_add_layer(
-              &mesh_final->pdata, CD_ORIGINDEX, CD_CONSTRUCT, nullptr, mesh_final->totpoly);
+              &mesh_final->pdata, CD_ORIGINDEX, CD_CONSTRUCT, mesh_final->totpoly);
 
           /* Not worth parallelizing this,
            * gives less than 0.1% overall speedup in best of best cases... */
-          range_vn_i((int *)CustomData_get_layer(&mesh_final->vdata, CD_ORIGINDEX),
+          range_vn_i((int *)CustomData_get_layer_for_write(
+                         &mesh_final->vdata, CD_ORIGINDEX, mesh_final->totvert),
                      mesh_final->totvert,
                      0);
-          range_vn_i((int *)CustomData_get_layer(&mesh_final->edata, CD_ORIGINDEX),
+          range_vn_i((int *)CustomData_get_layer_for_write(
+                         &mesh_final->edata, CD_ORIGINDEX, mesh_final->totedge),
                      mesh_final->totedge,
                      0);
-          range_vn_i((int *)CustomData_get_layer(&mesh_final->pdata, CD_ORIGINDEX),
+          range_vn_i((int *)CustomData_get_layer_for_write(
+                         &mesh_final->pdata, CD_ORIGINDEX, mesh_final->totpoly),
                      mesh_final->totpoly,
                      0);
         }
@@ -943,7 +852,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
 
       /* set the Mesh to only copy needed data */
       CustomData_MeshMasks mask = md_datamask->mask;
-      /* needMapping check here fixes bug T28112, otherwise it's
+      /* needMapping check here fixes bug #28112, otherwise it's
        * possible that it won't be copied */
       CustomData_MeshMasks_update(&mask, &append_mask);
       if (need_mapping) {
@@ -961,11 +870,8 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
       /* add an origspace layer if needed */
       if ((md_datamask->mask.lmask) & CD_MASK_ORIGSPACE_MLOOP) {
         if (!CustomData_has_layer(&mesh_final->ldata, CD_ORIGSPACE_MLOOP)) {
-          CustomData_add_layer(&mesh_final->ldata,
-                               CD_ORIGSPACE_MLOOP,
-                               CD_SET_DEFAULT,
-                               nullptr,
-                               mesh_final->totloop);
+          CustomData_add_layer(
+              &mesh_final->ldata, CD_ORIGSPACE_MLOOP, CD_SET_DEFAULT, mesh_final->totloop);
           mesh_init_origspace(mesh_final);
         }
       }
@@ -981,11 +887,6 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
           BKE_id_free(nullptr, mesh_final);
         }
         mesh_final = mesh_next;
-
-        if (deformed_verts) {
-          MEM_freeN(deformed_verts);
-          deformed_verts = nullptr;
-        }
       }
 
       /* create an orco mesh in parallel */
@@ -1056,8 +957,6 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
       mesh_final->runtime->deformed_only = false;
     }
 
-    isPrevDeform = (mti->type == eModifierTypeType_OnlyDeform);
-
     if (sculpt_mode && md->type == eModifierType_Multires) {
       multires_applied = true;
     }
@@ -1069,21 +968,13 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
     BKE_modifier_free_temporary_data(md);
   }
 
-  /* Yay, we are done. If we have a Mesh and deformed vertices,
-   * we need to apply these back onto the Mesh. If we have no
-   * Mesh then we need to build one. */
   if (mesh_final == nullptr) {
-    if (deformed_verts == nullptr && allow_shared_mesh) {
+    if (allow_shared_mesh) {
       mesh_final = mesh_input;
     }
     else {
-      mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
+      mesh_final = BKE_mesh_copy_for_eval(mesh_input);
     }
-  }
-  if (deformed_verts) {
-    BKE_mesh_vert_coords_apply(mesh_final, deformed_verts);
-    MEM_freeN(deformed_verts);
-    deformed_verts = nullptr;
   }
 
   /* Denotes whether the object which the modifier stack came from owns the mesh or whether the
@@ -1127,7 +1018,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         /* Not yet finalized by any instance, do it now
          * Isolate since computing normals is multithreaded and we are holding a lock. */
         blender::threading::isolate_task([&] {
-          mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
+          mesh_final = BKE_mesh_copy_for_eval(mesh_input);
           mesh_calc_modifier_final_normals(
               mesh_input, &final_datamask, sculpt_dyntopo, mesh_final);
           mesh_calc_finalize(mesh_input, mesh_final);
@@ -1142,7 +1033,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
     else if (!mesh_has_modifier_final_normals(mesh_input, &final_datamask, runtime->mesh_eval)) {
       /* Modifier stack was (re-)evaluated with a request for additional normals
        * different than the instanced mesh, can't instance anymore now. */
-      mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
+      mesh_final = BKE_mesh_copy_for_eval(mesh_input);
       mesh_calc_modifier_final_normals(mesh_input, &final_datamask, sculpt_dyntopo, mesh_final);
       mesh_calc_finalize(mesh_input, mesh_final);
     }
@@ -1219,11 +1110,12 @@ static void editbmesh_calc_modifier_final_normals(Mesh *mesh_final,
     }
   }
   else {
-    /* Same as mesh_calc_modifiers. If using loop normals, poly nors have already been computed. */
+    /* Same as #mesh_calc_modifiers.
+     * If using loop normals, poly normals have already been computed. */
     BKE_mesh_ensure_normals_for_display(mesh_final);
 
     /* Some modifiers, like data-transfer, may generate those data, we do not want to keep them,
-     * as they are used by display code when available (i.e. even if autosmooth is disabled). */
+     * as they are used by display code when available (i.e. even if auto-smooth is disabled). */
     if (CustomData_has_layer(&mesh_final->ldata, CD_NORMAL)) {
       CustomData_free_layers(&mesh_final->ldata, CD_NORMAL, mesh_final->totloop);
     }
@@ -1243,7 +1135,7 @@ static void editbmesh_calc_modifier_final_normals_or_defer(
   editbmesh_calc_modifier_final_normals(mesh_final, final_datamask);
 }
 
-static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
+static void editbmesh_calc_modifiers(Depsgraph *depsgraph,
                                      const Scene *scene,
                                      Object *ob,
                                      BMEditMesh *em_input,
@@ -1262,10 +1154,8 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
   /* This geometry set contains the non-mesh data that might be generated by modifiers. */
   GeometrySet geometry_set_final;
 
-  /* Deformed vertex locations array. Deform only modifier need this type of
-   * float array rather than MVert*. Tracked along with mesh_final as an
-   * optimization to avoid copying coordinates back and forth if there are
-   * multiple sequential deform only modifiers. */
+  /* TODO: Remove use of `deformed_verts` in mesh modifier stack
+   * since mesh positions are now stored in a contiguous array. */
   float(*deformed_verts)[3] = nullptr;
   int num_deformed_verts = 0;
   bool isPrevDeform = false;
@@ -1280,9 +1170,8 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
 
   const bool use_render = (DEG_get_mode(depsgraph) == DAG_EVAL_RENDER);
   /* Modifier evaluation contexts for different types of modifiers. */
-  ModifierApplyFlag apply_render = use_render ? MOD_APPLY_RENDER : (ModifierApplyFlag)0;
-  const ModifierEvalContext mectx = {
-      depsgraph, ob, (ModifierApplyFlag)(MOD_APPLY_USECACHE | apply_render)};
+  ModifierApplyFlag apply_render = use_render ? MOD_APPLY_RENDER : ModifierApplyFlag(0);
+  const ModifierEvalContext mectx = {depsgraph, ob, MOD_APPLY_USECACHE | apply_render};
   const ModifierEvalContext mectx_orco = {depsgraph, ob, MOD_APPLY_ORCO};
 
   /* Get effective list of modifiers to execute. Some effects like shape keys
@@ -1316,12 +1205,22 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
   /* Clear errors before evaluation. */
   BKE_modifiers_clear_errors(ob);
 
+  if (ob->modifier_flag & OB_MODIFIER_FLAG_ADD_REST_POSITION) {
+    if (mesh_final == nullptr) {
+      mesh_final = BKE_mesh_from_bmesh_for_eval_nomain(em_input->bm, nullptr, mesh_input);
+      ASSERT_IS_VALID_MESH(mesh_final);
+    }
+    set_rest_position(*mesh_final);
+  }
+
   for (int i = 0; md; i++, md = md->next, md_datamask = md_datamask->next) {
     const ModifierTypeInfo *mti = BKE_modifier_get_info((ModifierType)md->type);
 
     if (!editbmesh_modifier_is_enabled(scene, ob, md, mesh_final != nullptr)) {
       continue;
     }
+
+    blender::bke::ScopedModifierTimer modifier_timer{*md};
 
     /* Add an orco mesh as layer if needed by this modifier. */
     if (mesh_final && mesh_orco && mti->requiredDataMask) {
@@ -1370,7 +1269,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
       /* apply vertex coordinates or build a DerivedMesh as necessary */
       if (mesh_final) {
         if (deformed_verts) {
-          Mesh *mesh_tmp = BKE_mesh_copy_for_eval(mesh_final, false);
+          Mesh *mesh_tmp = BKE_mesh_copy_for_eval(mesh_final);
           if (mesh_final != mesh_cage) {
             BKE_id_free(nullptr, mesh_final);
           }
@@ -1379,7 +1278,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
         }
         else if (mesh_final == mesh_cage) {
           /* 'me' may be changed by this modifier, so we need to copy it. */
-          mesh_final = BKE_mesh_copy_for_eval(mesh_final, false);
+          mesh_final = BKE_mesh_copy_for_eval(mesh_final);
         }
       }
       else {
@@ -1426,11 +1325,8 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
 
       if (mask.lmask & CD_MASK_ORIGSPACE_MLOOP) {
         if (!CustomData_has_layer(&mesh_final->ldata, CD_ORIGSPACE_MLOOP)) {
-          CustomData_add_layer(&mesh_final->ldata,
-                               CD_ORIGSPACE_MLOOP,
-                               CD_SET_DEFAULT,
-                               nullptr,
-                               mesh_final->totloop);
+          CustomData_add_layer(
+              &mesh_final->ldata, CD_ORIGSPACE_MLOOP, CD_SET_DEFAULT, mesh_final->totloop);
           mesh_init_origspace(mesh_final);
         }
       }
@@ -1455,7 +1351,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
 
     if (r_cage && i == cageIndex) {
       if (mesh_final && deformed_verts) {
-        mesh_cage = BKE_mesh_copy_for_eval(mesh_final, false);
+        mesh_cage = BKE_mesh_copy_for_eval(mesh_final);
         BKE_mesh_vert_coords_apply(mesh_cage, deformed_verts);
       }
       else if (mesh_final) {
@@ -1491,7 +1387,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
   if (mesh_final) {
     if (deformed_verts) {
       if (mesh_final == mesh_cage) {
-        mesh_final = BKE_mesh_copy_for_eval(mesh_final, false);
+        mesh_final = BKE_mesh_copy_for_eval(mesh_final);
       }
       BKE_mesh_vert_coords_apply(mesh_final, deformed_verts);
     }
@@ -1513,7 +1409,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
 
   /* Add orco coordinates to final and deformed mesh if requested. */
   if (final_datamask.vmask & CD_MASK_ORCO) {
-    /* FIXME(@campbellbarton): avoid the need to convert to mesh data just to add an orco layer. */
+    /* FIXME(@ideasman42): avoid the need to convert to mesh data just to add an orco layer. */
     BKE_mesh_wrapper_ensure_mdata(mesh_final);
 
     add_orco_mesh(ob, em_input, mesh_final, mesh_orco, CD_ORCO);
@@ -1539,7 +1435,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
   }
 }
 
-static void mesh_build_extra_data(struct Depsgraph *depsgraph, Object *ob, Mesh *mesh_eval)
+static void mesh_build_extra_data(Depsgraph *depsgraph, Object *ob, Mesh *mesh_eval)
 {
   uint32_t eval_flags = DEG_get_eval_flags_for_id(depsgraph, &ob->id);
 
@@ -1548,7 +1444,7 @@ static void mesh_build_extra_data(struct Depsgraph *depsgraph, Object *ob, Mesh 
   }
 }
 
-static void mesh_build_data(struct Depsgraph *depsgraph,
+static void mesh_build_data(Depsgraph *depsgraph,
                             const Scene *scene,
                             Object *ob,
                             const CustomData_MeshMasks *dataMask,
@@ -1613,7 +1509,7 @@ static void mesh_build_data(struct Depsgraph *depsgraph,
   mesh_build_extra_data(depsgraph, ob, mesh_eval);
 }
 
-static void editbmesh_build_data(struct Depsgraph *depsgraph,
+static void editbmesh_build_data(Depsgraph *depsgraph,
                                  const Scene *scene,
                                  Object *obedit,
                                  BMEditMesh *em,
@@ -1697,7 +1593,7 @@ static void object_get_datamask(const Depsgraph *depsgraph,
 
     /* check if we need tfaces & mcols due to face select or texture paint */
     if ((ob->mode & OB_MODE_TEXTURE_PAINT) || editing) {
-      r_mask->lmask |= CD_MASK_MLOOPUV | CD_MASK_PROP_BYTE_COLOR;
+      r_mask->lmask |= CD_MASK_PROP_FLOAT2 | CD_MASK_PROP_BYTE_COLOR;
       r_mask->fmask |= CD_MASK_MTFACE;
     }
 
@@ -1716,7 +1612,7 @@ static void object_get_datamask(const Depsgraph *depsgraph,
   }
 }
 
-void makeDerivedMesh(struct Depsgraph *depsgraph,
+void makeDerivedMesh(Depsgraph *depsgraph,
                      const Scene *scene,
                      Object *ob,
                      const CustomData_MeshMasks *dataMask)
@@ -1724,7 +1620,7 @@ void makeDerivedMesh(struct Depsgraph *depsgraph,
   BLI_assert(ob->type == OB_MESH);
 
   /* Evaluated meshes aren't supposed to be created on original instances. If you do,
-   * they aren't cleaned up properly on mode switch, causing crashes, e.g T58150. */
+   * they aren't cleaned up properly on mode switch, causing crashes, e.g #58150. */
   BLI_assert(ob->id.tag & LIB_TAG_COPIED_ON_WRITE);
 
   BKE_object_free_derived_caches(ob);
@@ -1752,40 +1648,7 @@ void makeDerivedMesh(struct Depsgraph *depsgraph,
 
 /***/
 
-Mesh *mesh_get_eval_final(struct Depsgraph *depsgraph,
-                          const Scene *scene,
-                          Object *ob,
-                          const CustomData_MeshMasks *dataMask)
-{
-  /* This function isn't thread-safe and can't be used during evaluation. */
-  BLI_assert(DEG_is_evaluating(depsgraph) == false);
-
-  /* Evaluated meshes aren't supposed to be created on original instances. If you do,
-   * they aren't cleaned up properly on mode switch, causing crashes, e.g T58150. */
-  BLI_assert(ob->id.tag & LIB_TAG_COPIED_ON_WRITE);
-
-  /* if there's no evaluated mesh or the last data mask used doesn't include
-   * the data we need, rebuild the derived mesh
-   */
-  bool need_mapping;
-  CustomData_MeshMasks cddata_masks = *dataMask;
-  object_get_datamask(depsgraph, ob, &cddata_masks, &need_mapping);
-
-  Mesh *mesh_eval = BKE_object_get_evaluated_mesh(ob);
-  if ((mesh_eval == nullptr) ||
-      !CustomData_MeshMasks_are_matching(&(ob->runtime.last_data_mask), &cddata_masks) ||
-      (need_mapping && !ob->runtime.last_need_mapping)) {
-    CustomData_MeshMasks_update(&cddata_masks, &ob->runtime.last_data_mask);
-
-    makeDerivedMesh(depsgraph, scene, ob, dataMask);
-
-    mesh_eval = BKE_object_get_evaluated_mesh(ob);
-  }
-
-  return mesh_eval;
-}
-
-Mesh *mesh_get_eval_deform(struct Depsgraph *depsgraph,
+Mesh *mesh_get_eval_deform(Depsgraph *depsgraph,
                            const Scene *scene,
                            Object *ob,
                            const CustomData_MeshMasks *dataMask)
@@ -1803,7 +1666,7 @@ Mesh *mesh_get_eval_deform(struct Depsgraph *depsgraph,
   BLI_assert(DEG_is_evaluating(depsgraph) == false);
 
   /* Evaluated meshes aren't supposed to be created on original instances. If you do,
-   * they aren't cleaned up properly on mode switch, causing crashes, e.g T58150. */
+   * they aren't cleaned up properly on mode switch, causing crashes, e.g #58150. */
   BLI_assert(ob->id.tag & LIB_TAG_COPIED_ON_WRITE);
 
   /* if there's no derived mesh or the last data mask used doesn't include
@@ -1816,7 +1679,8 @@ Mesh *mesh_get_eval_deform(struct Depsgraph *depsgraph,
 
   if (!ob->runtime.mesh_deform_eval ||
       !CustomData_MeshMasks_are_matching(&(ob->runtime.last_data_mask), &cddata_masks) ||
-      (need_mapping && !ob->runtime.last_need_mapping)) {
+      (need_mapping && !ob->runtime.last_need_mapping))
+  {
     CustomData_MeshMasks_update(&cddata_masks, &ob->runtime.last_data_mask);
     mesh_build_data(
         depsgraph, scene, ob, &cddata_masks, need_mapping || ob->runtime.last_need_mapping);
@@ -1860,7 +1724,7 @@ Mesh *mesh_create_eval_no_deform_render(Depsgraph *depsgraph,
 
 /***/
 
-Mesh *editbmesh_get_eval_cage(struct Depsgraph *depsgraph,
+Mesh *editbmesh_get_eval_cage(Depsgraph *depsgraph,
                               const Scene *scene,
                               Object *obedit,
                               BMEditMesh *em,
@@ -1874,14 +1738,15 @@ Mesh *editbmesh_get_eval_cage(struct Depsgraph *depsgraph,
   object_get_datamask(depsgraph, obedit, &cddata_masks, nullptr);
 
   if (!obedit->runtime.editmesh_eval_cage ||
-      !CustomData_MeshMasks_are_matching(&(obedit->runtime.last_data_mask), &cddata_masks)) {
+      !CustomData_MeshMasks_are_matching(&(obedit->runtime.last_data_mask), &cddata_masks))
+  {
     editbmesh_build_data(depsgraph, scene, obedit, em, &cddata_masks);
   }
 
   return obedit->runtime.editmesh_eval_cage;
 }
 
-Mesh *editbmesh_get_eval_cage_from_orig(struct Depsgraph *depsgraph,
+Mesh *editbmesh_get_eval_cage_from_orig(Depsgraph *depsgraph,
                                         const Scene *scene,
                                         Object *obedit,
                                         const CustomData_MeshMasks *dataMask)
@@ -1928,9 +1793,9 @@ void mesh_get_mapped_verts_coords(Mesh *me_eval, float (*r_cos)[3], const int to
     MEM_freeN(userData.vertex_visit);
   }
   else {
-    const Span<MVert> verts = me_eval->verts();
+    const Span<float3> positions = me_eval->vert_positions();
     for (int i = 0; i < totcos; i++) {
-      copy_v3_v3(r_cos[i], verts[i].co);
+      copy_v3_v3(r_cos[i], positions[i]);
     }
   }
 }
@@ -1939,41 +1804,40 @@ static void mesh_init_origspace(Mesh *mesh)
 {
   const float default_osf[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
 
-  OrigSpaceLoop *lof_array = (OrigSpaceLoop *)CustomData_get_layer(&mesh->ldata,
-                                                                   CD_ORIGSPACE_MLOOP);
-  const int numpoly = mesh->totpoly;
-  // const int numloop = mesh->totloop;
-  const Span<MVert> verts = mesh->verts();
-  const Span<MPoly> polys = mesh->polys();
-  const Span<MLoop> loops = mesh->loops();
+  OrigSpaceLoop *lof_array = (OrigSpaceLoop *)CustomData_get_layer_for_write(
+      &mesh->ldata, CD_ORIGSPACE_MLOOP, mesh->totloop);
+  const Span<float3> positions = mesh->vert_positions();
+  const blender::OffsetIndices polys = mesh->polys();
+  const Span<int> corner_verts = mesh->corner_verts();
 
-  const MPoly *mp = polys.data();
-  int i, j, k;
+  int j, k;
 
   blender::Vector<blender::float2, 64> vcos_2d;
 
-  for (i = 0; i < numpoly; i++, mp++) {
-    OrigSpaceLoop *lof = lof_array + mp->loopstart;
+  for (const int i : polys.index_range()) {
+    const blender::IndexRange poly = polys[i];
+    OrigSpaceLoop *lof = lof_array + poly.start();
 
-    if (ELEM(mp->totloop, 3, 4)) {
-      for (j = 0; j < mp->totloop; j++, lof++) {
+    if (ELEM(poly.size(), 3, 4)) {
+      for (j = 0; j < poly.size(); j++, lof++) {
         copy_v2_v2(lof->uv, default_osf[j]);
       }
     }
     else {
-      const MLoop *l = &loops[mp->loopstart];
-      float p_nor[3], co[3];
+      float co[3];
       float mat[3][3];
 
       float min[2] = {FLT_MAX, FLT_MAX}, max[2] = {-FLT_MAX, -FLT_MAX};
       float translate[2], scale[2];
 
-      BKE_mesh_calc_poly_normal(mp, l, verts.data(), p_nor);
+      const float3 p_nor = blender::bke::mesh::poly_normal_calc(positions,
+                                                                corner_verts.slice(poly));
+
       axis_dominant_v3_to_m3(mat, p_nor);
 
-      vcos_2d.resize(mp->totloop);
-      for (j = 0; j < mp->totloop; j++, l++) {
-        mul_v3_m3v3(co, mat, verts[l->v].co);
+      vcos_2d.resize(poly.size());
+      for (j = 0; j < poly.size(); j++) {
+        mul_v3_m3v3(co, mat, positions[corner_verts[poly[j]]]);
         copy_v2_v2(vcos_2d[j], co);
 
         for (k = 0; k < 2; k++) {
@@ -2001,7 +1865,7 @@ static void mesh_init_origspace(Mesh *mesh)
 
       /* Finally, transform all vcos_2d into ((0, 0), (1, 1))
        * square and assign them as origspace. */
-      for (j = 0; j < mp->totloop; j++, lof++) {
+      for (j = 0; j < poly.size(); j++, lof++) {
         add_v2_v2v2(lof->uv, vcos_2d[j], translate);
         mul_v2_v2(lof->uv, scale);
       }

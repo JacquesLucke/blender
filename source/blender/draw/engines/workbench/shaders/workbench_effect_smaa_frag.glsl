@@ -1,5 +1,5 @@
 
-#pragma BLENDER_REQUIRE(common_smaa_lib.glsl)
+#pragma BLENDER_REQUIRE(gpu_shader_smaa_lib.glsl)
 
 void main()
 {
@@ -9,6 +9,7 @@ void main()
   /* Discard if there is no edge. */
   if (dot(out_edges, float2(1.0, 1.0)) == 0.0) {
     discard;
+    return;
   }
 
 #elif SMAA_STAGE == 1

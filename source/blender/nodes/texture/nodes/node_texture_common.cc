@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2006 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2006 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup texnodes
@@ -9,11 +10,11 @@
 
 #include "BLI_utildefines.h"
 
-#include "BKE_node.h"
+#include "BKE_node.hh"
 
 #include "NOD_common.h"
 #include "node_common.h"
-#include "node_exec.h"
+#include "node_exec.hh"
 #include "node_texture_util.hh"
 
 #include "RNA_access.h"
@@ -69,7 +70,7 @@ static void group_copy_inputs(bNode *gnode, bNodeStack **in, bNodeStack *gstack)
     if (node->type == NODE_GROUP_INPUT) {
       for (sock = static_cast<bNodeSocket *>(node->outputs.first), a = 0; sock;
            sock = sock->next, a++) {
-        if (in[a]) { /* shouldn't need to check this T36694. */
+        if (in[a]) { /* shouldn't need to check this #36694. */
           ns = node_get_socket_stack(gstack, sock);
           if (ns) {
             copy_stack(ns, in[a]);
@@ -84,34 +85,34 @@ static void group_copy_inputs(bNode *gnode, bNodeStack **in, bNodeStack *gstack)
  */
 static void group_copy_outputs(bNode *gnode, bNodeStack **out, bNodeStack *gstack)
 {
-  bNodeTree *ngroup = (bNodeTree *)gnode->id;
-  bNode *node;
-  bNodeSocket *sock;
-  bNodeStack *ns;
-  int a;
+  const bNodeTree &ngroup = *reinterpret_cast<bNodeTree *>(gnode->id);
 
-  for (node = static_cast<bNode *>(ngroup->nodes.first); node; node = node->next) {
-    if (node->type == NODE_GROUP_OUTPUT && (node->flag & NODE_DO_OUTPUT)) {
-      for (sock = static_cast<bNodeSocket *>(node->inputs.first), a = 0; sock;
-           sock = sock->next, a++) {
-        if (out[a]) { /* shouldn't need to check this T36694. */
-          ns = node_get_socket_stack(gstack, sock);
-          if (ns) {
-            copy_stack(out[a], ns);
-          }
-        }
-      }
-      break; /* only one active output node */
+  ngroup.ensure_topology_cache();
+  const bNode *group_output_node = ngroup.group_output_node();
+  if (!group_output_node) {
+    return;
+  }
+
+  int a;
+  LISTBASE_FOREACH_INDEX (bNodeSocket *, sock, &group_output_node->inputs, a) {
+    if (!out[a]) {
+      /* shouldn't need to check this #36694. */
+      continue;
+    }
+
+    bNodeStack *ns = node_get_socket_stack(gstack, sock);
+    if (ns) {
+      copy_stack(out[a], ns);
     }
   }
 }
 
 static void group_execute(void *data,
                           int thread,
-                          struct bNode *node,
+                          bNode *node,
                           bNodeExecData *execdata,
-                          struct bNodeStack **in,
-                          struct bNodeStack **out)
+                          bNodeStack **in,
+                          bNodeStack **out)
 {
   bNodeTreeExec *exec = static_cast<bNodeTreeExec *>(execdata->data);
   bNodeThreadStack *nts;
@@ -155,9 +156,9 @@ void register_node_type_tex_group(void)
   BLI_assert(ntype.rna_ext.srna != nullptr);
   RNA_struct_blender_type_set(ntype.rna_ext.srna, &ntype);
 
-  node_type_size(&ntype, 140, 60, 400);
+  blender::bke::node_type_size(&ntype, 140, 60, 400);
   ntype.labelfunc = node_group_label;
-  ntype.group_update_func = node_group_update;
+  ntype.declare_dynamic = blender::nodes::node_group_declare_dynamic;
   ntype.init_exec_fn = group_initexec;
   ntype.free_exec_fn = group_freeexec;
   ntype.exec_fn = group_execute;

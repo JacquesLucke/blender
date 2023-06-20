@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup intern_iksolver
@@ -74,7 +75,7 @@ bool IK_QJacobianSolver::Setup(IK_QSegment *root, std::list<IK_QTask *> &tasks)
     return false;
 
   // compute task ids and assign weights to task
-  int primary_size = 0, primary = 0;
+  int primary_size = 0;
   int secondary_size = 0, secondary = 0;
   double primary_weight = 0.0, secondary_weight = 0.0;
   std::list<IK_QTask *>::iterator task;
@@ -86,7 +87,6 @@ bool IK_QJacobianSolver::Setup(IK_QSegment *root, std::list<IK_QTask *> &tasks)
       qtask->SetId(primary_size);
       primary_size += qtask->Size();
       primary_weight += qtask->Weight();
-      primary++;
     }
     else {
       qtask->SetId(secondary_size);

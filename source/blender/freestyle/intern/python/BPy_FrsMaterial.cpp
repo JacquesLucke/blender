@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2004-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -105,7 +107,8 @@ static int FrsMaterial_init(BPy_FrsMaterial *self, PyObject *args, PyObject *kwd
                                        convert_v4,
                                        emission,
                                        &shininess,
-                                       &priority)) {
+                                       &priority))
+  {
     self->m = new FrsMaterial(line, diffuse, ambient, specular, emission, shininess, priority);
   }
   else {

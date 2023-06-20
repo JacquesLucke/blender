@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup asset_system
@@ -24,6 +26,7 @@ struct Main;
 
 namespace blender::asset_system {
 
+class AssetIdentifier;
 class AssetRepresentation;
 class AssetStorage;
 
@@ -34,9 +37,20 @@ class AssetStorage;
  * to also include asset indexes and more.
  */
 class AssetLibrary {
-  bCallbackFuncStore on_save_callback_store_{};
+  eAssetLibraryType library_type_;
+  /**
+   * The name this asset library will be displayed in the UI as. Will also be used as a weak way
+   * to identify an asset library (e.g. by #AssetWeakReference).
+   */
+  std::string name_;
+  /** If this is an asset library on disk, the top-level directory path. Normalized using
+   * #normalize_directory_path(). Shared pointer so assets can safely point to it, and don't have
+   * to hold a copy (which is the size of `std::string` + the allocated buffer, if no short string
+   * optimization is used). With thousands of assets this might make a reasonable difference. */
+  std::shared_ptr<std::string> root_path_;
 
-  /** Storage for assets (better said their representations) that are considered to be part of this
+  /**
+   * Storage for assets (better said their representations) that are considered to be part of this
    * library. Assets are not automatically loaded into this when loading an asset library. Assets
    * have to be loaded externally and added to this storage via #add_external_asset() or
    * #add_local_id_asset(). So this really is arbitrary storage as far as #AssetLibrary is
@@ -51,6 +65,17 @@ class AssetLibrary {
    */
   std::unique_ptr<AssetStorage> asset_storage_;
 
+  std::function<void(AssetLibrary &self)> on_refresh_;
+
+  std::optional<eAssetImportMethod> import_method_;
+  /** Assets owned by this library may be imported with a different method than set in
+   * #import_method_ above, it's just a default. */
+  bool may_override_import_method_ = false;
+
+  bool use_relative_path_ = true;
+
+  bCallbackFuncStore on_save_callback_store_{};
+
  public:
   /* Controlled by #ED_asset_catalogs_set_save_catalogs_when_file_is_saved,
    * for managing the "Save Catalog Changes" in the quit-confirmation dialog box. */
@@ -58,11 +83,31 @@ class AssetLibrary {
 
   std::unique_ptr<AssetCatalogService> catalog_service;
 
+  friend class AssetLibraryService;
+  friend class AssetRepresentation;
+
  public:
-  AssetLibrary();
+  /**
+   * \param name: The name this asset library will be displayed in the UI as. Will also be used as
+   *              a weak way to identify an asset library (e.g. by #AssetWeakReference). Make sure
+   *              this is set for any custom (not builtin) asset library. That is,
+   *              #ASSET_LIBRARY_CUSTOM ones.
+   * \param root_path: If this is an asset library on disk, the top-level directory path.
+   */
+  AssetLibrary(eAssetLibraryType library_type, StringRef name = "", StringRef root_path = "");
   ~AssetLibrary();
 
-  void load_catalogs(StringRefNull library_root_directory);
+  /**
+   * Execute \a fn for every asset library that is loaded. The asset library is passed to the
+   * \a fn call.
+   *
+   * \param skip_all_library: When true, the \a fn will also be executed for the "All" asset
+   *                          library. This is just a combination of the other ones, so usually
+   *                          iterating over it is redundant.
+   */
+  static void foreach_loaded(FunctionRef<void(AssetLibrary &)> fn, bool include_all_library);
+
+  void load_catalogs();
 
   /** Load catalogs that have changed on disk. */
   void refresh();
@@ -72,17 +117,26 @@ class AssetLibrary {
    * representation is not needed anymore, it must be freed using #remove_asset(), or there will be
    * leaking that's only cleared when the library storage is destructed (typically on exit or
    * loading a different file).
+   *
+   * \param relative_asset_path: The path of the asset relative to the asset library root. With
+   *                             this the asset must be uniquely identifiable within the asset
+   *                             library.
    */
-  AssetRepresentation &add_external_asset(StringRef name, std::unique_ptr<AssetMetaData> metadata);
+  AssetRepresentation &add_external_asset(StringRef relative_asset_path,
+                                          StringRef name,
+                                          int id_type,
+                                          std::unique_ptr<AssetMetaData> metadata);
   /** See #AssetLibrary::add_external_asset(). */
-  AssetRepresentation &add_local_id_asset(ID &id);
-  /** Remove an asset from the library that was added using #add_external_asset() or
+  AssetRepresentation &add_local_id_asset(StringRef relative_asset_path, ID &id);
+  /**
+   * Remove an asset from the library that was added using #add_external_asset() or
    * #add_local_id_asset(). Can usually be expected to be constant time complexity (worst case may
    * differ).
    * \note This is save to call if \a asset is freed (dangling reference), will not perform any
    *       change then.
    * \return True on success, false if the asset couldn't be found inside the library (also the
-   *         case when the reference is dangling). */
+   *         case when the reference is dangling).
+   */
   bool remove_asset(AssetRepresentation &asset);
 
   /**
@@ -97,7 +151,8 @@ class AssetLibrary {
    *
    * No-op if the catalog cannot be found. This could be the kind of "the
    * catalog definition file is corrupt/lost" scenario that the simple name is
-   * meant to help recover from. */
+   * meant to help recover from.
+   */
   void refresh_catalog_simplename(AssetMetaData *asset_data);
 
   void on_blend_save_handler_register();
@@ -105,8 +160,15 @@ class AssetLibrary {
 
   void on_blend_save_post(Main *bmain, PointerRNA **pointers, int num_pointers);
 
- private:
-  std::optional<int> find_asset_index(const AssetRepresentation &asset);
+  /**
+   * Create an asset identifier from the root path of this asset library and the given relative
+   * asset path (relative to the asset library root directory).
+   */
+  AssetIdentifier asset_identifier_from_library(StringRef relative_asset_path);
+
+  eAssetLibraryType library_type() const;
+  StringRefNull name() const;
+  StringRefNull root_path() const;
 };
 
 Vector<AssetLibraryReference> all_valid_asset_library_refs();
@@ -114,11 +176,21 @@ Vector<AssetLibraryReference> all_valid_asset_library_refs();
 }  // namespace blender::asset_system
 
 /**
+ * Load the data for an asset library, but not the asset representations themselves (loading these
+ * is currently not done in the asset system).
+ *
+ * For the "All" asset library (#ASSET_LIBRARY_ALL), every other known asset library will be
+ * loaded as well. So a call to #AssetLibrary::foreach_loaded() can be expected to iterate over all
+ * libraries.
+ *
  * \warning Catalogs are reloaded, invalidating catalog pointers. Do not store catalog pointers,
  *          store CatalogIDs instead and lookup the catalog where needed.
  */
 blender::asset_system::AssetLibrary *AS_asset_library_load(
     const Main *bmain, const AssetLibraryReference &library_reference);
+
+std::string AS_asset_library_root_path_from_library_ref(
+    const AssetLibraryReference &library_reference);
 
 /**
  * Try to find an appropriate location for an asset library root from a file or directory path.

@@ -1,6 +1,9 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Adapted from code copyright 2009-2011 Intel Corporation
- * Modifications Copyright 2012-2022 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2009-2011 Intel Corporation
+ * SPDX-FileCopyrightText: 2012-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Adapted code from Intel Corporation. */
 
 //#define __KERNEL_SSE__
 
@@ -16,18 +19,10 @@ CCL_NAMESPACE_BEGIN
 
 /* SSE replacements */
 
-__forceinline void prefetch_L1(const void * /*ptr*/)
-{
-}
-__forceinline void prefetch_L2(const void * /*ptr*/)
-{
-}
-__forceinline void prefetch_L3(const void * /*ptr*/)
-{
-}
-__forceinline void prefetch_NTA(const void * /*ptr*/)
-{
-}
+__forceinline void prefetch_L1(const void * /*ptr*/) {}
+__forceinline void prefetch_L2(const void * /*ptr*/) {}
+__forceinline void prefetch_L3(const void * /*ptr*/) {}
+__forceinline void prefetch_NTA(const void * /*ptr*/) {}
 
 template<size_t src> __forceinline float extract(const int4 &b)
 {

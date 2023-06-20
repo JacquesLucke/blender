@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_task.hh"
 
@@ -10,11 +12,13 @@ namespace blender::nodes::node_geo_input_tangent_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_output<decl::Vector>(N_("Tangent")).field_source();
+  b.add_output<decl::Vector>("Tangent").field_source();
 }
 
 static Array<float3> curve_tangent_point_domain(const bke::CurvesGeometry &curves)
 {
+  const OffsetIndices points_by_curve = curves.points_by_curve();
+  const OffsetIndices evaluated_points_by_curve = curves.evaluated_points_by_curve();
   const VArray<int8_t> types = curves.curve_types();
   const VArray<int> resolutions = curves.resolution();
   const VArray<bool> cyclic = curves.cyclic();
@@ -26,8 +30,8 @@ static Array<float3> curve_tangent_point_domain(const bke::CurvesGeometry &curve
 
   threading::parallel_for(curves.curves_range(), 128, [&](IndexRange range) {
     for (const int i_curve : range) {
-      const IndexRange points = curves.points_for_curve(i_curve);
-      const IndexRange evaluated_points = curves.evaluated_points_for_curve(i_curve);
+      const IndexRange points = points_by_curve[i_curve];
+      const IndexRange evaluated_points = evaluated_points_by_curve[i_curve];
 
       MutableSpan<float3> curve_tangents = results.as_mutable_span().slice(points);
 
@@ -48,7 +52,7 @@ static Array<float3> curve_tangent_point_domain(const bke::CurvesGeometry &curve
           curve_tangents.first() = tangents.first();
           const Span<int> offsets = curves.bezier_evaluated_offsets_for_curve(i_curve);
           for (const int i : IndexRange(points.size()).drop_front(1)) {
-            curve_tangents[i] = tangents[offsets[i - 1]];
+            curve_tangents[i] = tangents[offsets[i]];
           }
           break;
         }
@@ -95,7 +99,7 @@ class TangentFieldInput final : public bke::CurvesFieldInput {
 
   GVArray get_varray_for_context(const bke::CurvesGeometry &curves,
                                  const eAttrDomain domain,
-                                 const IndexMask /*mask*/) const final
+                                 const IndexMask & /*mask*/) const final
   {
     return construct_curve_tangent_gvarray(curves, domain);
   }

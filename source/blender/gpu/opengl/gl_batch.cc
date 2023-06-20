@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 by Mike Erwin. All rights reserved. */
+/* SPDX-FileCopyrightText: 2016 by Mike Erwin. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -214,7 +215,7 @@ GLuint GLVaoCache::base_instance_vao_get(GPUBatch *batch, int i_first)
     base_instance_ = 0;
   }
   /**
-   * There seems to be a nasty bug when drawing using the same VAO reconfiguring (T71147).
+   * There seems to be a nasty bug when drawing using the same VAO reconfiguring (#71147).
    * We just use a throwaway VAO for that. Note that this is likely to degrade performance.
    */
 #ifdef __APPLE__

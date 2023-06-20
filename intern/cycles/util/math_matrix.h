@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __UTIL_MATH_MATRIX_H__
 #define __UTIL_MATH_MATRIX_H__
@@ -277,7 +278,8 @@ ccl_device void math_matrix_jacobi_eigendecomposition(ccl_private float *A,
         /* If we're in a later sweep and the element already is very small,
          * just set it to zero and skip the rotation. */
         if (sweep > 3 && abs_element <= singular_epsilon * fabsf(MAT(A, n, row, row)) &&
-            abs_element <= singular_epsilon * fabsf(MAT(A, n, col, col))) {
+            abs_element <= singular_epsilon * fabsf(MAT(A, n, col, col)))
+        {
           MAT(A, n, row, col) = 0.0f;
           continue;
         }

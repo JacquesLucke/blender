@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 /** \file
@@ -24,7 +25,6 @@ struct CCGVert;
 struct DMFlagMat;
 struct DerivedMesh;
 struct EdgeHash;
-struct MPoly;
 struct Mesh;
 struct MeshElemMap;
 struct Object;
@@ -96,7 +96,6 @@ typedef struct CCGDerivedMesh {
     struct CCGFace *face;
   } * faceMap;
 
-  short *edgeFlags;
   struct DMFlagMat *faceFlags;
 
   int *reverseFaceMap;

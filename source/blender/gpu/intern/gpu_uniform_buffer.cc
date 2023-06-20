@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2020 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2020 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -14,6 +15,7 @@
 #include "gpu_backend.hh"
 #include "gpu_node_graph.h"
 
+#include "GPU_context.h"
 #include "GPU_material.h"
 
 #include "GPU_uniform_buffer.h"
@@ -32,7 +34,7 @@ UniformBuf::UniformBuf(size_t size, const char *name)
 
   size_in_bytes_ = size;
 
-  BLI_strncpy(name_, name, sizeof(name_));
+  STRNCPY(name_, name);
 }
 
 UniformBuf::~UniformBuf()
@@ -56,9 +58,14 @@ static eGPUType get_padded_gpu_type(LinkData *link)
 {
   GPUInput *input = (GPUInput *)link->data;
   eGPUType gputype = input->type;
+  /* Metal cannot pack floats after vec3. */
+  if (GPU_backend_get_type() == GPU_BACKEND_METAL) {
+    return (gputype == GPU_VEC3) ? GPU_VEC4 : gputype;
+  }
   /* Unless the vec3 is followed by a float we need to treat it as a vec4. */
   if (gputype == GPU_VEC3 && (link->next != nullptr) &&
-      (((GPUInput *)link->next->data)->type != GPU_FLOAT)) {
+      (((GPUInput *)link->next->data)->type != GPU_FLOAT))
+  {
     gputype = GPU_VEC4;
   }
   return gputype;
@@ -88,6 +95,11 @@ static void buffer_from_list_inputs_sort(ListBase *inputs)
 
   /* Order them as mat4, vec4, vec3, vec2, float. */
   BLI_listbase_sort(inputs, inputs_cmp);
+
+  /* Metal cannot pack floats after vec3. */
+  if (GPU_backend_get_type() == GPU_BACKEND_METAL) {
+    return;
+  }
 
   /* Creates a lookup table for the different types; */
   LinkData *inputs_lookup[MAX_UBO_GPU_TYPE + 1] = {nullptr};

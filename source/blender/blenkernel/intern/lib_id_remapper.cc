@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2022 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "DNA_ID.h"
 
@@ -36,6 +37,15 @@ struct IDRemapper {
     BLI_assert(old_id != nullptr);
     BLI_assert(new_id == nullptr || (GS(old_id->name) == GS(new_id->name)));
     mappings.add(old_id, new_id);
+    BLI_assert(BKE_idtype_idcode_to_idfilter(GS(old_id->name)) != 0);
+    source_types |= BKE_idtype_idcode_to_idfilter(GS(old_id->name));
+  }
+
+  void add_overwrite(ID *old_id, ID *new_id)
+  {
+    BLI_assert(old_id != nullptr);
+    BLI_assert(new_id == nullptr || (GS(old_id->name) == GS(new_id->name)));
+    mappings.add_overwrite(old_id, new_id);
     BLI_assert(BKE_idtype_idcode_to_idfilter(GS(old_id->name)) != 0);
     source_types |= BKE_idtype_idcode_to_idfilter(GS(old_id->name));
   }
@@ -141,13 +151,13 @@ void BKE_id_remapper_free(IDRemapper *id_remapper)
   MEM_delete<blender::bke::id::remapper::IDRemapper>(remapper);
 }
 
-void BKE_id_remapper_clear(struct IDRemapper *id_remapper)
+void BKE_id_remapper_clear(IDRemapper *id_remapper)
 {
   blender::bke::id::remapper::IDRemapper *remapper = unwrap(id_remapper);
   remapper->clear();
 }
 
-bool BKE_id_remapper_is_empty(const struct IDRemapper *id_remapper)
+bool BKE_id_remapper_is_empty(const IDRemapper *id_remapper)
 {
   const blender::bke::id::remapper::IDRemapper *remapper = unwrap(id_remapper);
   return remapper->is_empty();
@@ -159,16 +169,22 @@ void BKE_id_remapper_add(IDRemapper *id_remapper, ID *old_id, ID *new_id)
   remapper->add(old_id, new_id);
 }
 
-bool BKE_id_remapper_has_mapping_for(const struct IDRemapper *id_remapper, uint64_t type_filter)
+void BKE_id_remapper_add_overwrite(IDRemapper *id_remapper, ID *old_id, ID *new_id)
+{
+  blender::bke::id::remapper::IDRemapper *remapper = unwrap(id_remapper);
+  remapper->add_overwrite(old_id, new_id);
+}
+
+bool BKE_id_remapper_has_mapping_for(const IDRemapper *id_remapper, uint64_t type_filter)
 {
   const blender::bke::id::remapper::IDRemapper *remapper = unwrap(id_remapper);
   return remapper->contains_mappings_for_any(type_filter);
 }
 
-IDRemapperApplyResult BKE_id_remapper_get_mapping_result(const struct IDRemapper *id_remapper,
-                                                         struct ID *id,
+IDRemapperApplyResult BKE_id_remapper_get_mapping_result(const IDRemapper *id_remapper,
+                                                         ID *id,
                                                          IDRemapperApplyOptions options,
-                                                         const struct ID *id_self)
+                                                         const ID *id_self)
 {
   const blender::bke::id::remapper::IDRemapper *remapper = unwrap(id_remapper);
   return remapper->get_mapping_result(id, options, id_self);
@@ -196,7 +212,7 @@ IDRemapperApplyResult BKE_id_remapper_apply(const IDRemapper *id_remapper,
   return BKE_id_remapper_apply_ex(id_remapper, r_id_ptr, options, nullptr);
 }
 
-void BKE_id_remapper_iter(const struct IDRemapper *id_remapper,
+void BKE_id_remapper_iter(const IDRemapper *id_remapper,
                           IDRemapperIterFunction func,
                           void *user_data)
 {
@@ -231,7 +247,7 @@ static void id_remapper_print_item_cb(ID *old_id, ID *new_id, void * /*user_data
   }
 }
 
-void BKE_id_remapper_print(const struct IDRemapper *id_remapper)
+void BKE_id_remapper_print(const IDRemapper *id_remapper)
 {
   BKE_id_remapper_iter(id_remapper, id_remapper_print_item_cb, nullptr);
 }

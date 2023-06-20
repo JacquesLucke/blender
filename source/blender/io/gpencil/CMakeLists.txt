@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2006 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2006 Blender Foundation. All rights reserved.
 
 set(INC
   .
@@ -70,13 +71,19 @@ if(WITH_HARU)
   )
   list(APPEND LIB
     ${HARU_LIBRARIES}
+
+    # Haru needs `TIFFFaxBlackCodes` & `TIFFFaxWhiteCodes` symbols from TIFF.
+    # Can be removed with Haru 2.4.0. They should be shipping with their own
+    # Fax codes defined by default from that version onwards.
+    ${TIFF_LIBRARY}
   )
   add_definitions(-DWITH_HARU)
 endif()
 
-
-list(APPEND LIB
-  ${BOOST_LIBRARIES}
-)
+if(WITH_BOOST)
+  list(APPEND LIB
+    ${BOOST_LIBRARIES}
+  )
+endif()
 
 blender_add_lib(bf_gpencil "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

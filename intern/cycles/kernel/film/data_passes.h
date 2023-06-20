@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -33,6 +34,12 @@ ccl_device_inline void film_write_data_passes(KernelGlobals kg,
     return;
   }
 
+  /* Don't write data passes for paths that were split off for shadow catchers
+   * to avoid double-counting. */
+  if (path_flag & PATH_RAY_SHADOW_CATCHER_PASS) {
+    return;
+  }
+
   const int flag = kernel_data.film.pass_flag;
 
   if (!(flag & PASS_ANY)) {
@@ -62,7 +69,8 @@ ccl_device_inline void film_write_data_passes(KernelGlobals kg,
     }
 
     if (!(sd->flag & SD_TRANSPARENT) || kernel_data.film.pass_alpha_threshold == 0.0f ||
-        average(surface_shader_alpha(kg, sd)) >= kernel_data.film.pass_alpha_threshold) {
+        average(surface_shader_alpha(kg, sd)) >= kernel_data.film.pass_alpha_threshold)
+    {
       if (flag & PASSMASK(NORMAL)) {
         const float3 normal = surface_shader_average_normal(kg, sd);
         film_write_pass_float3(buffer + kernel_data.film.pass_normal, normal);
@@ -153,6 +161,49 @@ ccl_device_inline void film_write_data_passes(KernelGlobals kg,
      * to avoid having to tracking this in the Integrator state we do the negation
      * after rendering. */
     film_write_pass_float(buffer + kernel_data.film.pass_mist, mist_output);
+  }
+#endif
+}
+
+ccl_device_inline void film_write_data_passes_background(
+    KernelGlobals kg, IntegratorState state, ccl_global float *ccl_restrict render_buffer)
+{
+#ifdef __PASSES__
+  const uint32_t path_flag = INTEGRATOR_STATE(state, path, flag);
+
+  if (!(path_flag & PATH_RAY_TRANSPARENT_BACKGROUND)) {
+    return;
+  }
+
+  /* Don't write data passes for paths that were split off for shadow catchers
+   * to avoid double-counting. */
+  if (path_flag & PATH_RAY_SHADOW_CATCHER_PASS) {
+    return;
+  }
+
+  const int flag = kernel_data.film.pass_flag;
+
+  if (!(flag & PASS_ANY)) {
+    return;
+  }
+
+  if (!(path_flag & PATH_RAY_SINGLE_PASS_DONE)) {
+    ccl_global float *buffer = film_pass_pixel_render_buffer(kg, state, render_buffer);
+
+    if (INTEGRATOR_STATE(state, path, sample) == 0) {
+      if (flag & PASSMASK(DEPTH)) {
+        film_overwrite_pass_float(buffer + kernel_data.film.pass_depth, 0.0f);
+      }
+      if (flag & PASSMASK(OBJECT_ID)) {
+        film_overwrite_pass_float(buffer + kernel_data.film.pass_object_id, 0.0f);
+      }
+      if (flag & PASSMASK(MATERIAL_ID)) {
+        film_overwrite_pass_float(buffer + kernel_data.film.pass_material_id, 0.0f);
+      }
+      if (flag & PASSMASK(POSITION)) {
+        film_overwrite_pass_float3(buffer + kernel_data.film.pass_position, zero_float3());
+      }
+    }
   }
 #endif
 }

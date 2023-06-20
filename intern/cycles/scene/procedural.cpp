@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/procedural.h"
 #include "scene/scene.h"
@@ -16,22 +17,16 @@ NODE_ABSTRACT_DEFINE(Procedural)
   return type;
 }
 
-Procedural::Procedural(const NodeType *type) : Node(type)
-{
-}
+Procedural::Procedural(const NodeType *type) : Node(type) {}
 
-Procedural::~Procedural()
-{
-}
+Procedural::~Procedural() {}
 
 ProceduralManager::ProceduralManager()
 {
   need_update_ = true;
 }
 
-ProceduralManager::~ProceduralManager()
-{
-}
+ProceduralManager::~ProceduralManager() {}
 
 void ProceduralManager::update(Scene *scene, Progress &progress)
 {

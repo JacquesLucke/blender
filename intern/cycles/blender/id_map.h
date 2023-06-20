@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __BLENDER_ID_MAP_H__
 #define __BLENDER_ID_MAP_H__
@@ -22,9 +23,7 @@ CCL_NAMESPACE_BEGIN
 
 template<typename K, typename T, typename Flags = uint> class id_map {
  public:
-  id_map(Scene *scene_) : scene(scene_)
-  {
-  }
+  id_map(Scene *scene_) : scene(scene_) {}
 
   ~id_map()
   {
@@ -262,9 +261,7 @@ struct GeometryKey {
   void *id;
   Geometry::Type geometry_type;
 
-  GeometryKey(void *id, Geometry::Type geometry_type) : id(id), geometry_type(geometry_type)
-  {
-  }
+  GeometryKey(void *id, Geometry::Type geometry_type) : id(id), geometry_type(geometry_type) {}
 
   bool operator<(const GeometryKey &k) const
   {

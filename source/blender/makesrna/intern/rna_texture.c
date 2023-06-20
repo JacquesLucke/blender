@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -347,15 +349,15 @@ static int rna_TextureSlot_name_length(PointerRNA *ptr)
   return 0;
 }
 
-static void rna_TextureSlot_name_get(PointerRNA *ptr, char *str)
+static void rna_TextureSlot_name_get(PointerRNA *ptr, char *value)
 {
   MTex *mtex = ptr->data;
 
   if (mtex->tex) {
-    strcpy(str, mtex->tex->id.name + 2);
+    strcpy(value, mtex->tex->id.name + 2);
   }
   else {
-    str[0] = '\0';
+    value[0] = '\0';
   }
 }
 
@@ -506,6 +508,7 @@ static void rna_def_texmapping(BlenderRNA *brna)
   prop = RNA_def_property(srna, "rotation", PROP_FLOAT, PROP_EULER);
   RNA_def_property_float_sdna(prop, NULL, "rot");
   RNA_def_property_ui_text(prop, "Rotation", "");
+  RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 100, RNA_TRANSLATION_PREC_DEFAULT);
   RNA_def_property_update(prop, 0, "rna_Texture_mapping_update");
 
   prop = RNA_def_property(srna, "scale", PROP_FLOAT, PROP_XYZ);

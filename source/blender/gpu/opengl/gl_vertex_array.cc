@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 by Mike Erwin. All rights reserved. */
+/* SPDX-FileCopyrightText: 2016 by Mike Erwin. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -121,12 +122,18 @@ void GLVertArray::update_bindings(const GLuint vao,
 
   if (batch->resource_id_buf) {
     const ShaderInput *input = interface->attr_get("drw_ResourceID");
+    int component_len = 1;
+    if (input == nullptr) {
+      /* Uses Custom IDs */
+      input = interface->attr_get("vertex_in_drw_ResourceID_");
+      component_len = 2;
+    }
     if (input) {
       dynamic_cast<GLStorageBuf *>(unwrap(batch->resource_id_buf))->bind_as(GL_ARRAY_BUFFER);
       glEnableVertexAttribArray(input->location);
       glVertexAttribDivisor(input->location, 1);
       glVertexAttribIPointer(
-          input->location, 1, to_gl(GPU_COMP_I32), sizeof(uint32_t), (GLvoid *)nullptr);
+          input->location, component_len, to_gl(GPU_COMP_I32), 0, (GLvoid *)nullptr);
       attr_mask &= ~(1 << input->location);
     }
   }
@@ -136,7 +143,7 @@ void GLVertArray::update_bindings(const GLuint vao,
       if (attr_mask & mask) {
         GLContext *ctx = GLContext::get();
         /* This replaces glVertexAttrib4f(a, 0.0f, 0.0f, 0.0f, 1.0f); with a more modern style.
-         * Fix issues for some drivers (see T75069). */
+         * Fix issues for some drivers (see #75069). */
         glBindVertexBuffer(a, ctx->default_attr_vbo_, intptr_t(0), intptr_t(0));
         glEnableVertexAttribArray(a);
         glVertexAttribFormat(a, 4, GL_FLOAT, GL_FALSE, 0);

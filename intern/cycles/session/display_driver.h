@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2021-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2021-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -85,7 +86,7 @@ class DisplayDriver {
     int buffer_height = 0;
 
     /* OpenGL pixel buffer object. */
-    int opengl_pbo_id = 0;
+    int64_t opengl_pbo_id = 0;
 
     /* Clear the entire buffer before doing partial write to it. */
     bool need_clear = false;

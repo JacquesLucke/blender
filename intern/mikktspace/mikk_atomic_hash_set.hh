@@ -1,11 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0
+/* SPDX-FileCopyrightText: 2012-2021 Meta Platforms, Inc. and affiliates.
+ * SPDX-FileCopyrightText: 2022 Blender Foundation
  *
- * Original code:
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- *
- * Modifications:
- * Copyright 2022 Blender Foundation. All rights reserved.
- */
+ * SPDX-License-Identifier: Apache-2.0 */
 
 /* Simplified version of Folly's AtomicHashArray
  * (https://github.com/facebook/folly/blob/main/folly/AtomicHashArray.h).
@@ -89,9 +85,7 @@ class AtomicHashSet {
     size_t capacity;  // if positive, overrides maxLoadFactor
 
     //  Cannot have constexpr ctor because some compilers rightly complain.
-    Config() : emptyKey((KeyT)-1), maxLoadFactor(0.8), growthFactor(-1), capacity(0)
-    {
-    }
+    Config() : emptyKey((KeyT)-1), maxLoadFactor(0.8), growthFactor(-1), capacity(0) {}
   };
 
   /* Instead of a mess of arguments, we take a max size and a Config struct to

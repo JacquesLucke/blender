@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -160,7 +162,7 @@ static bool rna_Camera_background_images_override_apply(Main *bmain,
                                                         PointerRNA *UNUSED(ptr_item_storage),
                                                         IDOverrideLibraryPropertyOperation *opop)
 {
-  BLI_assert_msg(opop->operation == IDOVERRIDE_LIBRARY_OP_INSERT_AFTER,
+  BLI_assert_msg(opop->operation == LIBOVERRIDE_OP_INSERT_AFTER,
                  "Unsupported RNA override operation on background images collection");
 
   Camera *cam_dst = (Camera *)ptr_dst->owner_id;
@@ -347,7 +349,7 @@ static void rna_def_camera_background_image(BlenderRNA *brna)
   prop = RNA_def_property(srna, "show_expanded", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_flag(prop, PROP_NO_DEG_UPDATE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", CAM_BGIMG_FLAG_EXPANDED);
-  RNA_def_property_ui_text(prop, "Show Expanded", "Show the expanded in the user interface");
+  RNA_def_property_ui_text(prop, "Show Expanded", "Show the details in the user interface");
   RNA_def_property_ui_icon(prop, ICON_DISCLOSURE_TRI_RIGHT, 1);
 
   prop = RNA_def_property(srna, "use_camera_clip", PROP_BOOLEAN, PROP_NONE);

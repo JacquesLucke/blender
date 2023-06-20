@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "util/aligned_malloc.h"
 #include "util/guarded_allocator.h"
@@ -8,7 +9,7 @@
 
 /* Adopted from Libmv. */
 
-#if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__NetBSD__)
+#if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__NetBSD__) && !defined(__OpenBSD__)
 /* Needed for memalign on Linux and _aligned_alloc on Windows. */
 #  ifdef FREE_WINDOWS
 /* Make sure _aligned_malloc is included. */
@@ -33,7 +34,7 @@ void *util_aligned_malloc(size_t size, int alignment)
   return MEM_mallocN_aligned(size, alignment, "Cycles Aligned Alloc");
 #elif defined(_WIN32)
   return _aligned_malloc(size, alignment);
-#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__)
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
   void *result;
   if (posix_memalign(&result, alignment, size)) {
     /* Non-zero means allocation error

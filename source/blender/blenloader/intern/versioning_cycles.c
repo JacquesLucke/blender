@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup blenloader
@@ -40,7 +42,7 @@
 
 static bool socket_is_used(bNodeSocket *sock)
 {
-  return sock->flag & SOCK_IN_USE;
+  return sock->flag & SOCK_IS_LINKED;
 }
 
 static float *cycles_node_socket_float_value(bNodeSocket *socket)
@@ -130,7 +132,8 @@ static void displacement_node_insert(bNodeTree *ntree)
     bNodeSocket *tosock = link->tosock;
 
     if (!(tonode->type == SH_NODE_OUTPUT_MATERIAL && fromnode->type != SH_NODE_DISPLACEMENT &&
-          STREQ(tosock->identifier, "Displacement"))) {
+          STREQ(tosock->identifier, "Displacement")))
+    {
       continue;
     }
 
@@ -180,8 +183,8 @@ static void displacement_principled_nodes(bNode *node)
 static bool node_has_roughness(const bNode *node)
 {
   return ELEM(node->type,
-              SH_NODE_BSDF_ANISOTROPIC,
               SH_NODE_BSDF_GLASS,
+              SH_NODE_BSDF_GLOSSY_LEGACY,
               SH_NODE_BSDF_GLOSSY,
               SH_NODE_BSDF_REFRACTION);
 }
@@ -371,7 +374,7 @@ static void light_emission_node_to_energy(Light *light, float *energy, float col
   bNodeSocket *strength_socket = nodeFindSocket(emission_node, SOCK_IN, "Strength");
   bNodeSocket *color_socket = nodeFindSocket(emission_node, SOCK_IN, "Color");
 
-  if ((strength_socket->flag & SOCK_IN_USE) || (color_socket->flag & SOCK_IN_USE)) {
+  if ((strength_socket->flag & SOCK_IS_LINKED) || (color_socket->flag & SOCK_IS_LINKED)) {
     return;
   }
 
@@ -442,7 +445,8 @@ static void update_math_node_single_operand_operators(bNodeTree *ntree)
                NODE_MATH_ABSOLUTE,
                NODE_MATH_FRACTION,
                NODE_MATH_ARCCOSINE,
-               NODE_MATH_ARCTANGENT)) {
+               NODE_MATH_ARCTANGENT))
+      {
         bNodeSocket *sockA = BLI_findlink(&node->inputs, 0);
         bNodeSocket *sockB = BLI_findlink(&node->inputs, 1);
         if (!sockA->link && sockB->link) {
@@ -481,7 +485,8 @@ static void update_vector_math_node_add_and_subtract_operators(bNodeTree *ntree)
     if (node->type == SH_NODE_VECTOR_MATH) {
       bNodeSocket *sockOutValue = nodeFindSocket(node, SOCK_OUT, "Value");
       if (socket_is_used(sockOutValue) &&
-          ELEM(node->custom1, NODE_VECTOR_MATH_ADD, NODE_VECTOR_MATH_SUBTRACT)) {
+          ELEM(node->custom1, NODE_VECTOR_MATH_ADD, NODE_VECTOR_MATH_SUBTRACT))
+      {
 
         bNode *absNode = nodeAddStaticNode(NULL, ntree, SH_NODE_VECTOR_MATH);
         absNode->custom1 = NODE_VECTOR_MATH_ABSOLUTE;
@@ -819,7 +824,8 @@ static void update_mapping_node_fcurve_rna_path_callback(ID *UNUSED(id),
 {
   MappingNodeFCurveCallbackData *data = (MappingNodeFCurveCallbackData *)_data;
   if (!STRPREFIX(fcurve->rna_path, data->nodePath) ||
-      BLI_str_endswith(fcurve->rna_path, "default_value")) {
+      BLI_str_endswith(fcurve->rna_path, "default_value"))
+  {
     return;
   }
   char *old_fcurve_rna_path = fcurve->rna_path;
@@ -1034,8 +1040,8 @@ static void update_voronoi_node_fac_output(bNodeTree *ntree)
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
     if (node->type == SH_NODE_TEX_VORONOI) {
       bNodeSocket *facOutput = BLI_findlink(&node->outputs, 1);
-      strcpy(facOutput->identifier, "Distance");
-      strcpy(facOutput->name, "Distance");
+      STRNCPY(facOutput->identifier, "Distance");
+      STRNCPY(facOutput->name, "Distance");
     }
   }
 }
@@ -1194,7 +1200,8 @@ static void update_voronoi_node_square_distance(bNodeTree *ntree)
       NodeTexVoronoi *tex = (NodeTexVoronoi *)node->storage;
       bNodeSocket *sockDistance = nodeFindSocket(node, SOCK_OUT, "Distance");
       if (tex->distance == SHD_VORONOI_EUCLIDEAN &&
-          ELEM(tex->feature, SHD_VORONOI_F1, SHD_VORONOI_F2) && socket_is_used(sockDistance)) {
+          ELEM(tex->feature, SHD_VORONOI_F1, SHD_VORONOI_F2) && socket_is_used(sockDistance))
+      {
         bNode *multiplyNode = nodeAddStaticNode(NULL, ntree, SH_NODE_MATH);
         multiplyNode->custom1 = NODE_MATH_MULTIPLY;
         multiplyNode->locx = node->locx + node->width + 20.0f;
@@ -1389,7 +1396,8 @@ void do_versions_after_linking_cycles(Main *bmain)
       }
 
       if (!MAIN_VERSION_ATLEAST(bmain, 279, 2) ||
-          (MAIN_VERSION_ATLEAST(bmain, 280, 0) && !MAIN_VERSION_ATLEAST(bmain, 280, 4))) {
+          (MAIN_VERSION_ATLEAST(bmain, 280, 0) && !MAIN_VERSION_ATLEAST(bmain, 280, 4)))
+      {
         displacement_node_insert(ntree);
       }
 
@@ -1400,7 +1408,8 @@ void do_versions_after_linking_cycles(Main *bmain)
       }
 
       if (!MAIN_VERSION_ATLEAST(bmain, 279, 4) ||
-          (MAIN_VERSION_ATLEAST(bmain, 280, 0) && !MAIN_VERSION_ATLEAST(bmain, 280, 5))) {
+          (MAIN_VERSION_ATLEAST(bmain, 280, 0) && !MAIN_VERSION_ATLEAST(bmain, 280, 5)))
+      {
         /* Switch to squared roughness convention */
         square_roughness_node_insert(ntree);
       }

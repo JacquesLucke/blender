@@ -1,14 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_curves.hh"
 #include "BKE_geometry_set.hh"
 
-using namespace blender;
-using namespace blender::bke;
+namespace blender::bke {
 
-GeometryComponentEditData::GeometryComponentEditData() : GeometryComponent(GEO_COMPONENT_TYPE_EDIT)
-{
-}
+GeometryComponentEditData::GeometryComponentEditData() : GeometryComponent(Type::Edit) {}
 
 GeometryComponent *GeometryComponentEditData::copy() const
 {
@@ -27,6 +26,12 @@ bool GeometryComponentEditData::owns_direct_data() const
 void GeometryComponentEditData::ensure_owns_direct_data()
 {
   /* Nothing to do. */
+}
+
+void GeometryComponentEditData::clear()
+{
+  BLI_assert(this->is_mutable() || this->is_expired());
+  curves_edit_hints_.reset();
 }
 
 void GeometryComponentEditData::remember_deformed_curve_positions_if_necessary(
@@ -48,7 +53,7 @@ void GeometryComponentEditData::remember_deformed_curve_positions_if_necessary(
   if (curves_id == nullptr) {
     return;
   }
-  const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id->geometry);
+  const CurvesGeometry &curves = curves_id->geometry.wrap();
   const int points_num = curves.points_num();
   if (points_num != edit_component.curves_edit_hints_->curves_id_orig.geometry.point_num) {
     return;
@@ -56,3 +61,5 @@ void GeometryComponentEditData::remember_deformed_curve_positions_if_necessary(
   edit_component.curves_edit_hints_->positions.emplace(points_num);
   edit_component.curves_edit_hints_->positions->as_mutable_span().copy_from(curves.positions());
 }
+
+}  // namespace blender::bke

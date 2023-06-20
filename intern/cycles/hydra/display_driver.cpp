@@ -1,9 +1,16 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2022 NVIDIA Corporation
- * Copyright 2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2022 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifdef _WIN32
 // Include first to avoid "NOGDI" definition set in Cycles headers
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
 #  include <Windows.h>
 #endif
 
@@ -64,10 +71,6 @@ void HdCyclesDisplayDriver::gl_context_create()
 #endif
 
   if (!gl_pbo_id_) {
-    if (glewInit() != GLEW_OK) {
-      return;
-    }
-
     glGenBuffers(1, &gl_pbo_id_);
   }
 }
@@ -116,9 +119,7 @@ void HdCyclesDisplayDriver::gl_context_dispose()
 #endif
 }
 
-void HdCyclesDisplayDriver::next_tile_begin()
-{
-}
+void HdCyclesDisplayDriver::next_tile_begin() {}
 
 bool HdCyclesDisplayDriver::update_begin(const Params &params,
                                          int texture_width,
@@ -226,7 +227,8 @@ void HdCyclesDisplayDriver::draw(const Params &params)
   const auto renderBuffer = static_cast<HdCyclesRenderBuffer *>(
       _renderParam->GetDisplayAovBinding().renderBuffer);
   if (!renderBuffer ||  // Ensure this render buffer matches the texture dimensions
-      (renderBuffer->GetWidth() != params.size.x || renderBuffer->GetHeight() != params.size.y)) {
+      (renderBuffer->GetWidth() != params.size.x || renderBuffer->GetHeight() != params.size.y))
+  {
     return;
   }
 

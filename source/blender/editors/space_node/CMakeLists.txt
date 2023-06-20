@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
@@ -12,6 +14,7 @@ set(INC
   ../../depsgraph
   ../../draw
   ../../functions
+  ../../geometry
   ../../gpu
   ../../imbuf
   ../../makesdna
@@ -20,6 +23,7 @@ set(INC
   ../../render
   ../../windowmanager
   ../../../../intern/guardedalloc
+  ../../../../extern/fmtlib/include
 
   # dna_type_offsets.h
   ${CMAKE_CURRENT_BINARY_DIR}/../../makesdna/intern
@@ -29,8 +33,9 @@ set(INC
 
 
 set(SRC
-  add_node_search.cc
   add_menu_assets.cc
+  add_node_search.cc
+  clipboard.cc
   drawnode.cc
   link_drag_search.cc
   node_add.cc
@@ -54,6 +59,7 @@ set(LIB
   bf_blenkernel
   bf_blenlib
   bf_editor_screen
+  extern_fmtlib
 )
 
 if(WITH_COMPOSITOR_CPU)

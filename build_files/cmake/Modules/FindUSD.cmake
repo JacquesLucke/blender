@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2019 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2019 Blender Foundation.
 
 # - Find Universal Scene Description (USD) library
 # Find the native USD includes and libraries
@@ -59,6 +60,9 @@ ELSE()
     get_filename_component(USD_LIBRARY_DIR ${USD_LIBRARY} DIRECTORY)
     SET(USD_INCLUDE_DIRS ${USD_INCLUDE_DIR})
     set(USD_LIBRARIES ${USD_LIBRARY})
+    IF(EXISTS ${USD_INCLUDE_DIR}/pxr/base/tf/pyModule.h)
+      SET(USD_PYTHON_SUPPORT ON)
+    ENDIF()
   ENDIF()
 ENDIF()
 

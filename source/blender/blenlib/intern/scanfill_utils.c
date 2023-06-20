@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bli
@@ -173,15 +175,18 @@ static bool scanfill_preprocess_self_isect(ScanFillContext *sf_ctx,
       ScanFillEdge *eed_other;
 
       for (eed_other = eed->next; eed_other;
-           eed_other = (eed_other == pi->edge_last) ? NULL : eed_other->next) {
+           eed_other = (eed_other == pi->edge_last) ? NULL : eed_other->next)
+      {
         if (!ELEM(eed->v1, eed_other->v1, eed_other->v2) &&
-            !ELEM(eed->v2, eed_other->v1, eed_other->v2) && (eed != eed_other)) {
+            !ELEM(eed->v2, eed_other->v1, eed_other->v2) && (eed != eed_other))
+        {
           /* check isect */
           float pt[2];
           BLI_assert(eed != eed_other);
 
           if (isect_seg_seg_v2_point(
-                  eed->v1->co, eed->v2->co, eed_other->v1->co, eed_other->v2->co, pt) == 1) {
+                  eed->v1->co, eed->v2->co, eed_other->v1->co, eed_other->v2->co, pt) == 1)
+          {
             ScanFillIsect *isect;
 
             if (UNLIKELY(isect_hash == NULL)) {
@@ -361,7 +366,6 @@ bool BLI_scanfill_calc_self_isect(ScanFillContext *sf_ctx,
 {
   const uint poly_num = (uint)sf_ctx->poly_nr + 1;
   uint eed_index = 0;
-  int totvert_new = 0;
   bool changed = false;
 
   PolyInfo *poly_info;
@@ -389,7 +393,8 @@ bool BLI_scanfill_calc_self_isect(ScanFillContext *sf_ctx,
       BLI_assert(eed->poly_nr == eed->v2->poly_nr);
 
       if ((poly_info[poly_nr].edge_last != NULL) &&
-          (poly_info[poly_nr].edge_last->poly_nr != eed->poly_nr)) {
+          (poly_info[poly_nr].edge_last->poly_nr != eed->poly_nr))
+      {
         poly_nr++;
       }
 
@@ -453,7 +458,6 @@ bool BLI_scanfill_calc_self_isect(ScanFillContext *sf_ctx,
       if (eve->user_flag != 1) {
         BLI_remlink(&sf_ctx->fillvertbase, eve);
         BLI_addtail(remvertbase, eve);
-        totvert_new--;
       }
       else {
         eve->user_flag = 0;

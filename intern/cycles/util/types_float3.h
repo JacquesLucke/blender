@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -70,9 +71,7 @@ typedef float3 packed_float3;
 struct packed_float3 {
   ccl_device_inline_method packed_float3(){};
 
-  ccl_device_inline_method packed_float3(const float3 &a) : x(a.x), y(a.y), z(a.z)
-  {
-  }
+  ccl_device_inline_method packed_float3(const float3 &a) : x(a.x), y(a.y), z(a.z) {}
 
   ccl_device_inline_method operator float3() const
   {

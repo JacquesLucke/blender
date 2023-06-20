@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "node_geometry_util.hh"
 
@@ -6,17 +8,17 @@ namespace blender::nodes::node_geo_set_id_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Geometry>(N_("Geometry"));
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().supports_field();
-  b.add_input<decl::Int>(N_("ID")).implicit_field(implicit_field_inputs::index);
-  b.add_output<decl::Geometry>(N_("Geometry"));
+  b.add_input<decl::Geometry>("Geometry");
+  b.add_input<decl::Bool>("Selection").default_value(true).hide_value().field_on_all();
+  b.add_input<decl::Int>("ID").implicit_field_on_all(implicit_field_inputs::index);
+  b.add_output<decl::Geometry>("Geometry").propagate_all();
 }
 
 static void set_id_in_component(GeometryComponent &component,
                                 const Field<bool> &selection_field,
                                 const Field<int> &id_field)
 {
-  const eAttrDomain domain = (component.type() == GEO_COMPONENT_TYPE_INSTANCES) ?
+  const eAttrDomain domain = (component.type() == GeometryComponent::Type::Instance) ?
                                  ATTR_DOMAIN_INSTANCE :
                                  ATTR_DOMAIN_POINT;
   const int domain_size = component.attribute_domain_size(domain);
@@ -24,8 +26,8 @@ static void set_id_in_component(GeometryComponent &component,
     return;
   }
   MutableAttributeAccessor attributes = *component.attributes_for_write();
-  bke::GeometryFieldContext field_context{component, domain};
 
+  const bke::GeometryFieldContext field_context{component, domain};
   fn::FieldEvaluator evaluator{field_context, domain_size};
   evaluator.set_selection(selection_field);
 
@@ -56,10 +58,11 @@ static void node_geo_exec(GeoNodeExecParams params)
   Field<bool> selection_field = params.extract_input<Field<bool>>("Selection");
   Field<int> id_field = params.extract_input<Field<int>>("ID");
 
-  for (const GeometryComponentType type : {GEO_COMPONENT_TYPE_INSTANCES,
-                                           GEO_COMPONENT_TYPE_MESH,
-                                           GEO_COMPONENT_TYPE_POINT_CLOUD,
-                                           GEO_COMPONENT_TYPE_CURVE}) {
+  for (const GeometryComponent::Type type : {GeometryComponent::Type::Instance,
+                                             GeometryComponent::Type::Mesh,
+                                             GeometryComponent::Type::PointCloud,
+                                             GeometryComponent::Type::Curve})
+  {
     if (geometry_set.has(type)) {
       set_id_in_component(geometry_set.get_component_for_write(type), selection_field, id_field);
     }

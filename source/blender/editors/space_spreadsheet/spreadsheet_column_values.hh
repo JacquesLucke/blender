@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -8,8 +10,6 @@
 #include "BLI_string_ref.hh"
 
 namespace blender::ed::spreadsheet {
-
-struct CellDrawParams;
 
 eSpreadsheetColumnValueType cpp_type_to_column_type(const CPPType &type);
 

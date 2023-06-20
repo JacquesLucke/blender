@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2019 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2019 Blender Foundation.
 
 # - Find OptiX library
 # Find the native OptiX includes and library
@@ -17,8 +18,12 @@ ENDIF()
 
 SET(_optix_SEARCH_DIRS
   ${OPTIX_ROOT_DIR}
-  "$ENV{PROGRAMDATA}/NVIDIA Corporation/OptiX SDK 7.3.0"
 )
+
+# TODO: Which environment uses this?
+if(DEFINED ENV{PROGRAMDATA})
+  list(APPEND _optix_SEARCH_DIRS "$ENV{PROGRAMDATA}/NVIDIA Corporation/OptiX SDK 7.3.0")
+endif()
 
 FIND_PATH(OPTIX_INCLUDE_DIR
   NAMES

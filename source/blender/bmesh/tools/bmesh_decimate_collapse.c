@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bmesh
@@ -41,14 +43,14 @@
 /** if the cost from #BLI_quadric_evaluate is 'noise', fallback to topology */
 #define USE_TOPOLOGY_FALLBACK
 #ifdef USE_TOPOLOGY_FALLBACK
-/** cost is calculated with double precision, it's ok to use a very small epsilon, see T48154. */
+/** cost is calculated with double precision, it's ok to use a very small epsilon, see #48154. */
 #  define TOPOLOGY_FALLBACK_EPS 1e-12f
 #endif
 
 #define BOUNDARY_PRESERVE_WEIGHT 100.0f
 /**
  * Uses double precision, impacts behavior on near-flat surfaces,
- * cane give issues with very small faces. 1e-2 is too big, see: T48154.
+ * cane give issues with very small faces. 1e-2 is too big, see: #48154.
  */
 #define OPTIMIZE_EPS 1e-8
 #define COST_INVALID FLT_MAX
@@ -181,7 +183,8 @@ static bool bm_edge_collapse_is_degenerate_flip(BMEdge *e, const float optimize_
 
         /* avoid normalize */
         if (dot_v3v3(cross_exist, cross_optim) <=
-            (len_squared_v3(cross_exist) + len_squared_v3(cross_optim)) * 0.01f) {
+            (len_squared_v3(cross_exist) + len_squared_v3(cross_optim)) * 0.01f)
+        {
           return true;
         }
 #else
@@ -232,7 +235,8 @@ static void bm_decim_build_edge_cost_single(BMEdge *e,
   float cost;
 
   if (UNLIKELY(vweights && ((vweights[BM_elem_index_get(e->v1)] == 0.0f) ||
-                            (vweights[BM_elem_index_get(e->v2)] == 0.0f)))) {
+                            (vweights[BM_elem_index_get(e->v2)] == 0.0f))))
+  {
     goto clear;
   }
 
@@ -272,7 +276,7 @@ static void bm_decim_build_edge_cost_single(BMEdge *e,
   }
 
   /* NOTE: 'cost' shouldn't be negative but happens sometimes with small values.
-   * this can cause faces that make up a flat surface to over-collapse, see T37121. */
+   * this can cause faces that make up a flat surface to over-collapse, see #37121. */
   cost = fabsf(cost);
 
 #ifdef USE_TOPOLOGY_FALLBACK
@@ -300,7 +304,8 @@ static void bm_decim_build_edge_cost_single(BMEdge *e,
   }
   else
 #endif
-      if (vweights) {
+      if (vweights)
+  {
     const float e_weight = 2.0f - (vweights[BM_elem_index_get(e->v1)] +
                                    vweights[BM_elem_index_get(e->v2)]);
     if (e_weight) {
@@ -372,13 +377,15 @@ static bool bm_edge_symmetry_check_cb(void *user_data,
 
   if (dot_v3v3(e_other_dir, sym_data->e_dir) > 0.0f) {
     if ((len_squared_v3v3(sym_data->e_v1_co, e_other->v1->co) > sym_data->limit_sq) ||
-        (len_squared_v3v3(sym_data->e_v2_co, e_other->v2->co) > sym_data->limit_sq)) {
+        (len_squared_v3v3(sym_data->e_v2_co, e_other->v2->co) > sym_data->limit_sq))
+    {
       return true;
     }
   }
   else {
     if ((len_squared_v3v3(sym_data->e_v1_co, e_other->v2->co) > sym_data->limit_sq) ||
-        (len_squared_v3v3(sym_data->e_v2_co, e_other->v1->co) > sym_data->limit_sq)) {
+        (len_squared_v3v3(sym_data->e_v2_co, e_other->v1->co) > sym_data->limit_sq))
+    {
       return true;
     }
   }
@@ -469,7 +476,7 @@ static bool bm_face_triangulate(BMesh *bm,
 
                                 MemArena *pf_arena,
                                 /* use for MOD_TRIANGULATE_NGON_BEAUTY only! */
-                                struct Heap *pf_heap)
+                                Heap *pf_heap)
 {
   const int f_base_len = f_base->len;
   int faces_array_tot = f_base_len - 3;
@@ -620,7 +627,8 @@ static void bm_decim_triangulate_end(BMesh *bm, const int edges_tri_tot)
 
             if ((l_a->f->len == 3 && l_b->f->len == 3) && !CAN_LOOP_MERGE(l_a->next) &&
                 !CAN_LOOP_MERGE(l_a->prev) && !CAN_LOOP_MERGE(l_b->next) &&
-                !CAN_LOOP_MERGE(l_b->prev)) {
+                !CAN_LOOP_MERGE(l_b->prev))
+            {
               BMVert *vquad[4] = {
                   e->v1,
                   BM_vert_in_edge(e, l_a->next->v) ? l_a->prev->v : l_a->next->v,
@@ -989,7 +997,8 @@ static bool bm_edge_collapse(BMesh *bm,
 #endif
     /* not totally common but we want to avoid */
     if (ELEM(e_a_other[0], e_b_other[0], e_b_other[1]) ||
-        ELEM(e_a_other[1], e_b_other[0], e_b_other[1])) {
+        ELEM(e_a_other[1], e_b_other[0], e_b_other[1]))
+    {
       return false;
     }
 
@@ -1173,7 +1182,8 @@ static bool bm_decim_edge_collapse(BMesh *bm,
                        edge_symmetry_map,
 #endif
                        customdata_flag,
-                       customdata_fac)) {
+                       customdata_fac))
+  {
     /* update collapse info */
     int i;
 
@@ -1335,7 +1345,8 @@ void BM_mesh_decimate_collapse(BMesh *bm,
   {
     /* simple non-mirror case */
     while ((bm->totface > face_tot_target) && (BLI_heap_is_empty(eheap) == false) &&
-           (BLI_heap_top_value(eheap) != COST_INVALID)) {
+           (BLI_heap_top_value(eheap) != COST_INVALID))
+    {
       // const float value = BLI_heap_node_value(BLI_heap_top(eheap));
       BMEdge *e = BLI_heap_pop_min(eheap);
       float optimize_co[3];
@@ -1364,7 +1375,8 @@ void BM_mesh_decimate_collapse(BMesh *bm,
 #ifdef USE_SYMMETRY
   else {
     while ((bm->totface > face_tot_target) && (BLI_heap_is_empty(eheap) == false) &&
-           (BLI_heap_top_value(eheap) != COST_INVALID)) {
+           (BLI_heap_top_value(eheap) != COST_INVALID))
+    {
       /**
        * \note
        * - `eheap_table[e_index_mirr]` is only removed from the heap at the last moment
@@ -1442,7 +1454,8 @@ void BM_mesh_decimate_collapse(BMesh *bm,
                                  edge_symmetry_map,
                                  customdata_flag,
                                  optimize_co,
-                                 false)) {
+                                 false))
+      {
         if (e_mirr && (eheap_table[e_index_mirr])) {
           BLI_assert(e_index_mirr != e_index);
           BLI_heap_remove(eheap, eheap_table[e_index_mirr]);

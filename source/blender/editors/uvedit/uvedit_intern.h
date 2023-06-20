@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2008 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2008 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup eduv
@@ -29,32 +30,17 @@ typedef struct UvNearestHit {
   /**
    * Needs to be set before calling nearest functions.
    *
-   * \note When #UV_NEAREST_HIT_INIT_DIST_PX or #UV_NEAREST_HIT_INIT_MAX are used,
+   * \note When #uv_nearest_hit_init_dist_px or #uv_nearest_hit_init_max are used,
    * this value is pixels squared.
    */
   float dist_sq;
 
-  /** Scale the UV's to account for aspect ratio from the image view. */
+  /** Scale the UVs to account for aspect ratio from the image view. */
   float scale[2];
 } UvNearestHit;
 
-#define UV_NEAREST_HIT_INIT_DIST_PX(v2d, dist_px) \
-  { \
-    .dist_sq = square_f(U.pixelsize * dist_px), \
-    .scale = { \
-        UI_view2d_scale_get_x(v2d), \
-        UI_view2d_scale_get_y(v2d), \
-    }, \
-  }
-
-#define UV_NEAREST_HIT_INIT_MAX(v2d) \
-  { \
-    .dist_sq = FLT_MAX, \
-    .scale = { \
-        UI_view2d_scale_get_x(v2d), \
-        UI_view2d_scale_get_y(v2d), \
-    }, \
-  }
+UvNearestHit uv_nearest_hit_init_dist_px(const struct View2D *v2d, const float dist_px);
+UvNearestHit uv_nearest_hit_init_max(const struct View2D *v2d);
 
 bool uv_find_nearest_vert(struct Scene *scene,
                           struct Object *obedit,
@@ -121,13 +107,13 @@ BMLoop *uv_find_nearest_loop_from_edge(struct Scene *scene,
 
 bool uvedit_vert_is_edge_select_any_other(const struct Scene *scene,
                                           struct BMLoop *l,
-                                          const int cd_loop_uv_offset);
+                                          BMUVOffsets offsets);
 bool uvedit_vert_is_face_select_any_other(const struct Scene *scene,
                                           struct BMLoop *l,
-                                          const int cd_loop_uv_offset);
+                                          BMUVOffsets offsets);
 bool uvedit_vert_is_all_other_faces_selected(const struct Scene *scene,
                                              struct BMLoop *l,
-                                             const int cd_loop_uv_offset);
+                                             BMUVOffsets offsets);
 
 /* utility tool functions */
 
@@ -171,7 +157,7 @@ bool uvedit_select_is_any_selected_multi(const struct Scene *scene,
  */
 const float *uvedit_first_selected_uv_from_vertex(struct Scene *scene,
                                                   struct BMVert *eve,
-                                                  int cd_loop_uv_offset);
+                                                  BMUVOffsets offsets);
 
 void UV_OT_select_all(struct wmOperatorType *ot);
 void UV_OT_select(struct wmOperatorType *ot);

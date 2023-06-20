@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2019 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2019 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw_engine
@@ -105,7 +106,7 @@ DrawEngineType draw_engine_debug_select_type = {
     &select_debug_data_size,
     &select_debug_engine_init,
     &select_debug_engine_free,
-    NULL, /* instance_free */
+    /*instance_free*/ NULL,
     NULL,
     NULL,
     NULL,

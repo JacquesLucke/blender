@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2011 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2011 Blender Foundation.
 
 # - Find Clang library
 # Find the native Clang includes and library
@@ -80,6 +81,7 @@ set(_CLANG_FIND_COMPONENTS
   clangAST
   clangLex
   clangBasic
+  clangSupport
 )
 
 set(_CLANG_LIBRARIES)
@@ -94,7 +96,9 @@ foreach(COMPONENT ${_CLANG_FIND_COMPONENTS})
     PATH_SUFFIXES
       lib64 lib
     )
-  list(APPEND _CLANG_LIBRARIES "${CLANG_${UPPERCOMPONENT}_LIBRARY}")
+  if(CLANG_${UPPERCOMPONENT}_LIBRARY)
+    list(APPEND _CLANG_LIBRARIES "${CLANG_${UPPERCOMPONENT}_LIBRARY}")
+  endif()
 endforeach()
 
 

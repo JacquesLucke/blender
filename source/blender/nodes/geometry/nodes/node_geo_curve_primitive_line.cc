@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_curves.hh"
 
@@ -17,26 +19,26 @@ static void node_declare(NodeDeclarationBuilder &b)
     node_storage(node).mode = GEO_NODE_CURVE_PRIMITIVE_LINE_MODE_DIRECTION;
   };
 
-  b.add_input<decl::Vector>(N_("Start"))
+  b.add_input<decl::Vector>("Start")
       .subtype(PROP_TRANSLATION)
-      .description(N_("Position of the first control point"));
-  b.add_input<decl::Vector>(N_("End"))
+      .description("Position of the first control point");
+  b.add_input<decl::Vector>("End")
       .default_value({0.0f, 0.0f, 1.0f})
       .subtype(PROP_TRANSLATION)
-      .description(N_("Position of the second control point"))
+      .description("Position of the second control point")
       .make_available([](bNode &node) {
         node_storage(node).mode = GEO_NODE_CURVE_PRIMITIVE_LINE_MODE_POINTS;
       });
-  b.add_input<decl::Vector>(N_("Direction"))
+  b.add_input<decl::Vector>("Direction")
       .default_value({0.0f, 0.0f, 1.0f})
-      .description(N_("Direction the line is going in. The length of this vector does not matter"))
+      .description("Direction the line is going in. The length of this vector does not matter")
       .make_available(enable_direction);
-  b.add_input<decl::Float>(N_("Length"))
+  b.add_input<decl::Float>("Length")
       .default_value(1.0f)
       .subtype(PROP_DISTANCE)
-      .description(N_("Distance between the two points"))
+      .description("Distance between the two points")
       .make_available(enable_direction);
-  b.add_output<decl::Geometry>(N_("Curve"));
+  b.add_output<decl::Geometry>("Curve");
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -61,17 +63,18 @@ static void node_update(bNodeTree *ntree, bNode *node)
   bNodeSocket *direction_socket = p2_socket->next;
   bNodeSocket *length_socket = direction_socket->next;
 
-  nodeSetSocketAvailability(ntree, p2_socket, mode == GEO_NODE_CURVE_PRIMITIVE_LINE_MODE_POINTS);
-  nodeSetSocketAvailability(
+  bke::nodeSetSocketAvailability(
+      ntree, p2_socket, mode == GEO_NODE_CURVE_PRIMITIVE_LINE_MODE_POINTS);
+  bke::nodeSetSocketAvailability(
       ntree, direction_socket, mode == GEO_NODE_CURVE_PRIMITIVE_LINE_MODE_DIRECTION);
-  nodeSetSocketAvailability(
+  bke::nodeSetSocketAvailability(
       ntree, length_socket, mode == GEO_NODE_CURVE_PRIMITIVE_LINE_MODE_DIRECTION);
 }
 
 static Curves *create_point_line_curve(const float3 start, const float3 end)
 {
   Curves *curves_id = bke::curves_new_nomain_single(2, CURVE_TYPE_POLY);
-  bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id->geometry);
+  bke::CurvesGeometry &curves = curves_id->geometry.wrap();
 
   curves.positions_for_write().first() = start;
   curves.positions_for_write().last() = end;
@@ -84,7 +87,7 @@ static Curves *create_direction_line_curve(const float3 start,
                                            const float length)
 {
   Curves *curves_id = bke::curves_new_nomain_single(2, CURVE_TYPE_POLY);
-  bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id->geometry);
+  bke::CurvesGeometry &curves = curves_id->geometry.wrap();
 
   curves.positions_for_write().first() = start;
   curves.positions_for_write().last() = math::normalize(direction) * length + start;

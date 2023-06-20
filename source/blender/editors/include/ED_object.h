@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2008 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2008 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup editors
@@ -10,6 +11,7 @@
 #include "BLI_compiler_attrs.h"
 #include "DNA_object_enums.h"
 #include "DNA_userdef_enums.h"
+#include "DNA_windowmanager_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,15 +34,13 @@ struct ViewLayer;
 struct XFormObjectData;
 struct bConstraint;
 struct bContext;
-struct bFaceMap;
 struct bPoseChannel;
 struct uiLayout;
-struct wmEvent;
 struct wmKeyConfig;
 struct wmOperator;
 struct wmOperatorType;
 
-/* object_edit.c */
+/* object_edit.cc */
 
 /** `context.object` */
 struct Object *ED_object_context(const struct bContext *C);
@@ -164,7 +164,9 @@ typedef enum eObClearParentTypes {
 } eObClearParentTypes;
 
 #ifdef __RNA_TYPES_H__
+/** Operator Property: `OBJECT_OT_parent_clear`. */
 extern struct EnumPropertyItem prop_clear_parent_types[];
+/** Operator Property: `OBJECT_OT_parent_set`. */
 extern struct EnumPropertyItem prop_make_parent_types[];
 #endif
 
@@ -241,6 +243,9 @@ void ED_object_parent(struct Object *ob, struct Object *parent, int type, const 
 char *ED_object_ot_drop_named_material_tooltip(struct bContext *C,
                                                const char *name,
                                                const int mval[2]);
+char *ED_object_ot_drop_geometry_nodes_tooltip(struct bContext *C,
+                                               struct PointerRNA *properties,
+                                               const int mval[2]);
 
 /* bitflags for enter/exit editmode */
 enum {
@@ -293,7 +298,10 @@ void ED_object_vpaintmode_exit(struct bContext *C);
 void ED_object_wpaintmode_exit_ex(struct Object *ob);
 void ED_object_wpaintmode_exit(struct bContext *C);
 
-void ED_object_texture_paint_mode_enter_ex(struct Main *bmain, struct Scene *scene, Object *ob);
+void ED_object_texture_paint_mode_enter_ex(struct Main *bmain,
+                                           struct Scene *scene,
+                                           struct Depsgraph *depsgraph,
+                                           Object *ob);
 void ED_object_texture_paint_mode_enter(struct bContext *C);
 
 void ED_object_texture_paint_mode_exit_ex(struct Main *bmain, struct Scene *scene, Object *ob);
@@ -472,7 +480,7 @@ void ED_object_constraint_copy_for_pose(struct Main *bmain,
                                         struct bPoseChannel *pchan,
                                         struct bConstraint *con);
 
-/* object_modes.c */
+/* object_modes.cc */
 
 /**
  * Checks the mode to be set is compatible with the object
@@ -505,6 +513,31 @@ void ED_object_posemode_set_for_weight_paint(struct bContext *C,
                                              struct Object *ob,
                                              bool is_mode_set);
 
+/**
+ * Return the index of an object in a mode (typically edit/pose mode).
+ *
+ * Useful for operators with multi-mode editing to be able to redo an action on an object
+ * by it's index which (unlike pointers) the operator can store for redo.
+ *
+ * The indices aren't intended to be useful from Python scripts,
+ * although they are not prevented from passing them in, this is mainly to enable redo.
+ * For scripts it's more convenient to set the object active before operating on it.
+ *
+ * \note The active object is always index 0.
+ */
+int ED_object_in_mode_to_index(const struct Scene *scene,
+                               struct ViewLayer *view_layer,
+                               eObjectMode mode,
+                               const struct Object *ob);
+
+/**
+ * Access the object from the index returned by #ED_object_in_mode_to_index.
+ */
+Object *ED_object_in_mode_from_index(const struct Scene *scene,
+                                     struct ViewLayer *view_layer,
+                                     eObjectMode mode,
+                                     int index);
+
 /* object_modifier.c */
 
 enum {
@@ -531,15 +564,19 @@ bool ED_object_modifier_remove(struct ReportList *reports,
                                struct ModifierData *md);
 void ED_object_modifier_clear(struct Main *bmain, struct Scene *scene, struct Object *ob);
 bool ED_object_modifier_move_down(struct ReportList *reports,
+                                  eReportType error_type,
                                   struct Object *ob,
                                   struct ModifierData *md);
 bool ED_object_modifier_move_up(struct ReportList *reports,
+                                eReportType error_type,
                                 struct Object *ob,
                                 struct ModifierData *md);
 bool ED_object_modifier_move_to_index(struct ReportList *reports,
+                                      eReportType error_type,
                                       struct Object *ob,
                                       struct ModifierData *md,
-                                      int index);
+                                      int index,
+                                      bool allow_partial);
 
 bool ED_object_modifier_convert_psys_to_mesh(struct ReportList *reports,
                                              struct Main *bmain,
@@ -691,18 +728,7 @@ bool ED_object_jump_to_bone(struct bContext *C,
                             const char *bone_name,
                             bool reveal_hidden);
 
-/* object_facemap_ops.c */
-
-/**
- * Called while not in edit-mode.
- */
-void ED_object_facemap_face_add(struct Object *ob, struct bFaceMap *fmap, int facenum);
-/**
- * Called while not in edit-mode.
- */
-void ED_object_facemap_face_remove(struct Object *ob, struct bFaceMap *fmap, int facenum);
-
-/* object_data_transform.c */
+/* object_data_transform.cc */
 
 struct XFormObjectData *ED_object_data_xform_create_ex(struct ID *id, bool is_edit_mode);
 struct XFormObjectData *ED_object_data_xform_create(struct ID *id);

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -13,15 +15,16 @@ NODE_STORAGE_FUNCS(NodeGeometryInputNamedAttribute)
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::String>(N_("Name")).is_attribute_name();
+  b.add_input<decl::String>("Name").is_attribute_name();
 
-  b.add_output<decl::Vector>(N_("Attribute"), "Attribute_Vector").field_source();
-  b.add_output<decl::Float>(N_("Attribute"), "Attribute_Float").field_source();
-  b.add_output<decl::Color>(N_("Attribute"), "Attribute_Color").field_source();
-  b.add_output<decl::Bool>(N_("Attribute"), "Attribute_Bool").field_source();
-  b.add_output<decl::Int>(N_("Attribute"), "Attribute_Int").field_source();
+  b.add_output<decl::Vector>("Attribute", "Attribute_Vector").field_source();
+  b.add_output<decl::Float>("Attribute", "Attribute_Float").field_source();
+  b.add_output<decl::Color>("Attribute", "Attribute_Color").field_source();
+  b.add_output<decl::Bool>("Attribute", "Attribute_Bool").field_source();
+  b.add_output<decl::Int>("Attribute", "Attribute_Int").field_source();
+  b.add_output<decl::Rotation>("Attribute", "Attribute_Rotation").field_source();
 
-  b.add_output<decl::Bool>(N_("Exists")).field_source();
+  b.add_output<decl::Bool>("Exists").field_source();
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -46,18 +49,20 @@ static void node_update(bNodeTree *ntree, bNode *node)
   bNodeSocket *socket_color4f = socket_float->next;
   bNodeSocket *socket_boolean = socket_color4f->next;
   bNodeSocket *socket_int32 = socket_boolean->next;
+  bNodeSocket *socket_quat = socket_int32->next;
 
-  nodeSetSocketAvailability(ntree, socket_vector, data_type == CD_PROP_FLOAT3);
-  nodeSetSocketAvailability(ntree, socket_float, data_type == CD_PROP_FLOAT);
-  nodeSetSocketAvailability(ntree, socket_color4f, data_type == CD_PROP_COLOR);
-  nodeSetSocketAvailability(ntree, socket_boolean, data_type == CD_PROP_BOOL);
-  nodeSetSocketAvailability(ntree, socket_int32, data_type == CD_PROP_INT32);
+  bke::nodeSetSocketAvailability(ntree, socket_vector, data_type == CD_PROP_FLOAT3);
+  bke::nodeSetSocketAvailability(ntree, socket_float, data_type == CD_PROP_FLOAT);
+  bke::nodeSetSocketAvailability(ntree, socket_color4f, data_type == CD_PROP_COLOR);
+  bke::nodeSetSocketAvailability(ntree, socket_boolean, data_type == CD_PROP_BOOL);
+  bke::nodeSetSocketAvailability(ntree, socket_int32, data_type == CD_PROP_INT32);
+  bke::nodeSetSocketAvailability(ntree, socket_quat, data_type == CD_PROP_QUATERNION);
 }
 
 static void node_gather_link_searches(GatherLinkSearchOpParams &params)
 {
   const NodeDeclaration &declaration = *params.node_type().fixed_declaration;
-  search_link_ops_for_declarations(params, declaration.inputs());
+  search_link_ops_for_declarations(params, declaration.inputs);
 
   const bNodeType &node_type = params.node_type();
   if (params.in_out() == SOCK_OUT) {
@@ -70,10 +75,17 @@ static void node_gather_link_searches(GatherLinkSearchOpParams &params)
         node_storage(node).data_type = *type;
         params.update_and_connect_available_socket(node, "Attribute");
       });
-      params.add_item(IFACE_("Exists"), [node_type](LinkSearchOpParams &params) {
-        bNode &node = params.add_node(node_type);
-        params.update_and_connect_available_socket(node, "Exists");
-      });
+      if (params.node_tree().typeinfo->validate_link(
+              SOCK_BOOLEAN, eNodeSocketDatatype(params.other_socket().type)))
+      {
+        params.add_item(
+            IFACE_("Exists"),
+            [node_type](LinkSearchOpParams &params) {
+              bNode &node = params.add_node(node_type);
+              params.update_and_connect_available_socket(node, "Exists");
+            },
+            -1);
+      }
     }
   }
 }
@@ -97,7 +109,7 @@ class AttributeExistsFieldInput final : public bke::GeometryFieldInput {
   }
 
   GVArray get_varray_for_context(const bke::GeometryFieldContext &context,
-                                 const IndexMask /*mask*/) const final
+                                 const IndexMask & /*mask*/) const final
   {
     const bool exists = context.attributes()->contains(name_);
     const int domain_size = context.attributes()->domain_size(context.domain());
@@ -139,6 +151,9 @@ static void node_geo_exec(GeoNodeExecParams params)
       break;
     case CD_PROP_INT32:
       params.set_output("Attribute_Int", AttributeFieldInput::Create<int>(name));
+      break;
+    case CD_PROP_QUATERNION:
+      params.set_output("Attribute_Rotation", AttributeFieldInput::Create<math::Quaternion>(name));
       break;
     default:
       break;

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifdef WITH_OPTIX
 
@@ -15,9 +16,7 @@ CCL_NAMESPACE_BEGIN
 
 /* CUDADeviceQueue */
 
-OptiXDeviceQueue::OptiXDeviceQueue(OptiXDevice *device) : CUDADeviceQueue(device)
-{
-}
+OptiXDeviceQueue::OptiXDeviceQueue(OptiXDevice *device) : CUDADeviceQueue(device) {}
 
 void OptiXDeviceQueue::init_execution()
 {
@@ -82,7 +81,8 @@ bool OptiXDeviceQueue::enqueue(DeviceKernel kernel,
   }
   if (kernel == DEVICE_KERNEL_SHADER_EVAL_DISPLACE ||
       kernel == DEVICE_KERNEL_SHADER_EVAL_BACKGROUND ||
-      kernel == DEVICE_KERNEL_SHADER_EVAL_CURVE_SHADOW_TRANSPARENCY) {
+      kernel == DEVICE_KERNEL_SHADER_EVAL_CURVE_SHADOW_TRANSPARENCY)
+  {
     cuda_device_assert(cuda_device_,
                        cuMemcpyHtoDAsync(launch_params_ptr + offsetof(KernelParamsOptiX, offset),
                                          args.values[2],  // &d_offset
@@ -124,6 +124,10 @@ bool OptiXDeviceQueue::enqueue(DeviceKernel kernel,
       pipeline = optix_device->pipelines[PIP_SHADE];
       sbt_params.raygenRecord = sbt_data_ptr + PG_RGEN_SHADE_SHADOW * sizeof(SbtRecord);
       break;
+    case DEVICE_KERNEL_INTEGRATOR_SHADE_DEDICATED_LIGHT:
+      pipeline = optix_device->pipelines[PIP_SHADE];
+      sbt_params.raygenRecord = sbt_data_ptr + PG_RGEN_SHADE_DEDICATED_LIGHT * sizeof(SbtRecord);
+      break;
 
     case DEVICE_KERNEL_INTEGRATOR_INTERSECT_CLOSEST:
       pipeline = optix_device->pipelines[PIP_INTERSECT];
@@ -140,6 +144,11 @@ bool OptiXDeviceQueue::enqueue(DeviceKernel kernel,
     case DEVICE_KERNEL_INTEGRATOR_INTERSECT_VOLUME_STACK:
       pipeline = optix_device->pipelines[PIP_INTERSECT];
       sbt_params.raygenRecord = sbt_data_ptr + PG_RGEN_INTERSECT_VOLUME_STACK * sizeof(SbtRecord);
+      break;
+    case DEVICE_KERNEL_INTEGRATOR_INTERSECT_DEDICATED_LIGHT:
+      pipeline = optix_device->pipelines[PIP_INTERSECT];
+      sbt_params.raygenRecord = sbt_data_ptr +
+                                PG_RGEN_INTERSECT_DEDICATED_LIGHT * sizeof(SbtRecord);
       break;
 
     case DEVICE_KERNEL_SHADER_EVAL_DISPLACE:

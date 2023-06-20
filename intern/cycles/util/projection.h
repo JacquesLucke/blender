@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __UTIL_PROJECTION_H__
 #define __UTIL_PROJECTION_H__
@@ -14,9 +15,7 @@ typedef struct ProjectionTransform {
   float4 x, y, z, w; /* rows */
 
 #ifndef __KERNEL_GPU__
-  ProjectionTransform()
-  {
-  }
+  ProjectionTransform() {}
 
   explicit ProjectionTransform(const Transform &tfm)
       : x(tfm.x), y(tfm.y), z(tfm.z), w(make_float4(0.0f, 0.0f, 0.0f, 1.0f))

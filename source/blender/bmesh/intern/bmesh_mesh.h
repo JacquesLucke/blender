@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -13,9 +15,6 @@ extern "C" {
 #endif
 
 struct BMAllocTemplate;
-struct BMLoopNorEditDataArray;
-struct BMPartialUpdate;
-struct MLoopNorSpaceArray;
 
 void BM_mesh_elem_toolflags_ensure(BMesh *bm);
 void BM_mesh_elem_toolflags_clear(BMesh *bm);

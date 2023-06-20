@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2015 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2015 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bpygpu
@@ -211,8 +212,6 @@ static PyObject *pygpu_offscreen__tp_new(PyTypeObject *UNUSED(self),
                                          PyObject *args,
                                          PyObject *kwds)
 {
-  BPYGPU_IS_INIT_OR_ERROR_OBJ;
-
   GPUOffScreen *ofs = NULL;
   int width, height;
   struct PyC_StringEnum pygpu_textureformat = {pygpu_framebuffer_color_texture_formats, GPU_RGBA8};
@@ -229,12 +228,18 @@ static PyObject *pygpu_offscreen__tp_new(PyTypeObject *UNUSED(self),
       0,
   };
   if (!_PyArg_ParseTupleAndKeywordsFast(
-          args, kwds, &_parser, &width, &height, PyC_ParseStringEnum, &pygpu_textureformat)) {
+          args, kwds, &_parser, &width, &height, PyC_ParseStringEnum, &pygpu_textureformat))
+  {
     return NULL;
   }
 
   if (GPU_context_active_get()) {
-    ofs = GPU_offscreen_create(width, height, true, pygpu_textureformat.value_found, err_out);
+    ofs = GPU_offscreen_create(width,
+                               height,
+                               true,
+                               pygpu_textureformat.value_found,
+                               GPU_TEXTURE_USAGE_SHADER_READ | GPU_TEXTURE_USAGE_HOST_READ,
+                               err_out);
   }
   else {
     STRNCPY(err_out, "No active GPU context found");
@@ -287,7 +292,7 @@ static PyObject *pygpu_offscreen_texture_color_get(BPyGPUOffScreen *self, void *
 PyDoc_STRVAR(
     pygpu_offscreen_draw_view3d_doc,
     ".. method:: draw_view3d(scene, view_layer, view3d, region, view_matrix, projection_matrix, "
-    "do_color_management=False)\n"
+    "do_color_management=False, draw_background=True)\n"
     "\n"
     "   Draw the 3d viewport in the offscreen object.\n"
     "\n"
@@ -304,19 +309,22 @@ PyDoc_STRVAR(
     "   :arg projection_matrix: Projection Matrix (e.g. ``camera.calc_matrix_camera(...)``).\n"
     "   :type projection_matrix: :class:`mathutils.Matrix`\n"
     "   :arg do_color_management: Color manage the output.\n"
-    "   :type do_color_management: bool\n");
+    "   :type do_color_management: bool\n"
+    "   :arg draw_background: Draw background.\n"
+    "   :type draw_background: bool\n");
 static PyObject *pygpu_offscreen_draw_view3d(BPyGPUOffScreen *self, PyObject *args, PyObject *kwds)
 {
   MatrixObject *py_mat_view, *py_mat_projection;
   PyObject *py_scene, *py_view_layer, *py_region, *py_view3d;
 
   struct Depsgraph *depsgraph;
-  struct Scene *scene;
-  struct ViewLayer *view_layer;
+  Scene *scene;
+  ViewLayer *view_layer;
   View3D *v3d;
   ARegion *region;
 
   bool do_color_management = false;
+  bool draw_background = true;
 
   BPY_GPU_OFFSCREEN_CHECK_OBJ(self);
 
@@ -328,6 +336,7 @@ static PyObject *pygpu_offscreen_draw_view3d(BPyGPUOffScreen *self, PyObject *ar
       "view_matrix",
       "projection_matrix",
       "do_color_management",
+      "draw_background",
       NULL,
   };
   static _PyArg_Parser _parser = {
@@ -339,6 +348,7 @@ static PyObject *pygpu_offscreen_draw_view3d(BPyGPUOffScreen *self, PyObject *ar
       "O&" /* `projection_matrix` */
       "|$" /* Optional keyword only arguments. */
       "O&" /* `do_color_management` */
+      "O&" /* `draw_background` */
       ":draw_view3d",
       _keywords,
       0,
@@ -355,11 +365,14 @@ static PyObject *pygpu_offscreen_draw_view3d(BPyGPUOffScreen *self, PyObject *ar
                                         Matrix_Parse4x4,
                                         &py_mat_projection,
                                         PyC_ParseBool,
-                                        &do_color_management) ||
+                                        &do_color_management,
+                                        PyC_ParseBool,
+                                        &draw_background) ||
       (!(scene = PyC_RNA_AsPointer(py_scene, "Scene")) ||
        !(view_layer = PyC_RNA_AsPointer(py_view_layer, "ViewLayer")) ||
        !(v3d = PyC_RNA_AsPointer(py_view3d, "SpaceView3D")) ||
-       !(region = PyC_RNA_AsPointer(py_region, "Region")))) {
+       !(region = PyC_RNA_AsPointer(py_region, "Region"))))
+  {
     return NULL;
   }
 
@@ -367,7 +380,7 @@ static PyObject *pygpu_offscreen_draw_view3d(BPyGPUOffScreen *self, PyObject *ar
 
   depsgraph = BKE_scene_ensure_depsgraph(G_MAIN, scene, view_layer);
 
-  /* Disable 'bgl' state since it interfere with off-screen drawing, see: T84402. */
+  /* Disable 'bgl' state since it interfere with off-screen drawing, see: #84402. */
   const bool is_bgl = GPU_bgl_get();
   if (is_bgl) {
     GPU_bgl_end();
@@ -376,7 +389,7 @@ static PyObject *pygpu_offscreen_draw_view3d(BPyGPUOffScreen *self, PyObject *ar
   GPU_offscreen_bind(self->ofs, true);
 
   /* Cache the #GPUViewport so the frame-buffers and associated textures are
-   * not reallocated each time, see: T89204 */
+   * not reallocated each time, see: #89204 */
   if (!self->viewport) {
     self->viewport = GPU_viewport_create();
   }
@@ -394,7 +407,7 @@ static PyObject *pygpu_offscreen_draw_view3d(BPyGPUOffScreen *self, PyObject *ar
                            (const float(*)[4])py_mat_view->matrix,
                            (const float(*)[4])py_mat_projection->matrix,
                            true,
-                           true,
+                           draw_background,
                            "",
                            do_color_management,
                            true,
@@ -458,7 +471,7 @@ static PyGetSetDef pygpu_offscreen__tp_getseters[] = {
     {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
 
-static struct PyMethodDef pygpu_offscreen__tp_methods[] = {
+static PyMethodDef pygpu_offscreen__tp_methods[] = {
     {"bind", (PyCFunction)pygpu_offscreen_bind, METH_NOARGS, pygpu_offscreen_bind_doc},
     {"unbind",
      (PyCFunction)pygpu_offscreen_unbind,

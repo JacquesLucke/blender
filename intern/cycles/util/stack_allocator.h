@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __UTIL_STACK_ALLOCATOR_H__
 #define __UTIL_STACK_ALLOCATOR_H__
@@ -23,13 +24,9 @@ template<int SIZE, typename T> class ccl_try_align(16) StackAllocator
 
   /* Allocator construction/destruction. */
 
-  StackAllocator() : pointer_(0), use_stack_(true)
-  {
-  }
+  StackAllocator() : pointer_(0), use_stack_(true) {}
 
-  StackAllocator(const StackAllocator &) : pointer_(0), use_stack_(true)
-  {
-  }
+  StackAllocator(const StackAllocator &) : pointer_(0), use_stack_(true) {}
 
   template<class U>
   StackAllocator(const StackAllocator<SIZE, U> &) : pointer_(0), use_stack_(false)

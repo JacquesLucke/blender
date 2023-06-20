@@ -1,10 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
+/* SPDX-FileCopyrightText: 1999 Stephane Popinet
+ * SPDX-FileCopyrightText: 2000-2003 `Bruno Levy <levy@loria.fr>`
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
  * The Original Code is:
- *     GTS - Library for the manipulation of triangulated surfaces
- *     Copyright 1999 Stephane Popinet
- * and:
- *     OGF/Graphite: Geometry and Graphics Programming Library + Utilities
- *     Copyright 2000-2003 Bruno Levy <levy@loria.fr> */
+ * - GTS - Library for the manipulation of triangulated surfaces.
+ * - OGF/Graphite: Geometry and Graphics Programming Library + Utilities.
+ */
 
 /** \file
  * \ingroup freestyle
@@ -391,7 +393,8 @@ void gts_vertex_principal_directions(WVertex *v, Vec3r Kh, real Kg, Vec3r &e1, V
 
   /* check for solvability of the linear system */
   if (((aterm_da * bterm_db - aterm_db * bterm_da) != 0.0) &&
-      ((const_da != 0.0) || (const_db != 0.0))) {
+      ((const_da != 0.0) || (const_db != 0.0)))
+  {
     linsolve(aterm_da, bterm_da, -const_da, aterm_db, bterm_db, -const_db, &a, &b);
 
     c = normKh - a;
@@ -513,8 +516,8 @@ static bool sphere_clip_vector(const Vec3r &O, real r, const Vec3r &P, Vec3r &V)
   return true;
 }
 
-// TODO: check optimizations:
-// use marking ? (measure *timings* ...)
+/* TODO: check optimizations:
+ * use marking ? (measure *timings* ...). */
 void compute_curvature_tensor(WVertex *start, real radius, NormalCycle &nc)
 {
   // in case we have a non-manifold vertex, skip it...

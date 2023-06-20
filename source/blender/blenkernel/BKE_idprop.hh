@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -31,6 +33,9 @@ class IDPropertyDeleter {
     IDP_FreeProperty(id_prop);
   }
 };
+
+/** \brief Allocate a new IDProperty of type IDP_BOOLEAN, set its name and value. */
+std::unique_ptr<IDProperty, IDPropertyDeleter> create_bool(StringRefNull prop_name, bool value);
 
 /** \brief Allocate a new IDProperty of type IDP_INT, set its name and value. */
 std::unique_ptr<IDProperty, IDPropertyDeleter> create(StringRefNull prop_name, int32_t value);

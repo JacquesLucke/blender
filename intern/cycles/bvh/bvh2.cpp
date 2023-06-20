@@ -1,6 +1,9 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Adapted from code copyright 2009-2010 NVIDIA Corporation
- * Modifications Copyright 2011-2022 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2009-2010 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Adapted code from NVIDIA Corporation. */
 
 #include "bvh/bvh2.h"
 
@@ -18,9 +21,7 @@
 
 CCL_NAMESPACE_BEGIN
 
-BVHStackEntry::BVHStackEntry(const BVHNode *n, int i) : node(n), idx(i)
-{
-}
+BVHStackEntry::BVHStackEntry(const BVHNode *n, int i) : node(n), idx(i) {}
 
 int BVHStackEntry::encodeIdx() const
 {
@@ -518,7 +519,8 @@ void BVH2::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
   pack.object_node.resize(objects.size());
 
   if (params.num_motion_curve_steps > 0 || params.num_motion_triangle_steps > 0 ||
-      params.num_motion_point_steps > 0) {
+      params.num_motion_point_steps > 0)
+  {
     pack.prim_time.resize(prim_index_size);
   }
 
@@ -608,7 +610,7 @@ void BVH2::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
       int4 *bvh_nodes = &bvh->pack.nodes[0];
       size_t bvh_nodes_size = bvh->pack.nodes.size();
 
-      for (size_t i = 0, j = 0; i < bvh_nodes_size; j++) {
+      for (size_t i = 0; i < bvh_nodes_size;) {
         size_t nsize, nsize_bbox;
         if (bvh_nodes[i].x & PATH_RAY_NODE_UNALIGNED) {
           nsize = BVH_UNALIGNED_NODE_SIZE;

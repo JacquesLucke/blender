@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+#
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2011-2022 Blender Foundation
 
 function(cycles_set_solution_folder target)
   if(IDE_GROUP_PROJECTS_IN_FOLDERS)
@@ -45,8 +46,8 @@ macro(cycles_add_library target library_deps)
   # NOTE: If separated libraries for debug and release ar eneeded every library is the list are
   # to be prefixed explicitly.
   #
-  #  Use: "optimized libfoo optimized libbar debug libfoo_d debug libbar_d"
-  #  NOT: "optimized libfoo libbar debug libfoo_d libbar_d"
+  # Use: "optimized libfoo optimized libbar debug libfoo_d debug libbar_d"
+  # NOT: "optimized libfoo libbar debug libfoo_d libbar_d"
   #
   # TODO(sergey): This is the same as Blender's side CMake. Find a way to avoid duplication
   # somehow in a way which allows to have Cycles standalone.
@@ -77,10 +78,11 @@ macro(cycles_external_libraries_append libraries)
   if(APPLE)
     list(APPEND ${libraries} "-framework Foundation")
     if(WITH_USD)
-      list(APPEND ${libraries} "-framework CoreVideo -framework Cocoa")
+      list(APPEND ${libraries} "-framework CoreVideo -framework Cocoa -framework OpenGL")
     endif()
-    if(WITH_CYCLES_STANDALONE_GUI OR WITH_USD)
-      list(APPEND ${libraries} "-framework OpenGL")
+  elseif(WIN32)
+    if(WITH_USD)
+      list(APPEND ${libraries} "opengl32")
     endif()
   elseif(UNIX)
     if(WITH_USD)
@@ -111,15 +113,20 @@ macro(cycles_external_libraries_append libraries)
   endif()
   if(WITH_OPENIMAGEDENOISE)
     list(APPEND ${libraries} ${OPENIMAGEDENOISE_LIBRARIES})
-    if(APPLE AND "${CMAKE_OSX_ARCHITECTURES}" STREQUAL "arm64")
-      list(APPEND ${libraries} "-framework Accelerate")
+    if(APPLE)
+      if("${CMAKE_OSX_ARCHITECTURES}" STREQUAL "arm64")
+        list(APPEND ${libraries} "-framework Accelerate")
+      endif()
     endif()
   endif()
   if(WITH_ALEMBIC)
     list(APPEND ${libraries} ${ALEMBIC_LIBRARIES})
   endif()
   if(WITH_PATH_GUIDING)
-    target_link_libraries(${target} ${OPENPGL_LIBRARIES})
+    list(APPEND ${libraries} ${OPENPGL_LIBRARIES})
+  endif()
+  if(UNIX AND NOT APPLE)
+    list(APPEND ${libraries} "-lm -lc -lutil")
   endif()
 
   list(APPEND ${libraries}
@@ -133,9 +140,18 @@ macro(cycles_external_libraries_append libraries)
     ${OPENEXR_LIBRARIES} # For circular dependencies between libs.
     ${PUGIXML_LIBRARIES}
     ${BOOST_LIBRARIES}
+    ${PYTHON_LIBRARIES}
     ${ZLIB_LIBRARIES}
     ${CMAKE_DL_LIBS}
-    ${PTHREADS_LIBRARIES}
+  )
+
+  if(DEFINED PTHREADS_LIBRARIES)
+    list(APPEND ${libraries}
+      ${PTHREADS_LIBRARIES}
+    )
+  endif()
+
+  list(APPEND ${libraries}
     ${PLATFORM_LINKLIBS}
   )
 

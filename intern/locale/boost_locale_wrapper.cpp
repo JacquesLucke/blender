@@ -1,11 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2012 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2012 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup intern_locale
  */
 
 #include <boost/locale.hpp>
+#include <iostream>
 #include <stdio.h>
 
 #include "boost_locale_wrapper.h"
@@ -32,8 +34,8 @@ static void bl_locale_global_cache()
     locale_global = std::locale();
     facet_global = &std::use_facet<char_message_facet>(locale_global);
   }
-  catch (const std::bad_cast
-             &e) { /* if std::has_facet<char_message_facet>(l) == false, LC_ALL = "C" case */
+  /* `if std::has_facet<char_message_facet>(l) == false`, LC_ALL = "C" case. */
+  catch (const std::bad_cast &e) {
 #ifndef NDEBUG
     std::cout << "bl_locale_global_cache:" << e.what() << " \n";
 #endif
@@ -107,7 +109,7 @@ void bl_locale_set(const char *locale)
   }
   /* Extra catch on `std::runtime_error` is needed for macOS/Clang as it seems that exceptions
    * like `boost::locale::conv::conversion_error` (which inherit from `std::runtime_error`) are
-   * not caught by their ancestor `std::exception`. See T88877#1177108 */
+   * not caught by their ancestor `std::exception`. See #88877#1177108 */
   catch (std::runtime_error const &e) {
     std::cout << "bl_locale_set(" << locale << "): " << e.what() << " \n";
   }

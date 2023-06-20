@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/film.h"
 #include "device/device.h"
@@ -88,7 +89,7 @@ NODE_DEFINE(Film)
 {
   NodeType *type = NodeType::add("film", create);
 
-  SOCKET_FLOAT(exposure, "Exposure", 0.8f);
+  SOCKET_FLOAT(exposure, "Exposure", 1.0f);
   SOCKET_FLOAT(pass_alpha_threshold, "Pass Alpha Threshold", 0.0f);
 
   static NodeEnum filter_enum;
@@ -123,13 +124,9 @@ NODE_DEFINE(Film)
   return type;
 }
 
-Film::Film() : Node(get_node_type()), filter_table_offset_(TABLE_OFFSET_INVALID)
-{
-}
+Film::Film() : Node(get_node_type()), filter_table_offset_(TABLE_OFFSET_INVALID) {}
 
-Film::~Film()
-{
-}
+Film::~Film() {}
 
 void Film::add_default(Scene *scene)
 {
@@ -187,7 +184,6 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
   kfilm->pass_transmission_indirect = PASS_UNUSED;
   kfilm->pass_volume_direct = PASS_UNUSED;
   kfilm->pass_volume_indirect = PASS_UNUSED;
-  kfilm->pass_shadow = PASS_UNUSED;
   kfilm->pass_lightgroup = PASS_UNUSED;
 
   /* Mark passes as unused so that the kernel knows the pass is inaccessible. */
@@ -294,9 +290,6 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
         break;
       case PASS_AO:
         kfilm->pass_ao = kfilm->pass_stride;
-        break;
-      case PASS_SHADOW:
-        kfilm->pass_shadow = kfilm->pass_stride;
         break;
 
       case PASS_DIFFUSE_COLOR:
@@ -479,7 +472,8 @@ void Film::update_passes(Scene *scene, bool add_sample_count_pass)
   Integrator *integrator = scene->integrator;
 
   if (!is_modified() && !object_manager->need_update() && !integrator->is_modified() &&
-      !background->is_modified()) {
+      !background->is_modified())
+  {
     return;
   }
 
@@ -677,7 +671,8 @@ void Film::finalize_passes(Scene *scene, const bool use_denoise)
       /* If both passes have a name and the names are different, don't merge.
        * If either pass has a name, we'll use that name. */
       if (!pass->get_name().empty() && !new_pass->get_name().empty() &&
-          pass->get_name() != new_pass->get_name()) {
+          pass->get_name() != new_pass->get_name())
+      {
         continue;
       }
 
@@ -719,16 +714,13 @@ uint Film::get_kernel_features(const Scene *scene) const
     const PassMode pass_mode = pass->get_mode();
 
     if (pass_mode == PassMode::DENOISED || pass_type == PASS_DENOISING_NORMAL ||
-        pass_type == PASS_DENOISING_ALBEDO || pass_type == PASS_DENOISING_DEPTH) {
+        pass_type == PASS_DENOISING_ALBEDO || pass_type == PASS_DENOISING_DEPTH)
+    {
       kernel_features |= KERNEL_FEATURE_DENOISING;
     }
 
     if (pass_type >= PASS_DIFFUSE && pass_type <= PASS_VOLUME_INDIRECT) {
       kernel_features |= KERNEL_FEATURE_LIGHT_PASSES;
-    }
-
-    if (pass_type == PASS_SHADOW) {
-      kernel_features |= KERNEL_FEATURE_SHADOW_PASS;
     }
 
     if (pass_type == PASS_AO) {

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2022-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # These are build time requirements for dpcpp
@@ -55,6 +57,16 @@ ExternalProject_Add(external_spirvheaders
   URL_HASH ${SPIRV_HEADERS_HASH_TYPE}=${SPIRV_HEADERS_HASH}
   DOWNLOAD_DIR ${DOWNLOAD_DIR}
   PREFIX ${BUILD_DIR}/spirvheaders
+  CONFIGURE_COMMAND echo .
+  BUILD_COMMAND echo .
+  INSTALL_COMMAND echo .
+)
+
+ExternalProject_Add(external_unifiedruntime
+  URL file://${PACKAGE_DIR}/${UNIFIED_RUNTIME_FILE}
+  URL_HASH ${UNIFIED_RUNTIME_HASH_TYPE}=${UNIFIED_RUNTIME_HASH}
+  DOWNLOAD_DIR ${DOWNLOAD_DIR}
+  PREFIX ${BUILD_DIR}/unifiedruntime
   CONFIGURE_COMMAND echo .
   BUILD_COMMAND echo .
   INSTALL_COMMAND echo .

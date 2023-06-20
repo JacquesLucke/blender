@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "bvh/unaligned.h"
 
@@ -14,9 +15,7 @@
 
 CCL_NAMESPACE_BEGIN
 
-BVHUnaligned::BVHUnaligned(const vector<Object *> &objects) : objects_(objects)
-{
-}
+BVHUnaligned::BVHUnaligned(const vector<Object *> &objects) : objects_(objects) {}
 
 Transform BVHUnaligned::compute_aligned_space(const BVHObjectBinning &range,
                                               const BVHReference *references) const

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup modifiers
@@ -24,13 +25,13 @@
 
 #include "BKE_context.h"
 #include "BKE_editmesh.h"
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_subdiv.h"
 #include "BKE_subdiv_ccg.h"
 #include "BKE_subdiv_deform.h"
-#include "BKE_subdiv_mesh.h"
+#include "BKE_subdiv_mesh.hh"
 #include "BKE_subdiv_modifier.h"
 #include "BKE_subsurf.h"
 
@@ -45,8 +46,8 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
-#include "MOD_modifiertypes.h"
-#include "MOD_ui_common.h"
+#include "MOD_modifiertypes.hh"
+#include "MOD_ui_common.hh"
 
 #include "BLO_read_write.h"
 
@@ -67,9 +68,6 @@ static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_ma
   if (smd->flags & eSubsurfModifierFlag_UseCustomNormals) {
     r_cddata_masks->lmask |= CD_MASK_NORMAL;
     r_cddata_masks->lmask |= CD_MASK_CUSTOMLOOPNORMAL;
-  }
-  if (smd->flags & eSubsurfModifierFlag_UseCrease) {
-    r_cddata_masks->vmask |= CD_MASK_CREASE;
   }
 }
 
@@ -100,8 +98,11 @@ static void freeRuntimeData(void *runtime_data_v)
     return;
   }
   SubsurfRuntimeData *runtime_data = (SubsurfRuntimeData *)runtime_data_v;
-  if (runtime_data->subdiv != nullptr) {
-    BKE_subdiv_free(runtime_data->subdiv);
+  if (runtime_data->subdiv_cpu != nullptr) {
+    BKE_subdiv_free(runtime_data->subdiv_cpu);
+  }
+  if (runtime_data->subdiv_gpu != nullptr) {
+    BKE_subdiv_free(runtime_data->subdiv_gpu);
   }
   MEM_freeN(runtime_data);
 }
@@ -227,6 +228,15 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
 
   SubsurfRuntimeData *runtime_data = (SubsurfRuntimeData *)smd->modifier.runtime;
 
+  /* Decrement the recent usage counters. */
+  if (runtime_data->used_cpu) {
+    runtime_data->used_cpu--;
+  }
+
+  if (runtime_data->used_gpu) {
+    runtime_data->used_gpu--;
+  }
+
   /* Delay evaluation to the draw code if possible, provided we do not have to apply the modifier.
    */
   if ((ctx->flag & MOD_APPLY_TO_BASE_MESH) == 0) {
@@ -265,14 +275,15 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   }
 
   if (use_clnors) {
-    float(*lnors)[3] = static_cast<float(*)[3]>(CustomData_get_layer(&result->ldata, CD_NORMAL));
+    float(*lnors)[3] = static_cast<float(*)[3]>(
+        CustomData_get_layer_for_write(&result->ldata, CD_NORMAL, result->totloop));
     BLI_assert(lnors != nullptr);
     BKE_mesh_set_custom_normals(result, lnors);
     CustomData_set_layer_flag(&mesh->ldata, CD_NORMAL, CD_FLAG_TEMPORARY);
     CustomData_set_layer_flag(&result->ldata, CD_NORMAL, CD_FLAG_TEMPORARY);
   }
   // BKE_subdiv_stats_print(&subdiv->stats);
-  if (subdiv != runtime_data->subdiv) {
+  if (!ELEM(subdiv, runtime_data->subdiv_cpu, runtime_data->subdiv_gpu)) {
     BKE_subdiv_free(subdiv);
   }
   return result;
@@ -304,7 +315,7 @@ static void deformMatrices(ModifierData *md,
     return;
   }
   BKE_subdiv_deform_coarse_vertices(subdiv, mesh, vertex_cos, verts_num);
-  if (subdiv != runtime_data->subdiv) {
+  if (!ELEM(subdiv, runtime_data->subdiv_cpu, runtime_data->subdiv_gpu)) {
     BKE_subdiv_free(subdiv);
   }
 }
@@ -313,7 +324,7 @@ static void deformMatrices(ModifierData *md,
 static bool get_show_adaptive_options(const bContext *C, Panel *panel)
 {
   /* Don't show adaptive options if cycles isn't the active engine. */
-  const struct RenderEngineType *engine_type = CTX_data_engine_type(C);
+  const RenderEngineType *engine_type = CTX_data_engine_type(C);
   if (!STREQ(engine_type->idname, "CYCLES")) {
     return false;
   }
@@ -389,11 +400,7 @@ static void panel_draw(const bContext *C, Panel *panel)
                              RNA_float_get(&ob_cycles_ptr, "dicing_rate"),
                          0.1f);
     char output[256];
-    BLI_snprintf(output,
-                 sizeof(output),
-                 TIP_("Final Scale: Render %.2f px, Viewport %.2f px"),
-                 render,
-                 preview);
+    SNPRINTF(output, TIP_("Final Scale: Render %.2f px, Viewport %.2f px"), render, preview);
     uiItemL(layout, output, ICON_NONE);
 
     uiItemS(layout);
@@ -408,11 +415,25 @@ static void panel_draw(const bContext *C, Panel *panel)
 
   uiItemR(layout, ptr, "show_only_control_edges", 0, nullptr, ICON_NONE);
 
+  Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
   SubsurfModifierData *smd = static_cast<SubsurfModifierData *>(ptr->data);
-  const Object *ob = static_cast<const Object *>(ob_ptr.data);
+  Object *ob = static_cast<Object *>(ob_ptr.data);
   const Mesh *mesh = static_cast<const Mesh *>(ob->data);
   if (BKE_subsurf_modifier_force_disable_gpu_evaluation_for_mesh(smd, mesh)) {
     uiItemL(layout, "Autosmooth or custom normals detected, disabling GPU subdivision", ICON_INFO);
+  }
+  else if (Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob)) {
+    if (ModifierData *md_eval = BKE_modifiers_findby_name(ob_eval, smd->modifier.name)) {
+      if (md_eval->type == eModifierType_Subsurf) {
+        SubsurfRuntimeData *runtime_data = (SubsurfRuntimeData *)md_eval->runtime;
+
+        if (runtime_data && runtime_data->used_gpu) {
+          if (runtime_data->used_cpu) {
+            uiItemL(layout, "Using both CPU and GPU subdivision", ICON_INFO);
+          }
+        }
+      }
+    }
   }
 
   modifier_panel_end(layout, ptr);
@@ -470,36 +491,36 @@ static void blendRead(BlendDataReader * /*reader*/, ModifierData *md)
 }
 
 ModifierTypeInfo modifierType_Subsurf = {
-    /* name */ N_("Subdivision"),
-    /* structName */ "SubsurfModifierData",
-    /* structSize */ sizeof(SubsurfModifierData),
-    /* srna */ &RNA_SubsurfModifier,
-    /* type */ eModifierTypeType_Constructive,
-    /* flags */ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_SupportsMapping |
+    /*name*/ N_("Subdivision"),
+    /*structName*/ "SubsurfModifierData",
+    /*structSize*/ sizeof(SubsurfModifierData),
+    /*srna*/ &RNA_SubsurfModifier,
+    /*type*/ eModifierTypeType_Constructive,
+    /*flags*/ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_SupportsMapping |
         eModifierTypeFlag_SupportsEditmode | eModifierTypeFlag_EnableInEditmode |
         eModifierTypeFlag_AcceptsCVs,
-    /* icon */ ICON_MOD_SUBSURF,
+    /*icon*/ ICON_MOD_SUBSURF,
 
-    /* copyData */ copyData,
+    /*copyData*/ copyData,
 
-    /* deformVerts */ nullptr,
-    /* deformMatrices */ deformMatrices,
-    /* deformVertsEM */ nullptr,
-    /* deformMatricesEM */ nullptr,
-    /* modifyMesh */ modifyMesh,
-    /* modifyGeometrySet */ nullptr,
+    /*deformVerts*/ nullptr,
+    /*deformMatrices*/ deformMatrices,
+    /*deformVertsEM*/ nullptr,
+    /*deformMatricesEM*/ nullptr,
+    /*modifyMesh*/ modifyMesh,
+    /*modifyGeometrySet*/ nullptr,
 
-    /* initData */ initData,
-    /* requiredDataMask */ requiredDataMask,
-    /* freeData */ freeData,
-    /* isDisabled */ isDisabled,
-    /* updateDepsgraph */ nullptr,
-    /* dependsOnTime */ nullptr,
-    /* dependsOnNormals */ dependsOnNormals,
-    /* foreachIDLink */ nullptr,
-    /* foreachTexLink */ nullptr,
-    /* freeRuntimeData */ freeRuntimeData,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ nullptr,
-    /* blendRead */ blendRead,
+    /*initData*/ initData,
+    /*requiredDataMask*/ requiredDataMask,
+    /*freeData*/ freeData,
+    /*isDisabled*/ isDisabled,
+    /*updateDepsgraph*/ nullptr,
+    /*dependsOnTime*/ nullptr,
+    /*dependsOnNormals*/ dependsOnNormals,
+    /*foreachIDLink*/ nullptr,
+    /*foreachTexLink*/ nullptr,
+    /*freeRuntimeData*/ freeRuntimeData,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ nullptr,
+    /*blendRead*/ blendRead,
 };

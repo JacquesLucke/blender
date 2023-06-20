@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+#
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2011-2022 Blender Foundation
 
 set(INC
   ..
@@ -66,6 +67,13 @@ set(SRC_HIP
   hip/util.h
 )
 
+set(SRC_HIPRT
+  hiprt/device_impl.cpp
+  hiprt/device_impl.h
+  hiprt/queue.cpp
+  hiprt/queue.h
+)
+
 set(SRC_ONEAPI
   oneapi/device_impl.cpp
   oneapi/device_impl.h
@@ -124,6 +132,7 @@ set(SRC
   ${SRC_CPU}
   ${SRC_CUDA}
   ${SRC_HIP}
+  ${SRC_HIPRT}
   ${SRC_DUMMY}
   ${SRC_MULTI}
   ${SRC_OPTIX}
@@ -162,7 +171,10 @@ if(WITH_CYCLES_DEVICE_METAL)
   )
 endif()
 
-if (WITH_CYCLES_DEVICE_ONEAPI)
+if(WITH_CYCLES_DEVICE_ONEAPI)
+  if(WITH_CYCLES_ONEAPI_HOST_TASK_EXECUTION)
+    add_definitions(-DWITH_ONEAPI_SYCL_HOST_TASK)
+  endif()
   if(WITH_CYCLES_ONEAPI_BINARIES)
     set(cycles_kernel_oneapi_lib_suffix "_aot")
   else()
@@ -173,12 +185,10 @@ if (WITH_CYCLES_DEVICE_ONEAPI)
   else()
     set(cycles_kernel_oneapi_lib ${CMAKE_CURRENT_BINARY_DIR}/../kernel/libcycles_kernel_oneapi${cycles_kernel_oneapi_lib_suffix}.so)
   endif()
-  list(APPEND LIB ${cycles_kernel_oneapi_lib})
-  if(WIN32)
-    list(APPEND LIB debug ${SYCL_LIBRARY_DEBUG} optimized ${SYCL_LIBRARY})
-  else()
-    list(APPEND LIB ${SYCL_LIBRARY})
-  endif()
+  list(APPEND LIB
+    ${cycles_kernel_oneapi_lib}
+    ${SYCL_LIBRARIES}
+  )
   list(APPEND SRC
     ${SRC_ONEAPI}
   )
@@ -208,6 +218,7 @@ source_group("cpu" FILES ${SRC_CPU})
 source_group("cuda" FILES ${SRC_CUDA})
 source_group("dummy" FILES ${SRC_DUMMY})
 source_group("hip" FILES ${SRC_HIP})
+source_group("hiprt" FILES ${SRC_HIPRT})
 source_group("multi" FILES ${SRC_MULTI})
 source_group("metal" FILES ${SRC_METAL})
 source_group("optix" FILES ${SRC_OPTIX})

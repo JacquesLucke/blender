@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -162,8 +163,8 @@ ccl_device_inline bool subsurface_scatter(KernelGlobals kg, IntegratorState stat
   ray.P += ray.D * ray.tmax * 2.0f;
   ray.D = -ray.D;
 
-  integrator_state_write_isect(kg, state, &ss_isect.hits[0]);
-  integrator_state_write_ray(kg, state, &ray);
+  integrator_state_write_isect(state, &ss_isect.hits[0]);
+  integrator_state_write_ray(state, &ray);
 
   /* Advance random number offset for bounce. */
   INTEGRATOR_STATE_WRITE(state, path, rng_offset) += PRNG_BOUNCE_NUM;

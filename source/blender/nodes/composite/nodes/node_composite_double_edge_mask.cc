@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup cmpnodes
@@ -18,9 +19,9 @@ namespace blender::nodes::node_composite_double_edge_mask_cc {
 
 static void cmp_node_double_edge_mask_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Float>(N_("Inner Mask")).default_value(0.8f).min(0.0f).max(1.0f);
-  b.add_input<decl::Float>(N_("Outer Mask")).default_value(0.8f).min(0.0f).max(1.0f);
-  b.add_output<decl::Float>(N_("Mask"));
+  b.add_input<decl::Float>("Inner Mask").default_value(0.8f).min(0.0f).max(1.0f);
+  b.add_input<decl::Float>("Outer Mask").default_value(0.8f).min(0.0f).max(1.0f);
+  b.add_output<decl::Float>("Mask");
 }
 
 static void node_composit_buts_double_edge_mask(uiLayout *layout,
@@ -46,6 +47,7 @@ class DoubleEdgeMaskOperation : public NodeOperation {
   void execute() override
   {
     get_input("Inner Mask").pass_through(get_result("Mask"));
+    context().set_info_message("Viewport compositor setup not fully supported");
   }
 };
 
@@ -66,6 +68,8 @@ void register_node_type_cmp_doubleedgemask()
   ntype.declare = file_ns::cmp_node_double_edge_mask_declare;
   ntype.draw_buttons = file_ns::node_composit_buts_double_edge_mask;
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
+  ntype.realtime_compositor_unsupported_message = N_(
+      "Node not supported in the Viewport compositor");
 
   nodeRegisterType(&ntype);
 }

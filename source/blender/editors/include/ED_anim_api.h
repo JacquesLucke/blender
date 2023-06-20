@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2008 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2008 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup editors
@@ -94,8 +95,6 @@ typedef struct bAnimContext {
   /** pointer to current reports list */
   struct ReportList *reports;
 
-  /** Scale factor for height of channels (i.e. based on the size of keyframes). */
-  float yscale_fac;
 } bAnimContext;
 
 /* Main Data container types */
@@ -431,28 +430,6 @@ ENUM_OPERATORS(eAnimFilter_Flags, ANIMFILTER_TMP_IGNORE_ONLYSEL);
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Channel Defines
- * \{ */
-
-/** Channel heights. */
-#define ACHANNEL_FIRST_TOP(ac) \
-  (UI_view2d_scale_get_y(&(ac)->region->v2d) * -UI_TIME_SCRUB_MARGIN_Y - ACHANNEL_SKIP)
-#define ACHANNEL_HEIGHT(ac) (0.8f * (ac)->yscale_fac * U.widget_unit)
-#define ACHANNEL_SKIP (0.1f * U.widget_unit)
-#define ACHANNEL_STEP(ac) (ACHANNEL_HEIGHT(ac) + ACHANNEL_SKIP)
-/** Additional offset to give some room at the end. */
-#define ACHANNEL_TOT_HEIGHT(ac, item_amount) \
-  (-ACHANNEL_FIRST_TOP(ac) + ACHANNEL_STEP(ac) * (item_amount + 1))
-
-/** Channel widths. */
-#define ACHANNEL_NAMEWIDTH (10 * U.widget_unit)
-
-/** Channel toggle-buttons. */
-#define ACHANNEL_BUTTON_WIDTH (0.8f * U.widget_unit)
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name NLA Channel Defines
  * \{ */
 
@@ -554,6 +531,8 @@ typedef enum eAnimChannels_SetFlag {
   ACHANNEL_SETFLAG_INVERT = 2,
   /** some on -> all off / all on */
   ACHANNEL_SETFLAG_TOGGLE = 3,
+  /** turn off, keep active flag **/
+  ACHANNEL_SETFLAG_EXTEND_RANGE = 4,
 } eAnimChannels_SetFlag;
 
 /* types of settings for AnimChannels */
@@ -611,6 +590,20 @@ typedef struct bAnimChannelType {
    */
   void *(*setting_ptr)(bAnimListElem *ale, eAnimChannel_Settings setting, short *type);
 } bAnimChannelType;
+
+/** \} */
+/* -------------------------------------------------------------------- */
+/** \name Channel dimensions API
+ * \{ */
+
+float ANIM_UI_get_keyframe_scale_factor(void);
+float ANIM_UI_get_channel_height(void);
+float ANIM_UI_get_channel_skip(void);
+float ANIM_UI_get_first_channel_top(View2D *v2d);
+float ANIM_UI_get_channel_step(void);
+float ANIM_UI_get_channels_total_height(View2D *v2d, int item_count);
+float ANIM_UI_get_channel_name_width(void);
+float ANIM_UI_get_channel_button_width(void);
 
 /** \} */
 
@@ -686,6 +679,8 @@ void ANIM_flush_setting_anim_channels(bAnimContext *ac,
                                       eAnimChannel_Settings setting,
                                       eAnimChannels_SetFlag mode);
 
+void ANIM_frame_channel_y_extents(struct bContext *C, bAnimContext *ac);
+
 /**
  * Set selection state of all animation channels in the context.
  */
@@ -705,6 +700,11 @@ void ANIM_set_active_channel(bAnimContext *ac,
                              eAnimFilter_Flags filter,
                              void *channel_data,
                              eAnim_ChannelType channel_type);
+
+/**
+ * Return whether channel is active.
+ */
+bool ANIM_is_active_channel(bAnimListElem *ale);
 
 /**
  * Delete the F-Curve from the given AnimData block (if possible),
@@ -1052,7 +1052,7 @@ void ED_keymap_anim(struct wmKeyConfig *keyconf);
 void ED_operatormacros_graph(void);
 /* space_action */
 void ED_operatormacros_action(void);
-/* space_nla*/
+/* space_nla */
 void ED_operatormacros_nla(void);
 
 /** \} */

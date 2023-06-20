@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2022 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -72,9 +73,9 @@ class Manager {
    * Buffers containing all object data. Referenced by resource index.
    * Exposed as public members for shader access after sync.
    */
-  ObjectMatricesBuf matrix_buf;
-  ObjectBoundsBuf bounds_buf;
-  ObjectInfosBuf infos_buf;
+  SwapChain<ObjectMatricesBuf, 2> matrix_buf;
+  SwapChain<ObjectBoundsBuf, 2> bounds_buf;
+  SwapChain<ObjectInfosBuf, 2> infos_buf;
 
   /**
    * Object Attributes are reference by indirection data inside ObjectInfos.
@@ -116,8 +117,7 @@ class Manager {
   ~Manager();
 
   /**
-   * Create a new resource handle for the given object. Can be called multiple time with the
-   * same object **successively** without duplicating the data.
+   * Create a new resource handle for the given object.
    */
   ResourceHandle resource_handle(const ObjectRef ref);
   /**
@@ -127,8 +127,8 @@ class Manager {
   ResourceHandle resource_handle(const float4x4 &model_matrix);
   /**
    * Get resource id for a loose matrix with bounds. The draw-calls for this resource handle will
-   * be culled bute there won't be any associated object info / bounds. Assumes correct handedness
-   * / winding.
+   * be culled but there won't be any associated object info / bounds.
+   * Assumes correct handedness / winding.
    */
   ResourceHandle resource_handle(const float4x4 &model_matrix,
                                  const float3 &bounds_center,
@@ -193,17 +193,17 @@ class Manager {
 inline ResourceHandle Manager::resource_handle(const ObjectRef ref)
 {
   bool is_active_object = (ref.dupli_object ? ref.dupli_parent : ref.object) == object_active;
-  matrix_buf.get_or_resize(resource_len_).sync(*ref.object);
-  bounds_buf.get_or_resize(resource_len_).sync(*ref.object);
-  infos_buf.get_or_resize(resource_len_).sync(ref, is_active_object);
+  matrix_buf.current().get_or_resize(resource_len_).sync(*ref.object);
+  bounds_buf.current().get_or_resize(resource_len_).sync(*ref.object);
+  infos_buf.current().get_or_resize(resource_len_).sync(ref, is_active_object);
   return ResourceHandle(resource_len_++, (ref.object->transflag & OB_NEG_SCALE) != 0);
 }
 
 inline ResourceHandle Manager::resource_handle(const float4x4 &model_matrix)
 {
-  matrix_buf.get_or_resize(resource_len_).sync(model_matrix);
-  bounds_buf.get_or_resize(resource_len_).sync();
-  infos_buf.get_or_resize(resource_len_).sync();
+  matrix_buf.current().get_or_resize(resource_len_).sync(model_matrix);
+  bounds_buf.current().get_or_resize(resource_len_).sync();
+  infos_buf.current().get_or_resize(resource_len_).sync();
   return ResourceHandle(resource_len_++, false);
 }
 
@@ -211,9 +211,9 @@ inline ResourceHandle Manager::resource_handle(const float4x4 &model_matrix,
                                                const float3 &bounds_center,
                                                const float3 &bounds_half_extent)
 {
-  matrix_buf.get_or_resize(resource_len_).sync(model_matrix);
-  bounds_buf.get_or_resize(resource_len_).sync(bounds_center, bounds_half_extent);
-  infos_buf.get_or_resize(resource_len_).sync();
+  matrix_buf.current().get_or_resize(resource_len_).sync(model_matrix);
+  bounds_buf.current().get_or_resize(resource_len_).sync(bounds_center, bounds_half_extent);
+  infos_buf.current().get_or_resize(resource_len_).sync();
   return ResourceHandle(resource_len_++, false);
 }
 
@@ -221,7 +221,7 @@ inline void Manager::extract_object_attributes(ResourceHandle handle,
                                                const ObjectRef &ref,
                                                Span<GPUMaterial *> materials)
 {
-  ObjectInfos &infos = infos_buf.get_or_resize(handle.resource_index());
+  ObjectInfos &infos = infos_buf.current().get_or_resize(handle.resource_index());
   infos.object_attrs_offset = attribute_len_;
 
   /* Simple cache solution to avoid duplicates. */

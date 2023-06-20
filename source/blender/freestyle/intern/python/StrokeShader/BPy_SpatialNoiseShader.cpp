@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2004-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -67,7 +69,8 @@ static int SpatialNoiseShader___init__(BPy_SpatialNoiseShader *self,
                                    &PyBool_Type,
                                    &obj4,
                                    &PyBool_Type,
-                                   &obj5)) {
+                                   &obj5))
+  {
     return -1;
   }
   self->py_ss.ss = new SpatialNoiseShader(

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2004-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup sim
@@ -371,8 +372,8 @@ BLI_INLINE void cloth_calc_spring_force(ClothModifierData *clmd, ClothSpring *s)
     s->flags |= CLOTH_SPRING_FLAG_NEEDED;
 
     scaling = parms->bending + s->ang_stiffness * fabsf(parms->max_bend - parms->bending);
-    k = scaling * s->restlen *
-        0.1f; /* Multiplying by 0.1, just to scale the forces to more reasonable values. */
+    /* Multiplying by 0.1, just to scale the forces to more reasonable values. */
+    k = scaling * s->restlen * 0.1f;
 
     SIM_mass_spring_force_spring_angular(
         data, s->ij, s->kl, s->pa, s->pb, s->la, s->lb, s->restang, k, parms->bending_damping);
@@ -381,7 +382,8 @@ BLI_INLINE void cloth_calc_spring_force(ClothModifierData *clmd, ClothSpring *s)
 
   /* Calculate force of structural + shear springs. */
   if (s->type &
-      (CLOTH_SPRING_TYPE_STRUCTURAL | CLOTH_SPRING_TYPE_SEWING | CLOTH_SPRING_TYPE_INTERNAL)) {
+      (CLOTH_SPRING_TYPE_STRUCTURAL | CLOTH_SPRING_TYPE_SEWING | CLOTH_SPRING_TYPE_INTERNAL))
+  {
 #ifdef CLOTH_FORCE_SPRING_STRUCTURAL
     float k_tension, scaling_tension;
 
@@ -496,7 +498,7 @@ BLI_INLINE void cloth_calc_spring_force(ClothModifierData *clmd, ClothSpring *s)
     scaling = parms->bending + s->lin_stiffness * fabsf(parms->max_bend - parms->bending);
     kb = scaling / (20.0f * (parms->avg_spring_len + FLT_EPSILON));
 
-    /* Fix for T45084 for cloth stiffness must have cb proportional to kb */
+    /* Fix for #45084 for cloth stiffness must have cb proportional to kb */
     cb = kb * parms->bending_damping;
 
     SIM_mass_spring_force_spring_bending(data, s->ij, s->kl, s->restlen, kb, cb);
@@ -515,7 +517,7 @@ BLI_INLINE void cloth_calc_spring_force(ClothModifierData *clmd, ClothSpring *s)
     scaling = s->lin_stiffness * parms->bending;
     kb = scaling / (20.0f * (parms->avg_spring_len + FLT_EPSILON));
 
-    /* Fix for T45084 for cloth stiffness must have cb proportional to kb */
+    /* Fix for #45084 for cloth stiffness must have cb proportional to kb */
     cb = kb * parms->bending_damping;
 
     /* XXX assuming same restlen for ij and jk segments here,
@@ -1193,11 +1195,9 @@ static void cloth_solve_collisions(
     zero_v3(verts[i].dcvel);
   }
 
-  if (cloth_bvh_collision(depsgraph,
-                          ob,
-                          clmd,
-                          step / clmd->sim_parms->timescale,
-                          dt / clmd->sim_parms->timescale)) {
+  if (cloth_bvh_collision(
+          depsgraph, ob, clmd, step / clmd->sim_parms->timescale, dt / clmd->sim_parms->timescale))
+  {
     for (i = 0; i < mvert_num; i++) {
       if ((clmd->sim_parms->vgroup_mass > 0) && (verts[i].flags & CLOTH_VERT_FLAG_PINNED)) {
         continue;

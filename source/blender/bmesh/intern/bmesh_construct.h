@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -137,7 +139,7 @@ void BM_elem_attrs_copy(BMesh *bm_src, BMesh *bm_dst, const void *ele_src_v, voi
 void BM_elem_select_copy(BMesh *bm_dst, void *ele_dst_v, const void *ele_src_v);
 
 /**
- * Initialize the `bm_dst` layers in preparation for populating it's contents with multiple meshes.
+ * Initialize the `bm_dst` layers in preparation for populating its contents with multiple meshes.
  * Typically done using multiple calls to #BM_mesh_bm_from_me with the same `bm` argument).
  *
  * \note While the custom-data layers of all meshes are created, the active layers are set
@@ -169,12 +171,6 @@ void BM_mesh_copy_init_customdata_all_layers(BMesh *bm_dst,
                                              char htype,
                                              const struct BMAllocTemplate *allocsize);
 BMesh *BM_mesh_copy(BMesh *bm_old);
-
-char BM_face_flag_from_mflag(char mflag);
-char BM_edge_flag_from_mflag(short mflag);
-/* ME -> BM */
-char BM_face_flag_to_mflag(BMFace *f);
-short BM_edge_flag_to_mflag(BMEdge *e);
 
 #ifdef __cplusplus
 }

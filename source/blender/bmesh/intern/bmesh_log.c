@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bmesh
@@ -32,7 +34,7 @@
 #include "BLI_strict_flags.h"
 
 struct BMLogEntry {
-  struct BMLogEntry *next, *prev;
+  BMLogEntry *next, *prev;
 
   /* The following #GHash members map from an element ID to one of the log types above. */
 
@@ -63,7 +65,7 @@ struct BMLogEntry {
 
 struct BMLog {
   /** Tree of free IDs */
-  struct RangeTreeUInt *unused_ids;
+  RangeTreeUInt *unused_ids;
 
   /**
    * Mapping from unique IDs to vertices and faces
@@ -305,7 +307,7 @@ static void bm_log_faces_restore(BMesh *bm, BMLog *log, GHash *faces)
     f->head.hflag = lf->hflag;
     bm_log_face_id_set(log, f, POINTER_AS_UINT(key));
 
-    /* Ensure face sets have valid values.  Fixes T80174. */
+    /* Ensure face sets have valid values.  Fixes #80174. */
     if (cd_face_sets != -1) {
       BM_ELEM_CD_SET_INT(f, cd_face_sets, 1);
     }

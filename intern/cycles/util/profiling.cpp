@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "util/profiling.h"
 #include "util/algorithm.h"
@@ -8,9 +9,7 @@
 
 CCL_NAMESPACE_BEGIN
 
-Profiler::Profiler() : do_stop_worker(true), worker(NULL)
-{
-}
+Profiler::Profiler() : do_stop_worker(true), worker(NULL) {}
 
 Profiler::~Profiler()
 {

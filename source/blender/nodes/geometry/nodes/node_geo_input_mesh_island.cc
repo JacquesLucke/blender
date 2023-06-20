@@ -1,11 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 
-#include "BLI_disjoint_set.hh"
+#include "BLI_atomic_disjoint_set.hh"
+#include "BLI_task.hh"
 
 #include "node_geometry_util.hh"
 
@@ -13,13 +16,14 @@ namespace blender::nodes::node_geo_input_mesh_island_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_output<decl::Int>(N_("Island Index"))
+  b.add_output<decl::Int>("Island Index")
       .field_source()
-      .description(N_("The index of the each vertex's island. Indices are based on the "
-                      "lowest vertex index contained in each island"));
-  b.add_output<decl::Int>(N_("Island Count"))
+      .description(
+          "The index of the each vertex's island. Indices are based on the "
+          "lowest vertex index contained in each island");
+  b.add_output<decl::Int>("Island Count")
       .field_source()
-      .description(N_("The total number of mesh islands"));
+      .description("The total number of mesh islands");
 }
 
 class IslandFieldInput final : public bke::MeshFieldInput {
@@ -31,21 +35,19 @@ class IslandFieldInput final : public bke::MeshFieldInput {
 
   GVArray get_varray_for_context(const Mesh &mesh,
                                  const eAttrDomain domain,
-                                 const IndexMask /*mask*/) const final
+                                 const IndexMask & /*mask*/) const final
   {
-    const Span<MEdge> edges = mesh.edges();
+    const Span<int2> edges = mesh.edges();
 
-    DisjointSet<int> islands(mesh.totvert);
-    for (const int i : edges.index_range()) {
-      islands.join(edges[i].v1, edges[i].v2);
-    }
+    AtomicDisjointSet islands(mesh.totvert);
+    threading::parallel_for(edges.index_range(), 1024, [&](const IndexRange range) {
+      for (const int2 &edge : edges.slice(range)) {
+        islands.join(edge[0], edge[1]);
+      }
+    });
 
     Array<int> output(mesh.totvert);
-    VectorSet<int> ordered_roots;
-    for (const int i : IndexRange(mesh.totvert)) {
-      const int root = islands.find_root(i);
-      output[i] = ordered_roots.index_of_or_add(root);
-    }
+    islands.calc_reduced_ids(output);
 
     return mesh.attributes().adapt_domain<int>(
         VArray<int>::ForContainer(std::move(output)), ATTR_DOMAIN_POINT, domain);
@@ -77,22 +79,19 @@ class IslandCountFieldInput final : public bke::MeshFieldInput {
 
   GVArray get_varray_for_context(const Mesh &mesh,
                                  const eAttrDomain domain,
-                                 const IndexMask /*mask*/) const final
+                                 const IndexMask & /*mask*/) const final
   {
-    const Span<MEdge> edges = mesh.edges();
+    const Span<int2> edges = mesh.edges();
 
-    DisjointSet<int> islands(mesh.totvert);
-    for (const int i : edges.index_range()) {
-      islands.join(edges[i].v1, edges[i].v2);
-    }
+    AtomicDisjointSet islands(mesh.totvert);
+    threading::parallel_for(edges.index_range(), 1024, [&](const IndexRange range) {
+      for (const int2 &edge : edges.slice(range)) {
+        islands.join(edge[0], edge[1]);
+      }
+    });
 
-    Set<int> island_list;
-    for (const int i_vert : IndexRange(mesh.totvert)) {
-      const int root = islands.find_root(i_vert);
-      island_list.add(root);
-    }
-
-    return VArray<int>::ForSingle(island_list.size(), mesh.attributes().domain_size(domain));
+    const int islands_num = islands.count_sets();
+    return VArray<int>::ForSingle(islands_num, mesh.attributes().domain_size(domain));
   }
 
   uint64_t hash() const override

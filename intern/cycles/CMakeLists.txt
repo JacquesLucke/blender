@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+#
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2011-2022 Blender Foundation
 
 # Standalone or with Blender
 if(NOT WITH_BLENDER)
@@ -85,15 +86,11 @@ elseif(WIN32 AND MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   # there is no /arch:SSE3, but intrinsics are available anyway
   if(CMAKE_CL_64)
     set(CYCLES_SSE2_KERNEL_FLAGS "${CYCLES_KERNEL_FLAGS}")
-    set(CYCLES_SSE3_KERNEL_FLAGS "${CYCLES_KERNEL_FLAGS}")
     set(CYCLES_SSE41_KERNEL_FLAGS "${CYCLES_KERNEL_FLAGS}")
-    set(CYCLES_AVX_KERNEL_FLAGS "${CYCLES_AVX_ARCH_FLAGS} ${CYCLES_KERNEL_FLAGS}")
     set(CYCLES_AVX2_KERNEL_FLAGS "${CYCLES_AVX2_ARCH_FLAGS} ${CYCLES_KERNEL_FLAGS}")
   else()
     set(CYCLES_SSE2_KERNEL_FLAGS "/arch:SSE2 ${CYCLES_KERNEL_FLAGS}")
-    set(CYCLES_SSE3_KERNEL_FLAGS "/arch:SSE2 ${CYCLES_KERNEL_FLAGS}")
     set(CYCLES_SSE41_KERNEL_FLAGS "/arch:SSE2 ${CYCLES_KERNEL_FLAGS}")
-    set(CYCLES_AVX_KERNEL_FLAGS "${CYCLES_AVX_ARCH_FLAGS} ${CYCLES_KERNEL_FLAGS}")
     set(CYCLES_AVX2_KERNEL_FLAGS "${CYCLES_AVX2_ARCH_FLAGS} ${CYCLES_KERNEL_FLAGS}")
   endif()
 
@@ -126,11 +123,7 @@ elseif(CMAKE_COMPILER_IS_GNUCC OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
     endif()
 
     set(CYCLES_SSE2_KERNEL_FLAGS "${CYCLES_KERNEL_FLAGS} -msse -msse2")
-    set(CYCLES_SSE3_KERNEL_FLAGS "${CYCLES_SSE2_KERNEL_FLAGS} -msse3 -mssse3")
-    set(CYCLES_SSE41_KERNEL_FLAGS "${CYCLES_SSE3_KERNEL_FLAGS} -msse4.1")
-    if(CXX_HAS_AVX)
-      set(CYCLES_AVX_KERNEL_FLAGS "${CYCLES_SSE41_KERNEL_FLAGS} -mavx")
-    endif()
+    set(CYCLES_SSE41_KERNEL_FLAGS "${CYCLES_SSE2_KERNEL_FLAGS} -msse3 -mssse3 -msse4.1")
     if(CXX_HAS_AVX2)
       set(CYCLES_AVX2_KERNEL_FLAGS "${CYCLES_SSE41_KERNEL_FLAGS} -mavx -mavx2 -mfma -mlzcnt -mbmi -mbmi2 -mf16c")
     endif()
@@ -144,12 +137,7 @@ elseif(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Intel")
 
   if(CXX_HAS_SSE)
     set(CYCLES_SSE2_KERNEL_FLAGS "/QxSSE2")
-    set(CYCLES_SSE3_KERNEL_FLAGS "/QxSSSE3")
     set(CYCLES_SSE41_KERNEL_FLAGS "/QxSSE4.1")
-
-    if(CXX_HAS_AVX)
-      set(CYCLES_AVX_KERNEL_FLAGS "/arch:AVX")
-    endif()
 
     if(CXX_HAS_AVX2)
       set(CYCLES_AVX2_KERNEL_FLAGS "/QxCORE-AVX2")
@@ -174,12 +162,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
       set(CYCLES_SSE2_KERNEL_FLAGS "-xsse2")
     endif()
 
-    set(CYCLES_SSE3_KERNEL_FLAGS "-xssse3")
     set(CYCLES_SSE41_KERNEL_FLAGS "-xsse4.1")
-
-    if(CXX_HAS_AVX)
-      set(CYCLES_AVX_KERNEL_FLAGS "-xavx")
-    endif()
 
     if(CXX_HAS_AVX2)
       set(CYCLES_AVX2_KERNEL_FLAGS "-xcore-avx2")
@@ -190,13 +173,8 @@ endif()
 if(CXX_HAS_SSE)
   add_definitions(
     -DWITH_KERNEL_SSE2
-    -DWITH_KERNEL_SSE3
     -DWITH_KERNEL_SSE41
   )
-endif()
-
-if(CXX_HAS_AVX)
-  add_definitions(-DWITH_KERNEL_AVX)
 endif()
 
 if(CXX_HAS_AVX2)
@@ -272,6 +250,13 @@ endif()
 if(WITH_CYCLES_DEVICE_HIP)
   add_definitions(-DWITH_HIP)
 
+  if(WITH_CYCLES_DEVICE_HIPRT)
+    include_directories(
+      ${HIPRT_INCLUDE_DIR}
+    )
+    add_definitions(-DWITH_HIPRT)
+  endif()
+
   if(WITH_HIP_DYNLOAD)
     include_directories(
       ../../extern/hipew/include
@@ -298,12 +283,16 @@ if(WITH_CYCLES_DEVICE_METAL)
   add_definitions(-DWITH_METAL)
 endif()
 
-if (WITH_CYCLES_DEVICE_ONEAPI)
+if(WITH_CYCLES_DEVICE_ONEAPI)
   add_definitions(-DWITH_ONEAPI)
 endif()
 
 if(WITH_CYCLES_EMBREE)
   add_definitions(-DWITH_EMBREE)
+  if(WITH_CYCLES_DEVICE_ONEAPI AND EMBREE_SYCL_SUPPORT)
+    add_definitions(-DWITH_EMBREE_GPU)
+  endif()
+  add_definitions(-DEMBREE_MAJOR_VERSION=${EMBREE_MAJOR_VERSION})
   include_directories(
     SYSTEM
     ${EMBREE_INCLUDE_DIRS}
@@ -414,6 +403,10 @@ endif()
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_C_COMPILER_ID MATCHES "Clang")
   add_check_cxx_compiler_flag(CMAKE_CXX_FLAGS _has_no_error_unused_macros "-Wno-error=unused-macros")
   unset(_has_no_error_unused_macros)
+endif()
+
+if(WITH_USD)
+  add_definitions(-DWITH_USD)
 endif()
 
 if(WITH_CYCLES_HYDRA_RENDER_DELEGATE AND (NOT WITH_USD))

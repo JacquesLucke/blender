@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
@@ -22,16 +24,19 @@ set(INC
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
-set(SRC
-  info_draw.c
-  info_ops.c
-  info_report.c
-  info_stats.cc
-  space_info.c
-  textview.c
+set(INC_SYS
+)
 
-  info_intern.h
-  textview.h
+set(SRC
+  info_draw.cc
+  info_ops.cc
+  info_report.cc
+  info_stats.cc
+  space_info.cc
+  textview.cc
+
+  info_intern.hh
+  textview.hh
 )
 
 set(LIB

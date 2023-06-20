@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edcurve
@@ -165,7 +166,8 @@ static void update_location_for_2d_curve(const ViewContext *vc, float location[3
         float location_test[3];
         madd_v3_v3v3fl(location_test, location, view_dir, lambda);
         if ((vc->rv3d->is_persp == false) ||
-            (mul_project_m4_v3_zfac(vc->rv3d->persmat, location_test) > 0.0f)) {
+            (mul_project_m4_v3_zfac(vc->rv3d->persmat, location_test) > 0.0f))
+        {
           copy_v3_v3(location, location_test);
         }
       }
@@ -496,8 +498,10 @@ static bool get_closest_vertex_to_point_in_nurbs(const ViewContext *vc,
         /* Consider handles only if visible. Else only consider the middle point of the triple. */
         int handle_display = vc->v3d->overlay.handle_display;
         if (handle_display == CURVE_HANDLE_NONE ||
-            (handle_display == CURVE_HANDLE_SELECTED && !BEZT_ISSEL_ANY(bezt))) {
-          start = 1, end = 2;
+            (handle_display == CURVE_HANDLE_SELECTED && !BEZT_ISSEL_ANY(bezt)))
+        {
+          start = 1;
+          end = 2;
         }
 
         /* Loop over each of the 3 points of the #BezTriple and update data of closest bezt. */
@@ -1096,7 +1100,7 @@ static void extrude_points_from_selected_vertices(const ViewContext *vc,
   if (sel_exists) {
     float disp_3d[3];
     sub_v3_v3v3(disp_3d, location, center);
-    /* Reimplemenented due to unexpected behavior for extrusion of 2-point spline. */
+    /* Reimplemented due to unexpected behavior for extrusion of 2-point spline. */
     extrude_vertices_from_selected_endpoints(editnurb, nurbs, cu, disp_3d);
   }
   else {
@@ -1126,7 +1130,7 @@ static void extrude_points_from_selected_vertices(const ViewContext *vc,
  * Check if a spline segment is nearby.
  */
 static bool is_spline_nearby(ViewContext *vc,
-                             struct wmOperator *op,
+                             wmOperator *op,
                              const wmEvent *event,
                              const float sel_dist)
 {
@@ -1169,7 +1173,8 @@ static void move_segment(ViewContext *vc, MoveSegmentData *seg_data, const wmEve
     BezTriple *temp_bezt = bezt2;
     bezt2 = bezt1;
     bezt1 = temp_bezt;
-    h1 = 0, h2 = 2;
+    h1 = 0;
+    h2 = 2;
   }
 
   const float t = max_ff(min_ff(seg_data->t, 0.9f), 0.1f);
@@ -1387,7 +1392,8 @@ static bool make_cyclic_if_endpoints(ViewContext *vc,
     if (nu == sel_nu &&
         ((nu->type == CU_BEZIER && bezt != sel_bezt &&
           ELEM(bezt, nu->bezt, nu->bezt + nu->pntsu - 1) && bezt_idx == 1) ||
-         (nu->type != CU_BEZIER && bp != sel_bp && ELEM(bp, nu->bp, nu->bp + nu->pntsu - 1)))) {
+         (nu->type != CU_BEZIER && bp != sel_bp && ELEM(bp, nu->bp, nu->bp + nu->pntsu - 1))))
+    {
       View3D *v3d = vc->v3d;
       ListBase *nurbs = object_editcurve_get(vc->obedit);
       curve_toggle_cyclic(v3d, nurbs, 0);
@@ -1659,7 +1665,8 @@ static int curve_pen_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
       /* Close spline on Click, if enabled. */
       if (!cpd->acted && close_spline && close_spline_method == ON_CLICK && cpd->found_point &&
-          !cpd->dragging) {
+          !cpd->dragging)
+      {
         if (cpd->nu && !is_cyclic(cpd->nu)) {
           copy_v2_v2_int(vc.mval, event->mval);
           cpd->acted = make_cyclic_if_endpoints(&vc, cpd->nu, cpd->bezt, cpd->bp);
@@ -1774,7 +1781,8 @@ static int curve_pen_invoke(bContext *C, wmOperator *op, const wmEvent *event)
         &vc, nurbs, mval_fl, &nu1, &bezt1, &bp1, &bezt_idx);
 
     if (move_point && nu1 && !nu1->hide &&
-        (bezt || (bezt1 && !BEZT_ISSEL_IDX(bezt1, bezt_idx)) || (bp1 && !(bp1->f1 & SELECT)))) {
+        (bezt || (bezt1 && !BEZT_ISSEL_IDX(bezt1, bezt_idx)) || (bp1 && !(bp1->f1 & SELECT))))
+    {
       /* Select the closest bezt or bp. */
       ED_curve_deselect_all(cu->editnurb);
       if (bezt1) {

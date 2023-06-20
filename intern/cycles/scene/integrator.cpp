@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "device/device.h"
 
@@ -8,12 +9,12 @@
 #include "scene/camera.h"
 #include "scene/film.h"
 #include "scene/integrator.h"
-#include "scene/jitter.h"
 #include "scene/light.h"
 #include "scene/object.h"
 #include "scene/scene.h"
 #include "scene/shader.h"
 #include "scene/stats.h"
+#include "scene/tabulated_sobol.h"
 
 #include "kernel/types.h"
 
@@ -60,10 +61,17 @@ NODE_DEFINE(Integrator)
   SOCKET_INT(volume_max_steps, "Volume Max Steps", 1024);
   SOCKET_FLOAT(volume_step_rate, "Volume Step Rate", 1.0f);
 
-  static NodeEnum guiding_ditribution_enum;
-  guiding_ditribution_enum.insert("PARALLAX_AWARE_VMM", GUIDING_TYPE_PARALLAX_AWARE_VMM);
-  guiding_ditribution_enum.insert("DIRECTIONAL_QUAD_TREE", GUIDING_TYPE_DIRECTIONAL_QUAD_TREE);
-  guiding_ditribution_enum.insert("VMM", GUIDING_TYPE_VMM);
+  static NodeEnum guiding_distribution_enum;
+  guiding_distribution_enum.insert("PARALLAX_AWARE_VMM", GUIDING_TYPE_PARALLAX_AWARE_VMM);
+  guiding_distribution_enum.insert("DIRECTIONAL_QUAD_TREE", GUIDING_TYPE_DIRECTIONAL_QUAD_TREE);
+  guiding_distribution_enum.insert("VMM", GUIDING_TYPE_VMM);
+
+  static NodeEnum guiding_directional_sampling_type_enum;
+  guiding_directional_sampling_type_enum.insert("MIS",
+                                                GUIDING_DIRECTIONAL_SAMPLING_TYPE_PRODUCT_MIS);
+  guiding_directional_sampling_type_enum.insert("RIS", GUIDING_DIRECTIONAL_SAMPLING_TYPE_RIS);
+  guiding_directional_sampling_type_enum.insert("ROUGHNESS",
+                                                GUIDING_DIRECTIONAL_SAMPLING_TYPE_ROUGHNESS);
 
   SOCKET_BOOLEAN(use_guiding, "Guiding", false);
   SOCKET_BOOLEAN(deterministic_guiding, "Deterministic Guiding", true);
@@ -76,8 +84,13 @@ NODE_DEFINE(Integrator)
   SOCKET_BOOLEAN(use_guiding_mis_weights, "Use MIS Weights", true);
   SOCKET_ENUM(guiding_distribution_type,
               "Guiding Distribution Type",
-              guiding_ditribution_enum,
+              guiding_distribution_enum,
               GUIDING_TYPE_PARALLAX_AWARE_VMM);
+  SOCKET_ENUM(guiding_directional_sampling_type,
+              "Guiding Directional Sampling Type",
+              guiding_directional_sampling_type_enum,
+              GUIDING_DIRECTIONAL_SAMPLING_TYPE_RIS);
+  SOCKET_FLOAT(guiding_roughness_threshold, "Guiding Roughness Threshold", 0.05f);
 
   SOCKET_BOOLEAN(caustics_reflective, "Reflective Caustics", true);
   SOCKET_BOOLEAN(caustics_refractive, "Refractive Caustics", true);
@@ -102,12 +115,16 @@ NODE_DEFINE(Integrator)
   SOCKET_FLOAT(adaptive_threshold, "Adaptive Threshold", 0.01f);
   SOCKET_INT(adaptive_min_samples, "Adaptive Min Samples", 0);
 
-  SOCKET_FLOAT(light_sampling_threshold, "Light Sampling Threshold", 0.01f);
+  SOCKET_BOOLEAN(use_light_tree, "Use light tree to optimize many light sampling", true);
+  SOCKET_FLOAT(light_sampling_threshold, "Light Sampling Threshold", 0.0f);
 
   static NodeEnum sampling_pattern_enum;
   sampling_pattern_enum.insert("sobol_burley", SAMPLING_PATTERN_SOBOL_BURLEY);
-  sampling_pattern_enum.insert("pmj", SAMPLING_PATTERN_PMJ);
-  SOCKET_ENUM(sampling_pattern, "Sampling Pattern", sampling_pattern_enum, SAMPLING_PATTERN_PMJ);
+  sampling_pattern_enum.insert("tabulated_sobol", SAMPLING_PATTERN_TABULATED_SOBOL);
+  SOCKET_ENUM(sampling_pattern,
+              "Sampling Pattern",
+              sampling_pattern_enum,
+              SAMPLING_PATTERN_TABULATED_SOBOL);
   SOCKET_FLOAT(scrambling_distance, "Scrambling Distance", 1.0f);
 
   static NodeEnum denoiser_type_enum;
@@ -135,13 +152,9 @@ NODE_DEFINE(Integrator)
   return type;
 }
 
-Integrator::Integrator() : Node(get_node_type())
-{
-}
+Integrator::Integrator() : Node(get_node_type()) {}
 
-Integrator::~Integrator()
-{
-}
+Integrator::~Integrator() {}
 
 void Integrator::device_update(Device *device, DeviceScene *dscene, Scene *scene)
 {
@@ -189,7 +202,8 @@ void Integrator::device_update(Device *device, DeviceScene *dscene, Scene *scene
   foreach (Shader *shader, scene->shaders) {
     /* keep this in sync with SD_HAS_TRANSPARENT_SHADOW in shader.cpp */
     if ((shader->has_surface_transparent && shader->get_use_transparent_shadow()) ||
-        shader->has_volume) {
+        shader->has_volume)
+    {
       kintegrator->transparent_shadows = true;
       break;
     }
@@ -238,6 +252,8 @@ void Integrator::device_update(Device *device, DeviceScene *dscene, Scene *scene
   kintegrator->use_guiding_direct_light = use_guiding_direct_light;
   kintegrator->use_guiding_mis_weights = use_guiding_mis_weights;
   kintegrator->guiding_distribution_type = guiding_params.type;
+  kintegrator->guiding_directional_sampling_type = guiding_params.sampling_type;
+  kintegrator->guiding_roughness_threshold = guiding_params.roughness_threshold;
 
   kintegrator->seed = seed;
 
@@ -249,31 +265,36 @@ void Integrator::device_update(Device *device, DeviceScene *dscene, Scene *scene
 
   kintegrator->sampling_pattern = sampling_pattern;
   kintegrator->scrambling_distance = scrambling_distance;
+  kintegrator->sobol_index_mask = reverse_integer_bits(next_power_of_two(aa_samples - 1) - 1);
 
-  if (light_sampling_threshold > 0.0f) {
-    kintegrator->light_inv_rr_threshold = 1.0f / light_sampling_threshold;
+  /* NOTE: The kintegrator->use_light_tree is assigned to the efficient value in the light manager,
+   * and the synchronization code is expected to tag the light manager for update when the
+   * `use_light_tree` is changed. */
+  if (light_sampling_threshold > 0.0f && !kintegrator->use_light_tree) {
+    kintegrator->light_inv_rr_threshold = scene->film->get_exposure() / light_sampling_threshold;
   }
   else {
     kintegrator->light_inv_rr_threshold = 0.0f;
   }
 
-  constexpr int num_sequences = NUM_PMJ_PATTERNS;
-  int sequence_size = clamp(next_power_of_two(aa_samples - 1), MIN_PMJ_SAMPLES, MAX_PMJ_SAMPLES);
-  if (kintegrator->sampling_pattern == SAMPLING_PATTERN_PMJ &&
+  /* Build pre-tabulated Sobol samples if needed. */
+  int sequence_size = clamp(
+      next_power_of_two(aa_samples - 1), MIN_TAB_SOBOL_SAMPLES, MAX_TAB_SOBOL_SAMPLES);
+  if (kintegrator->sampling_pattern == SAMPLING_PATTERN_TABULATED_SOBOL &&
       dscene->sample_pattern_lut.size() !=
-          (sequence_size * NUM_PMJ_DIMENSIONS * NUM_PMJ_PATTERNS)) {
-    kintegrator->pmj_sequence_size = sequence_size;
+          (sequence_size * NUM_TAB_SOBOL_PATTERNS * NUM_TAB_SOBOL_DIMENSIONS))
+  {
+    kintegrator->tabulated_sobol_sequence_size = sequence_size;
 
     if (dscene->sample_pattern_lut.size() != 0) {
       dscene->sample_pattern_lut.free();
     }
-    float2 *directions = (float2 *)dscene->sample_pattern_lut.alloc(sequence_size * num_sequences *
-                                                                    NUM_PMJ_DIMENSIONS);
+    float4 *directions = (float4 *)dscene->sample_pattern_lut.alloc(
+        sequence_size * NUM_TAB_SOBOL_PATTERNS * NUM_TAB_SOBOL_DIMENSIONS);
     TaskPool pool;
-    for (int j = 0; j < num_sequences; ++j) {
-      float2 *sequence = directions + j * sequence_size;
-      pool.push(
-          function_bind(&progressive_multi_jitter_02_generate_2D, sequence, sequence_size, j));
+    for (int j = 0; j < NUM_TAB_SOBOL_PATTERNS; ++j) {
+      float4 *sequence = directions + j * sequence_size;
+      pool.push(function_bind(&tabulated_sobol_generate_4D, sequence, sequence_size, j));
     }
     pool.wait_work();
 
@@ -403,7 +424,9 @@ GuidingParams Integrator::get_guiding_params(const Device *device) const
   guiding_params.type = guiding_distribution_type;
   guiding_params.training_samples = guiding_training_samples;
   guiding_params.deterministic = deterministic_guiding;
-
+  guiding_params.sampling_type = guiding_directional_sampling_type;
+  // In Blender/Cycles the user set roughness is squared to behave more linear.
+  guiding_params.roughness_threshold = guiding_roughness_threshold * guiding_roughness_threshold;
   return guiding_params;
 }
 CCL_NAMESPACE_END

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup fn
@@ -36,8 +38,22 @@ void LazyFunction::destruct_storage(void *storage) const
   UNUSED_VARS_NDEBUG(storage);
 }
 
+void LazyFunction::possible_output_dependencies(const int /*output_index*/,
+                                                const FunctionRef<void(Span<int>)> fn) const
+{
+  /* The output depends on all inputs by default. */
+  Vector<int, 16> indices(inputs_.size());
+  for (const int i : inputs_.index_range()) {
+    indices[i] = i;
+  }
+  fn(indices);
+}
+
 bool LazyFunction::always_used_inputs_available(const Params &params) const
 {
+  if (allow_missing_requested_inputs_) {
+    return true;
+  }
   for (const int i : inputs_.index_range()) {
     const Input &fn_input = inputs_[i];
     if (fn_input.usage == ValueUsage::Used) {
@@ -51,11 +67,12 @@ bool LazyFunction::always_used_inputs_available(const Params &params) const
 
 void Params::set_default_remaining_outputs()
 {
-  for (const int i : fn_.outputs().index_range()) {
+  const Span<Output> outputs = fn_.outputs();
+  for (const int i : outputs.index_range()) {
     if (this->output_was_set(i)) {
       continue;
     }
-    const Output &fn_output = fn_.outputs()[i];
+    const Output &fn_output = outputs[i];
     const CPPType &type = *fn_output.type;
     void *data_ptr = this->get_output_data_ptr(i);
     type.value_initialize(data_ptr);
@@ -66,6 +83,11 @@ void Params::set_default_remaining_outputs()
 bool Params::try_enable_multi_threading_impl()
 {
   return false;
+}
+
+destruct_ptr<LocalUserData> UserData::get_local(LinearAllocator<> & /*allocator*/)
+{
+  return {};
 }
 
 }  // namespace blender::fn::lazy_function

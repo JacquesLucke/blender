@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -11,17 +12,11 @@ CCL_NAMESPACE_BEGIN
 
 #ifndef __KERNEL_NATIVE_VECTOR_TYPES__
 #  ifdef __KERNEL_SSE__
-__forceinline float3::float3()
-{
-}
+__forceinline float3::float3() {}
 
-__forceinline float3::float3(const float3 &a) : m128(a.m128)
-{
-}
+__forceinline float3::float3(const float3 &a) : m128(a.m128) {}
 
-__forceinline float3::float3(const __m128 &a) : m128(a)
-{
-}
+__forceinline float3::float3(const __m128 &a) : m128(a) {}
 
 __forceinline float3::operator const __m128 &() const
 {

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __UTIL_MATH_CDF_H__
 #define __UTIL_MATH_CDF_H__
@@ -26,9 +27,11 @@ void util_cdf_evaluate(
     cdf[i + 1] = cdf[i] + fabsf(y);
   }
   /* Normalize the CDF. */
+  float fac = (cdf[resolution] == 0.0f) ? 0.0f : 1.0f / cdf[resolution];
   for (int i = 0; i <= resolution; i++) {
-    cdf[i] /= cdf[resolution];
+    cdf[i] *= fac;
   }
+  cdf[resolution] = 1.0f;
 }
 
 /* Invert pre-calculated CDF function. */

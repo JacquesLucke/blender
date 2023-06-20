@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edinterface
@@ -25,8 +26,10 @@
 
 #include "BKE_context.h"
 #include "BKE_global.h"
+#include "BKE_idprop.h"
 #include "BKE_lib_id.h"
 #include "BKE_report.h"
+#include "BKE_screen.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -40,7 +43,7 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-#include "interface_intern.h"
+#include "interface_intern.hh"
 
 /*************************** RNA Utilities ******************************/
 
@@ -146,7 +149,8 @@ uiBut *uiDefAutoButR(uiBlock *block,
         }
       }
       else if (RNA_property_subtype(prop) == PROP_PERCENTAGE ||
-               RNA_property_subtype(prop) == PROP_FACTOR) {
+               RNA_property_subtype(prop) == PROP_FACTOR)
+      {
         but = uiDefButR_prop(block,
                              UI_BTYPE_NUM_SLIDER,
                              0,
@@ -339,8 +343,7 @@ uiBut *uiDefAutoButR(uiBlock *block,
     }
     case PROP_COLLECTION: {
       char text[256];
-      BLI_snprintf(
-          text, sizeof(text), IFACE_("%d items"), RNA_property_collection_length(ptr, prop));
+      SNPRINTF(text, IFACE_("%d items"), RNA_property_collection_length(ptr, prop));
       but = uiDefBut(
           block, UI_BTYPE_LABEL, 0, text, x, y, width, height, nullptr, 0, 0, 0, 0, nullptr);
       UI_but_flag_enable(but, UI_BUT_DISABLED);
@@ -461,7 +464,7 @@ void UI_but_func_identity_compare_set(uiBut *but, uiButIdentityCompareFunc cmp_f
 /* *** RNA collection search menu *** */
 
 struct CollItemSearch {
-  struct CollItemSearch *next, *prev;
+  CollItemSearch *next, *prev;
   void *data;
   char *name;
   int index;
@@ -487,8 +490,9 @@ static bool add_collection_search_item(CollItemSearch *cis,
      * removed). */
     BKE_id_full_name_ui_prefix_get(
         name_buf, static_cast<const ID *>(cis->data), false, UI_SEP_CHAR, &name_prefix_offset);
-    BLI_assert(strlen(name_buf) <= MEM_allocN_len(cis->name));
-    strcpy(cis->name, name_buf);
+    const int name_buf_len = strlen(name_buf);
+    BLI_assert(name_buf_len <= strlen(cis->name));
+    memcpy(cis->name, name_buf, name_buf_len + 1);
   }
 
   return UI_search_item_add(items,
@@ -611,7 +615,7 @@ void ui_rna_collection_search_update_fn(
         [](void *user_data, const StringPropertySearchVisitParams *visit_params) {
           const bool show_extra_info = (G.debug_value == 102);
 
-          SearchVisitUserData *search_data = (struct SearchVisitUserData *)user_data;
+          SearchVisitUserData *search_data = (SearchVisitUserData *)user_data;
           CollItemSearch *cis = MEM_cnew<CollItemSearch>(search_data->func_id);
           cis->data = nullptr;
           if (visit_params->info && show_extra_info) {
@@ -824,11 +828,11 @@ int UI_calc_float_precision(int prec, double value)
   return prec;
 }
 
-bool UI_but_online_manual_id(const uiBut *but, char *r_str, size_t maxlength)
+bool UI_but_online_manual_id(const uiBut *but, char *r_str, size_t str_maxncpy)
 {
   if (but->rnapoin.owner_id && but->rnapoin.data && but->rnaprop) {
     BLI_snprintf(r_str,
-                 maxlength,
+                 str_maxncpy,
                  "%s.%s",
                  RNA_struct_identifier(but->rnapoin.type),
                  RNA_property_identifier(but->rnaprop));
@@ -843,12 +847,12 @@ bool UI_but_online_manual_id(const uiBut *but, char *r_str, size_t maxlength)
   return false;
 }
 
-bool UI_but_online_manual_id_from_active(const bContext *C, char *r_str, size_t maxlength)
+bool UI_but_online_manual_id_from_active(const bContext *C, char *r_str, size_t str_maxncpy)
 {
   uiBut *but = UI_context_active_but_get(C);
 
   if (but) {
-    return UI_but_online_manual_id(but, r_str, maxlength);
+    return UI_but_online_manual_id(but, r_str, str_maxncpy);
   }
 
   *r_str = '\0';
@@ -950,13 +954,13 @@ void UI_but_ensure_in_view(const bContext *C, ARegion *region, const uiBut *but)
  * \{ */
 
 struct uiButStore {
-  struct uiButStore *next, *prev;
+  uiButStore *next, *prev;
   uiBlock *block;
   ListBase items;
 };
 
 struct uiButStoreElem {
-  struct uiButStoreElem *next, *prev;
+  uiButStoreElem *next, *prev;
   uiBut **but_p;
 };
 
@@ -976,7 +980,7 @@ void UI_butstore_free(uiBlock *block, uiButStore *bs_handle)
    * which then can't use the previous buttons state
    * ('ui_but_update_from_old_block' fails to find a match),
    * keeping the active button in the old block holding a reference
-   * to the button-state in the new block: see T49034.
+   * to the button-state in the new block: see #49034.
    *
    * Ideally we would manage moving the 'uiButStore', keeping a correct state.
    * All things considered this is the most straightforward fix - Campbell.
@@ -1091,6 +1095,113 @@ void UI_butstore_update(uiBlock *block)
       }
     }
   }
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Key Event from UI
+ * \{ */
+
+/**
+ * Follow the logic from #wm_keymap_item_find_in_keymap.
+ */
+static bool ui_key_event_property_match(const char *opname,
+                                        IDProperty *properties,
+                                        const bool is_strict,
+                                        wmOperatorType *ui_optype,
+                                        PointerRNA *ui_opptr)
+{
+  if (!STREQ(ui_optype->idname, opname)) {
+    return false;
+  }
+
+  bool match = false;
+  if (properties) {
+    if (ui_opptr &&
+        IDP_EqualsProperties_ex(properties, static_cast<IDProperty *>(ui_opptr->data), is_strict))
+    {
+      match = true;
+    }
+  }
+  else {
+    match = true;
+  }
+  return match;
+}
+
+const char *UI_key_event_operator_string(const bContext *C,
+                                         const char *opname,
+                                         IDProperty *properties,
+                                         const bool is_strict,
+                                         char *result,
+                                         const int result_maxncpy)
+{
+  /* NOTE: currently only actions on UI Lists are supported (for the asset manager).
+   * Other kinds of events can be supported as needed. */
+
+  ARegion *region = CTX_wm_region(C);
+  if (region == nullptr) {
+    return nullptr;
+  }
+
+  /* Early exit regions which don't have UI-Lists. */
+  if ((region->type->keymapflag & ED_KEYMAP_UI) == 0) {
+    return nullptr;
+  }
+
+  uiBut *but = UI_region_active_but_get(region);
+  if (but == nullptr) {
+    return nullptr;
+  }
+
+  if (but->type != UI_BTYPE_PREVIEW_TILE) {
+    return nullptr;
+  }
+
+  short event_val = KM_NOTHING;
+  short event_type = KM_NOTHING;
+
+  uiBut *listbox = nullptr;
+  LISTBASE_FOREACH_BACKWARD (uiBut *, but_iter, &but->block->buttons) {
+    if ((but_iter->type == UI_BTYPE_LISTBOX) && ui_but_contains_rect(but_iter, &but->rect)) {
+      listbox = but_iter;
+      break;
+    }
+  }
+
+  if (listbox && listbox->custom_data) {
+    uiList *list = static_cast<uiList *>(listbox->custom_data);
+    uiListDyn *dyn_data = list->dyn_data;
+    if ((dyn_data->custom_activate_optype != nullptr) &&
+        ui_key_event_property_match(opname,
+                                    properties,
+                                    is_strict,
+                                    dyn_data->custom_activate_optype,
+                                    dyn_data->custom_activate_opptr))
+    {
+      event_val = KM_CLICK;
+      event_type = LEFTMOUSE;
+    }
+    else if ((dyn_data->custom_activate_optype != nullptr) &&
+             ui_key_event_property_match(opname,
+                                         properties,
+                                         is_strict,
+                                         dyn_data->custom_drag_optype,
+                                         dyn_data->custom_drag_opptr))
+    {
+      event_val = KM_CLICK_DRAG;
+      event_type = LEFTMOUSE;
+    }
+  }
+
+  if ((event_val != KM_NOTHING) && (event_type != KM_NOTHING)) {
+    WM_keymap_item_raw_to_string(
+        false, false, false, false, 0, event_val, event_type, false, result, result_maxncpy);
+    return result;
+  }
+
+  return nullptr;
 }
 
 /** \} */

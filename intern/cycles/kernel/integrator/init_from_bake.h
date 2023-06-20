@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -8,6 +9,7 @@
 #include "kernel/film/adaptive_sampling.h"
 #include "kernel/film/light_passes.h"
 
+#include "kernel/integrator/intersect_closest.h"
 #include "kernel/integrator/path_state.h"
 
 #include "kernel/sample/pattern.h"
@@ -16,18 +18,40 @@
 
 CCL_NAMESPACE_BEGIN
 
-/* This helps with AA but it's not the real solution as it does not AA the geometry
- * but it's better than nothing, thus committed. */
-ccl_device_inline float bake_clamp_mirror_repeat(float u, float max)
+/* In order to perform anti-aliasing during baking, we jitter the input barycentric coordinates
+ * (which are for the center of the texel) within the texel.
+ * However, the baking code currently doesn't support going to neighboring triangle, so if the
+ * jittered location falls outside of the input triangle, we need to bring it back in somehow.
+ * Clamping is a bad choice here since it can produce noticeable artifacts at triangle edges,
+ * but properly uniformly sampling the intersection of triangle and texel would be very
+ * performance-heavy, so cheat by just trying different jittering until we end up inside the
+ * triangle.
+ * For triangles that are smaller than a texel, this might take too many attempts, so eventually
+ * we just give up and don't jitter in that case.
+ * This is not a particularly elegant solution, but it's probably the best we can do. */
+ccl_device_inline void bake_jitter_barycentric(ccl_private float &u,
+                                               ccl_private float &v,
+                                               float2 rand_filter,
+                                               const float dudx,
+                                               const float dudy,
+                                               const float dvdx,
+                                               const float dvdy)
 {
-  /* use mirror repeat (like opengl texture) so that if the barycentric
-   * coordinate goes past the end of the triangle it is not always clamped
-   * to the same value, gives ugly patterns */
-  u /= max;
-  float fu = floorf(u);
-  u = u - fu;
-
-  return ((((int)fu) & 1) ? 1.0f - u : u) * max;
+  for (int i = 0; i < 10; i++) {
+    /* Offset UV according to differentials. */
+    float jitterU = u + (rand_filter.x - 0.5f) * dudx + (rand_filter.y - 0.5f) * dudy;
+    float jitterV = v + (rand_filter.x - 0.5f) * dvdx + (rand_filter.y - 0.5f) * dvdy;
+    /* If this location is inside the triangle, return. */
+    if (jitterU > 0.0f && jitterV > 0.0f && jitterU + jitterV < 1.0f) {
+      u = jitterU;
+      v = jitterV;
+      return;
+    }
+    /* Retry with new jitter value. */
+    rand_filter = hash_float2_to_float2(rand_filter);
+  }
+  /* Retries exceeded, give up and just use center value. */
+  return;
 }
 
 /* Offset towards center of triangle to avoid ray-tracing precision issues. */
@@ -144,12 +168,7 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
   }
 
   /* Sub-pixel offset. */
-  if (sample > 0) {
-    u = bake_clamp_mirror_repeat(u + dudx * (rand_filter.x - 0.5f) + dudy * (rand_filter.y - 0.5f),
-                                 1.0f);
-    v = bake_clamp_mirror_repeat(v + dvdx * (rand_filter.x - 0.5f) + dvdy * (rand_filter.y - 0.5f),
-                                 1.0f - u);
-  }
+  bake_jitter_barycentric(u, v, rand_filter, dudx, dudy, dvdx, dvdy);
 
   /* Convert from Blender to Cycles/Embree/OptiX barycentric convention. */
   const float tmp = u;
@@ -187,7 +206,7 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
     ray.time = 0.5f;
     ray.dP = differential_zero_compact();
     ray.dD = differential_zero_compact();
-    integrator_state_write_ray(kg, state, &ray);
+    integrator_state_write_ray(state, &ray);
 
     /* Setup next kernel to execute. */
     integrator_path_init(kg, state, DEVICE_KERNEL_INTEGRATOR_SHADE_BACKGROUND);
@@ -282,7 +301,7 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
     ray.dD = differential_zero_compact();
 
     /* Write ray. */
-    integrator_state_write_ray(kg, state, &ray);
+    integrator_state_write_ray(state, &ray);
 
     /* Setup and write intersection. */
     Intersection isect ccl_optional_struct_init;
@@ -292,7 +311,7 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
     isect.v = v;
     isect.t = 1.0f;
     isect.type = PRIMITIVE_TRIANGLE;
-    integrator_state_write_isect(kg, state, &isect);
+    integrator_state_write_isect(state, &isect);
 
     /* Setup next kernel to execute. */
     const bool use_caustics = kernel_data.integrator.use_caustics &&
@@ -310,6 +329,8 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
     else {
       integrator_path_init_sorted(kg, state, DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE, shader_index);
     }
+
+    integrator_split_shadow_catcher(kg, state, &isect, render_buffer);
   }
 
   return true;

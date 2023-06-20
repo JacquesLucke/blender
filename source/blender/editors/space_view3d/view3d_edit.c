@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2008 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2008 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spview3d
@@ -125,13 +126,13 @@ static int view_lock_to_active_exec(bContext *C, wmOperator *UNUSED(op))
         Object *obact_eval = DEG_get_evaluated_object(depsgraph, obact);
         bPoseChannel *pcham_act = BKE_pose_channel_active_if_layer_visible(obact_eval);
         if (pcham_act) {
-          BLI_strncpy(v3d->ob_center_bone, pcham_act->name, sizeof(v3d->ob_center_bone));
+          STRNCPY(v3d->ob_center_bone, pcham_act->name);
         }
       }
       else {
         EditBone *ebone_act = ((bArmature *)obact->data)->act_edbone;
         if (ebone_act) {
-          BLI_strncpy(v3d->ob_center_bone, ebone_act->name, sizeof(v3d->ob_center_bone));
+          STRNCPY(v3d->ob_center_bone, ebone_act->name);
         }
       }
     }
@@ -847,7 +848,7 @@ void ED_view3d_cursor3d_position(bContext *C,
   }
 
   if (use_depth) { /* maybe this should be accessed some other way */
-    struct Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+    Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
 
     view3d_operator_needs_opengl(C);
     if (ED_view3d_autodist(depsgraph, region, v3d, mval, cursor_co, true, NULL)) {
@@ -901,7 +902,7 @@ void ED_view3d_cursor3d_position_rotation(bContext *C,
     float ray_no[3];
     float ray_co[3];
 
-    struct SnapObjectContext *snap_context = ED_transform_snap_object_context_create(scene, 0);
+    SnapObjectContext *snap_context = ED_transform_snap_object_context_create(scene, 0);
 
     float obmat[4][4];
     Object *ob_dummy = NULL;
@@ -910,7 +911,7 @@ void ED_view3d_cursor3d_position_rotation(bContext *C,
                                                    CTX_data_ensure_evaluated_depsgraph(C),
                                                    region,
                                                    v3d,
-                                                   SCE_SNAP_MODE_FACE_RAYCAST,
+                                                   SCE_SNAP_MODE_FACE,
                                                    &(const struct SnapObjectParams){
                                                        .snap_target_select = SCE_SNAP_TARGET_ALL,
                                                        .edit_mode_type = SNAP_GEOM_FINAL,
@@ -925,7 +926,8 @@ void ED_view3d_cursor3d_position_rotation(bContext *C,
                                                    NULL,
                                                    &ob_dummy,
                                                    obmat,
-                                                   NULL) != 0) {
+                                                   NULL) != 0)
+    {
       if (use_depth) {
         copy_v3_v3(cursor_co, ray_co);
       }
@@ -957,7 +959,7 @@ void ED_view3d_cursor3d_position_rotation(bContext *C,
 
         /* As the tangent is arbitrary from the users point of view,
          * make the cursor 'roll' on the shortest angle.
-         * otherwise this can cause noticeable 'flipping', see T72419. */
+         * otherwise this can cause noticeable 'flipping', see #72419. */
         for (int axis = 0; axis < 2; axis++) {
           float tan_src[3] = {0, 0, 0};
           tan_src[axis] = 1.0f;
@@ -1025,14 +1027,15 @@ void ED_view3d_cursor3d_update(bContext *C,
       if ((ED_view3d_project_float_global(
                region, cursor_prev.location, co_2d_prev, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) &&
           (ED_view3d_project_float_global(
-               region, cursor_curr->location, co_2d_curr, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK)) {
+               region, cursor_curr->location, co_2d_curr, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK))
+      {
         rv3d->ofs_lock[0] += (co_2d_curr[0] - co_2d_prev[0]) / (region->winx * 0.5f);
         rv3d->ofs_lock[1] += (co_2d_curr[1] - co_2d_prev[1]) / (region->winy * 0.5f);
       }
     }
     else {
       /* Cursor may be outside of the view,
-       * prevent it getting 'lost', see: T40353 & T45301 */
+       * prevent it getting 'lost', see: #40353 & #45301 */
       zero_v2(rv3d->ofs_lock);
     }
   }
@@ -1198,7 +1201,8 @@ static int toggle_xray_exec(bContext *C, wmOperator *op)
   Object *obact = CTX_data_active_object(C);
 
   if (obact && ((obact->mode & OB_MODE_POSE) ||
-                ((obact->mode & OB_MODE_WEIGHT_PAINT) && BKE_object_pose_armature_get(obact)))) {
+                ((obact->mode & OB_MODE_WEIGHT_PAINT) && BKE_object_pose_armature_get(obact))))
+  {
     v3d->overlay.flag ^= V3D_OVERLAY_BONE_SELECT;
   }
   else {

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2007 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2007 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spfile
@@ -48,6 +49,7 @@
 #endif
 
 #include "BKE_asset.h"
+#include "BKE_blendfile.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_icons.h"
@@ -56,7 +58,6 @@
 #include "BKE_main.h"
 #include "BKE_main_idmap.h"
 #include "BKE_preferences.h"
-#include "BLO_readfile.h"
 
 #include "DNA_asset_types.h"
 #include "DNA_space_types.h"
@@ -177,7 +178,8 @@ enum {
 };
 
 struct FileListEntryPreview {
-  char filepath[FILE_MAX];
+  /** Use #FILE_MAX_LIBEXTRA as this is the size written into by #filelist_file_get_full_path. */
+  char filepath[FILE_MAX_LIBEXTRA];
   uint flags;
   int index;
   int attributes; /* from FileDirEntry. */
@@ -185,7 +187,7 @@ struct FileListEntryPreview {
 };
 
 /* Dummy wrapper around FileListEntryPreview to ensure we do not access freed memory when freeing
- * tasks' data (see T74609). */
+ * tasks' data (see #74609). */
 struct FileListEntryPreviewTaskData {
   FileListEntryPreview *preview;
 };
@@ -233,11 +235,15 @@ struct FileList {
 
   FileListEntryCache filelist_cache;
 
-  /* We need to keep those info outside of actual filelist items,
+  /**
+   * We need to keep those info outside of actual file-list items,
    * because those are no more persistent
    * (only generated on demand, and freed as soon as possible).
    * Persistent part (mere list of paths + stat info)
    * is kept as small as possible, and file-browser agnostic.
+   *
+   * - The key is a #FileDirEntry::uid
+   * - The value is an #eDirEntry_SelectFlag.
    */
   GHash *selection_state;
 
@@ -246,20 +252,24 @@ struct FileList {
 
   BlendHandle *libfiledata;
 
-  /* Set given path as root directory,
-   * if last bool is true may change given string in place to a valid value.
-   * Returns True if valid dir. */
-  bool (*check_dir_fn)(struct FileList *, char *, const bool);
+  /**
+   * Set given path as root directory.
+   *
+   * \param do_change: When true, the callback may change given string in place to a valid value.
+   * \return True when `dirpath` is valid.
+   */
+  bool (*check_dir_fn)(FileList *filelist, char dirpath[FILE_MAX_LIBEXTRA], const bool do_change);
 
-  /* Fill filelist (to be called by read job). */
-  void (*read_job_fn)(struct FileListReadJob *, bool *, bool *, float *);
+  /** Fill `filelist` (to be called by read job). */
+  void (*read_job_fn)(FileListReadJob *job_params, bool *stop, bool *do_update, float *progress);
 
-  /* Filter an entry of current filelist. */
-  bool (*filter_fn)(struct FileListInternEntry *, const char *, FileListFilter *);
-  /* Executed before filtering individual items, to set up additional filter data. */
-  void (*prepare_filter_fn)(const struct FileList *, FileListFilter *);
+  /** Filter an entry of current `filelist`. */
+  bool (*filter_fn)(FileListInternEntry *file, const char *root, FileListFilter *filter);
+  /** Executed before filtering individual items, to set up additional filter data. */
+  void (*prepare_filter_fn)(const FileList *filelist, FileListFilter *filter);
 
-  short tags; /* FileListTags */
+  /** #FileListTags. */
+  short tags;
 };
 
 /** #FileList.flags */
@@ -320,10 +330,13 @@ static void filelist_readjob_main_assets(FileListReadJob *job_params,
                                          bool *stop,
                                          bool *do_update,
                                          float *progress);
+static void filelist_readjob_all_asset_library(FileListReadJob *job_params,
+                                               bool *stop,
+                                               bool *do_update,
+                                               float *progress);
 
 /* helper, could probably go in BKE actually? */
 static int groupname_to_code(const char *group);
-static uint64_t groupname_to_filter_id(const char *group);
 
 static void filelist_cache_clear(FileListEntryCache *cache, size_t new_size);
 static bool filelist_intern_entry_is_main_file(const FileListInternEntry *intern_entry);
@@ -558,7 +571,7 @@ static int compare_extension(void *user_data, const void *a1, const void *a2)
   return compare_apply_inverted(compare_tiebreaker(entry1, entry2), sort_data);
 }
 
-void filelist_sort(struct FileList *filelist)
+void filelist_sort(FileList *filelist)
 {
   if (filelist->flags & FL_NEED_SORTING) {
     int (*sort_cb)(void *, const void *, const void *) = nullptr;
@@ -591,7 +604,7 @@ void filelist_sort(struct FileList *filelist)
   }
 }
 
-void filelist_setsorting(struct FileList *filelist, const short sort, bool invert_sort)
+void filelist_setsorting(FileList *filelist, const short sort, bool invert_sort)
 {
   const bool was_invert_sort = filelist->flags & FL_SORT_INVERT;
 
@@ -625,12 +638,12 @@ static bool is_hidden_dot_filename(const char *filename, const FileListInternEnt
   if (!hidden && sep) {
     char tmp_filename[FILE_MAX_LIBEXTRA];
 
-    BLI_strncpy(tmp_filename, filename, sizeof(tmp_filename));
+    STRNCPY(tmp_filename, filename);
     sep = tmp_filename + (sep - filename);
     while (sep) {
       /* This happens when a path contains 'ALTSEP', '\' on Unix for e.g.
        * Supporting alternate slashes in paths is a bigger task involving changes
-       * in many parts of the code, for now just prevent an assert, see T74579. */
+       * in many parts of the code, for now just prevent an assert, see #74579. */
 #if 0
       BLI_assert(sep[1] != '\0');
 #endif
@@ -672,7 +685,8 @@ static bool is_filtered_hidden(const char *filename,
 #endif
   /* For data-blocks (but not the group directories), check the asset-only filter. */
   if (!(file->typeflag & FILE_TYPE_DIR) && (file->typeflag & FILE_TYPE_BLENDERLIB) &&
-      (filter->flags & FLF_ASSETS_ONLY) && !(file->typeflag & FILE_TYPE_ASSET)) {
+      (filter->flags & FLF_ASSETS_ONLY) && !(file->typeflag & FILE_TYPE_ASSET))
+  {
     return true;
   }
 
@@ -751,7 +765,7 @@ static bool is_filtered_file(FileListInternEntry *file,
 }
 
 static bool is_filtered_id_file_type(const FileListInternEntry *file,
-                                     const char *id_group,
+                                     const short id_code,
                                      const char *name,
                                      const FileListFilter *filter)
 {
@@ -761,12 +775,12 @@ static bool is_filtered_id_file_type(const FileListInternEntry *file,
 
   /* We only check for types if some type are enabled in filtering. */
   if ((filter->filter || filter->filter_id) && (filter->flags & FLF_DO_FILTER)) {
-    if (id_group) {
+    if (id_code) {
       if (!name && (filter->flags & FLF_HIDE_LIB_DIR)) {
         return false;
       }
 
-      uint64_t filter_id = groupname_to_filter_id(id_group);
+      const uint64_t filter_id = BKE_idtype_idcode_to_idfilter(id_code);
       if (!(filter_id & filter->filter_id)) {
         return false;
       }
@@ -828,8 +842,9 @@ static bool is_filtered_asset(FileListInternEntry *file, FileListFilter *filter)
   const AssetMetaData *asset_data = filelist_file_internal_get_asset_data(file);
 
   /* Not used yet for the asset view template. */
-  if (filter->asset_catalog_filter && !file_is_asset_visible_in_catalog_filter_settings(
-                                          filter->asset_catalog_filter, asset_data)) {
+  if (filter->asset_catalog_filter &&
+      !file_is_asset_visible_in_catalog_filter_settings(filter->asset_catalog_filter, asset_data))
+  {
     return false;
   }
 
@@ -851,15 +866,11 @@ static bool is_filtered_asset(FileListInternEntry *file, FileListFilter *filter)
 }
 
 static bool is_filtered_lib_type(FileListInternEntry *file,
-                                 const char *root,
+                                 const char * /*root*/,
                                  FileListFilter *filter)
 {
-  char path[FILE_MAX_LIBEXTRA], dir[FILE_MAX_LIBEXTRA], *group, *name;
-
-  BLI_path_join(path, sizeof(path), root, file->relpath);
-
-  if (BLO_library_path_explode(path, dir, &group, &name)) {
-    return is_filtered_id_file_type(file, group, name, filter);
+  if (file->typeflag & FILE_TYPE_BLENDERLIB) {
+    return is_filtered_id_file_type(file, file->blentype, file->name, filter);
   }
   return is_filtered_file_type(file, filter);
 }
@@ -881,7 +892,7 @@ static bool is_filtered_main_assets(FileListInternEntry *file,
                                     FileListFilter *filter)
 {
   /* "Filtered" means *not* being filtered out... So return true if the file should be visible. */
-  return is_filtered_id_file_type(file, file->relpath, file->name, filter) &&
+  return is_filtered_id_file_type(file, file->blentype, file->name, filter) &&
          is_filtered_asset(file, filter);
 }
 
@@ -995,8 +1006,7 @@ void filelist_setfilter_options(FileList *filelist,
     update = true;
   }
   if (!STREQ(filelist->filter_data.filter_glob, filter_glob)) {
-    BLI_strncpy(
-        filelist->filter_data.filter_glob, filter_glob, sizeof(filelist->filter_data.filter_glob));
+    STRNCPY(filelist->filter_data.filter_glob, filter_glob);
     update = true;
   }
   if (BLI_strcmp_ignore_pad(filelist->filter_data.filter_search, filter_search, '*') != 0) {
@@ -1109,10 +1119,12 @@ void filelist_init_icons(void)
         if (tile < SPECIAL_IMG_MAX) {
           ibuf = IMB_allocImBuf(SPECIAL_IMG_SIZE, SPECIAL_IMG_SIZE, 32, IB_rect);
           for (k = 0; k < SPECIAL_IMG_SIZE; k++) {
-            memcpy(&ibuf->rect[k * SPECIAL_IMG_SIZE],
-                   &bbuf->rect[(k + y * SPECIAL_IMG_SIZE) * SPECIAL_IMG_SIZE * SPECIAL_IMG_COLS +
-                               x * SPECIAL_IMG_SIZE],
-                   SPECIAL_IMG_SIZE * sizeof(int));
+            memcpy(
+                &ibuf->byte_buffer.data[4 * (k * SPECIAL_IMG_SIZE)],
+                &bbuf->byte_buffer
+                     .data[4 * ((k + y * SPECIAL_IMG_SIZE) * SPECIAL_IMG_SIZE * SPECIAL_IMG_COLS +
+                                x * SPECIAL_IMG_SIZE)],
+                SPECIAL_IMG_SIZE * sizeof(uint8_t) * 4);
           }
           gSpecialFileImages[tile] = ibuf;
         }
@@ -1132,14 +1144,28 @@ void filelist_free_icons(void)
   }
 }
 
-static FileDirEntry *filelist_geticon_get_file(struct FileList *filelist, const int index)
+void filelist_file_get_full_path(const FileList *filelist,
+                                 const FileDirEntry *file,
+                                 char r_filepath[/*FILE_MAX_LIBEXTRA*/])
+{
+  if (file->asset) {
+    const std::string asset_path = AS_asset_representation_full_path_get(file->asset);
+    BLI_strncpy(r_filepath, asset_path.c_str(), FILE_MAX_LIBEXTRA);
+    return;
+  }
+
+  const char *root = filelist_dir(filelist);
+  BLI_path_join(r_filepath, FILE_MAX_LIBEXTRA, root, file->relpath);
+}
+
+static FileDirEntry *filelist_geticon_get_file(FileList *filelist, const int index)
 {
   BLI_assert(G.background == false);
 
   return filelist_file(filelist, index);
 }
 
-ImBuf *filelist_getimage(struct FileList *filelist, const int index)
+ImBuf *filelist_getimage(FileList *filelist, const int index)
 {
   FileDirEntry *file = filelist_geticon_get_file(filelist, index);
 
@@ -1170,21 +1196,22 @@ ImBuf *filelist_geticon_image_ex(const FileDirEntry *file)
   return ibuf;
 }
 
-ImBuf *filelist_geticon_image(struct FileList *filelist, const int index)
+ImBuf *filelist_geticon_image(FileList *filelist, const int index)
 {
   FileDirEntry *file = filelist_geticon_get_file(filelist, index);
   return filelist_geticon_image_ex(file);
 }
 
-static int filelist_geticon_ex(const FileDirEntry *file,
-                               const char *root,
+static int filelist_geticon_ex(const FileList *filelist,
+                               const FileDirEntry *file,
                                const bool is_main,
                                const bool ignore_libdir)
 {
   const eFileSel_File_Types typeflag = (eFileSel_File_Types)file->typeflag;
 
   if ((typeflag & FILE_TYPE_DIR) &&
-      !(ignore_libdir && (typeflag & (FILE_TYPE_BLENDERLIB | FILE_TYPE_BLENDER)))) {
+      !(ignore_libdir && (typeflag & (FILE_TYPE_BLENDERLIB | FILE_TYPE_BLENDER))))
+  {
     if (FILENAME_IS_PARENT(file->relpath)) {
       return is_main ? ICON_FILE_PARENT : ICON_NONE;
     }
@@ -1201,7 +1228,7 @@ static int filelist_geticon_ex(const FileDirEntry *file,
     }
 
     /* If this path is in System list or path cache then use that icon. */
-    struct FSMenu *fsmenu = ED_fsmenu_get();
+    FSMenu *fsmenu = ED_fsmenu_get();
     FSMenuCategory categories[] = {
         FS_CATEGORY_SYSTEM,
         FS_CATEGORY_SYSTEM_BOOKMARKS,
@@ -1215,8 +1242,8 @@ static int filelist_geticon_ex(const FileDirEntry *file,
       if (file->redirection_path) {
         target = file->redirection_path;
       }
-      else if (root) {
-        BLI_path_join(fullpath, sizeof(fullpath), root, file->relpath);
+      else if (filelist) {
+        filelist_file_get_full_path(filelist, file, fullpath);
         BLI_path_slash_ensure(fullpath, sizeof(fullpath));
       }
       for (; tfsm; tfsm = tfsm->next) {
@@ -1292,17 +1319,17 @@ static int filelist_geticon_ex(const FileDirEntry *file,
   return is_main ? ICON_FILE_BLANK : ICON_NONE;
 }
 
-int filelist_geticon(struct FileList *filelist, const int index, const bool is_main)
+int filelist_geticon(FileList *filelist, const int index, const bool is_main)
 {
   FileDirEntry *file = filelist_geticon_get_file(filelist, index);
 
-  return filelist_geticon_ex(file, filelist->filelist.root, is_main, false);
+  return filelist_geticon_ex(filelist, file, is_main, false);
 }
 
 int ED_file_icon(const FileDirEntry *file)
 {
   return file->preview_icon_id ? file->preview_icon_id :
-                                 filelist_geticon_ex(file, nullptr, false, false);
+                                 filelist_geticon_ex(nullptr, file, false, false);
 }
 
 static bool filelist_intern_entry_is_main_file(const FileListInternEntry *intern_entry)
@@ -1318,52 +1345,53 @@ static void parent_dir_until_exists_or_default_root(char *dir)
 #ifdef WIN32
     BLI_windows_get_default_root_dir(dir);
 #else
-    strcpy(dir, "/");
+    ARRAY_SET_ITEMS(dir, '/', '\0');
 #endif
   }
 }
 
-static bool filelist_checkdir_dir(struct FileList * /*filelist*/,
-                                  char *r_dir,
+static bool filelist_checkdir_dir(FileList * /*filelist*/,
+                                  char dirpath[FILE_MAX_LIBEXTRA],
                                   const bool do_change)
 {
   if (do_change) {
-    parent_dir_until_exists_or_default_root(r_dir);
+    parent_dir_until_exists_or_default_root(dirpath);
     return true;
   }
-  return BLI_is_dir(r_dir);
+  return BLI_is_dir(dirpath);
 }
 
-static bool filelist_checkdir_lib(struct FileList * /*filelist*/,
-                                  char *r_dir,
+static bool filelist_checkdir_lib(FileList * /*filelist*/,
+                                  char dirpath[FILE_MAX_LIBEXTRA],
                                   const bool do_change)
 {
   char tdir[FILE_MAX_LIBEXTRA];
   char *name;
 
-  const bool is_valid = (BLI_is_dir(r_dir) ||
-                         (BLO_library_path_explode(r_dir, tdir, nullptr, &name) &&
+  const bool is_valid = (BLI_is_dir(dirpath) ||
+                         (BKE_blendfile_library_path_explode(dirpath, tdir, nullptr, &name) &&
                           BLI_is_file(tdir) && !name));
 
   if (do_change && !is_valid) {
     /* if not a valid library, we need it to be a valid directory! */
-    parent_dir_until_exists_or_default_root(r_dir);
+    parent_dir_until_exists_or_default_root(dirpath);
     return true;
   }
   return is_valid;
 }
 
-static bool filelist_checkdir_main(struct FileList *filelist, char *r_dir, const bool do_change)
+static bool filelist_checkdir_main(FileList *filelist,
+                                   char dirpath[FILE_MAX_LIBEXTRA],
+                                   const bool do_change)
 {
   /* TODO */
-  return filelist_checkdir_lib(filelist, r_dir, do_change);
+  return filelist_checkdir_lib(filelist, dirpath, do_change);
 }
 
-static bool filelist_checkdir_main_assets(struct FileList * /*filelist*/,
-                                          char * /*r_dir*/,
-                                          const bool /*do_change*/)
+static bool filelist_checkdir_return_always_valid(FileList * /*filelist*/,
+                                                  char /*dirpath*/[FILE_MAX_LIBEXTRA],
+                                                  const bool /*do_change*/)
 {
-  /* Main is always valid. */
   return true;
 }
 
@@ -1479,8 +1507,8 @@ static void filelist_cache_preview_runf(TaskPool *__restrict pool, void *taskdat
   if (preview->flags & FILE_TYPE_IMAGE) {
     source = THB_SOURCE_IMAGE;
   }
-  else if (preview->flags &
-           (FILE_TYPE_BLENDER | FILE_TYPE_BLENDER_BACKUP | FILE_TYPE_BLENDERLIB)) {
+  else if (preview->flags & (FILE_TYPE_BLENDER | FILE_TYPE_BLENDER_BACKUP | FILE_TYPE_BLENDERLIB))
+  {
     source = THB_SOURCE_BLEND;
   }
   else if (preview->flags & FILE_TYPE_MOVIE) {
@@ -1538,9 +1566,14 @@ static void filelist_cache_previews_clear(FileListEntryCache *cache)
   if (cache->previews_pool) {
     BLI_task_pool_cancel(cache->previews_pool);
 
+    LISTBASE_FOREACH (FileDirEntry *, entry, &cache->cached_entries) {
+      entry->flags &= ~FILE_ENTRY_PREVIEW_LOADING;
+    }
+
     FileListEntryPreview *preview;
     while ((preview = static_cast<FileListEntryPreview *>(
-                BLI_thread_queue_pop_timeout(cache->previews_done, 0)))) {
+                BLI_thread_queue_pop_timeout(cache->previews_done, 0))))
+    {
       // printf("%s: DONE %d - %s - %p\n", __func__, preview->index, preview->path,
       // preview->img);
       if (preview->icon_id) {
@@ -1586,7 +1619,8 @@ static void filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry
   }
 
   if (!(entry->typeflag & (FILE_TYPE_IMAGE | FILE_TYPE_MOVIE | FILE_TYPE_FTFONT |
-                           FILE_TYPE_BLENDER | FILE_TYPE_BLENDER_BACKUP | FILE_TYPE_BLENDERLIB))) {
+                           FILE_TYPE_BLENDER | FILE_TYPE_BLENDER_BACKUP | FILE_TYPE_BLENDERLIB)))
+  {
     return;
   }
 
@@ -1595,6 +1629,13 @@ static void filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry
    * reload, we'd reopen the .blend to look for the preview. */
   if ((entry->typeflag & FILE_TYPE_BLENDERLIB) &&
       (entry->flags & FILE_ENTRY_BLENDERLIB_NO_PREVIEW)) {
+    return;
+  }
+
+  /* External ID that is also a directory is never previewed. */
+  if ((entry->typeflag & (FILE_TYPE_BLENDERLIB | FILE_TYPE_DIR)) ==
+      (FILE_TYPE_BLENDERLIB | FILE_TYPE_DIR))
+  {
     return;
   }
 
@@ -1629,8 +1670,7 @@ static void filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry
       BLI_strncpy(preview->filepath, entry->redirection_path, FILE_MAXDIR);
     }
     else {
-      BLI_path_join(
-          preview->filepath, sizeof(preview->filepath), filelist->filelist.root, entry->relpath);
+      filelist_file_get_full_path(filelist, entry, preview->filepath);
     }
     // printf("%s: %d - %s\n", __func__, preview->index, preview->filepath);
 
@@ -1766,11 +1806,18 @@ void filelist_settype(FileList *filelist, short type)
       filelist->tags |= FILELIST_TAGS_USES_MAIN_DATA;
       break;
     case FILE_MAIN_ASSET:
-      filelist->check_dir_fn = filelist_checkdir_main_assets;
+      filelist->check_dir_fn = filelist_checkdir_return_always_valid;
       filelist->read_job_fn = filelist_readjob_main_assets;
       filelist->prepare_filter_fn = prepare_filter_asset_library;
       filelist->filter_fn = is_filtered_main_assets;
       filelist->tags |= FILELIST_TAGS_USES_MAIN_DATA | FILELIST_TAGS_NO_THREADS;
+      break;
+    case FILE_ASSET_LIBRARY_ALL:
+      filelist->check_dir_fn = filelist_checkdir_return_always_valid;
+      filelist->read_job_fn = filelist_readjob_all_asset_library;
+      filelist->prepare_filter_fn = prepare_filter_asset_library;
+      filelist->filter_fn = is_filtered_asset_library;
+      filelist->tags |= FILELIST_TAGS_USES_MAIN_DATA;
       break;
     default:
       filelist->check_dir_fn = filelist_checkdir_dir;
@@ -1790,7 +1837,7 @@ static void filelist_clear_asset_library(FileList *filelist)
   file_delete_asset_catalog_filter_settings(&filelist->filter_data.asset_catalog_filter);
 }
 
-void filelist_clear_ex(struct FileList *filelist,
+void filelist_clear_ex(FileList *filelist,
                        const bool do_asset_library,
                        const bool do_cache,
                        const bool do_selection)
@@ -1867,7 +1914,7 @@ void filelist_clear_from_reset_tag(FileList *filelist)
   }
 }
 
-void filelist_free(struct FileList *filelist)
+void filelist_free(FileList *filelist)
 {
   if (!filelist) {
     printf("Attempting to delete empty filelist.\n");
@@ -1895,7 +1942,7 @@ AssetLibrary *filelist_asset_library(FileList *filelist)
   return reinterpret_cast<::AssetLibrary *>(filelist->asset_library);
 }
 
-void filelist_freelib(struct FileList *filelist)
+void filelist_freelib(FileList *filelist)
 {
   if (filelist->libfiledata) {
     BLO_blendhandle_close(filelist->libfiledata);
@@ -1903,7 +1950,7 @@ void filelist_freelib(struct FileList *filelist)
   filelist->libfiledata = nullptr;
 }
 
-BlendHandle *filelist_lib(struct FileList *filelist)
+BlendHandle *filelist_lib(FileList *filelist)
 {
   return filelist->libfiledata;
 }
@@ -1934,7 +1981,7 @@ static const char *fileentry_uiname(const char *root, FileListInternEntry *entry
     char *group;
 
     BLI_path_join(abspath, sizeof(abspath), root, relpath);
-    BLO_library_path_explode(abspath, buff, &group, &name);
+    BKE_blendfile_library_path_explode(abspath, buff, &group, &name);
     if (!name) {
       name = group;
     }
@@ -1953,33 +2000,34 @@ static const char *fileentry_uiname(const char *root, FileListInternEntry *entry
   return BLI_strdup(name);
 }
 
-const char *filelist_dir(struct FileList *filelist)
+const char *filelist_dir(const FileList *filelist)
 {
   return filelist->filelist.root;
 }
 
-bool filelist_is_dir(struct FileList *filelist, const char *path)
+bool filelist_is_dir(FileList *filelist, const char *path)
 {
   return filelist->check_dir_fn(filelist, (char *)path, false);
 }
 
-void filelist_setdir(struct FileList *filelist, char *r_dir)
+void filelist_setdir(FileList *filelist, char dirpath[FILE_MAX_LIBEXTRA])
 {
   const bool allow_invalid = filelist->asset_library_ref != nullptr;
-  BLI_assert(strlen(r_dir) < FILE_MAX_LIBEXTRA);
+  BLI_assert(strlen(dirpath) < FILE_MAX_LIBEXTRA);
 
-  BLI_path_normalize_dir(BKE_main_blendfile_path_from_global(), r_dir, FILE_MAX_LIBEXTRA);
-  const bool is_valid_path = filelist->check_dir_fn(filelist, r_dir, !allow_invalid);
+  BLI_path_abs(dirpath, BKE_main_blendfile_path_from_global());
+  BLI_path_normalize_dir(dirpath, FILE_MAX_LIBEXTRA);
+  const bool is_valid_path = filelist->check_dir_fn(filelist, dirpath, !allow_invalid);
   BLI_assert(is_valid_path || allow_invalid);
   UNUSED_VARS_NDEBUG(is_valid_path);
 
-  if (!STREQ(filelist->filelist.root, r_dir)) {
-    BLI_strncpy(filelist->filelist.root, r_dir, sizeof(filelist->filelist.root));
+  if (!STREQ(filelist->filelist.root, dirpath)) {
+    STRNCPY(filelist->filelist.root, dirpath);
     filelist->flags |= FL_FORCE_RESET;
   }
 }
 
-void filelist_setrecursion(struct FileList *filelist, const int recursion_level)
+void filelist_setrecursion(FileList *filelist, const int recursion_level)
 {
   if (filelist->max_recursion != recursion_level) {
     filelist->max_recursion = recursion_level;
@@ -2005,12 +2053,12 @@ void filelist_tag_force_reset_mainfiles(FileList *filelist)
   filelist->flags |= FL_FORCE_RESET_MAIN_FILES;
 }
 
-bool filelist_is_ready(struct FileList *filelist)
+bool filelist_is_ready(FileList *filelist)
 {
   return (filelist->flags & FL_IS_READY) != 0;
 }
 
-bool filelist_pending(struct FileList *filelist)
+bool filelist_pending(FileList *filelist)
 {
   return (filelist->flags & FL_IS_PENDING) != 0;
 }
@@ -2060,7 +2108,8 @@ static FileDirEntry *filelist_file_create_entry(FileList *filelist, const int in
   ret->asset = reinterpret_cast<::AssetRepresentation *>(entry->asset);
   /* For some file types the preview is already available. */
   if (entry->local_data.preview_image &&
-      BKE_previewimg_is_finished(entry->local_data.preview_image, ICON_SIZE_PREVIEW)) {
+      BKE_previewimg_is_finished(entry->local_data.preview_image, ICON_SIZE_PREVIEW))
+  {
     ImBuf *ibuf = BKE_previewimg_to_imbuf(entry->local_data.preview_image, ICON_SIZE_PREVIEW);
     if (ibuf) {
       ret->preview_icon_id = BKE_icon_imbuf_create(ibuf);
@@ -2079,24 +2128,30 @@ static void filelist_file_release_entry(FileList *filelist, FileDirEntry *entry)
   filelist_entry_free(entry);
 }
 
-FileDirEntry *filelist_file_ex(struct FileList *filelist, const int index, const bool use_request)
+static FileDirEntry *filelist_cache_file_lookup(FileListEntryCache *cache, const int index)
+{
+  /* If the file is cached, we can get it from either the block or the misc entry storage. */
+
+  if (index >= cache->block_start_index && index < cache->block_end_index) {
+    const int idx = (index - cache->block_start_index + cache->block_cursor) % cache->size;
+    return cache->block_entries[idx];
+  }
+
+  return static_cast<FileDirEntry *>(
+      BLI_ghash_lookup(cache->misc_entries, POINTER_FROM_INT(index)));
+}
+
+FileDirEntry *filelist_file_ex(FileList *filelist, const int index, const bool use_request)
 {
   FileDirEntry *ret = nullptr, *old;
   FileListEntryCache *cache = &filelist->filelist_cache;
-  const size_t cache_size = cache->size;
   int old_index;
 
   if ((index < 0) || (index >= filelist->filelist.entries_filtered_num)) {
     return ret;
   }
 
-  if (index >= cache->block_start_index && index < cache->block_end_index) {
-    const int idx = (index - cache->block_start_index + cache->block_cursor) % cache_size;
-    return cache->block_entries[idx];
-  }
-
-  if ((ret = static_cast<FileDirEntry *>(
-           BLI_ghash_lookup(cache->misc_entries, POINTER_FROM_INT(index))))) {
+  if ((ret = filelist_cache_file_lookup(cache, index))) {
     return ret;
   }
 
@@ -2110,7 +2165,8 @@ FileDirEntry *filelist_file_ex(struct FileList *filelist, const int index, const
   ret = filelist_file_create_entry(filelist, index);
   old_index = cache->misc_entries_indices[cache->misc_cursor];
   if ((old = static_cast<FileDirEntry *>(
-           BLI_ghash_popkey(cache->misc_entries, POINTER_FROM_INT(old_index), nullptr)))) {
+           BLI_ghash_popkey(cache->misc_entries, POINTER_FROM_INT(old_index), nullptr))))
+  {
     BLI_ghash_remove(cache->uids, POINTER_FROM_UINT(old->uid), nullptr, nullptr);
     filelist_file_release_entry(filelist, old);
   }
@@ -2118,7 +2174,7 @@ FileDirEntry *filelist_file_ex(struct FileList *filelist, const int index, const
   BLI_ghash_insert(cache->uids, POINTER_FROM_UINT(ret->uid), ret);
 
   cache->misc_entries_indices[cache->misc_cursor] = index;
-  cache->misc_cursor = (cache->misc_cursor + 1) % cache_size;
+  cache->misc_cursor = (cache->misc_cursor + 1) % cache->size;
 
 #if 0 /* Actually no, only block cached entries should have preview IMHO. */
   if (cache->previews_pool) {
@@ -2129,12 +2185,12 @@ FileDirEntry *filelist_file_ex(struct FileList *filelist, const int index, const
   return ret;
 }
 
-FileDirEntry *filelist_file(struct FileList *filelist, int index)
+FileDirEntry *filelist_file(FileList *filelist, int index)
 {
   return filelist_file_ex(filelist, index, true);
 }
 
-int filelist_file_find_path(struct FileList *filelist, const char *filename)
+int filelist_file_find_path(FileList *filelist, const char *filename)
 {
   if (filelist->filelist.entries_filtered_num == FILEDIR_NBR_ENTRIES_UNSET) {
     return -1;
@@ -2170,9 +2226,27 @@ int filelist_file_find_id(const FileList *filelist, const ID *id)
   return -1;
 }
 
+static FileListInternEntry *filelist_entry_intern_get(const FileList *filelist, const int index)
+{
+  BLI_assert(index >= 0 && index < filelist->filelist.entries_filtered_num);
+  return filelist->filelist_intern.filtered[index];
+}
+
+ID *filelist_entry_get_id(const FileList *filelist, const int index)
+{
+  const FileListInternEntry *intern_entry = filelist_entry_intern_get(filelist, index);
+  return intern_entry->local_data.id;
+}
+
 ID *filelist_file_get_id(const FileDirEntry *file)
 {
   return file->id;
+}
+
+const char *filelist_entry_get_relpath(const FileList *filelist, int index)
+{
+  const FileListInternEntry *intern_entry = filelist_entry_intern_get(filelist, index);
+  return intern_entry->relpath;
 }
 
 #define FILE_UID_UNSET 0
@@ -2221,52 +2295,45 @@ static bool filelist_file_cache_block_create(FileList *filelist,
 {
   FileListEntryCache *cache = &filelist->filelist_cache;
 
-  {
-    int i, idx;
+  int i, idx;
 
-    for (i = 0, idx = start_index; i < size; i++, idx++, cursor++) {
-      FileDirEntry *entry;
+  for (i = 0, idx = start_index; i < size; i++, idx++, cursor++) {
+    FileDirEntry *entry;
 
-      /* That entry might have already been requested and stored in misc cache... */
-      if ((entry = static_cast<FileDirEntry *>(BLI_ghash_popkey(
-               cache->misc_entries, POINTER_FROM_INT(idx), nullptr))) == nullptr) {
-        entry = filelist_file_create_entry(filelist, idx);
-        BLI_ghash_insert(cache->uids, POINTER_FROM_UINT(entry->uid), entry);
-      }
-      cache->block_entries[cursor] = entry;
+    /* That entry might have already been requested and stored in misc cache... */
+    if ((entry = static_cast<FileDirEntry *>(
+             BLI_ghash_popkey(cache->misc_entries, POINTER_FROM_INT(idx), nullptr))) == nullptr)
+    {
+      entry = filelist_file_create_entry(filelist, idx);
+      BLI_ghash_insert(cache->uids, POINTER_FROM_UINT(entry->uid), entry);
     }
-    return true;
+    cache->block_entries[cursor] = entry;
   }
-
-  return false;
+  return true;
 }
 
-static void filelist_file_cache_block_release(struct FileList *filelist,
-                                              const int size,
-                                              int cursor)
+static void filelist_file_cache_block_release(FileList *filelist, const int size, int cursor)
 {
   FileListEntryCache *cache = &filelist->filelist_cache;
 
-  {
-    int i;
+  int i;
 
-    for (i = 0; i < size; i++, cursor++) {
-      FileDirEntry *entry = cache->block_entries[cursor];
+  for (i = 0; i < size; i++, cursor++) {
+    FileDirEntry *entry = cache->block_entries[cursor];
 #if 0
       printf("%s: release cacheidx %d (%%p %%s)\n",
              __func__,
              cursor /*, cache->block_entries[cursor], cache->block_entries[cursor]->relpath*/);
 #endif
-      BLI_ghash_remove(cache->uids, POINTER_FROM_UINT(entry->uid), nullptr, nullptr);
-      filelist_file_release_entry(filelist, entry);
+    BLI_ghash_remove(cache->uids, POINTER_FROM_UINT(entry->uid), nullptr, nullptr);
+    filelist_file_release_entry(filelist, entry);
 #ifndef NDEBUG
-      cache->block_entries[cursor] = nullptr;
+    cache->block_entries[cursor] = nullptr;
 #endif
-    }
   }
 }
 
-bool filelist_file_cache_block(struct FileList *filelist, const int index)
+bool filelist_file_cache_block(FileList *filelist, const int index)
 {
   FileListEntryCache *cache = &filelist->filelist_cache;
   const size_t cache_size = cache->size;
@@ -2299,9 +2366,11 @@ bool filelist_file_cache_block(struct FileList *filelist, const int index)
 
   /* If we have something to (re)cache... */
   if (full_refresh || (start_index != cache->block_start_index) ||
-      (end_index != cache->block_end_index)) {
+      (end_index != cache->block_end_index))
+  {
     if (full_refresh || (start_index >= cache->block_end_index) ||
-        (end_index <= cache->block_start_index)) {
+        (end_index <= cache->block_start_index))
+    {
       int size1 = cache->block_end_index - cache->block_start_index;
       int size2 = 0;
       int idx1 = cache->block_cursor, idx2 = 0;
@@ -2542,7 +2611,6 @@ bool filelist_cache_previews_update(FileList *filelist)
         /* Move ownership over icon. */
         entry->preview_icon_id = preview->icon_id;
         preview->icon_id = 0;
-        changed = true;
       }
       else {
         /* We want to avoid re-processing this entry continuously!
@@ -2551,6 +2619,7 @@ bool filelist_cache_previews_update(FileList *filelist)
         entry->flags |= FILE_ENTRY_INVALID_PREVIEW;
       }
       entry->flags &= ~FILE_ENTRY_PREVIEW_LOADING;
+      changed = true;
     }
     else {
       BKE_icon_delete(preview->icon_id);
@@ -2612,7 +2681,10 @@ static bool file_is_blend_backup(const char *str)
 
 int ED_path_extension_type(const char *path)
 {
-  if (BLO_has_bfile_extension(path)) {
+  /* ATTENTION: Never return OR'ed bit-flags here, always return a single enum value! Some code
+   * using this may do `ELEM()`-like checks. */
+
+  if (BKE_blendfile_extension_check(path)) {
     return FILE_TYPE_BLENDER;
   }
   if (file_is_blend_backup(path)) {
@@ -2624,7 +2696,8 @@ int ED_path_extension_type(const char *path)
                                  ".app",
                                  /* Safari in-progress/paused download */
                                  ".download",
-                                 nullptr)) {
+                                 nullptr))
+  {
     return FILE_TYPE_BUNDLE;
   }
 #endif
@@ -2641,11 +2714,13 @@ int ED_path_extension_type(const char *path)
                                  ".mcr",
                                  ".inc",
                                  ".fountain",
-                                 nullptr)) {
+                                 nullptr))
+  {
     return FILE_TYPE_TEXT;
   }
   if (BLI_path_extension_check_n(
-          path, ".ttf", ".ttc", ".pfb", ".otf", ".otc", ".woff", ".woff2", nullptr)) {
+          path, ".ttf", ".ttc", ".pfb", ".otf", ".otc", ".woff", ".woff2", nullptr))
+  {
     return FILE_TYPE_FTFONT;
   }
   if (BLI_path_extension_check(path, ".btx")) {
@@ -2657,7 +2732,7 @@ int ED_path_extension_type(const char *path)
   if (BLI_path_extension_check(path, ".abc")) {
     return FILE_TYPE_ALEMBIC;
   }
-  if (BLI_path_extension_check_n(path, ".usd", ".usda", ".usdc", nullptr)) {
+  if (BLI_path_extension_check_n(path, ".usd", ".usda", ".usdc", ".usdz", nullptr)) {
     return FILE_TYPE_USD;
   }
   if (BLI_path_extension_check(path, ".vdb")) {
@@ -2667,7 +2742,8 @@ int ED_path_extension_type(const char *path)
     return FILE_TYPE_ARCHIVE;
   }
   if (BLI_path_extension_check_n(
-          path, ".obj", ".mtl", ".3ds", ".fbx", ".glb", ".gltf", ".svg", ".stl", nullptr)) {
+          path, ".obj", ".mtl", ".3ds", ".fbx", ".glb", ".gltf", ".svg", ".ply", ".stl", nullptr))
+  {
     return FILE_TYPE_OBJECT_IO;
   }
   if (BLI_path_extension_check_array(path, imb_ext_image)) {
@@ -2733,19 +2809,20 @@ int filelist_needs_reading(FileList *filelist)
 uint filelist_entry_select_set(const FileList *filelist,
                                const FileDirEntry *entry,
                                FileSelType select,
-                               uint flag,
+                               const eDirEntry_SelectFlag flag,
                                FileCheckType check)
 {
   /* Default nullptr pointer if not found is fine here! */
   void **es_p = BLI_ghash_lookup_p(filelist->selection_state, POINTER_FROM_UINT(entry->uid));
-  uint entry_flag = es_p ? POINTER_AS_UINT(*es_p) : 0;
-  const uint org_entry_flag = entry_flag;
+  eDirEntry_SelectFlag entry_flag = eDirEntry_SelectFlag(es_p ? POINTER_AS_UINT(*es_p) : 0);
+  const eDirEntry_SelectFlag org_entry_flag = entry_flag;
 
   BLI_assert(entry);
   BLI_assert(ELEM(check, CHECK_DIRS, CHECK_FILES, CHECK_ALL));
 
   if ((check == CHECK_ALL) || ((check == CHECK_DIRS) && (entry->typeflag & FILE_TYPE_DIR)) ||
-      ((check == CHECK_FILES) && !(entry->typeflag & FILE_TYPE_DIR))) {
+      ((check == CHECK_FILES) && !(entry->typeflag & FILE_TYPE_DIR)))
+  {
     switch (select) {
       case FILE_SEL_REMOVE:
         entry_flag &= ~flag;
@@ -2778,8 +2855,11 @@ uint filelist_entry_select_set(const FileList *filelist,
   return entry_flag;
 }
 
-void filelist_entry_select_index_set(
-    FileList *filelist, const int index, FileSelType select, uint flag, FileCheckType check)
+void filelist_entry_select_index_set(FileList *filelist,
+                                     const int index,
+                                     FileSelType select,
+                                     const eDirEntry_SelectFlag flag,
+                                     FileCheckType check)
 {
   FileDirEntry *entry = filelist_file(filelist, index);
 
@@ -2788,12 +2868,16 @@ void filelist_entry_select_index_set(
   }
 }
 
-void filelist_entries_select_index_range_set(
-    FileList *filelist, FileSelection *sel, FileSelType select, uint flag, FileCheckType check)
+void filelist_entries_select_index_range_set(FileList *filelist,
+                                             FileSelection *sel,
+                                             FileSelType select,
+                                             const eDirEntry_SelectFlag flag,
+                                             FileCheckType check)
 {
   /* select all valid files between first and last indicated */
   if ((sel->first >= 0) && (sel->first < filelist->filelist.entries_filtered_num) &&
-      (sel->last >= 0) && (sel->last < filelist->filelist.entries_filtered_num)) {
+      (sel->last >= 0) && (sel->last < filelist->filelist.entries_filtered_num))
+  {
     int current_file;
     for (current_file = sel->first; current_file <= sel->last; current_file++) {
       filelist_entry_select_index_set(filelist, current_file, select, flag, check);
@@ -2801,22 +2885,27 @@ void filelist_entries_select_index_range_set(
   }
 }
 
-uint filelist_entry_select_get(FileList *filelist, FileDirEntry *entry, FileCheckType check)
+eDirEntry_SelectFlag filelist_entry_select_get(FileList *filelist,
+                                               FileDirEntry *entry,
+                                               FileCheckType check)
 {
   BLI_assert(entry);
   BLI_assert(ELEM(check, CHECK_DIRS, CHECK_FILES, CHECK_ALL));
 
   if ((check == CHECK_ALL) || ((check == CHECK_DIRS) && (entry->typeflag & FILE_TYPE_DIR)) ||
-      ((check == CHECK_FILES) && !(entry->typeflag & FILE_TYPE_DIR))) {
+      ((check == CHECK_FILES) && !(entry->typeflag & FILE_TYPE_DIR)))
+  {
     /* Default nullptr pointer if not found is fine here! */
-    return POINTER_AS_UINT(
-        BLI_ghash_lookup(filelist->selection_state, POINTER_FROM_UINT(entry->uid)));
+    return eDirEntry_SelectFlag(POINTER_AS_UINT(
+        BLI_ghash_lookup(filelist->selection_state, POINTER_FROM_UINT(entry->uid))));
   }
 
-  return 0;
+  return eDirEntry_SelectFlag(0);
 }
 
-uint filelist_entry_select_index_get(FileList *filelist, const int index, FileCheckType check)
+eDirEntry_SelectFlag filelist_entry_select_index_get(FileList *filelist,
+                                                     const int index,
+                                                     FileCheckType check)
 {
   FileDirEntry *entry = filelist_file(filelist, index);
 
@@ -2824,7 +2913,7 @@ uint filelist_entry_select_index_get(FileList *filelist, const int index, FileCh
     return filelist_entry_select_get(filelist, entry, check);
   }
 
-  return 0;
+  return eDirEntry_SelectFlag(0);
 }
 
 bool filelist_entry_is_selected(FileList *filelist, const int index)
@@ -2834,15 +2923,15 @@ bool filelist_entry_is_selected(FileList *filelist, const int index)
 
   /* BLI_ghash_lookup returns nullptr if not found, which gets mapped to 0, which gets mapped to
    * "not selected". */
-  const uint selection_state = POINTER_AS_UINT(
-      BLI_ghash_lookup(filelist->selection_state, POINTER_FROM_UINT(intern_entry->uid)));
+  const eDirEntry_SelectFlag selection_state = eDirEntry_SelectFlag(POINTER_AS_UINT(
+      BLI_ghash_lookup(filelist->selection_state, POINTER_FROM_UINT(intern_entry->uid))));
 
   return selection_state != 0;
 }
 
 void filelist_entry_parent_select_set(FileList *filelist,
                                       FileSelType select,
-                                      uint flag,
+                                      const eDirEntry_SelectFlag flag,
                                       FileCheckType check)
 {
   if ((filelist->filter_data.flags & FLF_HIDE_PARENT) == 0) {
@@ -2850,9 +2939,12 @@ void filelist_entry_parent_select_set(FileList *filelist,
   }
 }
 
-bool filelist_islibrary(struct FileList *filelist, char *dir, char **r_group)
+bool filelist_islibrary(FileList *filelist, char *dir, char **r_group)
 {
-  return BLO_library_path_explode(filelist->filelist.root, dir, r_group, nullptr);
+  if (filelist->asset_library) {
+    return true;
+  }
+  return BKE_blendfile_library_path_explode(filelist->filelist.root, dir, r_group, nullptr);
 }
 
 static int groupname_to_code(const char *group)
@@ -2862,20 +2954,13 @@ static int groupname_to_code(const char *group)
 
   BLI_assert(group);
 
-  BLI_strncpy(buf, group, sizeof(buf));
+  STRNCPY(buf, group);
   lslash = (char *)BLI_path_slash_rfind(buf);
   if (lslash) {
     lslash[0] = '\0';
   }
 
   return buf[0] ? BKE_idtype_idcode_from_name(buf) : 0;
-}
-
-static uint64_t groupname_to_filter_id(const char *group)
-{
-  int id_code = groupname_to_code(group);
-
-  return BKE_idtype_idcode_to_idfilter(id_code);
 }
 
 /**
@@ -2888,14 +2973,77 @@ struct TodoDir {
   char *dir;
 };
 
-static int filelist_readjob_list_dir(const char *root,
+struct FileListReadJob {
+  ThreadMutex lock;
+  char main_filepath[FILE_MAX];
+  Main *current_main;
+  FileList *filelist;
+
+  /** The path currently being read, relative to the filelist root directory. Needed for recursive
+   * reading. The full file path is then composed like: `<filelist root>/<cur_relbase>/<file name>.
+   * (whereby the file name may also be a library path within a .blend, e.g.
+   * `Materials/Material.001`). */
+  char cur_relbase[FILE_MAX_LIBEXTRA];
+
+  /** The current asset library to load. Usually the same as #FileList.asset_library, however
+   * sometimes the #FileList one is a combination of multiple other ones ("All" asset library),
+   * which need to be loaded individually. Then this can be set to override the #FileList library.
+   * Use this in all loading code. */
+  asset_system::AssetLibrary *load_asset_library;
+  /** Set to request a partial read that only adds files representing #Main data (IDs). Used when
+   * #Main may have received changes of interest (e.g. asset removed or renamed). */
+  bool only_main_data;
+
+  /** Shallow copy of #filelist for thread-safe access.
+   *
+   * The job system calls #filelist_readjob_update which moves any read file from #tmp_filelist
+   * into #filelist in a thread-safe way.
+   *
+   * #tmp_filelist also keeps an `AssetLibrary *` so that it can be loaded in the same thread,
+   * and moved to #filelist once all categories are loaded.
+   *
+   * NOTE: #tmp_filelist is freed in #filelist_readjob_free, so any copied pointers need to be
+   * set to nullptr to avoid double-freeing them. */
+  FileList *tmp_filelist;
+};
+
+/**
+ * Append \a filename (or even a path inside of a .blend, like `Material/Material.001`), to the
+ * current relative path being read within the filelist root. The returned string needs freeing
+ * with #MEM_freeN().
+ */
+static char *current_relpath_append(const FileListReadJob *job_params, const char *filename)
+{
+  const char *relbase = job_params->cur_relbase;
+
+  /* Early exit, nothing to join. */
+  if (!relbase[0]) {
+    return BLI_strdup(filename);
+  }
+
+  BLI_assert(ELEM(relbase[strlen(relbase) - 1], SEP, ALTSEP));
+  BLI_assert(BLI_path_is_rel(relbase));
+
+  char relpath[FILE_MAX_LIBEXTRA];
+  /* Using #BLI_path_join works but isn't needed as `rel_subdir` has a trailing slash. */
+  BLI_string_join(relpath,
+                  sizeof(relpath),
+                  /* + 2 to remove "//" relative path prefix. */
+                  relbase + 2,
+                  filename);
+
+  return BLI_strdup(relpath);
+}
+
+static int filelist_readjob_list_dir(FileListReadJob *job_params,
+                                     const char *root,
                                      ListBase *entries,
                                      const char *filter_glob,
                                      const bool do_lib,
-                                     const char *main_name,
+                                     const char *main_filepath,
                                      const bool skip_currpar)
 {
-  struct direntry *files;
+  direntry *files;
   int entries_num = 0;
   /* Full path of the item. */
   char full_path[FILE_MAX];
@@ -2911,10 +3059,10 @@ static int filelist_readjob_list_dir(const char *root,
       }
 
       entry = MEM_cnew<FileListInternEntry>(__func__);
-      entry->relpath = static_cast<char *>(MEM_dupallocN(files[i].relname));
+      entry->relpath = current_relpath_append(job_params, files[i].relname);
       entry->st = files[i].s;
 
-      BLI_path_join(full_path, FILE_MAX, root, entry->relpath);
+      BLI_path_join(full_path, FILE_MAX, root, files[i].relname);
       char *target = full_path;
 
       /* Set initial file type and attributes. */
@@ -2923,7 +3071,8 @@ static int filelist_readjob_list_dir(const char *root,
 #ifdef __APPLE__
           && !(ED_path_extension_type(full_path) & FILE_TYPE_BUNDLE)
 #endif
-      ) {
+      )
+      {
         entry->typeflag = FILE_TYPE_DIR;
       }
 
@@ -2941,7 +3090,7 @@ static int filelist_readjob_list_dir(const char *root,
           target = entry->redirection_path;
 #ifdef WIN32
           /* On Windows don't show `.lnk` extension for valid shortcuts. */
-          BLI_path_extension_replace(entry->relpath, FILE_MAXDIR, "");
+          BLI_path_extension_strip(entry->relpath);
 #endif
         }
         else {
@@ -2952,11 +3101,11 @@ static int filelist_readjob_list_dir(const char *root,
       }
 
       if (!(entry->typeflag & FILE_TYPE_DIR)) {
-        if (do_lib && BLO_has_bfile_extension(target)) {
+        if (do_lib && BKE_blendfile_extension_check(target)) {
           /* If we are considering .blend files as libraries, promote them to directory status. */
           entry->typeflag = FILE_TYPE_BLENDER;
           /* prevent current file being used as acceptable dir */
-          if (BLI_path_cmp(main_name, target) != 0) {
+          if (BLI_path_cmp(main_filepath, target) != 0) {
             entry->typeflag |= FILE_TYPE_DIR;
           }
         }
@@ -2998,11 +3147,11 @@ enum ListLibOptions {
 };
 ENUM_OPERATORS(ListLibOptions, LIST_LIB_ADD_PARENT);
 
-static FileListInternEntry *filelist_readjob_list_lib_group_create(const int idcode,
-                                                                   const char *group_name)
+static FileListInternEntry *filelist_readjob_list_lib_group_create(
+    const FileListReadJob *job_params, const int idcode, const char *group_name)
 {
   FileListInternEntry *entry = MEM_cnew<FileListInternEntry>(__func__);
-  entry->relpath = BLI_strdup(group_name);
+  entry->relpath = current_relpath_append(job_params, group_name);
   entry->typeflag |= FILE_TYPE_BLENDERLIB | FILE_TYPE_DIR;
   entry->blentype = idcode;
   return entry;
@@ -3012,7 +3161,7 @@ static FileListInternEntry *filelist_readjob_list_lib_group_create(const int idc
  * \warning: This "steals" the asset metadata from \a datablock_info. Not great design but fixing
  *           this requires redesigning things on the caller side for proper ownership management.
  */
-static void filelist_readjob_list_lib_add_datablock(FileList *filelist,
+static void filelist_readjob_list_lib_add_datablock(FileListReadJob *job_params,
                                                     ListBase *entries,
                                                     BLODataBlockInfo *datablock_info,
                                                     const bool prefix_relpath_with_group_name,
@@ -3021,10 +3170,11 @@ static void filelist_readjob_list_lib_add_datablock(FileList *filelist,
 {
   FileListInternEntry *entry = MEM_cnew<FileListInternEntry>(__func__);
   if (prefix_relpath_with_group_name) {
-    entry->relpath = BLI_sprintfN("%s/%s", group_name, datablock_info->name);
+    std::string datablock_path = StringRef(group_name) + SEP_STR + datablock_info->name;
+    entry->relpath = current_relpath_append(job_params, datablock_path.c_str());
   }
   else {
-    entry->relpath = BLI_strdup(datablock_info->name);
+    entry->relpath = current_relpath_append(job_params, datablock_info->name);
   }
   entry->typeflag |= FILE_TYPE_BLENDERLIB;
   if (datablock_info) {
@@ -3033,14 +3183,18 @@ static void filelist_readjob_list_lib_add_datablock(FileList *filelist,
     if (datablock_info->asset_data) {
       entry->typeflag |= FILE_TYPE_ASSET;
 
-      if (filelist->asset_library) {
-        /** XXX Moving out the asset metadata like this isn't great. */
-        std::unique_ptr metadata = BKE_asset_metadata_move_to_unique_ptr(
-            datablock_info->asset_data);
-        BKE_asset_metadata_free(&datablock_info->asset_data);
+      if (job_params->load_asset_library) {
+        /* Take ownership over the asset data (shallow copies into unique_ptr managed memory) to
+         * pass it on to the asset system. */
+        std::unique_ptr metadata = std::make_unique<AssetMetaData>(*datablock_info->asset_data);
+        MEM_freeN(datablock_info->asset_data);
+        /* Give back a non-owning pointer, because the data-block info is still needed (e.g. to
+         * update the asset index). */
+        datablock_info->asset_data = metadata.get();
+        datablock_info->free_asset_data = false;
 
-        entry->asset = &filelist->asset_library->add_external_asset(datablock_info->name,
-                                                                    std::move(metadata));
+        entry->asset = &job_params->load_asset_library->add_external_asset(
+            entry->relpath, datablock_info->name, idcode, std::move(metadata));
       }
     }
   }
@@ -3048,7 +3202,7 @@ static void filelist_readjob_list_lib_add_datablock(FileList *filelist,
   BLI_addtail(entries, entry);
 }
 
-static void filelist_readjob_list_lib_add_datablocks(FileList *filelist,
+static void filelist_readjob_list_lib_add_datablocks(FileListReadJob *job_params,
                                                      ListBase *entries,
                                                      LinkNode *datablock_infos,
                                                      const bool prefix_relpath_with_group_name,
@@ -3056,14 +3210,14 @@ static void filelist_readjob_list_lib_add_datablocks(FileList *filelist,
                                                      const char *group_name)
 {
   for (LinkNode *ln = datablock_infos; ln; ln = ln->next) {
-    struct BLODataBlockInfo *datablock_info = static_cast<BLODataBlockInfo *>(ln->link);
+    BLODataBlockInfo *datablock_info = static_cast<BLODataBlockInfo *>(ln->link);
     filelist_readjob_list_lib_add_datablock(
-        filelist, entries, datablock_info, prefix_relpath_with_group_name, idcode, group_name);
+        job_params, entries, datablock_info, prefix_relpath_with_group_name, idcode, group_name);
   }
 }
 
 static void filelist_readjob_list_lib_add_from_indexer_entries(
-    FileList *filelist,
+    FileListReadJob *job_params,
     ListBase *entries,
     const FileIndexerEntries *indexer_entries,
     const bool prefix_relpath_with_group_name)
@@ -3071,7 +3225,7 @@ static void filelist_readjob_list_lib_add_from_indexer_entries(
   for (const LinkNode *ln = indexer_entries->entries; ln; ln = ln->next) {
     FileIndexerEntry *indexer_entry = static_cast<FileIndexerEntry *>(ln->link);
     const char *group_name = BKE_idtype_idcode_to_name(indexer_entry->idcode);
-    filelist_readjob_list_lib_add_datablock(filelist,
+    filelist_readjob_list_lib_add_datablock(job_params,
                                             entries,
                                             &indexer_entry->datablock_info,
                                             prefix_relpath_with_group_name,
@@ -3080,10 +3234,11 @@ static void filelist_readjob_list_lib_add_from_indexer_entries(
   }
 }
 
-static FileListInternEntry *filelist_readjob_list_lib_navigate_to_parent_entry_create(void)
+static FileListInternEntry *filelist_readjob_list_lib_navigate_to_parent_entry_create(
+    const FileListReadJob *job_params)
 {
   FileListInternEntry *entry = MEM_cnew<FileListInternEntry>(__func__);
-  entry->relpath = BLI_strdup(FILENAME_PARENT);
+  entry->relpath = current_relpath_append(job_params, FILENAME_PARENT);
   entry->typeflag |= (FILE_TYPE_BLENDERLIB | FILE_TYPE_DIR);
   return entry;
 }
@@ -3091,16 +3246,16 @@ static FileListInternEntry *filelist_readjob_list_lib_navigate_to_parent_entry_c
 /**
  * Structure to keep the file indexer and its user data together.
  */
-typedef struct FileIndexer {
+struct FileIndexer {
   const FileIndexerType *callbacks;
 
   /**
    * User data. Contains the result of `callbacks.init_user_data`.
    */
   void *user_data;
-} FileIndexer;
+};
 
-static int filelist_readjob_list_lib_populate_from_index(FileList *filelist,
+static int filelist_readjob_list_lib_populate_from_index(FileListReadJob *job_params,
                                                          ListBase *entries,
                                                          const ListLibOptions options,
                                                          const int read_from_index,
@@ -3108,12 +3263,13 @@ static int filelist_readjob_list_lib_populate_from_index(FileList *filelist,
 {
   int navigate_to_parent_len = 0;
   if (options & LIST_LIB_ADD_PARENT) {
-    FileListInternEntry *entry = filelist_readjob_list_lib_navigate_to_parent_entry_create();
+    FileListInternEntry *entry = filelist_readjob_list_lib_navigate_to_parent_entry_create(
+        job_params);
     BLI_addtail(entries, entry);
     navigate_to_parent_len = 1;
   }
 
-  filelist_readjob_list_lib_add_from_indexer_entries(filelist, entries, indexer_entries, true);
+  filelist_readjob_list_lib_add_from_indexer_entries(job_params, entries, indexer_entries, true);
   return read_from_index + navigate_to_parent_len;
 }
 
@@ -3121,7 +3277,7 @@ static int filelist_readjob_list_lib_populate_from_index(FileList *filelist,
  * \return The number of entries found if the \a root path points to a valid library file.
  *         Otherwise returns no value (#std::nullopt).
  */
-static std::optional<int> filelist_readjob_list_lib(FileList *filelist,
+static std::optional<int> filelist_readjob_list_lib(FileListReadJob *job_params,
                                                     const char *root,
                                                     ListBase *entries,
                                                     const ListLibOptions options,
@@ -3131,19 +3287,20 @@ static std::optional<int> filelist_readjob_list_lib(FileList *filelist,
 
   char dir[FILE_MAX_LIBEXTRA], *group;
 
-  struct BlendHandle *libfiledata = nullptr;
+  BlendHandle *libfiledata = nullptr;
 
   /* Check if the given root is actually a library. All folders are passed to
    * `filelist_readjob_list_lib` and based on the number of found entries `filelist_readjob_do`
    * will do a dir listing only when this function does not return any entries. */
   /* TODO(jbakker): We should consider introducing its own function to detect if it is a lib and
    * call it directly from `filelist_readjob_do` to increase readability. */
-  const bool is_lib = BLO_library_path_explode(root, dir, &group, nullptr);
+  const bool is_lib = BKE_blendfile_library_path_explode(root, dir, &group, nullptr);
   if (!is_lib) {
     return std::nullopt;
   }
 
-  const bool group_came_from_path = group != nullptr;
+  /* The root path contains an ID group (e.g. "Materials" or "Objects"). */
+  const bool has_group = group != nullptr;
 
   /* Try read from indexer_runtime. */
   /* Indexing returns all entries in a blend file. We should ignore the index when listing a group
@@ -3153,7 +3310,7 @@ static std::optional<int> filelist_readjob_list_lib(FileList *filelist,
    *
    * Adding support for partial reading/updating indexes would increase the complexity.
    */
-  const bool use_indexer = !group_came_from_path;
+  const bool use_indexer = !has_group;
   FileIndexerEntries indexer_entries = {nullptr};
   if (use_indexer) {
     int read_from_index = 0;
@@ -3161,7 +3318,7 @@ static std::optional<int> filelist_readjob_list_lib(FileList *filelist,
         dir, &indexer_entries, &read_from_index, indexer_runtime->user_data);
     if (indexer_result == FILE_INDEXER_ENTRIES_LOADED) {
       int entries_read = filelist_readjob_list_lib_populate_from_index(
-          filelist, entries, options, read_from_index, &indexer_entries);
+          job_params, entries, options, read_from_index, &indexer_entries);
       ED_file_indexer_entries_clear(&indexer_entries);
       return entries_read;
     }
@@ -3180,21 +3337,24 @@ static std::optional<int> filelist_readjob_list_lib(FileList *filelist,
    * the code clean and readable and not counting in a single variable. */
   int navigate_to_parent_len = 0;
   if (options & LIST_LIB_ADD_PARENT) {
-    FileListInternEntry *entry = filelist_readjob_list_lib_navigate_to_parent_entry_create();
+    FileListInternEntry *entry = filelist_readjob_list_lib_navigate_to_parent_entry_create(
+        job_params);
     BLI_addtail(entries, entry);
     navigate_to_parent_len = 1;
   }
 
   int group_len = 0;
   int datablock_len = 0;
-  if (group_came_from_path) {
+  /* Read only the datablocks from this group. */
+  if (has_group) {
     const int idcode = groupname_to_code(group);
     LinkNode *datablock_infos = BLO_blendhandle_get_datablock_info(
         libfiledata, idcode, options & LIST_LIB_ASSETS_ONLY, &datablock_len);
     filelist_readjob_list_lib_add_datablocks(
-        filelist, entries, datablock_infos, false, idcode, group);
-    BLI_linklist_freeN(datablock_infos);
+        job_params, entries, datablock_infos, false, idcode, group);
+    BLO_datablock_info_linklist_free(datablock_infos);
   }
+  /* Read all datablocks from all groups. */
   else {
     LinkNode *groups = BLO_blendhandle_get_linkable_groups(libfiledata);
     group_len = BLI_linklist_count(groups);
@@ -3202,8 +3362,8 @@ static std::optional<int> filelist_readjob_list_lib(FileList *filelist,
     for (LinkNode *ln = groups; ln; ln = ln->next) {
       const char *group_name = static_cast<char *>(ln->link);
       const int idcode = groupname_to_code(group_name);
-      FileListInternEntry *group_entry = filelist_readjob_list_lib_group_create(idcode,
-                                                                                group_name);
+      FileListInternEntry *group_entry = filelist_readjob_list_lib_group_create(
+          job_params, idcode, group_name);
       BLI_addtail(entries, group_entry);
 
       if (options & LIST_LIB_RECURSIVE) {
@@ -3211,12 +3371,12 @@ static std::optional<int> filelist_readjob_list_lib(FileList *filelist,
         LinkNode *group_datablock_infos = BLO_blendhandle_get_datablock_info(
             libfiledata, idcode, options & LIST_LIB_ASSETS_ONLY, &group_datablock_len);
         filelist_readjob_list_lib_add_datablocks(
-            filelist, entries, group_datablock_infos, true, idcode, group_name);
+            job_params, entries, group_datablock_infos, true, idcode, group_name);
         if (use_indexer) {
           ED_file_indexer_entries_extend_from_datablock_infos(
               &indexer_entries, group_datablock_infos, idcode);
         }
-        BLI_linklist_freeN(group_datablock_infos);
+        BLO_datablock_info_linklist_free(group_datablock_infos);
         datablock_len += group_datablock_len;
       }
     }
@@ -3350,7 +3510,7 @@ static void filelist_readjob_main_recursive(Main *bmain, FileList *filelist)
           }
           else {
             char relname[FILE_MAX + (MAX_ID_NAME - 2) + 3];
-            BLI_snprintf(relname, sizeof(relname), "%s | %s", id->lib->filepath, id->name + 2);
+            SNPRINTF(relname, "%s | %s", id->lib->filepath, id->name + 2);
             files->entry->relpath = BLI_strdup(relname);
           }
 //                  files->type |= S_IFREG;
@@ -3376,16 +3536,16 @@ static void filelist_readjob_main_recursive(Main *bmain, FileList *filelist)
           }
 #  if 0
           if (id->lib && fake) {
-            BLI_snprintf(files->extra, sizeof(files->entry->extra), "LF %d", id->us);
+            SNPRINTF(files->extra, "LF %d", id->us);
           }
           else if (id->lib) {
-            BLI_snprintf(files->extra, sizeof(files->entry->extra), "L    %d", id->us);
+            SNPRINTF(files->extra, "L    %d", id->us);
           }
           else if (fake) {
-            BLI_snprintf(files->extra, sizeof(files->entry->extra), "F    %d", id->us);
+            SNPRINTF(files->extra, "F    %d", id->us);
           }
           else {
-            BLI_snprintf(files->extra, sizeof(files->entry->extra), "      %d", id->us);
+            SNPRINTF(files->extra, "      %d", id->us);
           }
 #  endif
 
@@ -3410,37 +3570,16 @@ static void filelist_readjob_main_recursive(Main *bmain, FileList *filelist)
 }
 #endif
 
-struct FileListReadJob {
-  ThreadMutex lock;
-  char main_name[FILE_MAX];
-  Main *current_main;
-  FileList *filelist;
-  /** Set to request a partial read that only adds files representing #Main data (IDs). Used when
-   * #Main may have received changes of interest (e.g. asset removed or renamed). */
-  bool only_main_data;
-
-  /** Shallow copy of #filelist for thread-safe access.
-   *
-   * The job system calls #filelist_readjob_update which moves any read file from #tmp_filelist
-   * into #filelist in a thread-safe way.
-   *
-   * #tmp_filelist also keeps an `AssetLibrary *` so that it can be loaded in the same thread,
-   * and moved to #filelist once all categories are loaded.
-   *
-   * NOTE: #tmp_filelist is freed in #filelist_readjob_free, so any copied pointers need to be
-   * set to nullptr to avoid double-freeing them. */
-  FileList *tmp_filelist;
-};
-
-static void filelist_readjob_append_entries(FileListReadJob *job_params,
+/**
+ * \return True if new entries were added to the file list.
+ */
+static bool filelist_readjob_append_entries(FileListReadJob *job_params,
                                             ListBase *from_entries,
-                                            int from_entries_num,
-                                            bool *do_update)
+                                            int from_entries_num)
 {
   BLI_assert(BLI_listbase_count(from_entries) == from_entries_num);
   if (from_entries_num <= 0) {
-    *do_update = false;
-    return;
+    return false;
   }
 
   FileList *filelist = job_params->tmp_filelist; /* Use the thread-safe filelist queue. */
@@ -3449,7 +3588,7 @@ static void filelist_readjob_append_entries(FileListReadJob *job_params,
   filelist->filelist.entries_num += from_entries_num;
   BLI_mutex_unlock(&job_params->lock);
 
-  *do_update = true;
+  return true;
 }
 
 static bool filelist_readjob_should_recurse_into_entry(const int max_recursion,
@@ -3468,7 +3607,8 @@ static bool filelist_readjob_should_recurse_into_entry(const int max_recursion,
   /* Show entries when recursion is set to `Blend file` even when `current_recursion_level`
    * exceeds `max_recursion`. */
   if (!is_lib && (current_recursion_level >= max_recursion) &&
-      ((entry->typeflag & (FILE_TYPE_BLENDER | FILE_TYPE_BLENDER_BACKUP)) == 0)) {
+      ((entry->typeflag & (FILE_TYPE_BLENDER | FILE_TYPE_BLENDER_BACKUP)) == 0))
+  {
     return false;
   }
   if (entry->typeflag & FILE_TYPE_BLENDERLIB) {
@@ -3508,10 +3648,11 @@ static void filelist_readjob_recursive_dir_add_items(const bool do_lib,
   td_dir = static_cast<TodoDir *>(BLI_stack_push_r(todo_dirs));
   td_dir->level = 1;
 
-  BLI_strncpy(dir, filelist->filelist.root, sizeof(dir));
-  BLI_strncpy(filter_glob, filelist->filter_data.filter_glob, sizeof(filter_glob));
+  STRNCPY(dir, filelist->filelist.root);
+  STRNCPY(filter_glob, filelist->filter_data.filter_glob);
 
-  BLI_path_normalize_dir(job_params->main_name, dir, sizeof(dir));
+  BLI_path_abs(dir, job_params->main_filepath);
+  BLI_path_normalize_dir(dir, sizeof(dir));
   td_dir->dir = BLI_strdup(dir);
 
   /* Init the file indexer. */
@@ -3538,12 +3679,16 @@ static void filelist_readjob_recursive_dir_add_items(const bool do_lib,
 
     /* ARRRG! We have to be very careful *not to use* common BLI_path_util helpers over
      * entry->relpath itself (nor any path containing it), since it may actually be a datablock
-     * name inside .blend file, which can have slashes and backslashes! See T46827.
+     * name inside .blend file, which can have slashes and backslashes! See #46827.
      * Note that in the end, this means we 'cache' valid relative subdir once here,
      * this is actually better. */
-    BLI_strncpy(rel_subdir, subdir, sizeof(rel_subdir));
-    BLI_path_normalize_dir(root, rel_subdir, sizeof(rel_subdir));
+    STRNCPY(rel_subdir, subdir);
+    BLI_path_abs(rel_subdir, root);
+    BLI_path_normalize_dir(rel_subdir, sizeof(rel_subdir));
     BLI_path_rel(rel_subdir, root);
+
+    /* Update the current relative base path within the filelist root. */
+    STRNCPY(job_params->cur_relbase, rel_subdir);
 
     bool is_lib = false;
     if (do_lib) {
@@ -3559,11 +3704,11 @@ static void filelist_readjob_recursive_dir_add_items(const bool do_lib,
       }
       /* Only load assets when browsing an asset library. For normal file browsing we return all
        * entries. `FLF_ASSETS_ONLY` filter can be enabled/disabled by the user. */
-      if (filelist->asset_library_ref) {
+      if (job_params->load_asset_library) {
         list_lib_options |= LIST_LIB_ASSETS_ONLY;
       }
       std::optional<int> lib_entries_num = filelist_readjob_list_lib(
-          filelist, subdir, &entries, list_lib_options, &indexer_runtime);
+          job_params, subdir, &entries, list_lib_options, &indexer_runtime);
       if (lib_entries_num) {
         is_lib = true;
         entries_num += *lib_entries_num;
@@ -3571,20 +3716,17 @@ static void filelist_readjob_recursive_dir_add_items(const bool do_lib,
     }
 
     if (!is_lib && BLI_is_dir(subdir)) {
-      entries_num = filelist_readjob_list_dir(
-          subdir, &entries, filter_glob, do_lib, job_params->main_name, skip_currpar);
+      entries_num = filelist_readjob_list_dir(job_params,
+                                              subdir,
+                                              &entries,
+                                              filter_glob,
+                                              do_lib,
+                                              job_params->main_filepath,
+                                              skip_currpar);
     }
 
     LISTBASE_FOREACH (FileListInternEntry *, entry, &entries) {
       entry->uid = filelist_uid_generate(filelist);
-
-      /* When loading entries recursive, the `rel_path` should be relative from the root dir.
-       * we combine the relative path to the `subdir` with the relative path of the entry.
-       * Using #BLI_path_join works but isn't needed as `rel_subdir` has a trailing slash. */
-      BLI_string_join(dir, sizeof(dir), rel_subdir, entry->relpath);
-      MEM_freeN(entry->relpath);
-      entry->relpath = BLI_strdup(dir + 2); /* + 2 to remove '//'
-                                             * added by BLI_path_rel to rel_subdir. */
       entry->name = fileentry_uiname(root, entry, dir);
       entry->free_name = true;
 
@@ -3593,7 +3735,8 @@ static void filelist_readjob_recursive_dir_add_items(const bool do_lib,
         /* We have a directory we want to list, add it to todo list!
          * Using #BLI_path_join works but isn't needed as `root` has a trailing slash. */
         BLI_string_join(dir, sizeof(dir), root, entry->relpath);
-        BLI_path_normalize_dir(job_params->main_name, dir, sizeof(dir));
+        BLI_path_abs(dir, job_params->main_filepath);
+        BLI_path_normalize_dir(dir, sizeof(dir));
         td_dir = static_cast<TodoDir *>(BLI_stack_push_r(todo_dirs));
         td_dir->level = recursion_level + 1;
         td_dir->dir = BLI_strdup(dir);
@@ -3601,7 +3744,9 @@ static void filelist_readjob_recursive_dir_add_items(const bool do_lib,
       }
     }
 
-    filelist_readjob_append_entries(job_params, &entries, entries_num, do_update);
+    if (filelist_readjob_append_entries(job_params, &entries, entries_num)) {
+      *do_update = true;
+    }
 
     dirs_done_count++;
     *progress = float(dirs_done_count) / float(dirs_todo_count);
@@ -3674,7 +3819,8 @@ static void filelist_readjob_load_asset_library_data(FileListReadJob *job_params
     return;
   }
   if (tmp_filelist->asset_library != nullptr) {
-    /* Asset library already loaded. */
+    /* Asset library itself is already loaded. Load assets into this. */
+    job_params->load_asset_library = tmp_filelist->asset_library;
     return;
   }
 
@@ -3682,6 +3828,8 @@ static void filelist_readjob_load_asset_library_data(FileListReadJob *job_params
    * #filelist_readjob_endjob() will move it into the real filelist. */
   tmp_filelist->asset_library = AS_asset_library_load(job_params->current_main,
                                                       *job_params->filelist->asset_library_ref);
+  /* Set asset library to load (may be overridden later for loading nested ones). */
+  job_params->load_asset_library = tmp_filelist->asset_library;
   *do_update = true;
 }
 
@@ -3693,7 +3841,7 @@ static void filelist_readjob_main_assets_add_items(FileListReadJob *job_params,
   FileList *filelist = job_params->tmp_filelist; /* Use the thread-safe filelist queue. */
 
   FileListInternEntry *entry;
-  ListBase tmp_entries = {0};
+  ListBase tmp_entries = {nullptr};
   ID *id_iter;
   int entries_num = 0;
 
@@ -3709,7 +3857,8 @@ static void filelist_readjob_main_assets_add_items(FileListReadJob *job_params,
     const char *id_code_name = BKE_idtype_idcode_to_name(GS(id_iter->name));
 
     entry = MEM_cnew<FileListInternEntry>(__func__);
-    entry->relpath = BLI_strdup(id_code_name);
+    std::string datablock_path = StringRef(id_code_name) + SEP_STR + (id_iter->name + 2);
+    entry->relpath = current_relpath_append(job_params, datablock_path.c_str());
     entry->name = id_iter->name + 2;
     entry->free_name = false;
     entry->typeflag |= FILE_TYPE_BLENDERLIB | FILE_TYPE_ASSET;
@@ -3718,8 +3867,8 @@ static void filelist_readjob_main_assets_add_items(FileListReadJob *job_params,
     entry->local_data.preview_image = BKE_asset_metadata_preview_get_from_id(id_iter->asset_data,
                                                                              id_iter);
     entry->local_data.id = id_iter;
-    if (filelist->asset_library) {
-      entry->asset = &filelist->asset_library->add_local_id_asset(*id_iter);
+    if (job_params->load_asset_library) {
+      entry->asset = &job_params->load_asset_library->add_local_id_asset(entry->relpath, *id_iter);
     }
     entries_num++;
     BLI_addtail(&tmp_entries, entry);
@@ -3746,6 +3895,10 @@ static void filelist_readjob_main_assets_add_items(FileListReadJob *job_params,
  */
 static bool filelist_contains_main(const FileList *filelist, const Main *bmain)
 {
+  if (filelist->asset_library_ref && (filelist->asset_library_ref->type == ASSET_LIBRARY_ALL)) {
+    return true;
+  }
+
   const char *blendfile_path = BKE_main_blendfile_path(bmain);
   return blendfile_path[0] && BLI_path_contains(filelist->filelist.root, blendfile_path);
 }
@@ -3762,6 +3915,8 @@ static void filelist_readjob_asset_library(FileListReadJob *job_params,
 
   /* A valid, but empty file-list from now. */
   filelist->filelist.entries_num = 0;
+
+  BLI_assert(job_params->filelist->asset_library_ref != nullptr);
 
   /* NOP if already read. */
   filelist_readjob_load_asset_library_data(job_params, do_update);
@@ -3798,6 +3953,71 @@ static void filelist_readjob_main_assets(FileListReadJob *job_params,
   filelist->filelist.entries_num = 0;
 
   filelist_readjob_main_assets_add_items(job_params, stop, do_update, progress);
+}
+
+static void filelist_readjob_all_asset_library(FileListReadJob *job_params,
+                                               bool *stop,
+                                               bool *do_update,
+                                               float *progress)
+{
+  FileList *filelist = job_params->tmp_filelist; /* Use the thread-safe filelist queue. */
+  BLI_assert(BLI_listbase_is_empty(&filelist->filelist.entries) &&
+             (filelist->filelist.entries_num == FILEDIR_NBR_ENTRIES_UNSET));
+
+  filelist_readjob_load_asset_library_data(job_params, do_update);
+
+  /* A valid, but empty file-list from now. */
+  filelist->filelist.entries_num = 0;
+
+  asset_system::AssetLibrary *current_file_library;
+  {
+    AssetLibraryReference library_ref{};
+    library_ref.custom_library_index = -1;
+    library_ref.type = ASSET_LIBRARY_LOCAL;
+
+    current_file_library = AS_asset_library_load(job_params->current_main, library_ref);
+  }
+
+  job_params->load_asset_library = current_file_library;
+  filelist_readjob_main_assets_add_items(job_params, stop, do_update, progress);
+
+  /* When only doing partially reload for main data, we're done. */
+  if (job_params->only_main_data) {
+    return;
+  }
+
+  /* Count how many asset libraries need to be loaded, for progress reporting. Not very precise. */
+  int library_count = 0;
+  asset_system::AssetLibrary::foreach_loaded([&library_count](auto &) { library_count++; }, false);
+
+  BLI_assert(filelist->asset_library != nullptr);
+
+  int libraries_done_count = 0;
+  /* The "All" asset library was loaded, which means all other asset libraries are also loaded.
+   * Load their assets from disk into the "All" library. */
+  asset_system::AssetLibrary::foreach_loaded(
+      [&](asset_system::AssetLibrary &nested_library) {
+        StringRefNull root_path = nested_library.root_path();
+        if (root_path.is_empty()) {
+          return;
+        }
+        if (&nested_library == current_file_library) {
+          /* Skip the "Current File" library, it's already loaded above. */
+          return;
+        }
+
+        /* Override library info to read this library. */
+        job_params->load_asset_library = &nested_library;
+        STRNCPY(filelist->filelist.root, root_path.c_str());
+
+        float progress_this = 0.0f;
+        filelist_readjob_recursive_dir_add_items(
+            true, job_params, stop, do_update, &progress_this);
+
+        libraries_done_count++;
+        *progress = float(libraries_done_count) / library_count;
+      },
+      false);
 }
 
 /**
@@ -3943,7 +4163,7 @@ void filelist_readjob_start(FileList *filelist, const int space_notifier, const 
   flrj = MEM_cnew<FileListReadJob>(__func__);
   flrj->filelist = filelist;
   flrj->current_main = bmain;
-  BLI_strncpy(flrj->main_name, BKE_main_blendfile_path(bmain), sizeof(flrj->main_name));
+  STRNCPY(flrj->main_filepath, BKE_main_blendfile_path(bmain));
   if ((filelist->flags & FL_FORCE_RESET_MAIN_FILES) && !(filelist->flags & FL_FORCE_RESET)) {
     flrj->only_main_data = true;
   }
@@ -3957,7 +4177,7 @@ void filelist_readjob_start(FileList *filelist, const int space_notifier, const 
   /* The file list type may not support threading so execute immediately. Same when only rereading
    * #Main data (which we do quite often on changes to #Main, since it's the easiest and safest way
    * to ensure the displayed data is up to date), because some operations executing right after
-   * main data changed may need access to the ID files (see T93691). */
+   * main data changed may need access to the ID files (see #93691). */
   const bool no_threads = (filelist->tags & FILELIST_TAGS_NO_THREADS) || flrj->only_main_data;
 
   if (no_threads) {

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2014 DreamWorks Animation LLC. */
+/* SPDX-FileCopyrightText: 2014 DreamWorks Animation LLC
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 /** \file
  * Based on code from OpenSubdiv.
@@ -95,8 +96,8 @@ static void build_patch_map(PackedPatchTable &table,
   for (int array = 0; array < table.num_arrays; array++) {
     Far::ConstPatchParamArray params = patch_table->GetPatchParams(array);
 
-    for (int i = 0; i < patch_table->GetNumPatches(array);
-         i++, handle_index += PATCH_HANDLE_SIZE) {
+    for (int i = 0; i < patch_table->GetNumPatches(array); i++, handle_index += PATCH_HANDLE_SIZE)
+    {
       const Far::PatchParam &param = params[i];
       unsigned short depth = param.GetDepth();
 

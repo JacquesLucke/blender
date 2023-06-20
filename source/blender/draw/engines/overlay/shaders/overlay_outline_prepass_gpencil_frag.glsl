@@ -16,8 +16,10 @@ void main()
                                     gp_interp.sspos.zw,
                                     gp_interp.aspect,
                                     gp_interp.thickness.x,
-                                    gp_interp.hardness) < 0.001) {
+                                    gp_interp.hardness) < 0.001)
+  {
     discard;
+    return;
   }
 
   if (!gpStrokeOrder3d) {

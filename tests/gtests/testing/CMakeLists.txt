@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2014 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2014 Blender Foundation. All rights reserved.
 
 add_definitions(${GFLAGS_DEFINES})
 add_definitions(${GLOG_DEFINES})

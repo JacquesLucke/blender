@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2013 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2013 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup depsgraph
@@ -106,7 +107,7 @@ struct Object *DEG_get_original_object(struct Object *object);
 struct ID *DEG_get_original_id(struct ID *id);
 
 /**
- * Check whether given ID is an original,
+ * Check whether given ID is an original.
  *
  * Original IDs are considered all the IDs which are not covered by copy-on-write system and are
  * not out-of-main localized data-blocks.
@@ -162,7 +163,7 @@ typedef struct DEGObjectIterSettings {
 } DEGObjectIterSettings;
 
 /**
- * Flags to to get objects for draw manager and final render.
+ * Flags to get objects for draw manager and final render.
  */
 #define DEG_OBJECT_ITER_FOR_RENDER_ENGINE_FLAGS \
   DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY | DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET | \

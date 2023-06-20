@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -194,7 +196,7 @@ static void rna_Image_colormanage_update(Main *bmain, Scene *UNUSED(scene), Poin
   Image *ima = (Image *)ptr->owner_id;
   BKE_image_signal(bmain, ima, NULL, IMA_SIGNAL_COLORMANAGE);
   DEG_id_tag_update(&ima->id, 0);
-  DEG_id_tag_update(&ima->id, ID_RECALC_EDITORS);
+  DEG_id_tag_update(&ima->id, ID_RECALC_EDITORS | ID_RECALC_SOURCE);
   WM_main_add_notifier(NC_IMAGE | ND_DISPLAY, &ima->id);
   WM_main_add_notifier(NC_IMAGE | NA_EDITED, &ima->id);
 }
@@ -203,7 +205,7 @@ static void rna_Image_alpha_mode_update(Main *bmain, Scene *scene, PointerRNA *p
 {
   Image *ima = (Image *)ptr->owner_id;
   /* When operating on a generated image, avoid re-generating when changing the alpha-mode
-   * as it doesn't impact generated images, causing them to reload pixel data, see T82785. */
+   * as it doesn't impact generated images, causing them to reload pixel data, see #82785. */
   if (ima->source == IMA_SRC_GENERATED) {
     return;
   }
@@ -386,23 +388,22 @@ static int rna_UDIMTile_channels_get(PointerRNA *ptr)
 
 static void rna_UDIMTile_label_get(PointerRNA *ptr, char *value)
 {
-  ImageTile *tile = (ImageTile *)ptr->data;
-  Image *image = (Image *)ptr->owner_id;
+  const ImageTile *tile = (ImageTile *)ptr->data;
+  const Image *image = (Image *)ptr->owner_id;
 
-  /* We don't know the length of the target string here, so we assume
-   * that it has been allocated according to what rna_UDIMTile_label_length returned. */
-  BKE_image_get_tile_label(image, tile, value, sizeof(tile->label));
+  /* Pass in a fixed size buffer as the value may be allocated based on the callbacks length. */
+  char value_buf[sizeof(tile->label)];
+  int len = BKE_image_get_tile_label(image, tile, value_buf, sizeof(tile->label));
+  memcpy(value, value_buf, len + 1);
 }
 
 static int rna_UDIMTile_label_length(PointerRNA *ptr)
 {
-  ImageTile *tile = (ImageTile *)ptr->data;
-  Image *image = (Image *)ptr->owner_id;
+  const ImageTile *tile = (ImageTile *)ptr->data;
+  const Image *image = (Image *)ptr->owner_id;
 
   char label[sizeof(tile->label)];
-  BKE_image_get_tile_label(image, tile, label, sizeof(label));
-
-  return strlen(label);
+  return BKE_image_get_tile_label(image, tile, label, sizeof(label));
 }
 
 static void rna_UDIMTile_tile_number_set(PointerRNA *ptr, int value)
@@ -554,7 +555,7 @@ static int rna_Image_depth_get(PointerRNA *ptr)
   if (!ibuf) {
     planes = 0;
   }
-  else if (ibuf->rect_float) {
+  else if (ibuf->float_buffer.data) {
     planes = ibuf->planes * 4;
   }
   else {
@@ -620,12 +621,12 @@ static void rna_Image_pixels_get(PointerRNA *ptr, float *values)
   if (ibuf) {
     size = ibuf->x * ibuf->y * ibuf->channels;
 
-    if (ibuf->rect_float) {
-      memcpy(values, ibuf->rect_float, sizeof(float) * size);
+    if (ibuf->float_buffer.data) {
+      memcpy(values, ibuf->float_buffer.data, sizeof(float) * size);
     }
     else {
       for (i = 0; i < size; i++) {
-        values[i] = ((uchar *)ibuf->rect)[i] * (1.0f / 255.0f);
+        values[i] = ibuf->byte_buffer.data[i] * (1.0f / 255.0f);
       }
     }
   }
@@ -645,20 +646,25 @@ static void rna_Image_pixels_set(PointerRNA *ptr, const float *values)
   if (ibuf) {
     size = ibuf->x * ibuf->y * ibuf->channels;
 
-    if (ibuf->rect_float) {
-      memcpy(ibuf->rect_float, values, sizeof(float) * size);
+    if (ibuf->float_buffer.data) {
+      memcpy(ibuf->float_buffer.data, values, sizeof(float) * size);
     }
     else {
       for (i = 0; i < size; i++) {
-        ((uchar *)ibuf->rect)[i] = unit_float_to_uchar_clamp(values[i]);
+        ibuf->byte_buffer.data[i] = unit_float_to_uchar_clamp(values[i]);
       }
     }
+
+    /* NOTE: Do update from the set() because typically pixels.foreach_set() is used to update
+     * the values, and it does not invoke the update(). */
 
     ibuf->userflags |= IB_DISPLAY_BUFFER_INVALID | IB_MIPMAP_INVALID;
     BKE_image_mark_dirty(ima, ibuf);
     if (!G.background) {
       BKE_image_free_gputextures(ima);
     }
+
+    BKE_image_partial_update_mark_full_update(ima);
     WM_main_add_notifier(NC_IMAGE | ND_DISPLAY, &ima->id);
   }
 
@@ -691,7 +697,7 @@ static bool rna_Image_is_float_get(PointerRNA *ptr)
 
   ibuf = BKE_image_acquire_ibuf(im, NULL, &lock);
   if (ibuf) {
-    is_float = ibuf->rect_float != NULL;
+    is_float = ibuf->float_buffer.data != NULL;
   }
 
   BKE_image_release_ibuf(im, ibuf, lock);
@@ -1282,10 +1288,6 @@ static void rna_def_image(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Image Tiles", "Tiles of the image");
   rna_def_udim_tiles(brna, prop);
 
-  /*
-   * Image.has_data and Image.depth are temporary,
-   * Update import_obj.py when they are replaced (Arystan)
-   */
   prop = RNA_def_property(srna, "has_data", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_funcs(prop, "rna_Image_has_data_get", NULL);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1372,6 +1374,14 @@ static void rna_def_image(BlenderRNA *brna)
                            "Half Float Precision",
                            "Use 16 bits per channel to lower the memory usage during rendering");
   RNA_def_property_update(prop, NC_IMAGE | ND_DISPLAY, "rna_Image_gpu_texture_update");
+
+  prop = RNA_def_property(srna, "seam_margin", PROP_INT, PROP_NONE);
+  RNA_def_property_ui_text(
+      prop,
+      "Seam Margin",
+      "Margin to take into account when fixing UV seams during painting. Higher "
+      "number would improve seam-fixes for mipmaps, but decreases performance");
+  RNA_def_property_ui_range(prop, 1, 100, 1, 1);
 
   /* multiview */
   prop = RNA_def_property(srna, "views_format", PROP_ENUM, PROP_NONE);

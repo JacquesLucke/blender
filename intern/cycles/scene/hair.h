@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __HAIR_H__
 #define __HAIR_H__
@@ -28,7 +29,9 @@ class Hair : public Geometry {
                      const float3 *curve_keys,
                      const float *curve_radius,
                      BoundBox &bounds) const;
+    void bounds_grow(const int k, const float4 *keys, BoundBox &bounds) const;
     void bounds_grow(float4 keys[4], BoundBox &bounds) const;
+    void bounds_grow(float3 keys[4], BoundBox &bounds) const;
     void bounds_grow(const int k,
                      const float3 *curve_keys,
                      const float *curve_radius,
@@ -37,7 +40,7 @@ class Hair : public Geometry {
 
     void motion_keys(const float3 *curve_keys,
                      const float *curve_radius,
-                     const float3 *key_steps,
+                     const float4 *key_steps,
                      size_t num_curve_keys,
                      size_t num_steps,
                      float time,
@@ -46,7 +49,7 @@ class Hair : public Geometry {
                      float4 r_keys[2]) const;
     void cardinal_motion_keys(const float3 *curve_keys,
                               const float *curve_radius,
-                              const float3 *key_steps,
+                              const float4 *key_steps,
                               size_t num_curve_keys,
                               size_t num_steps,
                               float time,
@@ -58,7 +61,7 @@ class Hair : public Geometry {
 
     void keys_for_step(const float3 *curve_keys,
                        const float *curve_radius,
-                       const float3 *key_steps,
+                       const float4 *key_steps,
                        size_t num_curve_keys,
                        size_t num_steps,
                        size_t step,
@@ -67,7 +70,7 @@ class Hair : public Geometry {
                        float4 r_keys[2]) const;
     void cardinal_keys_for_step(const float3 *curve_keys,
                                 const float *curve_radius,
-                                const float3 *key_steps,
+                                const float4 *key_steps,
                                 size_t num_curve_keys,
                                 size_t num_steps,
                                 size_t step,

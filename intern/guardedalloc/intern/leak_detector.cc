@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2020-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup intern_mem
@@ -53,6 +55,9 @@ class MemLeakPrinter {
 
 void MEM_init_memleak_detection()
 {
+  /* Calling this ensures that the memory usage counters outlive the memory leak detection. */
+  memory_usage_init();
+
   /**
    * This variable is constructed when this function is first called. This should happen as soon as
    * possible when the program starts.

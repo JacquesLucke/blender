@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edanimation
@@ -31,6 +32,9 @@
 
 int getname_anim_fcurve(char *name, ID *id, FCurve *fcu)
 {
+  /* Could make an argument, it's a documented limit at the moment. */
+  const size_t name_maxncpy = 256;
+
   int icon = 0;
 
   /* sanity checks */
@@ -40,13 +44,13 @@ int getname_anim_fcurve(char *name, ID *id, FCurve *fcu)
 
   if (ELEM(NULL, id, fcu, fcu->rna_path)) {
     if (fcu == NULL) {
-      strcpy(name, TIP_("<invalid>"));
+      BLI_strncpy(name, TIP_("<invalid>"), name_maxncpy);
     }
     else if (fcu->rna_path == NULL) {
-      strcpy(name, TIP_("<no path>"));
+      BLI_strncpy(name, TIP_("<no path>"), name_maxncpy);
     }
     else { /* id == NULL */
-      BLI_snprintf(name, 256, "%s[%d]", fcu->rna_path, fcu->array_index);
+      BLI_snprintf(name, name_maxncpy, "%s[%d]", fcu->rna_path, fcu->array_index);
     }
   }
   else {
@@ -87,7 +91,8 @@ int getname_anim_fcurve(char *name, ID *id, FCurve *fcu)
 
       char pchanName[256], constName[256];
       if (BLI_str_quoted_substr(fcu->rna_path, "bones[", pchanName, sizeof(pchanName)) &&
-          BLI_str_quoted_substr(fcu->rna_path, "constraints[", constName, sizeof(constName))) {
+          BLI_str_quoted_substr(fcu->rna_path, "constraints[", constName, sizeof(constName)))
+      {
 
         /* assemble the string to display in the UI... */
         structname = BLI_sprintfN("%s : %s", pchanName, constName);
@@ -111,9 +116,11 @@ int getname_anim_fcurve(char *name, ID *id, FCurve *fcu)
         if (GS(ptr.owner_id->name) == ID_SCE) {
           char stripname[256];
           if (BLI_str_quoted_substr(
-                  fcu->rna_path, "sequence_editor.sequences_all[", stripname, sizeof(stripname))) {
+                  fcu->rna_path, "sequence_editor.sequences_all[", stripname, sizeof(stripname)))
+          {
             if (strstr(fcu->rna_path, ".transform.") || strstr(fcu->rna_path, ".crop.") ||
-                strstr(fcu->rna_path, ".modifiers[")) {
+                strstr(fcu->rna_path, ".modifiers["))
+            {
               const char *structname_all = BLI_sprintfN("%s : %s", stripname, structname);
               if (free_structname) {
                 MEM_freeN((void *)structname);
@@ -150,10 +157,10 @@ int getname_anim_fcurve(char *name, ID *id, FCurve *fcu)
 
         /* we need to write the index to a temp buffer (in py syntax) */
         if (c) {
-          BLI_snprintf(arrayindbuf, sizeof(arrayindbuf), "%c ", c);
+          SNPRINTF(arrayindbuf, "%c ", c);
         }
         else {
-          BLI_snprintf(arrayindbuf, sizeof(arrayindbuf), "[%d]", fcu->array_index);
+          SNPRINTF(arrayindbuf, "[%d]", fcu->array_index);
         }
 
         arrayname = &arrayindbuf[0];
@@ -167,10 +174,10 @@ int getname_anim_fcurve(char *name, ID *id, FCurve *fcu)
       /* XXX we need to check for invalid names...
        * XXX the name length limit needs to be passed in or as some define */
       if (structname) {
-        BLI_snprintf(name, 256, "%s%s (%s)", arrayname, propname, structname);
+        BLI_snprintf(name, name_maxncpy, "%s%s (%s)", arrayname, propname, structname);
       }
       else {
-        BLI_snprintf(name, 256, "%s%s", arrayname, propname);
+        BLI_snprintf(name, name_maxncpy, "%s%s", arrayname, propname);
       }
 
       /* free temp name if nameprop is set */
@@ -184,12 +191,12 @@ int getname_anim_fcurve(char *name, ID *id, FCurve *fcu)
       icon = RNA_struct_ui_icon(ptr.type);
 
       /* valid path - remove the invalid tag since we now know how to use it saving
-       * users manual effort to re-enable using "Revive Disabled FCurves" T29629. */
+       * users manual effort to re-enable using "Revive Disabled FCurves" #29629. */
       fcu->flag &= ~FCURVE_DISABLED;
     }
     else {
       /* invalid path */
-      BLI_snprintf(name, 256, "\"%s[%d]\"", fcu->rna_path, fcu->array_index);
+      BLI_snprintf(name, name_maxncpy, "\"%s[%d]\"", fcu->rna_path, fcu->array_index);
 
       /* icon for this should be the icon for the base ID */
       /* TODO: or should we just use the error icon? */

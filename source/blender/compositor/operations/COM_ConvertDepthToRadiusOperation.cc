@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "COM_ConvertDepthToRadiusOperation.h"
 #include "BKE_camera.h"
@@ -50,8 +51,8 @@ void ConvertDepthToRadiusOperation::init_execution()
                 (this->get_width() / float(this->get_height()));
   aperture_ = 0.5f * (cam_lens_ / (aspect_ * cam_sensor)) / f_stop_;
   const float minsz = MIN2(get_width(), get_height());
-  dof_sp_ = minsz / ((cam_sensor / 2.0f) /
-                     cam_lens_); /* <- == `aspect * MIN2(img->x, img->y) / tan(0.5f * fov)` */
+  /* Equal to: `aspect * MIN2(img->x, img->y) / tan(0.5f * fov)`. */
+  dof_sp_ = minsz / ((cam_sensor / 2.0f) / cam_lens_);
 
   if (blur_post_operation_) {
     blur_post_operation_->set_sigma(MIN2(aperture_ * 128.0f, max_radius_));
@@ -71,14 +72,14 @@ void ConvertDepthToRadiusOperation::execute_pixel_sampled(float output[4],
   if (z != 0.0f) {
     float iZ = (1.0f / z);
 
-    /* bug T6656 part 2b, do not re-scale. */
+    /* bug #6656 part 2b, do not re-scale. */
 #if 0
     bcrad = 0.5f * fabs(aperture * (dof_sp * (cam_invfdist - iZ) - 1.0f));
     /* Scale crad back to original maximum and blend. */
     crad->rect[px] = bcrad + wts->rect[px] * (scf * crad->rect[px] - bcrad);
 #endif
     radius = 0.5f * fabsf(aperture_ * (dof_sp_ * (inverse_focal_distance_ - iZ) - 1.0f));
-    /* 'bug' T6615, limit minimum radius to 1 pixel,
+    /* 'bug' #6615, limit minimum radius to 1 pixel,
      * not really a solution, but somewhat mitigates the problem. */
     if (radius < 0.0f) {
       radius = 0.0f;
@@ -111,7 +112,7 @@ void ConvertDepthToRadiusOperation::update_memory_buffer_partial(MemoryBuffer *o
 
     const float inv_z = (1.0f / z);
 
-    /* Bug T6656 part 2b, do not re-scale. */
+    /* Bug #6656 part 2b, do not re-scale. */
 #if 0
     bcrad = 0.5f * fabs(aperture * (dof_sp * (cam_invfdist - iZ) - 1.0f));
     /* Scale crad back to original maximum and blend:
@@ -119,7 +120,7 @@ void ConvertDepthToRadiusOperation::update_memory_buffer_partial(MemoryBuffer *o
 #endif
     const float radius = 0.5f *
                          fabsf(aperture_ * (dof_sp_ * (inverse_focal_distance_ - inv_z) - 1.0f));
-    /* Bug T6615, limit minimum radius to 1 pixel,
+    /* Bug #6615, limit minimum radius to 1 pixel,
      * not really a solution, but somewhat mitigates the problem. */
     *it.out = CLAMPIS(radius, 0.0f, max_radius_);
   }

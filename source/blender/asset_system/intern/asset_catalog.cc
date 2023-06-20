@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup asset_system
@@ -9,7 +11,6 @@
 
 #include "AS_asset_catalog.hh"
 #include "AS_asset_catalog_tree.hh"
-#include "AS_asset_library.h"
 #include "AS_asset_library.hh"
 
 #include "BLI_fileops.hh"
@@ -44,6 +45,11 @@ AssetCatalogService::AssetCatalogService()
 {
 }
 
+AssetCatalogService::AssetCatalogService(read_only_tag) : AssetCatalogService()
+{
+  const_cast<bool &>(is_read_only_) = true;
+}
+
 AssetCatalogService::AssetCatalogService(const CatalogFilePath &asset_library_root)
     : AssetCatalogService()
 {
@@ -52,6 +58,8 @@ AssetCatalogService::AssetCatalogService(const CatalogFilePath &asset_library_ro
 
 void AssetCatalogService::tag_has_unsaved_changes(AssetCatalog *edited_catalog)
 {
+  BLI_assert(!is_read_only_);
+
   if (edited_catalog) {
     edited_catalog->flags.has_unsaved_changes = true;
   }
@@ -84,6 +92,11 @@ bool AssetCatalogService::has_unsaved_changes() const
 {
   BLI_assert(catalog_collection_);
   return catalog_collection_->has_unsaved_changes_;
+}
+
+bool AssetCatalogService::is_read_only() const
+{
+  return is_read_only_;
 }
 
 void AssetCatalogService::tag_all_catalogs_as_unsaved_changes()
@@ -249,6 +262,7 @@ void AssetCatalogService::update_catalog_path(const CatalogID catalog_id,
     }
     cat->path = new_path;
     cat->simple_name_refresh();
+    this->tag_has_unsaved_changes(cat);
 
     /* TODO(Sybren): go over all assets that are assigned to this catalog, defined in the current
      * blend file, and update the catalog simple name stored there. */
@@ -321,6 +335,11 @@ void AssetCatalogService::load_from_disk(const CatalogFilePath &file_or_director
   /* TODO: Should there be a sanitize step? E.g. to remove catalogs with identical paths? */
 
   rebuild_tree();
+}
+
+void AssetCatalogService::add_from_existing(const AssetCatalogService &other_service)
+{
+  catalog_collection_->add_catalogs_from_existing(*other_service.catalog_collection_);
 }
 
 void AssetCatalogService::load_directory_recursive(const CatalogFilePath &directory_path)
@@ -453,6 +472,8 @@ bool AssetCatalogService::is_catalog_known_with_unsaved_changes(const CatalogID 
 
 bool AssetCatalogService::write_to_disk(const CatalogFilePath &blend_file_path)
 {
+  BLI_assert(!is_read_only_);
+
   if (!write_to_disk_ex(blend_file_path)) {
     return false;
   }
@@ -523,7 +544,7 @@ CatalogFilePath AssetCatalogService::find_suitable_cdf_path_for_writing(
 
   /* Determine the default CDF path in the same directory of the blend file. */
   char blend_dir_path[PATH_MAX];
-  BLI_split_dir_part(blend_file_path.c_str(), blend_dir_path, sizeof(blend_dir_path));
+  BLI_path_split_dir_part(blend_file_path.c_str(), blend_dir_path, sizeof(blend_dir_path));
   const CatalogFilePath cdf_path_next_to_blend = asset_definition_default_file_path_from_dir(
       blend_dir_path);
   return cdf_path_next_to_blend;
@@ -626,6 +647,7 @@ void AssetCatalogService::undo()
 
 void AssetCatalogService::redo()
 {
+  BLI_assert(!is_read_only_);
   BLI_assert_msg(is_redo_possbile(), "Redo stack is empty");
 
   undo_snapshots_.append(std::move(catalog_collection_));
@@ -635,6 +657,7 @@ void AssetCatalogService::redo()
 
 void AssetCatalogService::undo_push()
 {
+  BLI_assert(!is_read_only_);
   std::unique_ptr<AssetCatalogCollection> snapshot = catalog_collection_->deep_copy();
   undo_snapshots_.append(std::move(snapshot));
   redo_snapshots_.clear();
@@ -658,15 +681,24 @@ std::unique_ptr<AssetCatalogCollection> AssetCatalogCollection::deep_copy() cons
   return copy;
 }
 
+static void copy_catalog_map_into_existing(const OwningAssetCatalogMap &source,
+                                           OwningAssetCatalogMap &dest)
+{
+  for (const auto &orig_catalog_uptr : source.values()) {
+    auto copy_catalog_uptr = std::make_unique<AssetCatalog>(*orig_catalog_uptr);
+    dest.add_new(copy_catalog_uptr->catalog_id, std::move(copy_catalog_uptr));
+  }
+}
+
+void AssetCatalogCollection::add_catalogs_from_existing(const AssetCatalogCollection &other)
+{
+  copy_catalog_map_into_existing(other.catalogs_, catalogs_);
+}
+
 OwningAssetCatalogMap AssetCatalogCollection::copy_catalog_map(const OwningAssetCatalogMap &orig)
 {
   OwningAssetCatalogMap copy;
-
-  for (const auto &orig_catalog_uptr : orig.values()) {
-    auto copy_catalog_uptr = std::make_unique<AssetCatalog>(*orig_catalog_uptr);
-    copy.add_new(copy_catalog_uptr->catalog_id, std::move(copy_catalog_uptr));
-  }
-
+  copy_catalog_map_into_existing(orig, copy);
   return copy;
 }
 
@@ -810,12 +842,12 @@ bool AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &dest_file_
     return false;
   }
   if (BLI_exists(dest_file_path.c_str())) {
-    if (BLI_rename(dest_file_path.c_str(), backup_path.c_str())) {
+    if (BLI_rename_overwrite(dest_file_path.c_str(), backup_path.c_str())) {
       /* TODO: communicate what went wrong. */
       return false;
     }
   }
-  if (BLI_rename(writable_path.c_str(), dest_file_path.c_str())) {
+  if (BLI_rename_overwrite(writable_path.c_str(), dest_file_path.c_str())) {
     /* TODO: communicate what went wrong. */
     return false;
   }
@@ -826,7 +858,7 @@ bool AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &dest_file_
 bool AssetCatalogDefinitionFile::write_to_disk_unsafe(const CatalogFilePath &dest_file_path) const
 {
   char directory[PATH_MAX];
-  BLI_split_dir_part(dest_file_path.c_str(), directory, sizeof(directory));
+  BLI_path_split_dir_part(dest_file_path.c_str(), directory, sizeof(directory));
   if (!ensure_directory_exists(directory)) {
     /* TODO(Sybren): pass errors to the UI somehow. */
     return false;

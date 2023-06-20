@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "testing/testing.h"
 #include <atomic>
@@ -196,11 +198,9 @@ TEST(task, MempoolIterTLS)
   int i;
 
   /* Add numbers negative `1..ITEMS_NUM` inclusive. */
-  int items_num = 0;
   for (i = 0; i < ITEMS_NUM; i++) {
     data[i] = (int *)BLI_mempool_alloc(mempool);
     *data[i] = -(i + 1);
-    items_num++;
   }
 
   TaskParallelSettings settings;
@@ -273,7 +273,8 @@ TEST(task, ListBaseIter)
   EXPECT_EQ(items_num, 0);
   LinkData *item;
   for (i = 0, item = (LinkData *)list.first; i < ITEMS_NUM && item != nullptr;
-       i++, item = item->next) {
+       i++, item = item->next)
+  {
     EXPECT_EQ(POINTER_AS_INT(item->data), i);
   }
   EXPECT_EQ(ITEMS_NUM, i);

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __UTIL_IES_H__
 #define __UTIL_IES_H__
@@ -11,9 +12,7 @@ CCL_NAMESPACE_BEGIN
 
 class IESFile {
  public:
-  IESFile()
-  {
-  }
+  IESFile() {}
   ~IESFile();
 
   int packed_size();

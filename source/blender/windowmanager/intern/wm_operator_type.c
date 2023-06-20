@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup wm
@@ -187,7 +189,7 @@ static void operatortype_ghash_free_cb(wmOperatorType *ot)
   }
 
   if (ot->rna_ext.srna) {
-    /* python operator, allocs own string */
+    /* A Python operator, allocates its own string. */
     MEM_freeN((void *)ot->idname);
   }
 
@@ -235,8 +237,8 @@ void WM_operatortype_last_properties_clear_all(void)
 {
   GHashIterator iter;
 
-  for (WM_operatortype_iter(&iter); !BLI_ghashIterator_done(&iter);
-       BLI_ghashIterator_step(&iter)) {
+  for (WM_operatortype_iter(&iter); !BLI_ghashIterator_done(&iter); BLI_ghashIterator_step(&iter))
+  {
     wmOperatorType *ot = BLI_ghashIterator_getValue(&iter);
 
     if (ot->last_properties) {
@@ -310,12 +312,17 @@ static int wm_macro_end(wmOperator *op, int retval)
 static int wm_macro_exec(bContext *C, wmOperator *op)
 {
   int retval = OPERATOR_FINISHED;
+  const int op_inherited_flag = op->flag & (OP_IS_REPEAT | OP_IS_REPEAT_LAST);
 
   wm_macro_start(op);
 
   LISTBASE_FOREACH (wmOperator *, opm, &op->macro) {
     if (opm->type->exec) {
+
+      opm->flag |= op_inherited_flag;
       retval = opm->type->exec(C, opm);
+      opm->flag &= ~op_inherited_flag;
+
       OPERATOR_RETVAL_CHECK(retval);
 
       if (retval & OPERATOR_FINISHED) {
@@ -340,15 +347,19 @@ static int wm_macro_invoke_internal(bContext *C,
                                     wmOperator *opm)
 {
   int retval = OPERATOR_FINISHED;
+  const int op_inherited_flag = op->flag & (OP_IS_REPEAT | OP_IS_REPEAT_LAST);
 
   /* start from operator received as argument */
   for (; opm; opm = opm->next) {
+
+    opm->flag |= op_inherited_flag;
     if (opm->type->invoke) {
       retval = opm->type->invoke(C, opm, event);
     }
     else if (opm->type->exec) {
       retval = opm->type->exec(C, opm);
     }
+    opm->flag &= ~op_inherited_flag;
 
     OPERATOR_RETVAL_CHECK(retval);
 
@@ -384,7 +395,7 @@ static int wm_macro_modal(bContext *C, wmOperator *op, const wmEvent *event)
     retval = opm->type->modal(C, opm, event);
     OPERATOR_RETVAL_CHECK(retval);
 
-    /* if we're halfway through using a tool and cancel it, clear the options T37149. */
+    /* if we're halfway through using a tool and cancel it, clear the options #37149. */
     if (retval & OPERATOR_CANCELLED) {
       WM_operator_properties_clear(opm->ptr);
     }
@@ -411,8 +422,8 @@ static int wm_macro_modal(bContext *C, wmOperator *op, const wmEvent *event)
         /* If operator is blocking, grab cursor.
          * This may end up grabbing twice, but we don't care. */
         if (op->opm->type->flag & OPTYPE_BLOCKING) {
-          int bounds[4] = {-1, -1, -1, -1};
           int wrap = WM_CURSOR_WRAP_NONE;
+          const rcti *wrap_region = NULL;
 
           if ((op->opm->flag & OP_IS_MODAL_GRAB_CURSOR) ||
               (op->opm->type->flag & OPTYPE_GRAB_CURSOR_XY)) {
@@ -428,14 +439,11 @@ static int wm_macro_modal(bContext *C, wmOperator *op, const wmEvent *event)
           if (wrap) {
             ARegion *region = CTX_wm_region(C);
             if (region) {
-              bounds[0] = region->winrct.xmin;
-              bounds[1] = region->winrct.ymax;
-              bounds[2] = region->winrct.xmax;
-              bounds[3] = region->winrct.ymin;
+              wrap_region = &region->winrct;
             }
           }
 
-          WM_cursor_grab_enable(win, wrap, false, bounds);
+          WM_cursor_grab_enable(win, wrap, wrap_region, false);
         }
       }
     }
@@ -531,7 +539,7 @@ wmOperatorTypeMacro *WM_operatortype_macro_define(wmOperatorType *ot, const char
 {
   wmOperatorTypeMacro *otmacro = MEM_callocN(sizeof(wmOperatorTypeMacro), "wmOperatorTypeMacro");
 
-  BLI_strncpy(otmacro->idname, idname, OP_MAX_TYPENAME);
+  STRNCPY(otmacro->idname, idname);
 
   /* do this on first use, since operatordefinitions might have been not done yet */
   WM_operator_properties_alloc(&(otmacro->ptr), &(otmacro->properties), idname);
@@ -562,7 +570,7 @@ static void wm_operatortype_free_macro(wmOperatorType *ot)
   BLI_freelistN(&ot->macro);
 }
 
-const char *WM_operatortype_name(struct wmOperatorType *ot, struct PointerRNA *properties)
+const char *WM_operatortype_name(wmOperatorType *ot, PointerRNA *properties)
 {
   const char *name = NULL;
 
@@ -573,9 +581,7 @@ const char *WM_operatortype_name(struct wmOperatorType *ot, struct PointerRNA *p
   return (name && name[0]) ? name : RNA_struct_ui_name(ot->srna);
 }
 
-char *WM_operatortype_description(struct bContext *C,
-                                  struct wmOperatorType *ot,
-                                  struct PointerRNA *properties)
+char *WM_operatortype_description(bContext *C, wmOperatorType *ot, PointerRNA *properties)
 {
   if (ot->get_description && properties) {
     char *description = ot->get_description(C, ot, properties);
@@ -595,9 +601,7 @@ char *WM_operatortype_description(struct bContext *C,
   return NULL;
 }
 
-char *WM_operatortype_description_or_name(struct bContext *C,
-                                          struct wmOperatorType *ot,
-                                          struct PointerRNA *properties)
+char *WM_operatortype_description_or_name(bContext *C, wmOperatorType *ot, PointerRNA *properties)
 {
   char *text = WM_operatortype_description(C, ot, properties);
   if (text == NULL) {

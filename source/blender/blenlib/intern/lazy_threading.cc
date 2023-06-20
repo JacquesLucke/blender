@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_lazy_threading.hh"
 #include "BLI_stack.hh"
@@ -12,7 +14,7 @@ namespace blender::lazy_threading {
  * deadlocks.
  */
 using HintReceivers = RawStack<RawVector<FunctionRef<void()>, 0>, 0>;
-thread_local HintReceivers hint_receivers = []() {
+static thread_local HintReceivers hint_receivers = []() {
   HintReceivers receivers;
   /* Make sure there is always at least one vector. */
   receivers.push_as();

@@ -1,6 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later AND BSD-3-Clause
- * Copyright 2003-2010 Sony Pictures Imageworks Inc., et al. All Rights Reserved (BSD-3-Clause).
- *           2013 Blender Foundation (GPL-2.0-or-later). */
+/* SPDX-FileCopyrightText: 2003-2010 Sony Pictures Imageworks Inc., et al. All Rights Reserved.
+ *                         (BSD-3-Clause).
+ * SPDX-FileCopyrightText: 2013 Blender Foundation (GPL-2.0-or-later).
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later AND BSD-3-Clause */
 
 #include <limits>
 #include <list>
@@ -193,7 +195,7 @@ static bool createGPUShader(OCIO_GPUShader &shader,
   info.fragment_source("gpu_shader_display_transform_frag.glsl");
   info.fragment_source_generated = source;
 
-  /* T96502: Work around for incorrect OCIO GLSL code generation when using
+  /* #96502: Work around for incorrect OCIO GLSL code generation when using
    * GradingPrimaryTransform. Should be reevaluated when changing to a next version of OCIO.
    * (currently v2.1.1). */
   info.define("inf 1e32");
@@ -325,7 +327,8 @@ static bool addGPULut1D2D(OCIO_GPUTextures &textures,
   const float *values;
   shader_desc->getTextureValues(index, values);
   if (texture_name == nullptr || sampler_name == nullptr || width == 0 || height == 0 ||
-      values == nullptr) {
+      values == nullptr)
+  {
     return false;
   }
 
@@ -337,17 +340,19 @@ static bool addGPULut1D2D(OCIO_GPUTextures &textures,
    * It depends on more than height. So check instead by looking at the source. */
   std::string sampler1D_name = std::string("sampler1D ") + sampler_name;
   if (strstr(shader_desc->getShaderText(), sampler1D_name.c_str()) != nullptr) {
-    lut.texture = GPU_texture_create_1d(texture_name, width, 1, format, values);
+    lut.texture = GPU_texture_create_1d(
+        texture_name, width, 1, format, GPU_TEXTURE_USAGE_SHADER_READ, values);
   }
   else {
-    lut.texture = GPU_texture_create_2d(texture_name, width, height, 1, format, values);
+    lut.texture = GPU_texture_create_2d(
+        texture_name, width, height, 1, format, GPU_TEXTURE_USAGE_SHADER_READ, values);
   }
   if (lut.texture == nullptr) {
     return false;
   }
 
   GPU_texture_filter_mode(lut.texture, interpolation != INTERP_NEAREST);
-  GPU_texture_wrap_mode(lut.texture, false, true);
+  GPU_texture_extend_mode(lut.texture, GPU_SAMPLER_EXTEND_MODE_EXTEND);
 
   lut.sampler_name = sampler_name;
 
@@ -372,14 +377,20 @@ static bool addGPULut3D(OCIO_GPUTextures &textures,
   }
 
   OCIO_GPULutTexture lut;
-  lut.texture = GPU_texture_create_3d(
-      texture_name, edgelen, edgelen, edgelen, 1, GPU_RGB16F, GPU_DATA_FLOAT, values);
+  lut.texture = GPU_texture_create_3d(texture_name,
+                                      edgelen,
+                                      edgelen,
+                                      edgelen,
+                                      1,
+                                      GPU_RGB16F,
+                                      GPU_TEXTURE_USAGE_SHADER_READ,
+                                      values);
   if (lut.texture == nullptr) {
     return false;
   }
 
   GPU_texture_filter_mode(lut.texture, interpolation != INTERP_NEAREST);
-  GPU_texture_wrap_mode(lut.texture, false, true);
+  GPU_texture_extend_mode(lut.texture, GPU_SAMPLER_EXTEND_MODE_EXTEND);
 
   lut.sampler_name = sampler_name;
 
@@ -442,9 +453,10 @@ static bool createGPUCurveMapping(OCIO_GPUCurveMappping &curvemap,
   if (curve_mapping_settings) {
     int lut_size = curve_mapping_settings->lut_size;
 
-    curvemap.texture = GPU_texture_create_1d("OCIOCurveMap", lut_size, 1, GPU_RGBA16F, nullptr);
+    curvemap.texture = GPU_texture_create_1d(
+        "OCIOCurveMap", lut_size, 1, GPU_RGBA16F, GPU_TEXTURE_USAGE_SHADER_READ, nullptr);
     GPU_texture_filter_mode(curvemap.texture, false);
-    GPU_texture_wrap_mode(curvemap.texture, false, true);
+    GPU_texture_extend_mode(curvemap.texture, GPU_SAMPLER_EXTEND_MODE_EXTEND);
 
     curvemap.buffer = GPU_uniformbuf_create(sizeof(OCIO_GPUCurveMappingParameters));
 
@@ -560,9 +572,11 @@ static OCIO_GPUDisplayShader &getGPUDisplayShader(
   const bool use_curve_mapping = (curve_mapping_settings != nullptr);
   for (std::list<OCIO_GPUDisplayShader>::iterator it = SHADER_CACHE.begin();
        it != SHADER_CACHE.end();
-       it++) {
+       it++)
+  {
     if (it->input == input && it->view == view && it->display == display && it->look == look &&
-        it->use_curve_mapping == use_curve_mapping) {
+        it->use_curve_mapping == use_curve_mapping)
+    {
       /* Move to front of the cache to mark as most recently used. */
       if (it != SHADER_CACHE.begin()) {
         SHADER_CACHE.splice(SHADER_CACHE.begin(), SHADER_CACHE, it);
@@ -633,7 +647,8 @@ static OCIO_GPUDisplayShader &getGPUDisplayShader(
                         display_shader.textures,
                         shaderdesc_to_scene_linear,
                         shaderdesc_to_display,
-                        use_curve_mapping)) {
+                        use_curve_mapping))
+    {
       display_shader.valid = true;
     }
   }

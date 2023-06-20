@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -54,7 +55,6 @@ typedef struct MetaBall {
   struct AnimData *adt;
 
   ListBase elems;
-  ListBase disp;
   /** Not saved in files, note we use pointer for editmode check. */
   ListBase *editelems;
   /** Old animation system, deprecated for 2.5. */
@@ -66,8 +66,8 @@ typedef struct MetaBall {
   /** Flag is enum for updates, flag2 is bit-flags for settings. */
   char flag, flag2;
   short totcol;
-  /** Used to store MB_AUTOSPACE. */
-  char texflag;
+  /** Used to store #MB_TEXTURE_FLAG_AUTO. */
+  char texspace_flag;
   char _pad[2];
 
   /**
@@ -76,10 +76,8 @@ typedef struct MetaBall {
    */
   char needs_flush_to_id;
 
-  /* texture space, copied as one block in editobject.c */
-  float loc[3];
-  float size[3];
-  float rot[3];
+  float texspace_location[3];
+  float texspace_size[3];
 
   /** Display and render res. */
   float wiresize, rendersize;
@@ -89,15 +87,19 @@ typedef struct MetaBall {
    * but these may also have their own thresh as an offset */
   float thresh;
 
-  /* used in editmode */
-  // ListBase edit_elems;
+  char _pad0[4];
+
+  /** The active meta-element (used in edit-mode). */
   MetaElem *lastelem;
+
 } MetaBall;
 
 /* **************** METABALL ********************* */
 
-/* texflag */
-#define MB_AUTOSPACE 1
+/** #MetaBall.texspace_flag */
+enum {
+  MB_TEXSPACE_FLAG_AUTO = 1 << 0,
+};
 
 /* mb->flag */
 #define MB_UPDATE_ALWAYS 0

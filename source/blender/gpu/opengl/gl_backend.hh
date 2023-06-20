@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2020 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2020 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -10,6 +11,10 @@
 #include "gpu_backend.hh"
 
 #include "BLI_vector.hh"
+
+#ifdef WITH_RENDERDOC
+#  include "renderdoc_api.hh"
+#endif
 
 #include "gl_batch.hh"
 #include "gl_compute.hh"
@@ -30,6 +35,9 @@ namespace gpu {
 class GLBackend : public GPUBackend {
  private:
   GLSharedOrphanLists shared_orphan_list_;
+#ifdef WITH_RENDERDOC
+  renderdoc::api::Renderdoc renderdoc_;
+#endif
 
  public:
   GLBackend()
@@ -76,6 +84,11 @@ class GLBackend : public GPUBackend {
     return new GLDrawList(list_length);
   };
 
+  Fence *fence_alloc() override
+  {
+    return new GLFence();
+  };
+
   FrameBuffer *framebuffer_alloc(const char *name) override
   {
     return new GLFrameBuffer(name);
@@ -84,6 +97,11 @@ class GLBackend : public GPUBackend {
   IndexBuf *indexbuf_alloc() override
   {
     return new GLIndexBuf();
+  };
+
+  PixelBuffer *pixelbuf_alloc(uint size) override
+  {
+    return new GLPixelBuffer(size);
   };
 
   QueryPool *querypool_alloc() override
@@ -144,6 +162,9 @@ class GLBackend : public GPUBackend {
   void render_begin(void) override{};
   void render_end(void) override{};
   void render_step(void) override{};
+
+  bool debug_capture_begin();
+  void debug_capture_end();
 
  private:
   static void platform_init();

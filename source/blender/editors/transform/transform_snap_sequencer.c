@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -238,7 +239,7 @@ static void seq_snap_target_points_build(Scene *scene,
 static int seq_snap_threshold_get_frame_distance(const TransInfo *t)
 {
   const int snap_distance = SEQ_tool_settings_snap_distance_get(t->scene);
-  const struct View2D *v2d = &t->region->v2d;
+  const View2D *v2d = &t->region->v2d;
   return round_fl_to_int(UI_view2d_region_to_view_x(v2d, snap_distance) -
                          UI_view2d_region_to_view_x(v2d, 0));
 }
@@ -319,14 +320,14 @@ bool transform_snap_sequencer_calc(TransInfo *t)
     return false;
   }
 
-  t->tsnap.snapPoint[0] = best_target_frame;
-  t->tsnap.snapTarget[0] = best_source_frame;
+  t->tsnap.snap_target[0] = best_target_frame;
+  t->tsnap.snap_source[0] = best_source_frame;
   return true;
 }
 
 void transform_snap_sequencer_apply_translate(TransInfo *t, float *vec)
 {
-  *vec += t->tsnap.snapPoint[0] - t->tsnap.snapTarget[0];
+  *vec += t->tsnap.snap_target[0] - t->tsnap.snap_source[0];
 }
 
 static int transform_snap_sequencer_to_closest_strip_ex(TransInfo *t, int frame_1, int frame_2)
@@ -357,11 +358,11 @@ static int transform_snap_sequencer_to_closest_strip_ex(TransInfo *t, int frame_
 
   float snap_offset = 0;
   if (snap_success) {
-    t->tsnap.status |= (POINT_INIT | TARGET_INIT);
+    t->tsnap.status |= (SNAP_TARGET_FOUND | SNAP_SOURCE_FOUND);
     transform_snap_sequencer_apply_translate(t, &snap_offset);
   }
   else {
-    t->tsnap.status &= ~(POINT_INIT | TARGET_INIT);
+    t->tsnap.status &= ~(SNAP_TARGET_FOUND | SNAP_SOURCE_FOUND);
   }
 
   return snap_offset;
@@ -382,19 +383,19 @@ bool ED_transform_snap_sequencer_to_closest_strip_calc(Scene *scene,
 
   t.tsnap.mode = SEQ_tool_settings_snap_mode_get(scene);
   *r_snap_distance = transform_snap_sequencer_to_closest_strip_ex(&t, frame_1, frame_2);
-  *r_snap_frame = t.tsnap.snapPoint[0];
+  *r_snap_frame = t.tsnap.snap_target[0];
   return validSnap(&t);
 }
 
-void ED_draw_sequencer_snap_point(struct bContext *C, float snap_point)
+void ED_draw_sequencer_snap_point(bContext *C, float snap_point)
 {
   /* Reuse the snapping drawing code from the transform system. */
   TransInfo t;
   t.mode = TFM_SEQ_SLIDE;
   t.modifiers = MOD_SNAP;
   t.spacetype = SPACE_SEQ;
-  t.tsnap.status = (POINT_INIT | TARGET_INIT);
-  t.tsnap.snapPoint[0] = snap_point;
+  t.tsnap.status = (SNAP_TARGET_FOUND | SNAP_SOURCE_FOUND);
+  t.tsnap.snap_target[0] = snap_point;
 
   drawSnapping(C, &t);
 }

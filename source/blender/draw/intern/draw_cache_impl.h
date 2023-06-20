@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2016 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw
@@ -8,10 +9,8 @@
 #pragma once
 
 struct GPUBatch;
-struct GPUIndexBuf;
 struct GPUMaterial;
 struct GPUVertBuf;
-struct ListBase;
 struct ModifierData;
 struct PTCacheEdit;
 struct ParticleSystem;
@@ -21,10 +20,10 @@ struct Curve;
 struct Curves;
 struct Lattice;
 struct Mesh;
-struct MetaBall;
 struct PointCloud;
 struct Volume;
 struct bGPdata;
+struct GreasePencil;
 
 #include "BKE_mesh_types.h"
 
@@ -65,6 +64,10 @@ void DRW_pointcloud_batch_cache_free(struct PointCloud *pointcloud);
 void DRW_volume_batch_cache_dirty_tag(struct Volume *volume, int mode);
 void DRW_volume_batch_cache_validate(struct Volume *volume);
 void DRW_volume_batch_cache_free(struct Volume *volume);
+
+void DRW_grease_pencil_batch_cache_dirty_tag(struct GreasePencil *grase_pencil, int mode);
+void DRW_grease_pencil_batch_cache_validate(struct GreasePencil *grase_pencil);
+void DRW_grease_pencil_batch_cache_free(struct GreasePencil *grase_pencil);
 
 /** \} */
 
@@ -137,6 +140,7 @@ struct GPUVertBuf **DRW_curves_texture_for_evaluated_attribute(struct Curves *cu
                                                                bool *r_is_point_domain);
 
 struct GPUBatch *DRW_curves_batch_cache_get_edit_points(struct Curves *curves);
+struct GPUBatch *DRW_curves_batch_cache_get_edit_lines(struct Curves *curves);
 
 void DRW_curves_batch_cache_create_requested(struct Object *ob);
 
@@ -212,8 +216,8 @@ struct GPUBatch *DRW_mesh_batch_cache_get_surface_viewer_attribute(struct Mesh *
 struct GPUBatch *DRW_mesh_batch_cache_get_edit_triangles(struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_edit_vertices(struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_edit_edges(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_edit_vnors(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_edit_lnors(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edit_vert_normals(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edit_loop_normals(struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_edit_facedots(struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_edit_skin_roots(struct Mesh *me);
 

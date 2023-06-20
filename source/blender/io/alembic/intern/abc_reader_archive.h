@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 Kévin Dietrich. All rights reserved. */
+/* SPDX-FileCopyrightText: 2016 Kévin Dietrich. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 /** \file
@@ -16,7 +17,7 @@ struct Main;
 namespace blender::io::alembic {
 
 /* Wrappers around input and output archives. The goal is to be able to use
- * streams so that unicode paths work on Windows (T49112), and to make sure that
+ * streams so that unicode paths work on Windows (#49112), and to make sure that
  * the stream objects remain valid as long as the archives are open.
  */
 

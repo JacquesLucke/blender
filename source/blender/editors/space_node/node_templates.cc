@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edinterface
@@ -16,6 +18,7 @@
 #include "BLI_array.h"
 #include "BLI_listbase.h"
 #include "BLI_string.h"
+#include "BLI_string_utf8.h"
 #include "BLI_vector.hh"
 
 #include "BLT_translation.h"
@@ -32,7 +35,7 @@
 #include "NOD_socket.h"
 #include "NOD_socket_declarations.hh"
 
-#include "../interface/interface_intern.h" /* XXX bad level */
+#include "../interface/interface_intern.hh" /* XXX bad level */
 #include "UI_interface.h"
 
 #include "ED_node.h" /* own include */
@@ -214,7 +217,8 @@ static void node_socket_add_replace(const bContext *C,
 
   if (node_from) {
     if (node_from->inputs.first || node_from->typeinfo->draw_buttons ||
-        node_from->typeinfo->draw_buttons_ex) {
+        node_from->typeinfo->draw_buttons_ex)
+    {
       node_from = nullptr;
     }
   }
@@ -234,7 +238,7 @@ static void node_socket_add_replace(const bContext *C,
     }
     else {
       sock_from_tmp = (bNodeSocket *)BLI_findlink(&node_from->outputs, item->socket_index);
-      nodePositionRelative(node_from, node_to, sock_from_tmp, sock_to);
+      bke::nodePositionRelative(node_from, node_to, sock_from_tmp, sock_to);
     }
 
     node_link_item_apply(ntree, node_from, item);
@@ -277,7 +281,8 @@ static void node_socket_add_replace(const bContext *C,
     if (node_from->typeinfo->nclass == NODE_CLASS_TEXTURE &&
         node_prev->typeinfo->nclass == NODE_CLASS_TEXTURE &&
         /* White noise texture node does not have NodeTexBase. */
-        node_from->storage != nullptr && node_prev->storage != nullptr) {
+        node_from->storage != nullptr && node_prev->storage != nullptr)
+    {
       memcpy(node_from->storage, node_prev->storage, sizeof(NodeTexBase));
     }
 
@@ -321,20 +326,22 @@ static Vector<NodeLinkItem> ui_node_link_items(NodeLinkArg *arg,
     int i;
 
     for (ngroup = (bNodeTree *)arg->bmain->nodetrees.first; ngroup;
-         ngroup = (bNodeTree *)ngroup->id.next) {
+         ngroup = (bNodeTree *)ngroup->id.next)
+    {
       const char *disabled_hint;
-      if ((ngroup->type != arg->ntree->type) ||
-          !nodeGroupPoll(arg->ntree, ngroup, &disabled_hint)) {
+      if ((ngroup->type != arg->ntree->type) || !nodeGroupPoll(arg->ntree, ngroup, &disabled_hint))
+      {
         continue;
       }
     }
 
     i = 0;
     for (ngroup = (bNodeTree *)arg->bmain->nodetrees.first; ngroup;
-         ngroup = (bNodeTree *)ngroup->id.next) {
+         ngroup = (bNodeTree *)ngroup->id.next)
+    {
       const char *disabled_hint;
-      if ((ngroup->type != arg->ntree->type) ||
-          !nodeGroupPoll(arg->ntree, ngroup, &disabled_hint)) {
+      if ((ngroup->type != arg->ntree->type) || !nodeGroupPoll(arg->ntree, ngroup, &disabled_hint))
+      {
         continue;
       }
 
@@ -361,10 +368,9 @@ static Vector<NodeLinkItem> ui_node_link_items(NodeLinkArg *arg,
     using namespace blender::nodes;
 
     r_node_decl.emplace(NodeDeclaration());
-    NodeDeclarationBuilder node_decl_builder{*r_node_decl};
-    arg->node_type->declare(node_decl_builder);
-    Span<SocketDeclarationPtr> socket_decls = (in_out == SOCK_IN) ? r_node_decl->inputs() :
-                                                                    r_node_decl->outputs();
+    blender::nodes::build_node_declaration(*arg->node_type, *r_node_decl);
+    Span<SocketDeclarationPtr> socket_decls = (in_out == SOCK_IN) ? r_node_decl->inputs :
+                                                                    r_node_decl->outputs;
     int index = 0;
     for (const SocketDeclarationPtr &socket_decl_ptr : socket_decls) {
       const SocketDeclaration &socket_decl = *socket_decl_ptr;
@@ -384,6 +390,9 @@ static Vector<NodeLinkItem> ui_node_link_items(NodeLinkArg *arg,
       }
       else if (dynamic_cast<const decl::Color *>(&socket_decl)) {
         item.socket_type = SOCK_RGBA;
+      }
+      else if (dynamic_cast<const decl::Rotation *>(&socket_decl)) {
+        item.socket_type = SOCK_ROTATION;
       }
       else if (dynamic_cast<const decl::String *>(&socket_decl)) {
         item.socket_type = SOCK_STRING;
@@ -409,7 +418,7 @@ static Vector<NodeLinkItem> ui_node_link_items(NodeLinkArg *arg,
       else {
         item.socket_type = SOCK_CUSTOM;
       }
-      item.socket_name = socket_decl.name().c_str();
+      item.socket_name = socket_decl.name.c_str();
       item.node_name = arg->node_type->ui_name;
       items.append(item);
     }
@@ -464,21 +473,21 @@ static void ui_node_sock_name(const bNodeTree *ntree,
     bNode *node = sock->link->fromnode;
     char node_name[UI_MAX_NAME_STR];
 
-    nodeLabel(ntree, node, node_name, sizeof(node_name));
+    bke::nodeLabel(ntree, node, node_name, sizeof(node_name));
 
     if (BLI_listbase_is_empty(&node->inputs) && node->outputs.first != node->outputs.last) {
       BLI_snprintf(
           name, UI_MAX_NAME_STR, "%s | %s", IFACE_(node_name), IFACE_(sock->link->fromsock->name));
     }
     else {
-      BLI_strncpy(name, IFACE_(node_name), UI_MAX_NAME_STR);
+      BLI_strncpy_utf8(name, IFACE_(node_name), UI_MAX_NAME_STR);
     }
   }
   else if (sock->type == SOCK_SHADER) {
-    BLI_strncpy(name, IFACE_("None"), UI_MAX_NAME_STR);
+    BLI_strncpy_utf8(name, IFACE_("None"), UI_MAX_NAME_STR);
   }
   else {
-    BLI_strncpy(name, IFACE_("Default"), UI_MAX_NAME_STR);
+    BLI_strncpy_utf8(name, IFACE_("Default"), UI_MAX_NAME_STR);
   }
 }
 
@@ -597,11 +606,11 @@ static void ui_node_menu_column(NodeLinkArg *arg, int nclass, const char *cname)
                    "");
         }
 
-        BLI_snprintf(name, UI_MAX_NAME_STR, "%s", IFACE_(item.socket_name));
+        SNPRINTF(name, "%s", IFACE_(item.socket_name));
         icon = ICON_BLANK1;
       }
       else {
-        BLI_strncpy(name, IFACE_(item.node_name), UI_MAX_NAME_STR);
+        STRNCPY_UTF8(name, IFACE_(item.node_name));
         icon = ICON_NONE;
       }
 
@@ -830,7 +839,7 @@ static void ui_node_draw_input(
 
     sub = uiLayoutRow(sub, true);
     uiLayoutSetAlignment(sub, UI_LAYOUT_ALIGN_RIGHT);
-    uiItemL(sub, IFACE_(nodeSocketLabel(&input)), ICON_NONE);
+    uiItemL(sub, IFACE_(bke::nodeSocketLabel(&input)), ICON_NONE);
   }
 
   if (dependency_loop) {
@@ -867,6 +876,7 @@ static void ui_node_draw_input(
           ATTR_FALLTHROUGH;
         case SOCK_FLOAT:
         case SOCK_INT:
+        case SOCK_ROTATION:
         case SOCK_BOOLEAN:
         case SOCK_RGBA:
           uiItemR(sub, &inputptr, "default_value", 0, "", ICON_NONE);
@@ -898,7 +908,7 @@ static void ui_node_draw_input(
     uiItemDecoratorR(split_wrapper.decorate_column, nullptr, nullptr, 0);
   }
 
-  node_socket_add_tooltip(ntree, node, input, *row);
+  node_socket_add_tooltip(ntree, input, *row);
 
   /* clear */
   node.flag &= ~NODE_TEST;

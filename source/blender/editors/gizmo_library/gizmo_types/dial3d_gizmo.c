@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2014 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2014 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edgizmolib
@@ -71,7 +72,6 @@ typedef struct DialInteraction {
 } DialInteraction;
 
 #define DIAL_WIDTH 1.0f
-#define DIAL_RESOLUTION 48
 
 /* Could make option, negative to clip more (don't show when view aligned). */
 #define DIAL_CLIP_BIAS 0.02
@@ -86,8 +86,7 @@ struct Dial3dParams {
   float arc_inner_factor;
   float *clip_plane;
 };
-static void dial_3d_draw_util(const float matrix_basis[4][4],
-                              const float matrix_final[4][4],
+static void dial_3d_draw_util(const float matrix_final[4][4],
                               const float line_width,
                               const float color[4],
                               const bool select,
@@ -96,7 +95,7 @@ static void dial_3d_draw_util(const float matrix_basis[4][4],
 static void dial_geom_draw(const float color[4],
                            const float line_width,
                            const bool select,
-                           const float axis_modal_mat[4][4],
+                           const float clip_plane_mat[4][4],
                            const float clip_plane[4],
                            const float arc_partial_angle,
                            const float arc_inner_factor,
@@ -118,7 +117,7 @@ static void dial_geom_draw(const float color[4],
     immBindBuiltinProgram(filled ? GPU_SHADER_3D_CLIPPED_UNIFORM_COLOR :
                                    GPU_SHADER_3D_POLYLINE_CLIPPED_UNIFORM_COLOR);
     immUniform4fv("ClipPlane", clip_plane);
-    immUniformMatrix4fv("ModelMatrix", axis_modal_mat);
+    immUniformMatrix4fv("ModelMatrix", clip_plane_mat);
   }
   else {
     immBindBuiltinProgram(filled ? GPU_SHADER_3D_UNIFORM_COLOR :
@@ -432,8 +431,7 @@ static void dial_draw_intern(
     }
   }
 
-  dial_3d_draw_util(gz->matrix_basis,
-                    matrix_final,
+  dial_3d_draw_util(matrix_final,
                     gz->line_width,
                     color,
                     select,
@@ -613,8 +611,7 @@ static int gizmo_dial_invoke(bContext *UNUSED(C), wmGizmo *gz, const wmEvent *ev
 /** \name Dial Gizmo API
  * \{ */
 
-static void dial_3d_draw_util(const float matrix_basis[4][4],
-                              const float matrix_final[4][4],
+static void dial_3d_draw_util(const float matrix_final[4][4],
                               const float line_width,
                               const float color[4],
                               const bool select,
@@ -650,7 +647,7 @@ static void dial_3d_draw_util(const float matrix_basis[4][4],
   dial_geom_draw(color,
                  line_width,
                  select,
-                 matrix_basis,
+                 matrix_final,
                  params->clip_plane,
                  params->arc_partial_angle,
                  params->arc_inner_factor,

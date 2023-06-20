@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2016 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw
@@ -46,7 +47,9 @@ struct Object;
 #define DRW_DEBUG_USE_UNIFORM_NAME 0
 #define DRW_UNIFORM_BUFFER_NAME 64
 
-/* ------------ Profiling --------------- */
+/* -------------------------------------------------------------------- */
+/** \name Profiling
+ * \{ */
 
 #define USE_PROFILE
 
@@ -82,11 +85,15 @@ struct Object;
 
 #endif /* USE_PROFILE */
 
-/* ------------ Data Structure --------------- */
-/**
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Data Structure
+ *
  * Data structure to for registered draw engines that can store draw manager
  * specific data.
- */
+ * \{ */
+
 typedef struct DRWRegisteredDrawEngine {
   void /*DRWRegisteredDrawEngine*/ *next, *prev;
   DrawEngineType *draw_engine;
@@ -356,7 +363,7 @@ struct DRWUniform {
         GPUTexture *texture;
         GPUTexture **texture_ref;
       };
-      eGPUSamplerState sampler_state;
+      GPUSamplerState sampler_state;
     };
     /* DRW_UNIFORM_BLOCK */
     union {
@@ -439,15 +446,22 @@ struct DRWPass {
 #define MAX_CULLED_VIEWS 32
 
 struct DRWView {
+  /**
+   * These float4x4 (as well as the ViewMatrices) have alignment requirements in C++
+   * (see math::MatBase) that isn't fulfilled in C. So they need to be manually aligned.
+   * Since the DRWView are allocated using BLI_memblock, the chunks are given to be 16 bytes
+   * aligned (equal to the alignment of float4x4). We then assert that the DRWView itself is 16
+   * bytes aligned.
+   */
+  float4x4 persmat;
+  float4x4 persinv;
+  ViewMatrices storage;
+
   /** Parent view if this is a sub view. NULL otherwise. */
   struct DRWView *parent;
 
-  ViewMatrices storage;
-
   float4 clip_planes[6];
 
-  float4x4 persmat;
-  float4x4 persinv;
   /** Number of active clip planes. */
   int clip_planes_len;
   /** Does culling result needs to be updated. */
@@ -463,16 +477,21 @@ struct DRWView {
   DRWCallVisibilityFn *visibility_fn;
   void *user_data;
 };
+/* Needed to assert that alignment is the same in C++ and C. */
+BLI_STATIC_ASSERT_ALIGN(DRWView, 16);
 
-/* ------------ Data Chunks --------------- */
-/**
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Data Chunks
+ *
  * In order to keep a cache friendly data structure,
- * we alloc most of our little data into chunks of multiple item.
+ * we allocate most of our little data into chunks of multiple item.
  * Iteration, allocation and memory usage are better.
  * We lose a bit of memory by allocating more than what we need
  * but it's counterbalanced by not needing the linked-list pointers
  * for each item.
- */
+ * \{ */
 
 typedef struct DRWUniformChunk {
   struct DRWUniformChunk *next; /* single-linked list */
@@ -507,9 +526,13 @@ typedef struct DRWCommandSmallChunk {
 BLI_STATIC_ASSERT_ALIGN(DRWCommandChunk, 16);
 #endif
 
-/* ------------- Memory Pools ------------ */
+/** \} */
 
-/* Contains memory pools information */
+/* -------------------------------------------------------------------- */
+/** \name Memory Pools
+ * \{ */
+
+/** Contains memory pools information. */
 typedef struct DRWData {
   /** Instance data. */
   DRWInstanceDataList *idatalist;
@@ -549,7 +572,11 @@ typedef struct DRWData {
   struct CurvesUniformBufPool *curves_ubos;
 } DRWData;
 
-/* ------------- DRAW MANAGER ------------ */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Draw Manager
+ * \{ */
 
 typedef struct DupliKey {
   struct Object *ob;
@@ -628,9 +655,6 @@ typedef struct DRWManager {
   DRWView *view_active;
   DRWView *view_previous;
   uint primary_view_num;
-  /** TODO(@fclem): Remove this. Only here to support
-   * shaders without common_view_lib.glsl */
-  ViewMatrices view_storage_cpy;
 
 #ifdef USE_GPU_SELECT
   uint select_id;
@@ -642,13 +666,13 @@ typedef struct DRWManager {
 
   /* ---------- Nothing after this point is cleared after use ----------- */
 
-  /* gl_context serves as the offset for clearing only
+  /* system_gpu_context serves as the offset for clearing only
    * the top portion of the struct so DO NOT MOVE IT! */
   /** Unique ghost context used by the draw manager. */
-  void *gl_context;
-  GPUContext *gpu_context;
+  void *system_gpu_context;
+  GPUContext *blender_gpu_context;
   /** Mutex to lock the drw manager and avoid concurrent context usage. */
-  TicketMutex *gl_context_mutex;
+  TicketMutex *system_gpu_context_mutex;
 
   GPUDrawList *draw_list;
 
@@ -657,7 +681,11 @@ typedef struct DRWManager {
 
 extern DRWManager DST; /* TODO: get rid of this and allow multi-threaded rendering. */
 
-/* --------------- FUNCTIONS ------------- */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Functions
+ * \{ */
 
 void drw_texture_set_parameters(GPUTexture *tex, DRWTextureFlag flags);
 
@@ -718,6 +746,8 @@ void DRW_mesh_get_attributes(struct Object *object,
 
 void DRW_manager_begin_sync(void);
 void DRW_manager_end_sync(void);
+
+/** \} */
 
 #ifdef __cplusplus
 }

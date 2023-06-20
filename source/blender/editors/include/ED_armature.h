@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup editors
@@ -31,7 +32,6 @@ struct SelectPick_Params;
 struct UndoType;
 struct View3D;
 struct ViewLayer;
-struct bAction;
 struct bArmature;
 struct bContext;
 struct bPoseChannel;
@@ -206,7 +206,7 @@ void ED_object_vgroup_calc_from_armature(struct ReportList *reports,
                                          int mode,
                                          bool mirror);
 
-/* editarmature_undo.c */
+/* editarmature_undo.cc */
 
 /** Export for ED_undo_sys. */
 void ED_armature_undosys_type(struct UndoType *ut);
@@ -357,10 +357,15 @@ bool ED_pose_deselect_all(struct Object *ob, int select_mode, bool ignore_visibi
 void ED_pose_bone_select_tag_update(struct Object *ob);
 /**
  * Utility method for changing the selection status of a bone.
+ * change_active determines whether to change the active bone of the armature when selecting pose
+ * channels. It is false during range selection otherwise true.
  */
-void ED_pose_bone_select(struct Object *ob, struct bPoseChannel *pchan, bool select);
+void ED_pose_bone_select(struct Object *ob,
+                         struct bPoseChannel *pchan,
+                         bool select,
+                         bool change_active);
 
-/* meshlaplacian.c */
+/* meshlaplacian.cc */
 
 void ED_mesh_deform_bind_callback(struct Object *object,
                                   struct MeshDeformModifierData *mmd,
@@ -368,19 +373,6 @@ void ED_mesh_deform_bind_callback(struct Object *object,
                                   float *vertexcos,
                                   int verts_num,
                                   float cagemat[4][4]);
-
-/* Pose backups, pose_backup.c */
-struct PoseBackup;
-/**
- * Create a backup of those bones that are animated in the given action.
- */
-struct PoseBackup *ED_pose_backup_create_selected_bones(
-    const struct Object *ob, const struct bAction *action) ATTR_WARN_UNUSED_RESULT;
-struct PoseBackup *ED_pose_backup_create_all_bones(
-    const struct Object *ob, const struct bAction *action) ATTR_WARN_UNUSED_RESULT;
-bool ED_pose_backup_is_selection_relevant(const struct PoseBackup *pose_backup);
-void ED_pose_backup_restore(const struct PoseBackup *pbd);
-void ED_pose_backup_free(struct PoseBackup *pbd);
 
 #ifdef __cplusplus
 }

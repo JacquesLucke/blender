@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2008-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -59,7 +61,8 @@ Strip::Strip(const Strip &iBrother)
     for (vertex_container::const_iterator v = iBrother._vertices.begin(),
                                           vend = iBrother._vertices.end();
          v != vend;
-         ++v) {
+         ++v)
+    {
       _vertices.push_back(new StrokeVertexRep(**v));
     }
   }
@@ -69,8 +72,8 @@ Strip::Strip(const Strip &iBrother)
 Strip::~Strip()
 {
   if (!_vertices.empty()) {
-    for (vertex_container::iterator v = _vertices.begin(), vend = _vertices.end(); v != vend;
-         ++v) {
+    for (vertex_container::iterator v = _vertices.begin(), vend = _vertices.end(); v != vend; ++v)
+    {
       delete (*v);
     }
     _vertices.clear();
@@ -110,8 +113,8 @@ void Strip::createStrip(const vector<StrokeVertex *> &iStrokeVertices)
   }
   _vertices.reserve(2 * iStrokeVertices.size());
   if (!_vertices.empty()) {
-    for (vertex_container::iterator v = _vertices.begin(), vend = _vertices.end(); v != vend;
-         ++v) {
+    for (vertex_container::iterator v = _vertices.begin(), vend = _vertices.end(); v != vend; ++v)
+    {
       delete (*v);
     }
     _vertices.clear();
@@ -275,14 +278,16 @@ void Strip::createStrip(const vector<StrokeVertex *> &iStrokeVertices)
     Vec2r vec_tmp(_vertices[i - 2]->point2d() - p);
     if ((vec_tmp.norm() > thickness[1] * MAX_RATIO_LENGTH_SINGU) || (dirNorm < ZERO) ||
         (dirPrevNorm < ZERO) || notValid(_vertices[i - 2]->point2d()) ||
-        (fabs(stripDir * dir) < EPS_SINGULARITY_RENDERER)) {
+        (fabs(stripDir * dir) < EPS_SINGULARITY_RENDERER))
+    {
       _vertices[i - 2]->setPoint2d(p + thickness[1] * stripDir);
     }
 
     vec_tmp = _vertices[i - 1]->point2d() - p;
     if ((vec_tmp.norm() > thickness[0] * MAX_RATIO_LENGTH_SINGU) || (dirNorm < ZERO) ||
         (dirPrevNorm < ZERO) || notValid(_vertices[i - 1]->point2d()) ||
-        (fabs(stripDir * dir) < EPS_SINGULARITY_RENDERER)) {
+        (fabs(stripDir * dir) < EPS_SINGULARITY_RENDERER))
+    {
       _vertices[i - 1]->setPoint2d(p - thickness[0] * stripDir);
     }
   }  // end of for
@@ -813,7 +818,8 @@ StrokeRep::StrokeRep(const StrokeRep &iBrother)
   }
   for (vector<Strip *>::const_iterator s = iBrother._strips.begin(), send = iBrother._strips.end();
        s != send;
-       ++s) {
+       ++s)
+  {
     _strips.push_back(new Strip(**s));
   }
 }

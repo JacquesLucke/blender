@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2022 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -13,7 +14,6 @@ extern "C" {
 
 struct Editing;
 struct ListBase;
-struct Scene;
 struct SeqTimelineChannel;
 struct Sequence;
 

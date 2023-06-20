@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -120,7 +121,8 @@ static void transdata_elem_rotate(const TransInfo *t,
   if (is_large_rotation && td->ext != NULL && td->ext->rotOrder == ROT_MODE_EUL) {
     copy_v3_v3(td->ext->rot, td->ext->irot);
     for (float angle_progress = angle_step; fabsf(angle_progress) < fabsf(angle_final);
-         angle_progress += angle_step) {
+         angle_progress += angle_step)
+    {
       axis_angle_normalized_to_mat3(rmc->mat, axis_final, angle_progress);
       ElementRotation(t, tc, td, rmc->mat, t->around);
     }
@@ -171,27 +173,11 @@ static float RotationBetween(TransInfo *t, const float p1[3], const float p2[3])
 
   /* Angle around a constraint axis (error prone, will need debug). */
   if (t->con.applyRot != NULL && (t->con.mode & CON_APPLY)) {
-    float axis[3], tmp[3];
+    float axis[3];
 
     t->con.applyRot(t, NULL, NULL, axis, NULL);
 
-    project_v3_v3v3(tmp, end, axis);
-    sub_v3_v3v3(end, end, tmp);
-
-    project_v3_v3v3(tmp, start, axis);
-    sub_v3_v3v3(start, start, tmp);
-
-    normalize_v3(end);
-    normalize_v3(start);
-
-    cross_v3_v3v3(tmp, start, end);
-
-    if (dot_v3v3(tmp, axis) < 0.0f) {
-      angle = -acosf(dot_v3v3(start, end));
-    }
-    else {
-      angle = acosf(dot_v3v3(start, end));
-    }
+    angle = -angle_signed_on_axis_v3v3_v3(start, end, axis);
   }
   else {
     float mtx[3][3];
@@ -219,7 +205,7 @@ static void ApplySnapRotation(TransInfo *t, float *value)
   float point[3];
   getSnapPoint(t, point);
 
-  float dist = RotationBetween(t, t->tsnap.snapTarget, point);
+  float dist = RotationBetween(t, t->tsnap.snap_source, point);
   *value = dist;
 }
 
@@ -368,8 +354,8 @@ static void applyRotation(TransInfo *t, const int UNUSED(mval[2]))
     final = large_rotation_limit(final);
   }
   else {
-    applySnappingAsGroup(t, &final);
-    if (!(activeSnap(t) && validSnap(t))) {
+    transform_snap_mixed_apply(t, &final);
+    if (!(transform_snap_is_active(t) && validSnap(t))) {
       transform_snap_increment(t, &final);
     }
   }
@@ -419,7 +405,7 @@ static void applyRotationMatrix(TransInfo *t, float mat_xform[4][4])
   mul_m4_m4m4(mat_xform, mat4, mat_xform);
 }
 
-void initRotation(TransInfo *t)
+static void initRotation(TransInfo *t, wmOperator *UNUSED(op))
 {
   if (t->spacetype == SPACE_ACTION) {
     BKE_report(t->reports, RPT_ERROR, "Rotation is not supported in the Dope Sheet Editor");
@@ -427,10 +413,6 @@ void initRotation(TransInfo *t)
   }
 
   t->mode = TFM_ROTATION;
-  t->transform = applyRotation;
-  t->transform_matrix = applyRotationMatrix;
-  t->tsnap.applySnap = ApplySnapRotation;
-  t->tsnap.distance = RotationBetween;
 
   initMouseInputMode(t, &t->mouse, INPUT_ANGLE);
 
@@ -452,3 +434,14 @@ void initRotation(TransInfo *t)
 }
 
 /** \} */
+
+TransModeInfo TransMode_rotate = {
+    /*flags*/ 0,
+    /*init_fn*/ initRotation,
+    /*transform_fn*/ applyRotation,
+    /*transform_matrix_fn*/ applyRotationMatrix,
+    /*handle_event_fn*/ NULL,
+    /*snap_distance_fn*/ RotationBetween,
+    /*snap_apply_fn*/ ApplySnapRotation,
+    /*draw_fn*/ NULL,
+};

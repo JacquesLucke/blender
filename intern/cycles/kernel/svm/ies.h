@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -43,10 +44,10 @@ ccl_device_inline float kernel_ies_interp(KernelGlobals kg, int slot, float h_an
 #define IES_LOOKUP_ANGLE_V(v) kernel_data_fetch(ies, ofs + h_num + (v))
 
   /* Check whether the angle is within the bounds of the IES texture. */
-  if (v_angle >= IES_LOOKUP_ANGLE_V(v_num - 1)) {
+  if (v_angle < IES_LOOKUP_ANGLE_V(0) || v_angle >= IES_LOOKUP_ANGLE_V(v_num - 1)) {
     return 0.0f;
   }
-  kernel_assert(v_angle >= IES_LOOKUP_ANGLE_V(0));
+
   kernel_assert(h_angle >= IES_LOOKUP_ANGLE_H(0));
   kernel_assert(h_angle <= IES_LOOKUP_ANGLE_H(h_num - 1));
 
@@ -84,6 +85,7 @@ ccl_device_inline float kernel_ies_interp(KernelGlobals kg, int slot, float h_an
   return max(cubic_interp(a, b, c, d, h_frac), 0.0f);
 }
 
+#ifdef __SVM__
 ccl_device_noinline void svm_node_ies(KernelGlobals kg,
                                       ccl_private ShaderData *sd,
                                       ccl_private float *stack,
@@ -105,5 +107,6 @@ ccl_device_noinline void svm_node_ies(KernelGlobals kg,
     stack_store_float(stack, fac_offset, fac);
   }
 }
+#endif
 
 CCL_NAMESPACE_END

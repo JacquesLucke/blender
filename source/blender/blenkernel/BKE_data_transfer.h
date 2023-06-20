@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2014 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2014 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -92,8 +93,10 @@ int BKE_object_data_transfer_dttype_to_srcdst_index(int dtdata_type);
        DT_TYPE_SHAPEKEY, \
        DT_TYPE_MPROPCOL_VERT, \
        DT_TYPE_MLOOPCOL_VERT, \
+       DT_TYPE_MPROPCOL_VERT | DT_TYPE_MLOOPCOL_VERT, \
        DT_TYPE_MPROPCOL_LOOP, \
        DT_TYPE_MLOOPCOL_LOOP, \
+       DT_TYPE_MPROPCOL_LOOP | DT_TYPE_MLOOPCOL_LOOP, \
        DT_TYPE_UV)
 
 enum {
@@ -138,7 +141,6 @@ enum {
  * from \a ob_src, to get (as much as possible) exact copy of source data layout.
  */
 void BKE_object_data_transfer_layout(struct Depsgraph *depsgraph,
-                                     struct Scene *scene,
                                      struct Object *ob_src,
                                      struct Object *ob_dst,
                                      int data_types,
@@ -147,7 +149,6 @@ void BKE_object_data_transfer_layout(struct Depsgraph *depsgraph,
                                      const int tolayers_select[DT_MULTILAYER_INDEX_MAX]);
 
 bool BKE_object_data_transfer_mesh(struct Depsgraph *depsgraph,
-                                   struct Scene *scene,
                                    struct Object *ob_src,
                                    struct Object *ob_dst,
                                    int data_types,
@@ -169,7 +170,6 @@ bool BKE_object_data_transfer_mesh(struct Depsgraph *depsgraph,
                                    bool invert_vgroup,
                                    struct ReportList *reports);
 bool BKE_object_data_transfer_ex(struct Depsgraph *depsgraph,
-                                 struct Scene *scene,
                                  struct Object *ob_src,
                                  struct Object *ob_dst,
                                  struct Mesh *me_dst,

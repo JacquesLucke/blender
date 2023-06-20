@@ -1,13 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2010 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2010 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "MEM_guardedalloc.h"
 
@@ -33,7 +34,7 @@
 #include "BKE_lib_query.h"
 #include "BKE_linestyle.h"
 #include "BKE_main.h"
-#include "BKE_node.h"
+#include "BKE_node.hh"
 #include "BKE_node_tree_update.h"
 #include "BKE_texture.h"
 
@@ -79,28 +80,32 @@ static void linestyle_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const
   BLI_listbase_clear(&linestyle_dst->color_modifiers);
   for (linestyle_modifier = (LineStyleModifier *)linestyle_src->color_modifiers.first;
        linestyle_modifier;
-       linestyle_modifier = linestyle_modifier->next) {
+       linestyle_modifier = linestyle_modifier->next)
+  {
     BKE_linestyle_color_modifier_copy(linestyle_dst, linestyle_modifier, flag_subdata);
   }
 
   BLI_listbase_clear(&linestyle_dst->alpha_modifiers);
   for (linestyle_modifier = (LineStyleModifier *)linestyle_src->alpha_modifiers.first;
        linestyle_modifier;
-       linestyle_modifier = linestyle_modifier->next) {
+       linestyle_modifier = linestyle_modifier->next)
+  {
     BKE_linestyle_alpha_modifier_copy(linestyle_dst, linestyle_modifier, flag_subdata);
   }
 
   BLI_listbase_clear(&linestyle_dst->thickness_modifiers);
   for (linestyle_modifier = (LineStyleModifier *)linestyle_src->thickness_modifiers.first;
        linestyle_modifier;
-       linestyle_modifier = linestyle_modifier->next) {
+       linestyle_modifier = linestyle_modifier->next)
+  {
     BKE_linestyle_thickness_modifier_copy(linestyle_dst, linestyle_modifier, flag_subdata);
   }
 
   BLI_listbase_clear(&linestyle_dst->geometry_modifiers);
   for (linestyle_modifier = (LineStyleModifier *)linestyle_src->geometry_modifiers.first;
        linestyle_modifier;
-       linestyle_modifier = linestyle_modifier->next) {
+       linestyle_modifier = linestyle_modifier->next)
+  {
     BKE_linestyle_geometry_modifier_copy(linestyle_dst, linestyle_modifier, flag_subdata);
   }
 }
@@ -463,8 +468,17 @@ static void linestyle_blend_write(BlendWriter *writer, ID *id, const void *id_ad
     }
   }
   if (linestyle->nodetree) {
-    BLO_write_struct(writer, bNodeTree, linestyle->nodetree);
-    ntreeBlendWrite(writer, linestyle->nodetree);
+    BLO_Write_IDBuffer *temp_embedded_id_buffer = BLO_write_allocate_id_buffer();
+    BLO_write_init_id_buffer_from_id(
+        temp_embedded_id_buffer, &linestyle->nodetree->id, BLO_write_is_undo(writer));
+    BLO_write_struct_at_address(writer,
+                                bNodeTree,
+                                linestyle->nodetree,
+                                BLO_write_get_id_buffer_temp_id(temp_embedded_id_buffer));
+    ntreeBlendWrite(
+        writer,
+        reinterpret_cast<bNodeTree *>(BLO_write_get_id_buffer_temp_id(temp_embedded_id_buffer)));
+    BLO_write_destroy_id_buffer(&temp_embedded_id_buffer);
   }
 }
 
@@ -628,8 +642,8 @@ static void direct_link_linestyle_thickness_modifier(BlendDataReader *reader,
   }
 }
 
-static void direct_link_linestyle_geometry_modifier(BlendDataReader *UNUSED(reader),
-                                                    LineStyleModifier *UNUSED(modifier))
+static void direct_link_linestyle_geometry_modifier(BlendDataReader * /*reader*/,
+                                                    LineStyleModifier * /*modifier*/)
 {
 }
 
@@ -669,7 +683,7 @@ static void linestyle_blend_read_lib(BlendLibReader *reader, ID *id)
       case LS_MODIFIER_DISTANCE_FROM_OBJECT: {
         LineStyleColorModifier_DistanceFromObject *cm =
             (LineStyleColorModifier_DistanceFromObject *)m;
-        BLO_read_id_address(reader, linestyle->id.lib, &cm->target);
+        BLO_read_id_address(reader, id, &cm->target);
         break;
       }
     }
@@ -679,7 +693,7 @@ static void linestyle_blend_read_lib(BlendLibReader *reader, ID *id)
       case LS_MODIFIER_DISTANCE_FROM_OBJECT: {
         LineStyleAlphaModifier_DistanceFromObject *am =
             (LineStyleAlphaModifier_DistanceFromObject *)m;
-        BLO_read_id_address(reader, linestyle->id.lib, &am->target);
+        BLO_read_id_address(reader, id, &am->target);
         break;
       }
     }
@@ -689,7 +703,7 @@ static void linestyle_blend_read_lib(BlendLibReader *reader, ID *id)
       case LS_MODIFIER_DISTANCE_FROM_OBJECT: {
         LineStyleThicknessModifier_DistanceFromObject *tm =
             (LineStyleThicknessModifier_DistanceFromObject *)m;
-        BLO_read_id_address(reader, linestyle->id.lib, &tm->target);
+        BLO_read_id_address(reader, id, &tm->target);
         break;
       }
     }
@@ -697,8 +711,8 @@ static void linestyle_blend_read_lib(BlendLibReader *reader, ID *id)
   for (int a = 0; a < MAX_MTEX; a++) {
     MTex *mtex = linestyle->mtex[a];
     if (mtex) {
-      BLO_read_id_address(reader, linestyle->id.lib, &mtex->tex);
-      BLO_read_id_address(reader, linestyle->id.lib, &mtex->object);
+      BLO_read_id_address(reader, id, &mtex->tex);
+      BLO_read_id_address(reader, id, &mtex->object);
     }
   }
 }
@@ -732,33 +746,33 @@ static void linestyle_blend_read_expand(BlendExpander *expander, ID *id)
 }
 
 IDTypeInfo IDType_ID_LS = {
-    /* id_code */ ID_LS,
-    /* id_filter */ FILTER_ID_LS,
-    /* main_listbase_index */ INDEX_ID_LS,
-    /* struct_size */ sizeof(FreestyleLineStyle),
-    /* name */ "FreestyleLineStyle",
-    /* name_plural */ "linestyles",
-    /* translation_context */ BLT_I18NCONTEXT_ID_FREESTYLELINESTYLE,
-    /* flags */ IDTYPE_FLAGS_APPEND_IS_REUSABLE,
-    /* asset_type_info */ nullptr,
+    /*id_code*/ ID_LS,
+    /*id_filter*/ FILTER_ID_LS,
+    /*main_listbase_index*/ INDEX_ID_LS,
+    /*struct_size*/ sizeof(FreestyleLineStyle),
+    /*name*/ "FreestyleLineStyle",
+    /*name_plural*/ "linestyles",
+    /*translation_context*/ BLT_I18NCONTEXT_ID_FREESTYLELINESTYLE,
+    /*flags*/ IDTYPE_FLAGS_APPEND_IS_REUSABLE,
+    /*asset_type_info*/ nullptr,
 
-    /* init_data */ linestyle_init_data,
-    /* copy_data */ linestyle_copy_data,
-    /* free_data */ linestyle_free_data,
-    /* make_local */ nullptr,
-    /* foreach_id */ linestyle_foreach_id,
-    /* foreach_cache */ nullptr,
-    /* foreach_path */ nullptr,
-    /* owner_pointer_get */ nullptr,
+    /*init_data*/ linestyle_init_data,
+    /*copy_data*/ linestyle_copy_data,
+    /*free_data*/ linestyle_free_data,
+    /*make_local*/ nullptr,
+    /*foreach_id*/ linestyle_foreach_id,
+    /*foreach_cache*/ nullptr,
+    /*foreach_path*/ nullptr,
+    /*owner_pointer_get*/ nullptr,
 
-    /* blend_write */ linestyle_blend_write,
-    /* blend_read_data */ linestyle_blend_read_data,
-    /* blend_read_lib */ linestyle_blend_read_lib,
-    /* blend_read_expand */ linestyle_blend_read_expand,
+    /*blend_write*/ linestyle_blend_write,
+    /*blend_read_data*/ linestyle_blend_read_data,
+    /*blend_read_lib*/ linestyle_blend_read_lib,
+    /*blend_read_expand*/ linestyle_blend_read_expand,
 
-    /* blend_read_undo_preserve */ nullptr,
+    /*blend_read_undo_preserve*/ nullptr,
 
-    /* lib_override_apply_post */ nullptr,
+    /*lib_override_apply_post*/ nullptr,
 };
 
 static const char *modifier_name[LS_MODIFIER_NUM] = {
@@ -775,7 +789,7 @@ void BKE_linestyle_init(FreestyleLineStyle *linestyle)
   linestyle_init_data(&linestyle->id);
 }
 
-FreestyleLineStyle *BKE_linestyle_new(struct Main *bmain, const char *name)
+FreestyleLineStyle *BKE_linestyle_new(Main *bmain, const char *name)
 {
   FreestyleLineStyle *linestyle;
 
@@ -802,7 +816,7 @@ static LineStyleModifier *new_modifier(const char *name, int type, size_t size)
   }
   m = (LineStyleModifier *)MEM_callocN(size, "line style modifier");
   m->type = type;
-  BLI_strncpy(m->name, name, sizeof(m->name));
+  STRNCPY(m->name, name);
   m->influence = 1.0f;
   m->flags = LS_MODIFIER_ENABLED | LS_MODIFIER_EXPANDED;
 
@@ -1147,7 +1161,7 @@ LineStyleModifier *BKE_linestyle_alpha_modifier_add(FreestyleLineStyle *linestyl
 
 LineStyleModifier *BKE_linestyle_alpha_modifier_copy(FreestyleLineStyle *linestyle,
                                                      const LineStyleModifier *m,
-                                                     const int UNUSED(flag))
+                                                     const int /*flag*/)
 {
   LineStyleModifier *new_m;
 
@@ -1735,7 +1749,7 @@ LineStyleModifier *BKE_linestyle_geometry_modifier_add(FreestyleLineStyle *lines
 
 LineStyleModifier *BKE_linestyle_geometry_modifier_copy(FreestyleLineStyle *linestyle,
                                                         const LineStyleModifier *m,
-                                                        const int UNUSED(flag))
+                                                        const int /*flag*/)
 {
   LineStyleModifier *new_m;
 
@@ -2001,8 +2015,8 @@ bool BKE_linestyle_use_textures(FreestyleLineStyle *linestyle, const bool use_sh
     if (linestyle && linestyle->use_nodes && linestyle->nodetree) {
       bNode *node;
 
-      for (node = static_cast<bNode *>(linestyle->nodetree->nodes.first); node;
-           node = node->next) {
+      for (node = static_cast<bNode *>(linestyle->nodetree->nodes.first); node; node = node->next)
+      {
         if (node->typeinfo->nclass == NODE_CLASS_TEXTURE) {
           return true;
         }
@@ -2025,7 +2039,8 @@ void BKE_linestyle_default_shader(const bContext *C, FreestyleLineStyle *linesty
 
   BLI_assert(linestyle->nodetree == nullptr);
 
-  ntree = ntreeAddTreeEmbedded(nullptr, &linestyle->id, "stroke_shader", "ShaderNodeTree");
+  ntree = blender::bke::ntreeAddTreeEmbedded(
+      nullptr, &linestyle->id, "stroke_shader", "ShaderNodeTree");
 
   uv_along_stroke = nodeAddStaticNode(C, ntree, SH_NODE_UVALONGSTROKE);
   uv_along_stroke->locx = 0.0f;

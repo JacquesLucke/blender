@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2022-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -35,6 +37,12 @@ MTLStateManager::MTLStateManager(MTLContext *ctx) : StateManager()
   /* Force update using default state. */
   current_ = ~state;
   current_mutable_ = ~mutable_state;
+
+  /* Clip distances initial mask forces to 0x111, which exceeds
+   * max clip plane count of 6, so limit to ensure all clipping
+   * planes get disabled. */
+  current_.clip_distances = 6;
+
   set_state(state);
   set_mutable_state(mutable_state);
 }
@@ -52,6 +60,7 @@ void MTLStateManager::force_state()
 {
   /* Little exception for clip distances since they need to keep the old count correct. */
   uint32_t clip_distances = current_.clip_distances;
+  BLI_assert(clip_distances <= 6);
   current_ = ~this->state;
   current_.clip_distances = clip_distances;
   current_mutable_ = ~this->mutable_state;
@@ -140,7 +149,8 @@ void MTLStateManager::set_mutable_state(const GPUStateMutable &state)
   }
 
   if (changed.stencil_compare_mask != 0 || changed.stencil_reference != 0 ||
-      changed.stencil_write_mask != 0) {
+      changed.stencil_write_mask != 0)
+  {
     set_stencil_mask((eGPUStencilTest)current_.stencil_test, state);
   }
 
@@ -282,27 +292,25 @@ void MTLStateManager::set_stencil_test(const eGPUStencilTest test, const eGPUSte
           context_, MTLStencilOperationKeep, MTLStencilOperationKeep, MTLStencilOperationReplace);
       break;
     case GPU_STENCIL_OP_COUNT_DEPTH_PASS:
-      /* Winding inversed due to flipped Y coordinate system in Metal. */
       mtl_stencil_set_op_separate(context_,
-                                  GPU_CULL_FRONT,
+                                  GPU_CULL_BACK,
                                   MTLStencilOperationKeep,
                                   MTLStencilOperationKeep,
                                   MTLStencilOperationIncrementWrap);
       mtl_stencil_set_op_separate(context_,
-                                  GPU_CULL_BACK,
+                                  GPU_CULL_FRONT,
                                   MTLStencilOperationKeep,
                                   MTLStencilOperationKeep,
                                   MTLStencilOperationDecrementWrap);
       break;
     case GPU_STENCIL_OP_COUNT_DEPTH_FAIL:
-      /* Winding inversed due to flipped Y coordinate system in Metal. */
       mtl_stencil_set_op_separate(context_,
-                                  GPU_CULL_FRONT,
+                                  GPU_CULL_BACK,
                                   MTLStencilOperationKeep,
                                   MTLStencilOperationDecrementWrap,
                                   MTLStencilOperationKeep);
       mtl_stencil_set_op_separate(context_,
-                                  GPU_CULL_BACK,
+                                  GPU_CULL_FRONT,
                                   MTLStencilOperationKeep,
                                   MTLStencilOperationIncrementWrap,
                                   MTLStencilOperationKeep);
@@ -331,11 +339,32 @@ void MTLStateManager::set_stencil_mask(const eGPUStencilTest test, const GPUStat
   }
 }
 
+void MTLStateManager::mtl_clip_plane_enable(uint i)
+{
+  BLI_assert(context_);
+  MTLContextGlobalShaderPipelineState &pipeline_state = context_->pipeline_state;
+  pipeline_state.clip_distance_enabled[i] = true;
+  pipeline_state.dirty_flags |= MTL_PIPELINE_STATE_PSO_FLAG;
+}
+
+void MTLStateManager::mtl_clip_plane_disable(uint i)
+{
+  BLI_assert(context_);
+  MTLContextGlobalShaderPipelineState &pipeline_state = context_->pipeline_state;
+  pipeline_state.clip_distance_enabled[i] = false;
+  pipeline_state.dirty_flags |= MTL_PIPELINE_STATE_PSO_FLAG;
+}
+
 void MTLStateManager::set_clip_distances(const int new_dist_len, const int old_dist_len)
 {
-  /* TODO(Metal): Support Clip distances in METAL. Clip distance
-   * assignment via shader is supported, but global clip-states require
-   * support. */
+  BLI_assert(new_dist_len <= 6);
+  BLI_assert(old_dist_len <= 6);
+  for (uint i = 0; i < new_dist_len; i++) {
+    mtl_clip_plane_enable(i);
+  }
+  for (uint i = new_dist_len; i < old_dist_len; i++) {
+    mtl_clip_plane_disable(i);
+  }
 }
 
 void MTLStateManager::set_logic_op(const bool enable)
@@ -546,18 +575,48 @@ void MTLStateManager::issue_barrier(eGPUBarrier barrier_bits)
   eGPUStageBarrierBits before_stages = GPU_BARRIER_STAGE_ANY;
   eGPUStageBarrierBits after_stages = GPU_BARRIER_STAGE_ANY;
 
-  MTLContext *ctx = reinterpret_cast<MTLContext *>(GPU_context_active_get());
+  MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
   BLI_assert(ctx);
 
-  /* Apple Silicon does not support memory barriers.
-   * We do not currently need these due to implicit API guarantees.
-   * NOTE(Metal): MTLFence/MTLEvent may be required to synchronize work if
-   * untracked resources are ever used. */
-  if ([ctx->device hasUnifiedMemory]) {
+  ctx->main_command_buffer.insert_memory_barrier(barrier_bits, before_stages, after_stages);
+}
+
+MTLFence::~MTLFence()
+{
+  if (mtl_event_) {
+    [mtl_event_ release];
+    mtl_event_ = nil;
+  }
+}
+
+void MTLFence::signal()
+{
+  if (mtl_event_ == nil) {
+    MTLContext *ctx = MTLContext::get();
+    BLI_assert(ctx);
+    mtl_event_ = [ctx->device newEvent];
+  }
+  MTLContext *ctx = MTLContext::get();
+  BLI_assert(ctx);
+  ctx->main_command_buffer.encode_signal_event(mtl_event_, ++last_signalled_value_);
+
+  signalled_ = true;
+}
+
+void MTLFence::wait()
+{
+  /* do not attempt to wait if event has not yet been signalled for the first time. */
+  if (mtl_event_ == nil) {
     return;
   }
 
-  ctx->main_command_buffer.insert_memory_barrier(barrier_bits, before_stages, after_stages);
+  if (signalled_) {
+    MTLContext *ctx = MTLContext::get();
+    BLI_assert(ctx);
+
+    ctx->main_command_buffer.encode_wait_for_event(mtl_event_, last_signalled_value_);
+    signalled_ = false;
+  }
 }
 
 /** \} */
@@ -573,7 +632,7 @@ void MTLStateManager::texture_unpack_row_length_set(uint len)
   ctx->pipeline_state.unpack_row_length = len;
 }
 
-void MTLStateManager::texture_bind(Texture *tex_, eGPUSamplerState sampler_type, int unit)
+void MTLStateManager::texture_bind(Texture *tex_, GPUSamplerState sampler_type, int unit)
 {
   BLI_assert(tex_);
   gpu::MTLTexture *mtl_tex = static_cast<gpu::MTLTexture *>(tex_);
@@ -581,7 +640,7 @@ void MTLStateManager::texture_bind(Texture *tex_, eGPUSamplerState sampler_type,
 
   MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
   if (unit >= 0) {
-    ctx->texture_bind(mtl_tex, unit);
+    ctx->texture_bind(mtl_tex, unit, false);
 
     /* Fetching textures default sampler configuration and applying
      * eGPUSampler State on top. This path exists to support
@@ -600,14 +659,14 @@ void MTLStateManager::texture_unbind(Texture *tex_)
   gpu::MTLTexture *mtl_tex = static_cast<gpu::MTLTexture *>(tex_);
   BLI_assert(mtl_tex);
   MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
-  ctx->texture_unbind(mtl_tex);
+  ctx->texture_unbind(mtl_tex, false);
 }
 
 void MTLStateManager::texture_unbind_all()
 {
   MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
   BLI_assert(ctx);
-  ctx->texture_unbind_all();
+  ctx->texture_unbind_all(false);
 }
 
 /** \} */
@@ -618,19 +677,32 @@ void MTLStateManager::texture_unbind_all()
 
 void MTLStateManager::image_bind(Texture *tex_, int unit)
 {
-  this->texture_bind(tex_, GPU_SAMPLER_DEFAULT, unit);
+  BLI_assert(tex_);
+  gpu::MTLTexture *mtl_tex = static_cast<gpu::MTLTexture *>(tex_);
+  BLI_assert(mtl_tex);
+
+  MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
+  if (unit >= 0) {
+    ctx->texture_bind(mtl_tex, unit, true);
+  }
 }
 
 void MTLStateManager::image_unbind(Texture *tex_)
 {
-  this->texture_unbind(tex_);
+  BLI_assert(tex_);
+  gpu::MTLTexture *mtl_tex = static_cast<gpu::MTLTexture *>(tex_);
+  BLI_assert(mtl_tex);
+  MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
+  ctx->texture_unbind(mtl_tex, true);
 }
 
 void MTLStateManager::image_unbind_all()
 {
-  this->texture_unbind_all();
+  MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
+  BLI_assert(ctx);
+  ctx->texture_unbind_all(true);
 }
 
 /** \} */
 
-}  // blender::gpu
+}  // namespace blender::gpu

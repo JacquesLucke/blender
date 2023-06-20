@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup intern_iksolver
@@ -17,9 +18,7 @@ using namespace std;
 class IK_QSolver {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  IK_QSolver() : root(NULL)
-  {
-  }
+  IK_QSolver() : root(NULL) {}
 
   IK_QJacobianSolver solver;
   IK_QSegment *root;

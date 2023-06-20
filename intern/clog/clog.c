@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2018-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup intern_clog
@@ -316,7 +318,8 @@ static bool clg_ctx_filter_check(CLogContext *ctx, const char *identifier)
       }
       else if ((len >= 2) && (STREQLEN(".*", &flt->match[len - 2], 2))) {
         if (((identifier_len == len - 2) && STREQLEN(identifier, flt->match, len - 2)) ||
-            ((identifier_len >= len - 1) && STREQLEN(identifier, flt->match, len - 1))) {
+            ((identifier_len >= len - 1) && STREQLEN(identifier, flt->match, len - 1)))
+        {
           return (bool)i;
         }
       }

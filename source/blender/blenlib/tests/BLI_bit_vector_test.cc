@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "BLI_bit_vector.hh"
 #include "BLI_exception_safety_test_utils.hh"
@@ -6,7 +8,7 @@
 
 #include "testing/testing.h"
 
-namespace blender::tests {
+namespace blender::bits::tests {
 
 TEST(bit_vector, DefaultConstructor)
 {
@@ -183,4 +185,4 @@ TEST(bit_vector, AppendMany)
   EXPECT_TRUE(vec[5]);
 }
 
-}  // namespace blender::tests
+}  // namespace blender::bits::tests

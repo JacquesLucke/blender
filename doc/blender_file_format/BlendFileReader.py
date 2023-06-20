@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2010-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 ######################################################
@@ -231,7 +233,7 @@ class FileBlockHeader:
             self.SDNAIndex = 0
             self.Count = 0
             self.FileOffset = handle.tell()
-        #self.Code += ' ' * (4 - len(self.Code))
+        # self.Code += ' ' * (4 - len(self.Code))
         log.debug("found blend-file-block-fileheader {0} {1}".format(self.Code, self.FileOffset))
 
     def skip(self, handle):

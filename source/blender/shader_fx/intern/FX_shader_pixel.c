@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2017 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2017 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup shader_fx
@@ -62,19 +63,19 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ShaderFxTypeInfo shaderfx_Type_Pixel = {
-    /* name */ N_("Pixelate"),
-    /* structName */ "PixelShaderFxData",
-    /* structSize */ sizeof(PixelShaderFxData),
-    /* type */ eShaderFxType_GpencilType,
-    /* flags */ 0,
+    /*name*/ N_("Pixelate"),
+    /*structName*/ "PixelShaderFxData",
+    /*structSize*/ sizeof(PixelShaderFxData),
+    /*type*/ eShaderFxType_GpencilType,
+    /*flags*/ 0,
 
-    /* copyData */ copyData,
+    /*copyData*/ copyData,
 
-    /* initData */ initData,
-    /* freeData */ NULL,
-    /* isDisabled */ NULL,
-    /* updateDepsgraph */ NULL,
-    /* dependsOnTime */ NULL,
-    /* foreachIDLink */ NULL,
-    /* panelRegister */ panelRegister,
+    /*initData*/ initData,
+    /*freeData*/ NULL,
+    /*isDisabled*/ NULL,
+    /*updateDepsgraph*/ NULL,
+    /*dependsOnTime*/ NULL,
+    /*foreachIDLink*/ NULL,
+    /*panelRegister*/ panelRegister,
 };

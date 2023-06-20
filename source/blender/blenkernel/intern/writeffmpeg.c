@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
  * Partial Copyright 2006 Peter Schlaile. */
 
 /** \file
@@ -103,8 +105,8 @@ typedef struct FFMpegContext {
 
 static void ffmpeg_dict_set_int(AVDictionary **dict, const char *key, int value);
 static void ffmpeg_filepath_get(FFMpegContext *context,
-                                char *string,
-                                const struct RenderData *rd,
+                                char filepath[FILE_MAX],
+                                const RenderData *rd,
                                 bool preview,
                                 const char *suffix);
 
@@ -383,7 +385,7 @@ static AVFrame *generate_video_frame(FFMpegContext *context, const uint8_t *pixe
     rgb_frame = context->current_frame;
   }
 
-  /* Copy the Blender pixels into the FFmpeg datastructure, taking care of endianness and flipping
+  /* Copy the Blender pixels into the FFMPEG data-structure, taking care of endianness and flipping
    * the image vertically. */
   int linesize = rgb_frame->linesize[0];
   for (int y = 0; y < height; y++) {
@@ -469,18 +471,19 @@ static AVRational calc_time_base(uint den, double num, int codec_id)
 static const AVCodec *get_av1_encoder(
     FFMpegContext *context, RenderData *rd, AVDictionary **opts, int rectx, int recty)
 {
-  /* There are three possible encoders for AV1: libaom-av1, librav1e, and libsvtav1. librav1e tends
-   * to give the best compression quality while libsvtav1 tends to be the fastest encoder. One of
-   * each will be picked based on the preset setting, and if a particular encoder is not available,
-   * then use the default returned by FFMpeg. */
+  /* There are three possible encoders for AV1: `libaom-av1`, librav1e, and `libsvtav1`. librav1e
+   * tends to give the best compression quality while `libsvtav1` tends to be the fastest encoder.
+   * One of each will be picked based on the preset setting, and if a particular encoder is not
+   * available, then use the default returned by FFMpeg. */
   const AVCodec *codec = NULL;
   switch (context->ffmpeg_preset) {
     case FFM_PRESET_BEST:
-      /* Default to libaom-av1 for BEST preset due to it performing better than rav1e in terms of
-       * video quality (VMAF scores). Fallback to rav1e if libaom-av1 isn't available. */
-      codec = avcodec_find_encoder_by_name("libaom-av1");
+      /* `libaom-av1` may produce better VMAF-scoring videos in several cases, but there are cases
+       * where using a different encoder is desirable, such as in #103849. */
+      codec = avcodec_find_encoder_by_name("librav1e");
       if (!codec) {
-        codec = avcodec_find_encoder_by_name("librav1e");
+        /* Fallback to `libaom-av1` if librav1e is not found. */
+        codec = avcodec_find_encoder_by_name("libaom-av1");
       }
       break;
     case FFM_PRESET_REALTIME:
@@ -524,9 +527,9 @@ static const AVCodec *get_av1_encoder(
           break;
       }
       if (context->ffmpeg_crf >= 0) {
-        /* librav1e does not use -crf, but uses -qp in the range of 0-255. Calculates the roughly
-         * equivalent float, and truncates it to an integer. */
-        unsigned int qp_value = ((float)context->ffmpeg_crf) * 255.0F / 51.0F;
+        /* librav1e does not use `-crf`, but uses `-qp` in the range of 0-255.
+         * Calculates the roughly equivalent float, and truncates it to an integer. */
+        uint qp_value = ((float)context->ffmpeg_crf) * 255.0f / 51.0f;
         if (qp_value > 255) {
           qp_value = 255;
         }
@@ -534,12 +537,12 @@ static const AVCodec *get_av1_encoder(
       }
       /* Set gop_size as rav1e's "--keyint". */
       char buffer[64];
-      BLI_snprintf(buffer, sizeof(buffer), "keyint=%d", context->ffmpeg_gop_size);
+      SNPRINTF(buffer, "keyint=%d", context->ffmpeg_gop_size);
       av_dict_set(opts, "rav1e-params", buffer, 0);
     }
     else if (STREQ(codec->name, "libsvtav1")) {
       /* Set preset value based on ffmpeg_preset.
-       * Must check context->ffmpeg_preset again in case this encoder was selected due to the
+       * Must check `context->ffmpeg_preset` again in case this encoder was selected due to the
        * absence of another. */
       switch (context->ffmpeg_preset) {
         case FFM_PRESET_REALTIME:
@@ -554,13 +557,13 @@ static const AVCodec *get_av1_encoder(
           break;
       }
       if (context->ffmpeg_crf >= 0) {
-        /* libsvtav1 does not support crf until FFmpeg builds since 2022-02-24, use qp as fallback.
-         */
+        /* `libsvtav1` does not support `crf` until FFmpeg builds since 2022-02-24,
+         * use `qp` as fallback. */
         ffmpeg_dict_set_int(opts, "qp", context->ffmpeg_crf);
       }
     }
     else if (STREQ(codec->name, "libaom-av1")) {
-      /* Speed up libaom-av1 encoding by enabling multithreading and setting tiles. */
+      /* Speed up libaom-av1 encoding by enabling multi-threading and setting tiles. */
       ffmpeg_dict_set_int(opts, "row-mt", 1);
       const char *tiles_string = NULL;
       bool tiles_string_is_dynamic = false;
@@ -585,7 +588,7 @@ static const AVCodec *get_av1_encoder(
         }
         else {
           /* Is not a square num, set greater side based on longer side, or use a square if both
-             sides are equal. */
+           * sides are equal. */
           int sqrt_p2 = power_of_2_min_i(threads_sqrt);
           if (sqrt_p2 < 2) {
             /* Ensure a default minimum. */
@@ -862,7 +865,7 @@ static AVStream *alloc_video_stream(FFMpegContext *context,
                                                             255);
   st->avg_frame_rate = av_inv_q(c->time_base);
 
-  if (codec->capabilities & AV_CODEC_CAP_AUTO_THREADS) {
+  if (codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) {
     c->thread_count = 0;
   }
   else {
@@ -1072,7 +1075,7 @@ static void ffmpeg_dict_set_int(AVDictionary **dict, const char *key, int value)
 {
   char buffer[32];
 
-  BLI_snprintf(buffer, sizeof(buffer), "%d", value);
+  SNPRINTF(buffer, "%d", value);
 
   av_dict_set(dict, key, buffer, 0);
 }
@@ -1080,14 +1083,14 @@ static void ffmpeg_dict_set_int(AVDictionary **dict, const char *key, int value)
 static void ffmpeg_add_metadata_callback(void *data,
                                          const char *propname,
                                          char *propvalue,
-                                         int UNUSED(len))
+                                         int UNUSED(propvalue_maxncpy))
 {
   AVDictionary **metadata = (AVDictionary **)data;
   av_dict_set(metadata, propname, propvalue, 0);
 }
 
 static int start_ffmpeg_impl(FFMpegContext *context,
-                             struct RenderData *rd,
+                             RenderData *rd,
                              int rectx,
                              int recty,
                              const char *suffix,
@@ -1096,7 +1099,7 @@ static int start_ffmpeg_impl(FFMpegContext *context,
   /* Handle to the output file */
   AVFormatContext *of;
   const AVOutputFormat *fmt;
-  char name[FILE_MAX], error[1024];
+  char filepath[FILE_MAX], error[1024];
   const char **exts;
 
   context->ffmpeg_type = rd->ffcodecdata.type;
@@ -1114,14 +1117,14 @@ static int start_ffmpeg_impl(FFMpegContext *context,
   }
 
   /* Determine the correct filename */
-  ffmpeg_filepath_get(context, name, rd, context->ffmpeg_preview, suffix);
+  ffmpeg_filepath_get(context, filepath, rd, context->ffmpeg_preview, suffix);
   PRINT(
       "Starting output to %s(ffmpeg)...\n"
       "  Using type=%d, codec=%d, audio_codec=%d,\n"
       "  video_bitrate=%d, audio_bitrate=%d,\n"
       "  gop_size=%d, autosplit=%d\n"
       "  render width=%d, render height=%d\n",
-      name,
+      filepath,
       context->ffmpeg_type,
       context->ffmpeg_codec,
       context->ffmpeg_audio_codec,
@@ -1154,7 +1157,7 @@ static int start_ffmpeg_impl(FFMpegContext *context,
   enum AVCodecID audio_codec = context->ffmpeg_audio_codec;
   enum AVCodecID video_codec = context->ffmpeg_codec;
 
-  of->url = av_strdup(name);
+  of->url = av_strdup(filepath);
   /* Check if we need to force change the codec because of file type codec restrictions */
   switch (context->ffmpeg_type) {
     case FFMPEG_OGG:
@@ -1216,8 +1219,9 @@ static int start_ffmpeg_impl(FFMpegContext *context,
   if (context->ffmpeg_type == FFMPEG_DV) {
     audio_codec = AV_CODEC_ID_PCM_S16LE;
     if (context->ffmpeg_audio_codec != AV_CODEC_ID_NONE &&
-        rd->ffcodecdata.audio_mixrate != 48000 && rd->ffcodecdata.audio_channels != 2) {
-      BKE_report(reports, RPT_ERROR, "FFMPEG only supports 48khz / stereo audio for DV!");
+        rd->ffcodecdata.audio_mixrate != 48000 && rd->ffcodecdata.audio_channels != 2)
+    {
+      BKE_report(reports, RPT_ERROR, "FFmpeg only supports 48khz / stereo audio for DV!");
       goto fail;
     }
   }
@@ -1254,7 +1258,7 @@ static int start_ffmpeg_impl(FFMpegContext *context,
     }
   }
   if (!(fmt->flags & AVFMT_NOFILE)) {
-    if (avio_open(&of->pb, name, AVIO_FLAG_WRITE) < 0) {
+    if (avio_open(&of->pb, filepath, AVIO_FLAG_WRITE) < 0) {
       BKE_report(reports, RPT_ERROR, "Could not open file for writing");
       PRINT("Could not open file for writing\n");
       goto fail;
@@ -1276,7 +1280,7 @@ static int start_ffmpeg_impl(FFMpegContext *context,
   }
 
   context->outfile = of;
-  av_dump_format(of, 0, name, 1);
+  av_dump_format(of, 0, filepath, 1);
 
   return 1;
 
@@ -1355,8 +1359,11 @@ static void flush_ffmpeg(AVCodecContext *c, AVStream *stream, AVFormatContext *o
  * ********************************************************************** */
 
 /* Get the output filename-- similar to the other output formats */
-static void ffmpeg_filepath_get(
-    FFMpegContext *context, char *string, const RenderData *rd, bool preview, const char *suffix)
+static void ffmpeg_filepath_get(FFMpegContext *context,
+                                char filepath[FILE_MAX],
+                                const RenderData *rd,
+                                bool preview,
+                                const char *suffix)
 {
   char autosplit[20];
 
@@ -1364,7 +1371,7 @@ static void ffmpeg_filepath_get(
   const char **fe = exts;
   int sfra, efra;
 
-  if (!string || !exts) {
+  if (!filepath || !exts) {
     return;
   }
 
@@ -1377,57 +1384,60 @@ static void ffmpeg_filepath_get(
     efra = rd->efra;
   }
 
-  strcpy(string, rd->pic);
-  BLI_path_abs(string, BKE_main_blendfile_path_from_global());
+  BLI_strncpy(filepath, rd->pic, FILE_MAX);
+  BLI_path_abs(filepath, BKE_main_blendfile_path_from_global());
 
-  BLI_make_existing_file(string);
+  BLI_file_ensure_parent_dir_exists(filepath);
 
   autosplit[0] = '\0';
 
   if ((rd->ffcodecdata.flags & FFMPEG_AUTOSPLIT_OUTPUT) != 0) {
     if (context) {
-      BLI_snprintf(autosplit, sizeof(autosplit), "_%03d", context->ffmpeg_autosplit_count);
+      SNPRINTF(autosplit, "_%03d", context->ffmpeg_autosplit_count);
     }
   }
 
   if (rd->scemode & R_EXTENSION) {
     while (*fe) {
-      if (BLI_strcasecmp(string + strlen(string) - strlen(*fe), *fe) == 0) {
+      if (BLI_strcasecmp(filepath + strlen(filepath) - strlen(*fe), *fe) == 0) {
         break;
       }
       fe++;
     }
 
     if (*fe == NULL) {
-      strcat(string, autosplit);
+      BLI_strncat(filepath, autosplit, FILE_MAX);
 
-      BLI_path_frame_range(string, sfra, efra, 4);
-      strcat(string, *exts);
+      BLI_path_frame_range(filepath, FILE_MAX, sfra, efra, 4);
+      BLI_strncat(filepath, *exts, FILE_MAX);
     }
     else {
-      *(string + strlen(string) - strlen(*fe)) = '\0';
-      strcat(string, autosplit);
-      strcat(string, *fe);
+      *(filepath + strlen(filepath) - strlen(*fe)) = '\0';
+      BLI_strncat(filepath, autosplit, FILE_MAX);
+      BLI_strncat(filepath, *fe, FILE_MAX);
     }
   }
   else {
-    if (BLI_path_frame_check_chars(string)) {
-      BLI_path_frame_range(string, sfra, efra, 4);
+    if (BLI_path_frame_check_chars(filepath)) {
+      BLI_path_frame_range(filepath, FILE_MAX, sfra, efra, 4);
     }
 
-    strcat(string, autosplit);
+    BLI_strncat(filepath, autosplit, FILE_MAX);
   }
 
-  BLI_path_suffix(string, FILE_MAX, suffix, "");
+  BLI_path_suffix(filepath, FILE_MAX, suffix, "");
 }
 
-void BKE_ffmpeg_filepath_get(char *string, const RenderData *rd, bool preview, const char *suffix)
+void BKE_ffmpeg_filepath_get(char filepath[/*FILE_MAX*/ 1024],
+                             const RenderData *rd,
+                             bool preview,
+                             const char *suffix)
 {
-  ffmpeg_filepath_get(NULL, string, rd, preview, suffix);
+  ffmpeg_filepath_get(NULL, filepath, rd, preview, suffix);
 }
 
 int BKE_ffmpeg_start(void *context_v,
-                     const struct Scene *scene,
+                     const Scene *scene,
                      RenderData *rd,
                      int rectx,
                      int recty,
@@ -1665,7 +1675,7 @@ void BKE_ffmpeg_preset_set(RenderData *rd, int preset)
       rd->ffcodecdata.type = FFMPEG_MPEG2;
       rd->ffcodecdata.video_bitrate = 6000;
 
-#  if 0 /* Don't set resolution, see T21351. */
+#  if 0 /* Don't set resolution, see #21351. */
       rd->xsch = 720;
       rd->ysch = isntsc ? 480 : 576;
 #  endif
@@ -1737,7 +1747,8 @@ void BKE_ffmpeg_image_type_verify(RenderData *rd, const ImageFormatData *imf)
 
   if (imf->imtype == R_IMF_IMTYPE_FFMPEG) {
     if (rd->ffcodecdata.type <= 0 || rd->ffcodecdata.codec <= 0 ||
-        rd->ffcodecdata.audio_codec <= 0 || rd->ffcodecdata.video_bitrate <= 1) {
+        rd->ffcodecdata.audio_codec <= 0 || rd->ffcodecdata.video_bitrate <= 1)
+    {
       BKE_ffmpeg_preset_set(rd, FFMPEG_PRESET_H264);
       rd->ffcodecdata.constant_rate_factor = FFM_CRF_MEDIUM;
       rd->ffcodecdata.ffmpeg_preset = FFM_PRESET_GOOD;

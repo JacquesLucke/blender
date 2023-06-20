@@ -1,6 +1,9 @@
-/* SPDX-License-Identifier: BSD-3-Clause
- * Original code Copyright 2017, Intel Corporation
- * Modifications Copyright 2018-2022 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2017 Intel Corporation
+ * SPDX-FileCopyrightText: 2018-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Originally by Intel Corporation, modified by the Blender Foundation. */
 
 #pragma once
 
@@ -11,17 +14,11 @@
 CCL_NAMESPACE_BEGIN
 
 #ifdef __KERNEL_AVX__
-__forceinline vfloat8::vfloat8()
-{
-}
+__forceinline vfloat8::vfloat8() {}
 
-__forceinline vfloat8::vfloat8(const vfloat8 &f) : m256(f.m256)
-{
-}
+__forceinline vfloat8::vfloat8(const vfloat8 &f) : m256(f.m256) {}
 
-__forceinline vfloat8::vfloat8(const __m256 &f) : m256(f)
-{
-}
+__forceinline vfloat8::vfloat8(const __m256 &f) : m256(f) {}
 
 __forceinline vfloat8::operator const __m256 &() const
 {

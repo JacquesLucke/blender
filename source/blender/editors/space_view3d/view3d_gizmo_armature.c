@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spview3d
@@ -37,7 +39,7 @@
  * \{ */
 
 /*
- * TODO(@campbellbarton): Current conversion is a approximation (usable not correct),
+ * TODO(@ideasman42): Current conversion is a approximation (usable not correct),
  * we'll need to take the next/previous bones into account to get the tangent directions.
  * First last matrices from 'BKE_pchan_bbone_spline_setup' are close but also not quite accurate
  * since they're not at either end-points on the curve.
@@ -194,7 +196,7 @@ static void WIDGETGROUP_armature_spline_refresh(const bContext *C, wmGizmoGroup 
     /* need to set property here for undo. TODO: would prefer to do this in _init. */
     WM_gizmo_target_property_def_func(gz,
                                       "offset",
-                                      &(const struct wmGizmoPropertyFnParams){
+                                      &(const wmGizmoPropertyFnParams){
                                           .value_get_fn = gizmo_bbone_offset_get,
                                           .value_set_fn = gizmo_bbone_offset_set,
                                           .range_get_fn = NULL,

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2022 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -59,6 +60,8 @@
 #    define bool2 bvec2
 #    define bool3 bvec3
 #    define bool4 bvec4
+#    define packed_float3 vec3
+#    define packed_int3 int3
 #  endif
 
 #else /* C / C++ */
@@ -67,8 +70,8 @@
 #  include "BLI_assert.h"
 
 #  ifdef __cplusplus
-#    include "BLI_float4x4.hh"
-#    include "BLI_math_vec_types.hh"
+#    include "BLI_math_matrix_types.hh"
+#    include "BLI_math_vector_types.hh"
 using blender::float2;
 using blender::float3;
 using blender::float4;
@@ -83,6 +86,8 @@ using bool1 = int;
 using bool2 = blender::int2;
 using bool3 = blender::int3;
 using bool4 = blender::int4;
+using packed_float3 = blender::float3;
+using packed_int3 = blender::int3;
 
 #  else /* C */
 typedef float float2[2];
@@ -99,6 +104,8 @@ typedef int bool1;
 typedef int bool2[2];
 typedef int bool3[2];
 typedef int bool4[4];
+typedef float3 packed_float3;
+typedef int3 packed_int3;
 #  endif
 
 #endif

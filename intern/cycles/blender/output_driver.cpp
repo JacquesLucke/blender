@@ -1,17 +1,14 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2021-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2021-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "blender/output_driver.h"
 
 CCL_NAMESPACE_BEGIN
 
-BlenderOutputDriver::BlenderOutputDriver(BL::RenderEngine &b_engine) : b_engine_(b_engine)
-{
-}
+BlenderOutputDriver::BlenderOutputDriver(BL::RenderEngine &b_engine) : b_engine_(b_engine) {}
 
-BlenderOutputDriver::~BlenderOutputDriver()
-{
-}
+BlenderOutputDriver::~BlenderOutputDriver() {}
 
 bool BlenderOutputDriver::read_render_tile(const Tile &tile)
 {

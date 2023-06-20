@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -378,6 +380,8 @@ typedef struct BMesh {
    * This allows save invalidation of a #BMesh when it's freed,
    * so the Python object will report it as having been removed,
    * instead of crashing on invalid memory access.
+   *
+   * Doesn't hold a #PyObject reference, cleared when the last object is de-referenced.
    */
   void *py_handle;
 } BMesh;
@@ -429,8 +433,7 @@ enum {
 #define _BM_GENERIC_TYPE_ELEM_CONST \
   const void *, const BMVert *, const BMEdge *, const BMLoop *, const BMFace *, \
       const BMVert_OFlag *, const BMEdge_OFlag *, const BMFace_OFlag *, const BMElem *, \
-      const BMElemF *, const BMHeader *, void *const, BMVert *const, BMEdge *const, \
-      BMLoop *const, BMFace *const, BMElem *const, BMElemF *const, BMHeader *const
+      const BMElemF *, const BMHeader *
 
 #define BM_CHECK_TYPE_ELEM_CONST(ele) CHECK_TYPE_ANY(ele, _BM_GENERIC_TYPES_CONST)
 
@@ -475,9 +478,7 @@ enum {
   BM_ELEM_SELECT = (1 << 0),
   BM_ELEM_HIDDEN = (1 << 1),
   BM_ELEM_SEAM = (1 << 2),
-  /**
-   * used for faces and edges, note from the user POV,
-   * this is a sharp edge when disabled */
+  /** Used for faces and edges, note from the user POV, this is a sharp edge when disabled. */
   BM_ELEM_SMOOTH = (1 << 3),
   /**
    * Internal flag, used for ensuring correct normals
@@ -532,6 +533,19 @@ typedef bool (*BMLoopPairFilterFunc)(const BMLoop *, const BMLoop *, void *user_
 
 #define BM_ELEM_CD_GET_BOOL(ele, offset) \
   (BLI_assert(offset != -1), *((bool *)((char *)(ele)->head.data + (offset))))
+
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
+#  define BM_ELEM_CD_GET_BOOL_P(ele, offset) \
+    (BLI_assert(offset != -1), \
+     _Generic(ele, \
+              GENERIC_TYPE_ANY((bool *)POINTER_OFFSET((ele)->head.data, offset), \
+                               _BM_GENERIC_TYPE_ELEM_NONCONST), \
+              GENERIC_TYPE_ANY((const bool *)POINTER_OFFSET((ele)->head.data, offset), \
+                               _BM_GENERIC_TYPE_ELEM_CONST)))
+#else
+#  define BM_ELEM_CD_GET_BOOL_P(ele, offset) \
+    (BLI_assert(offset != -1), (bool *)((char *)(ele)->head.data + (offset)))
+#endif
 
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
 #  define BM_ELEM_CD_GET_VOID_P(ele, offset) \
@@ -638,14 +652,15 @@ typedef bool (*BMLoopPairFilterFunc)(const BMLoop *, const BMLoop *, void *user_
    (((&e->v1_disk_link)[v == e->v2]).prev))
 
 /**
- * size to use for stack arrays when dealing with NGons,
- * alloc after this limit is reached.
- * this value is rather arbitrary */
+ * Size to use for stack arrays when dealing with NGons, allocate after this limit is reached.
+ * this value is rather arbitrary.
+ */
 #define BM_DEFAULT_NGON_STACK_SIZE 32
 /**
- * size to use for stack arrays dealing with connected mesh data
+ * Size to use for stack arrays dealing with connected mesh data
  * verts of faces, edges of vert - etc.
- * often used with #BM_iter_as_arrayN() */
+ * often used with #BM_iter_as_arrayN().
+ */
 #define BM_DEFAULT_ITER_STACK_SIZE 16
 
 /* avoid inf loop, this value is arbitrary

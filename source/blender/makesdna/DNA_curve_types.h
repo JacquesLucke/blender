@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -47,7 +48,9 @@ typedef struct BevPoint {
 typedef struct BevList {
   struct BevList *next, *prev;
   int nr, dupe_nr;
-  int poly, hole;
+  /** Cyclic when set to any value besides -1. */
+  int poly;
+  int hole;
   int charidx;
   int *segbevcount;
   float *seglen;
@@ -156,11 +159,11 @@ typedef struct Nurb {
 } Nurb;
 
 typedef struct CharInfo {
-  short kern;
+  float kern;
   /** Index start at 1, unlike mesh & nurbs. */
   short mat_nr;
   char flag;
-  char _pad[3];
+  char _pad[1];
 } CharInfo;
 
 typedef struct TextBox {
@@ -211,14 +214,13 @@ typedef struct Curve {
 
   struct CurveProfile *bevel_profile;
 
-  /* texture space, copied as one block in editobject.c */
-  float loc[3];
-  float size[3];
+  float texspace_location[3];
+  float texspace_size[3];
 
   /** Creation-time type of curve datablock. */
   short type;
 
-  char texflag;
+  char texspace_flag;
   char _pad0[7];
   short twist_mode;
   float twist_smooth, smallcaps_scale;
@@ -313,10 +315,10 @@ typedef struct Curve {
 
 /* **************** CURVE ********************* */
 
-/** #Curve.texflag */
+/** #Curve.texspace_flag */
 enum {
-  CU_AUTOSPACE = 1,
-  CU_AUTOSPACE_EVALUATED = 2,
+  CU_TEXSPACE_FLAG_AUTO = 1 << 0,
+  CU_TEXSPACE_FLAG_AUTO_EVALUATED = 1 << 1,
 };
 
 /** #Curve.flag */
@@ -600,6 +602,10 @@ enum {
   /** Set at runtime, indicates char that doesn't fit in text boxes. */
   CU_CHINFO_OVERFLOW = 1 << 6,
 };
+
+/** User adjustable as styles (not relating to run-time layout calculation). */
+#define CU_CHINFO_STYLE_ALL \
+  (CU_CHINFO_BOLD | CU_CHINFO_ITALIC | CU_CHINFO_UNDERLINE | CU_CHINFO_SMALLCAPS)
 
 /* mixed with KEY_LINEAR but define here since only curve supports */
 #define KEY_CU_EASE 3

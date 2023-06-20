@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup pythonintern
@@ -52,19 +54,19 @@ static void python_script_error_jump_text(Text *text, const char *filepath)
  * Generate a `filepath` from a text-block so we can tell what file a text block comes from.
  */
 static void bpy_text_filepath_get(char *filepath,
-                                  const size_t filepath_maxlen,
+                                  const size_t filepath_maxncpy,
                                   const Main *bmain,
                                   const Text *text)
 {
   BLI_snprintf(filepath,
-               filepath_maxlen,
+               filepath_maxncpy,
                "%s%c%s",
                ID_BLEND_PATH(bmain, &text->id),
                SEP,
                text->id.name + 2);
 }
 
-/* Very annoying! Undo #_PyModule_Clear(), see T23871. */
+/* Very annoying! Undo #_PyModule_Clear(), see #23871. */
 #define PYMODULE_CLEAR_WORKAROUND
 
 #ifdef PYMODULE_CLEAR_WORKAROUND
@@ -85,11 +87,8 @@ typedef struct {
  *
  * \note Share a function for this since setup/cleanup logic is the same.
  */
-static bool python_script_exec(bContext *C,
-                               const char *filepath,
-                               struct Text *text,
-                               struct ReportList *reports,
-                               const bool do_jump)
+static bool python_script_exec(
+    bContext *C, const char *filepath, Text *text, ReportList *reports, const bool do_jump)
 {
   Main *bmain_old = CTX_data_main(C);
   PyObject *main_mod = NULL;
@@ -118,7 +117,7 @@ static bool python_script_exec(bContext *C,
       char *buf;
       PyObject *filepath_dummy_py;
 
-      filepath_dummy_py = PyC_UnicodeFromByte(filepath_dummy);
+      filepath_dummy_py = PyC_UnicodeFromBytes(filepath_dummy);
 
       size_t buf_len_dummy;
       buf = txt_to_buf(text, &buf_len_dummy);
@@ -154,7 +153,7 @@ static bool python_script_exec(bContext *C,
        * Note on use of 'globals()', it's important not copy the dictionary because
        * tools may inspect 'sys.modules["__main__"]' for variables defined in the code
        * where using a copy of 'globals()' causes code execution
-       * to leave the main namespace untouched. see: T51444
+       * to leave the main namespace untouched. see: #51444
        *
        * This leaves us with the problem of variables being included,
        * currently this is worked around using 'dict.__del__' it's ugly but works.
@@ -224,12 +223,12 @@ static bool python_script_exec(bContext *C,
 /** \name Run Text / Filename / String
  * \{ */
 
-bool BPY_run_filepath(bContext *C, const char *filepath, struct ReportList *reports)
+bool BPY_run_filepath(bContext *C, const char *filepath, ReportList *reports)
 {
   return python_script_exec(C, filepath, NULL, reports, false);
 }
 
-bool BPY_run_text(bContext *C, struct Text *text, struct ReportList *reports, const bool do_jump)
+bool BPY_run_text(bContext *C, Text *text, ReportList *reports, const bool do_jump)
 {
   return python_script_exec(C, NULL, text, reports, do_jump);
 }
@@ -388,12 +387,12 @@ bool BPY_run_string_as_number(bContext *C,
   return ok;
 }
 
-bool BPY_run_string_as_string_and_size(bContext *C,
-                                       const char *imports[],
-                                       const char *expr,
-                                       struct BPy_RunErrInfo *err_info,
-                                       char **r_value,
-                                       size_t *r_value_size)
+bool BPY_run_string_as_string_and_len(bContext *C,
+                                      const char *imports[],
+                                      const char *expr,
+                                      struct BPy_RunErrInfo *err_info,
+                                      char **r_value,
+                                      size_t *r_value_len)
 {
   PyGILState_STATE gilstate;
   bool ok = true;
@@ -405,7 +404,7 @@ bool BPY_run_string_as_string_and_size(bContext *C,
 
   bpy_context_set(C, &gilstate);
 
-  ok = PyC_RunString_AsStringAndSize(imports, expr, "<expr as str>", r_value, r_value_size);
+  ok = PyC_RunString_AsStringAndSize(imports, expr, "<expr as str>", r_value, r_value_len);
 
   if (ok == false) {
     run_string_handle_error(err_info);
@@ -422,8 +421,8 @@ bool BPY_run_string_as_string(bContext *C,
                               struct BPy_RunErrInfo *err_info,
                               char **r_value)
 {
-  size_t value_dummy_size;
-  return BPY_run_string_as_string_and_size(C, imports, expr, err_info, r_value, &value_dummy_size);
+  size_t value_dummy_len;
+  return BPY_run_string_as_string_and_len(C, imports, expr, err_info, r_value, &value_dummy_len);
 }
 
 bool BPY_run_string_as_intptr(bContext *C,

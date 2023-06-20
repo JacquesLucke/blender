@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2012 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2012 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -90,12 +91,12 @@ static ImBuf *modifier_render_mask_input(const SeqRenderData *context,
       mask_input = seq_render_strip(context, &state, mask_sequence, timeline_frame);
 
       if (make_float) {
-        if (!mask_input->rect_float) {
+        if (!mask_input->float_buffer.data) {
           IMB_float_from_rect(mask_input);
         }
       }
       else {
-        if (!mask_input->rect) {
+        if (!mask_input->byte_buffer.data) {
           IMB_rect_from_float(mask_input);
         }
       }
@@ -139,21 +140,21 @@ static void modifier_init_handle(void *handle_v, int start_line, int tot_line, v
   handle->apply_callback = init_data->apply_callback;
   handle->user_data = init_data->user_data;
 
-  if (ibuf->rect) {
-    handle->rect = (uchar *)ibuf->rect + offset;
+  if (ibuf->byte_buffer.data) {
+    handle->rect = ibuf->byte_buffer.data + offset;
   }
 
-  if (ibuf->rect_float) {
-    handle->rect_float = ibuf->rect_float + offset;
+  if (ibuf->float_buffer.data) {
+    handle->rect_float = ibuf->float_buffer.data + offset;
   }
 
   if (mask) {
-    if (mask->rect) {
-      handle->mask_rect = (uchar *)mask->rect + offset;
+    if (mask->byte_buffer.data) {
+      handle->mask_rect = mask->byte_buffer.data + offset;
     }
 
-    if (mask->rect_float) {
-      handle->mask_rect_float = mask->rect_float + offset;
+    if (mask->float_buffer.data) {
+      handle->mask_rect_float = mask->float_buffer.data + offset;
     }
   }
   else {
@@ -523,21 +524,21 @@ static void color_balance_init_handle(void *handle_v,
   handle->height = tot_line;
   handle->make_float = init_data->make_float;
 
-  if (ibuf->rect) {
-    handle->rect = (uchar *)ibuf->rect + offset;
+  if (ibuf->byte_buffer.data) {
+    handle->rect = ibuf->byte_buffer.data + offset;
   }
 
-  if (ibuf->rect_float) {
-    handle->rect_float = ibuf->rect_float + offset;
+  if (ibuf->float_buffer.data) {
+    handle->rect_float = ibuf->float_buffer.data + offset;
   }
 
   if (mask) {
-    if (mask->rect) {
-      handle->mask_rect = (uchar *)mask->rect + offset;
+    if (mask->byte_buffer.data) {
+      handle->mask_rect = mask->byte_buffer.data + offset;
     }
 
-    if (mask->rect_float) {
-      handle->mask_rect_float = mask->rect_float + offset;
+    if (mask->float_buffer.data) {
+      handle->mask_rect_float = mask->float_buffer.data + offset;
     }
   }
   else {
@@ -593,7 +594,7 @@ static void modifier_color_balance_apply(
 {
   ColorBalanceInitData init_data;
 
-  if (!ibuf->rect_float && make_float) {
+  if (!ibuf->float_buffer.data && make_float) {
     imb_addrectfloatImBuf(ibuf, 4);
   }
 
@@ -613,7 +614,7 @@ static void modifier_color_balance_apply(
    * free byte buffer if there's float buffer since float buffer would be used for
    * color balance in favor of byte buffer
    */
-  if (ibuf->rect_float && ibuf->rect) {
+  if (ibuf->float_buffer.data && ibuf->byte_buffer.data) {
     imb_freerectImBuf(ibuf);
   }
 }
@@ -626,13 +627,13 @@ static void colorBalance_apply(SequenceModifierData *smd, ImBuf *ibuf, ImBuf *ma
 }
 
 static SequenceModifierTypeInfo seqModifier_ColorBalance = {
-    CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "Color Balance"), /* name */
-    "ColorBalanceModifierData",                           /* struct_name */
-    sizeof(ColorBalanceModifierData),                     /* struct_size */
-    colorBalance_init_data,                               /* init_data */
-    NULL,                                                 /* free_data */
-    NULL,                                                 /* copy_data */
-    colorBalance_apply,                                   /* apply */
+    /*name*/ CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "Color Balance"),
+    /*struct_name*/ "ColorBalanceModifierData",
+    /*struct_size*/ sizeof(ColorBalanceModifierData),
+    /*init_data*/ colorBalance_init_data,
+    /*free_data*/ NULL,
+    /*copy_data*/ NULL,
+    /*apply*/ colorBalance_apply,
 };
 
 /** \} */
@@ -722,13 +723,13 @@ static void whiteBalance_apply(SequenceModifierData *smd, ImBuf *ibuf, ImBuf *ma
 }
 
 static SequenceModifierTypeInfo seqModifier_WhiteBalance = {
-    CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "White Balance"), /* name */
-    "WhiteBalanceModifierData",                           /* struct_name */
-    sizeof(WhiteBalanceModifierData),                     /* struct_size */
-    whiteBalance_init_data,                               /* init_data */
-    NULL,                                                 /* free_data */
-    NULL,                                                 /* copy_data */
-    whiteBalance_apply,                                   /* apply */
+    /*name*/ CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "White Balance"),
+    /*struct_name*/ "WhiteBalanceModifierData",
+    /*struct_size*/ sizeof(WhiteBalanceModifierData),
+    /*init_data*/ whiteBalance_init_data,
+    /*free_data*/ NULL,
+    /*copy_data*/ NULL,
+    /*apply*/ whiteBalance_apply,
 };
 
 /** \} */
@@ -822,7 +823,7 @@ static void curves_apply_threaded(int width,
   }
 }
 
-static void curves_apply(struct SequenceModifierData *smd, ImBuf *ibuf, ImBuf *mask)
+static void curves_apply(SequenceModifierData *smd, ImBuf *ibuf, ImBuf *mask)
 {
   CurvesModifierData *cmd = (CurvesModifierData *)smd;
 
@@ -840,13 +841,13 @@ static void curves_apply(struct SequenceModifierData *smd, ImBuf *ibuf, ImBuf *m
 }
 
 static SequenceModifierTypeInfo seqModifier_Curves = {
-    CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "Curves"), /* name */
-    "CurvesModifierData",                          /* struct_name */
-    sizeof(CurvesModifierData),                    /* struct_size */
-    curves_init_data,                              /* init_data */
-    curves_free_data,                              /* free_data */
-    curves_copy_data,                              /* copy_data */
-    curves_apply,                                  /* apply */
+    /*name*/ CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "Curves"),
+    /*struct_name*/ "CurvesModifierData",
+    /*struct_size*/ sizeof(CurvesModifierData),
+    /*init_data*/ curves_init_data,
+    /*free_data*/ curves_free_data,
+    /*copy_data*/ curves_copy_data,
+    /*apply*/ curves_apply,
 };
 
 /** \} */
@@ -954,7 +955,7 @@ static void hue_correct_apply_threaded(int width,
   }
 }
 
-static void hue_correct_apply(struct SequenceModifierData *smd, ImBuf *ibuf, ImBuf *mask)
+static void hue_correct_apply(SequenceModifierData *smd, ImBuf *ibuf, ImBuf *mask)
 {
   HueCorrectModifierData *hcmd = (HueCorrectModifierData *)smd;
 
@@ -964,19 +965,19 @@ static void hue_correct_apply(struct SequenceModifierData *smd, ImBuf *ibuf, ImB
 }
 
 static SequenceModifierTypeInfo seqModifier_HueCorrect = {
-    CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "Hue Correct"), /* name */
-    "HueCorrectModifierData",                           /* struct_name */
-    sizeof(HueCorrectModifierData),                     /* struct_size */
-    hue_correct_init_data,                              /* init_data */
-    hue_correct_free_data,                              /* free_data */
-    hue_correct_copy_data,                              /* copy_data */
-    hue_correct_apply,                                  /* apply */
+    /*name*/ CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "Hue Correct"),
+    /*struct_name*/ "HueCorrectModifierData",
+    /*struct_size*/ sizeof(HueCorrectModifierData),
+    /*init_data*/ hue_correct_init_data,
+    /*free_data*/ hue_correct_free_data,
+    /*copy_data*/ hue_correct_copy_data,
+    /*apply*/ hue_correct_apply,
 };
 
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Bright/Contrast Modifier
+/** \name Brightness/Contrast Modifier
  * \{ */
 
 typedef struct BrightContrastThreadData {
@@ -1059,7 +1060,7 @@ static void brightcontrast_apply_threaded(int width,
   }
 }
 
-static void brightcontrast_apply(struct SequenceModifierData *smd, ImBuf *ibuf, ImBuf *mask)
+static void brightcontrast_apply(SequenceModifierData *smd, ImBuf *ibuf, ImBuf *mask)
 {
   BrightContrastModifierData *bcmd = (BrightContrastModifierData *)smd;
   BrightContrastThreadData data;
@@ -1071,13 +1072,13 @@ static void brightcontrast_apply(struct SequenceModifierData *smd, ImBuf *ibuf, 
 }
 
 static SequenceModifierTypeInfo seqModifier_BrightContrast = {
-    CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "Bright/Contrast"), /* name */
-    "BrightContrastModifierData",                           /* struct_name */
-    sizeof(BrightContrastModifierData),                     /* struct_size */
-    NULL,                                                   /* init_data */
-    NULL,                                                   /* free_data */
-    NULL,                                                   /* copy_data */
-    brightcontrast_apply,                                   /* apply */
+    /*name*/ CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "Brightness/Contrast"),
+    /*struct_name*/ "BrightContrastModifierData",
+    /*struct_size*/ sizeof(BrightContrastModifierData),
+    /*init_data*/ NULL,
+    /*free_data*/ NULL,
+    /*copy_data*/ NULL,
+    /*apply*/ brightcontrast_apply,
 };
 
 /** \} */
@@ -1136,7 +1137,7 @@ static void maskmodifier_apply_threaded(int width,
   }
 }
 
-static void maskmodifier_apply(struct SequenceModifierData *UNUSED(smd), ImBuf *ibuf, ImBuf *mask)
+static void maskmodifier_apply(SequenceModifierData *UNUSED(smd), ImBuf *ibuf, ImBuf *mask)
 {
   // SequencerMaskModifierData *bcmd = (SequencerMaskModifierData *)smd;
 
@@ -1145,13 +1146,13 @@ static void maskmodifier_apply(struct SequenceModifierData *UNUSED(smd), ImBuf *
 }
 
 static SequenceModifierTypeInfo seqModifier_Mask = {
-    CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "Mask"), /* name */
-    "SequencerMaskModifierData",                 /* struct_name */
-    sizeof(SequencerMaskModifierData),           /* struct_size */
-    NULL,                                        /* init_data */
-    NULL,                                        /* free_data */
-    NULL,                                        /* copy_data */
-    maskmodifier_apply,                          /* apply */
+    /*name*/ CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "Mask"),
+    /*struct_name*/ "SequencerMaskModifierData",
+    /*struct_size*/ sizeof(SequencerMaskModifierData),
+    /*init_data*/ NULL,
+    /*free_data*/ NULL,
+    /*copy_data*/ NULL,
+    /*apply*/ maskmodifier_apply,
 };
 
 /** \} */
@@ -1162,7 +1163,7 @@ static SequenceModifierTypeInfo seqModifier_Mask = {
 
 typedef struct AvgLogLum {
   SequencerTonemapModifierData *tmmd;
-  struct ColorSpace *colorspace;
+  ColorSpace *colorspace;
   float al;
   float auto_key;
   float lav;
@@ -1306,16 +1307,17 @@ static void tonemapmodifier_apply_threaded_photoreceptor(int width,
   }
 }
 
-static void tonemapmodifier_apply(struct SequenceModifierData *smd, ImBuf *ibuf, ImBuf *mask)
+static void tonemapmodifier_apply(SequenceModifierData *smd, ImBuf *ibuf, ImBuf *mask)
 {
   SequencerTonemapModifierData *tmmd = (SequencerTonemapModifierData *)smd;
   AvgLogLum data;
   data.tmmd = tmmd;
-  data.colorspace = (ibuf->rect_float != NULL) ? ibuf->float_colorspace : ibuf->rect_colorspace;
+  data.colorspace = (ibuf->float_buffer.data != NULL) ? ibuf->float_colorspace :
+                                                        ibuf->rect_colorspace;
   float lsum = 0.0f;
   int p = ibuf->x * ibuf->y;
-  float *fp = ibuf->rect_float;
-  uchar *cp = (uchar *)ibuf->rect;
+  float *fp = ibuf->float_buffer.data;
+  uchar *cp = ibuf->byte_buffer.data;
   float avl, maxl = -FLT_MAX, minl = FLT_MAX;
   const float sc = 1.0f / p;
   float Lav = 0.0f;
@@ -1361,13 +1363,13 @@ static void tonemapmodifier_apply(struct SequenceModifierData *smd, ImBuf *ibuf,
 }
 
 static SequenceModifierTypeInfo seqModifier_Tonemap = {
-    CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "Tonemap"), /* name */
-    "SequencerTonemapModifierData",                 /* struct_name */
-    sizeof(SequencerTonemapModifierData),           /* struct_size */
-    tonemapmodifier_init_data,                      /* init_data */
-    NULL,                                           /* free_data */
-    NULL,                                           /* copy_data */
-    tonemapmodifier_apply,                          /* apply */
+    /*name*/ CTX_N_(BLT_I18NCONTEXT_ID_SEQUENCE, "Tonemap"),
+    /*struct_name*/ "SequencerTonemapModifierData",
+    /*struct_size*/ sizeof(SequencerTonemapModifierData),
+    /*init_data*/ tonemapmodifier_init_data,
+    /*free_data*/ NULL,
+    /*copy_data*/ NULL,
+    /*apply*/ tonemapmodifier_apply,
 };
 
 /** \} */
@@ -1412,10 +1414,10 @@ SequenceModifierData *SEQ_modifier_new(Sequence *seq, const char *name, int type
   smd->flag |= SEQUENCE_MODIFIER_EXPANDED;
 
   if (!name || !name[0]) {
-    BLI_strncpy(smd->name, smti->name, sizeof(smd->name));
+    STRNCPY(smd->name, smti->name);
   }
   else {
-    BLI_strncpy(smd->name, name, sizeof(smd->name));
+    STRNCPY(smd->name, name);
   }
 
   BLI_addtail(&seq->modifiers, smd);
@@ -1517,7 +1519,7 @@ ImBuf *SEQ_modifier_apply_stack(const SeqRenderData *context,
       }
 
       ImBuf *mask = modifier_mask_get(
-          smd, context, timeline_frame, frame_offset, ibuf->rect_float != NULL);
+          smd, context, timeline_frame, frame_offset, ibuf->float_buffer.data != NULL);
 
       if (processed_ibuf == ibuf) {
         processed_ibuf = IMB_dupImBuf(ibuf);
@@ -1619,7 +1621,7 @@ void SEQ_modifier_blend_read_lib(BlendLibReader *reader, Scene *scene, ListBase 
 {
   LISTBASE_FOREACH (SequenceModifierData *, smd, lb) {
     if (smd->mask_id) {
-      BLO_read_id_address(reader, scene->id.lib, &smd->mask_id);
+      BLO_read_id_address(reader, &scene->id, &smd->mask_id);
     }
   }
 }

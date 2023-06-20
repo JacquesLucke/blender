@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_index_range.hh"
 #include "BLI_listbase.h"
@@ -16,6 +18,7 @@
 #include "BKE_context.h"
 #include "BKE_node_runtime.hh"
 #include "BKE_node_tree_update.h"
+#include "BKE_node_tree_zones.hh"
 #include "BKE_object.h"
 
 #include "RNA_access.h"
@@ -40,7 +43,7 @@ using blender::nodes::geo_eval_log::GeometryAttributeInfo;
 namespace blender::ed::space_node {
 
 struct AttributeSearchData {
-  char node_name[MAX_NAME];
+  int32_t node_id;
   char socket_identifier[MAX_NAME];
 };
 
@@ -62,29 +65,39 @@ static Vector<const GeometryAttributeInfo *> get_attribute_info_from_context(
     BLI_assert_unreachable();
     return {};
   }
-  bNode *node = nodeFindNodebyName(node_tree, data.node_name);
+  const bNode *node = node_tree->node_by_id(data.node_id);
   if (node == nullptr) {
     BLI_assert_unreachable();
     return {};
   }
-  GeoTreeLog *tree_log = GeoModifierLog::get_tree_log_for_node_editor(*snode);
-  if (tree_log == nullptr) {
+  const bke::bNodeTreeZones *tree_zones = node_tree->zones();
+  if (!tree_zones) {
     return {};
   }
-  tree_log->ensure_socket_values();
+  const Map<const bke::bNodeTreeZone *, GeoTreeLog *> log_by_zone =
+      GeoModifierLog::get_tree_log_by_zone_for_node_editor(*snode);
 
   /* For the attribute input node, collect attribute information from all nodes in the group. */
   if (node->type == GEO_NODE_INPUT_NAMED_ATTRIBUTE) {
-    tree_log->ensure_existing_attributes();
     Vector<const GeometryAttributeInfo *> attributes;
-    for (const GeometryAttributeInfo *attribute : tree_log->existing_attributes) {
-      if (bke::allow_procedural_attribute_access(attribute->name)) {
-        attributes.append(attribute);
+    for (GeoTreeLog *tree_log : log_by_zone.values()) {
+      tree_log->ensure_socket_values();
+      tree_log->ensure_existing_attributes();
+      for (const GeometryAttributeInfo *attribute : tree_log->existing_attributes) {
+        if (bke::allow_procedural_attribute_access(attribute->name)) {
+          attributes.append(attribute);
+        }
       }
     }
     return attributes;
   }
-  GeoNodeLog *node_log = tree_log->nodes.lookup_ptr(node->name);
+  const bke::bNodeTreeZone *zone = tree_zones->get_zone_by_node(node->identifier);
+  GeoTreeLog *tree_log = log_by_zone.lookup_default(zone, nullptr);
+  if (!tree_log) {
+    return {};
+  }
+  tree_log->ensure_socket_values();
+  GeoNodeLog *node_log = tree_log->nodes.lookup_ptr(node->identifier);
   if (node_log == nullptr) {
     return {};
   }
@@ -131,12 +144,17 @@ static void attribute_search_update_fn(
  */
 static eCustomDataType data_type_in_attribute_input_node(const eCustomDataType type)
 {
+  if (!U.experimental.use_rotation_socket && type == CD_PROP_QUATERNION) {
+    /* Invalid type, no implicit conversions available. */
+    return CD_PROP_BOOL;
+  }
   switch (type) {
     case CD_PROP_FLOAT:
     case CD_PROP_INT32:
     case CD_PROP_FLOAT3:
     case CD_PROP_COLOR:
     case CD_PROP_BOOL:
+    case CD_PROP_QUATERNION:
       return type;
     case CD_PROP_BYTE_COLOR:
       return CD_PROP_COLOR;
@@ -144,6 +162,7 @@ static eCustomDataType data_type_in_attribute_input_node(const eCustomDataType t
       /* Unsupported currently. */
       return CD_PROP_FLOAT;
     case CD_PROP_FLOAT2:
+    case CD_PROP_INT32_2D:
       /* No 2D vector sockets currently. */
       return CD_PROP_FLOAT3;
     case CD_PROP_INT8:
@@ -173,7 +192,7 @@ static void attribute_search_exec_fn(bContext *C, void *data_v, void *item_v)
     return;
   }
   AttributeSearchData *data = static_cast<AttributeSearchData *>(data_v);
-  bNode *node = nodeFindNodebyName(node_tree, data->node_name);
+  bNode *node = node_tree->node_by_id(data->node_id);
   if (node == nullptr) {
     BLI_assert_unreachable();
     return;
@@ -243,8 +262,8 @@ void node_geometry_add_attribute_search_button(const bContext & /*C*/,
 
   const bNodeSocket &socket = *static_cast<const bNodeSocket *>(socket_ptr.data);
   AttributeSearchData *data = MEM_new<AttributeSearchData>(__func__);
-  BLI_strncpy(data->node_name, node.name, sizeof(data->node_name));
-  BLI_strncpy(data->socket_identifier, socket.identifier, sizeof(data->socket_identifier));
+  data->node_id = node.identifier;
+  STRNCPY(data->socket_identifier, socket.identifier);
 
   UI_but_func_search_set_results_are_suggestions(but, true);
   UI_but_func_search_set_sep_string(but, UI_MENU_ARROW_SEP);

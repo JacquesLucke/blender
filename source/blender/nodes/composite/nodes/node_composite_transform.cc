@@ -1,12 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup cmpnodes
  */
 
 #include "BLI_assert.h"
-#include "BLI_float3x3.hh"
+#include "BLI_math_matrix.hh"
 #include "BLI_math_vector.h"
 
 #include "UI_interface.h"
@@ -22,31 +23,31 @@ namespace blender::nodes::node_composite_transform_cc {
 
 static void cmp_node_transform_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Color>(N_("Image"))
+  b.add_input<decl::Color>("Image")
       .default_value({0.8f, 0.8f, 0.8f, 1.0f})
       .compositor_domain_priority(0);
-  b.add_input<decl::Float>(N_("X"))
+  b.add_input<decl::Float>("X")
       .default_value(0.0f)
       .min(-10000.0f)
       .max(10000.0f)
       .compositor_expects_single_value();
-  b.add_input<decl::Float>(N_("Y"))
+  b.add_input<decl::Float>("Y")
       .default_value(0.0f)
       .min(-10000.0f)
       .max(10000.0f)
       .compositor_expects_single_value();
-  b.add_input<decl::Float>(N_("Angle"))
+  b.add_input<decl::Float>("Angle")
       .default_value(0.0f)
       .min(-10000.0f)
       .max(10000.0f)
       .subtype(PROP_ANGLE)
       .compositor_expects_single_value();
-  b.add_input<decl::Float>(N_("Scale"))
+  b.add_input<decl::Float>("Scale")
       .default_value(1.0f)
       .min(0.0001f)
       .max(CMP_SCALE_MAX)
       .compositor_expects_single_value();
-  b.add_output<decl::Color>(N_("Image"));
+  b.add_output<decl::Color>("Image");
 }
 
 static void node_composit_buts_transform(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -55,6 +56,7 @@ static void node_composit_buts_transform(uiLayout *layout, bContext * /*C*/, Poi
 }
 
 using namespace blender::realtime_compositor;
+using namespace blender::math;
 
 class TransformOperation : public NodeOperation {
  public:
@@ -68,11 +70,10 @@ class TransformOperation : public NodeOperation {
 
     const float2 translation = float2(get_input("X").get_float_value_default(0.0f),
                                       get_input("Y").get_float_value_default(0.0f));
-    const float rotation = get_input("Angle").get_float_value_default(0.0f);
+    const AngleRadian rotation = AngleRadian(get_input("Angle").get_float_value_default(0.0f));
     const float2 scale = float2(get_input("Scale").get_float_value_default(1.0f));
 
-    const float3x3 transformation = float3x3::from_translation_rotation_scale(
-        translation, rotation, scale);
+    const float3x3 transformation = from_loc_rot_scale<float3x3>(translation, rotation, scale);
 
     result.transform(transformation);
     result.get_realization_options().interpolation = get_interpolation();

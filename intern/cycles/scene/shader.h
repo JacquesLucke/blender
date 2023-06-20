@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __SHADER_H__
 #define __SHADER_H__
@@ -34,6 +35,7 @@ struct float3;
 enum ShadingSystem { SHADINGSYSTEM_OSL, SHADINGSYSTEM_SVM };
 
 /* Keep those in sync with the python-defined enum. */
+
 enum VolumeSampling {
   VOLUME_SAMPLING_DISTANCE = 0,
   VOLUME_SAMPLING_EQUIANGULAR = 1,
@@ -73,7 +75,7 @@ class Shader : public Node {
   NODE_SOCKET_API(int, pass_id)
 
   /* sampling */
-  NODE_SOCKET_API(bool, use_mis)
+  NODE_SOCKET_API(EmissionSampling, emission_sampling_method)
   NODE_SOCKET_API(bool, use_transparent_shadow)
   NODE_SOCKET_API(bool, heterogeneous_volume)
   NODE_SOCKET_API(VolumeSampling, volume_sampling_method)
@@ -101,7 +103,6 @@ class Shader : public Node {
 
   /* information about shader after compiling */
   bool has_surface;
-  bool has_surface_emission;
   bool has_surface_transparent;
   bool has_surface_raytrace;
   bool has_volume;
@@ -113,6 +114,10 @@ class Shader : public Node {
   bool has_volume_spatial_varying;
   bool has_volume_attribute_dependency;
   bool has_integrator_dependency;
+
+  float3 emission_estimate;
+  EmissionSampling emission_sampling;
+  bool emission_is_constant;
 
   /* requested mesh attributes */
   AttributeRequestSet attributes;
@@ -131,11 +136,12 @@ class Shader : public Node {
   Shader();
   ~Shader();
 
-  /* Checks whether the shader consists of just a emission node with fixed inputs that's connected
-   * directly to the output.
-   * If yes, it sets the content of emission to the constant value (color * strength), which is
-   * then used for speeding up light evaluation. */
-  bool is_constant_emission(float3 *emission);
+  /* Estimate emission of this shader based on the shader graph. This works only in very simple
+   * cases. But it helps improve light importance sampling in common cases.
+   *
+   * If the emission is fully constant, returns true, so that shader evaluation can be skipped
+   * entirely for a light. */
+  void estimate_emission();
 
   void set_graph(ShaderGraph *graph);
   void tag_update(Scene *scene);
@@ -227,10 +233,15 @@ class ShaderManager {
   AttributeIDMap unique_attribute_id;
 
   static thread_mutex lookup_table_mutex;
-  static vector<float> beckmann_table;
-  static bool beckmann_table_ready;
 
-  size_t beckmann_table_offset;
+  unordered_map<const float *, size_t> bsdf_tables;
+
+  template<std::size_t n>
+  size_t ensure_bsdf_table(DeviceScene *dscene, Scene *scene, const float (&table)[n])
+  {
+    return ensure_bsdf_table_impl(dscene, scene, table, n);
+  }
+  size_t ensure_bsdf_table_impl(DeviceScene *dscene, Scene *scene, const float *table, size_t n);
 
   uint get_graph_kernel_features(ShaderGraph *graph);
 

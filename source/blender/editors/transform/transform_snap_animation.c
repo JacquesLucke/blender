@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -34,7 +35,7 @@ short getAnimEdit_SnapMode(TransInfo *t)
     }
   }
   else if (t->spacetype == SPACE_GRAPH) {
-    if ((t->mode == TFM_TRANSLATION) && activeSnap(t)) {
+    if ((t->mode == TFM_TRANSLATION) && transform_snap_is_active(t)) {
       return autosnap;
     }
     SpaceGraph *sipo = (SpaceGraph *)t->area->spacedata.first;

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spgraph
@@ -204,7 +205,7 @@ static void graph_panel_properties(const bContext *C, Panel *panel)
       acf->name(ale, name);
     }
     else {
-      strcpy(name, IFACE_("<invalid>"));
+      STRNCPY(name, IFACE_("<invalid>"));
       icon = ICON_ERROR;
     }
 
@@ -304,7 +305,7 @@ static void graphedit_activekey_handles_cb(bContext *C, void *fcu_ptr, void *bez
 
 /* update callback for editing coordinates of right handle in active keyframe properties
  * NOTE: we cannot just do graphedit_activekey_handles_cb() due to "order of computation"
- *       weirdness (see calchandleNurb_intern() and T39911)
+ *       weirdness (see calchandleNurb_intern() and #39911)
  */
 static void graphedit_activekey_left_handle_coord_cb(bContext *C, void *fcu_ptr, void *bezt_ptr)
 {
@@ -528,7 +529,7 @@ static void graph_panel_key_properties(const bContext *C, Panel *panel)
 
     /* next handle - only if current is Bezier interpolation */
     if (bezt->ipo == BEZT_IPO_BEZ) {
-      /* NOTE: special update callbacks are needed on the coords here due to T39911 */
+      /* NOTE: special update callbacks are needed on the coords here due to #39911 */
 
       col = uiLayoutColumn(layout, true);
       uiItemL_respect_property_split(col, IFACE_("Right Handle Type"), ICON_NONE);
@@ -724,6 +725,8 @@ static void driver_dvar_invalid_name_query_cb(bContext *C, void *dvar_v, void *U
 /* callback to reset the driver's flags */
 static void driver_update_flags_cb(bContext *UNUSED(C), void *fcu_v, void *UNUSED(arg))
 {
+  return;
+
   FCurve *fcu = (FCurve *)fcu_v;
   ChannelDriver *driver = fcu->driver;
 
@@ -895,11 +898,35 @@ static void graph_panel_driverVar__transChan(uiLayout *layout, ID *id, DriverVar
            DTAR_TRANSCHAN_ROTX,
            DTAR_TRANSCHAN_ROTY,
            DTAR_TRANSCHAN_ROTZ,
-           DTAR_TRANSCHAN_ROTW)) {
+           DTAR_TRANSCHAN_ROTW))
+  {
     uiItemR(sub, &dtar_ptr, "rotation_mode", 0, IFACE_("Mode"), ICON_NONE);
   }
 
   uiItemR(sub, &dtar_ptr, "transform_space", 0, IFACE_("Space"), ICON_NONE);
+}
+
+/* Settings for 'Context Property' driver variable type. */
+static void graph_panel_driverVar__contextProp(uiLayout *layout, ID *id, DriverVar *dvar)
+{
+  DriverTarget *dtar = &dvar->targets[0];
+
+  /* Initialize RNA pointer to the target. */
+  PointerRNA dtar_ptr;
+  RNA_pointer_create(id, &RNA_DriverTarget, dtar, &dtar_ptr);
+
+  /* Target Property. */
+  {
+    uiLayout *row = uiLayoutRow(layout, false);
+    uiItemR(row, &dtar_ptr, "context_property", 0, NULL, ICON_NONE);
+  }
+
+  /* Target Path */
+  {
+    uiLayout *col = uiLayoutColumn(layout, true);
+    uiLayoutSetRedAlert(col, (dtar->flag & DTAR_FLAG_INVALID));
+    uiTemplatePathBuilder(col, &dtar_ptr, "data_path", NULL, IFACE_("Path"));
+  }
 }
 
 /* ----------------------------------------------------------------- */
@@ -942,6 +969,7 @@ static void graph_panel_drivers_header(const bContext *C, Panel *panel)
   }
 
   graph_draw_driven_property_enabled_btn(panel->layout, ale->id, fcu, IFACE_("Driver"));
+  MEM_freeN(ale);
 }
 
 static void graph_draw_driven_property_panel(uiLayout *layout, ID *id, FCurve *fcu)
@@ -1002,7 +1030,7 @@ static void graph_draw_driver_settings_panel(uiLayout *layout,
     /* value of driver */
     row = uiLayoutRow(col, true);
     uiItemL(row, IFACE_("Driver Value:"), ICON_NONE);
-    BLI_snprintf(valBuf, sizeof(valBuf), "%.3f", driver->curval);
+    SNPRINTF(valBuf, "%.3f", driver->curval);
     uiItemL(row, valBuf, ICON_NONE);
   }
 
@@ -1212,6 +1240,9 @@ static void graph_draw_driver_settings_panel(uiLayout *layout,
       case DVAR_TYPE_TRANSFORM_CHAN: /* transform channel */
         graph_panel_driverVar__transChan(box, id, dvar);
         break;
+      case DVAR_TYPE_CONTEXT_PROP: /* context property */
+        graph_panel_driverVar__contextProp(box, id, dvar);
+        break;
     }
 
     /* 3) value of variable */
@@ -1229,12 +1260,12 @@ static void graph_draw_driver_settings_panel(uiLayout *layout,
                 DTAR_TRANSCHAN_ROTY,
                 DTAR_TRANSCHAN_ROTZ,
                 DTAR_TRANSCHAN_ROTW) &&
-           dvar->targets[0].rotation_mode != DTAR_ROTMODE_QUATERNION)) {
-        BLI_snprintf(
-            valBuf, sizeof(valBuf), "%.3f (%4.1f°)", dvar->curval, RAD2DEGF(dvar->curval));
+           dvar->targets[0].rotation_mode != DTAR_ROTMODE_QUATERNION))
+      {
+        SNPRINTF(valBuf, "%.3f (%4.1f°)", dvar->curval, RAD2DEGF(dvar->curval));
       }
       else {
-        BLI_snprintf(valBuf, sizeof(valBuf), "%.3f", dvar->curval);
+        SNPRINTF(valBuf, "%.3f", dvar->curval);
       }
 
       uiItemL(row, valBuf, ICON_NONE);
@@ -1323,7 +1354,7 @@ static void graph_panel_drivers_popover(const bContext *C, Panel *panel)
   uiBut *but = NULL;
 
   /* Get active property to show driver properties for */
-  but = UI_context_active_but_prop_get((bContext *)C, &ptr, &prop, &index);
+  but = UI_region_active_but_prop_get(CTX_wm_region(C), &ptr, &prop, &index);
   if (but) {
     FCurve *fcu;
     bool driven, special;
@@ -1414,8 +1445,7 @@ static void graph_panel_modifiers(const bContext *C, Panel *panel)
     /* this is an operator button which calls a 'add modifier' operator...
      * a menu might be nicer but would be tricky as we need some custom filtering
      */
-    uiItemMenuEnumO(
-        row, (bContext *)C, "GRAPH_OT_fmodifier_add", "type", IFACE_("Add Modifier"), ICON_NONE);
+    uiItemMenuEnumO(row, C, "GRAPH_OT_fmodifier_add", "type", IFACE_("Add Modifier"), ICON_NONE);
 
     /* copy/paste (as sub-row) */
     row = uiLayoutRow(row, true);
@@ -1439,47 +1469,47 @@ void graph_buttons_register(ARegionType *art)
   PanelType *pt;
 
   pt = MEM_callocN(sizeof(PanelType), "spacetype graph panel properties");
-  strcpy(pt->idname, "GRAPH_PT_properties");
-  strcpy(pt->label, N_("Active F-Curve"));
-  strcpy(pt->category, "F-Curve");
-  strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(pt->idname, "GRAPH_PT_properties");
+  STRNCPY(pt->label, N_("Active F-Curve"));
+  STRNCPY(pt->category, "F-Curve");
+  STRNCPY(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   pt->draw = graph_panel_properties;
   pt->poll = graph_panel_poll;
   BLI_addtail(&art->paneltypes, pt);
 
   pt = MEM_callocN(sizeof(PanelType), "spacetype graph panel properties");
-  strcpy(pt->idname, "GRAPH_PT_key_properties");
-  strcpy(pt->label, N_("Active Keyframe"));
-  strcpy(pt->category, "F-Curve");
-  strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(pt->idname, "GRAPH_PT_key_properties");
+  STRNCPY(pt->label, N_("Active Keyframe"));
+  STRNCPY(pt->category, "F-Curve");
+  STRNCPY(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   pt->draw = graph_panel_key_properties;
   pt->poll = graph_panel_poll;
   BLI_addtail(&art->paneltypes, pt);
 
   pt = MEM_callocN(sizeof(PanelType), "spacetype graph panel drivers driven");
-  strcpy(pt->idname, "GRAPH_PT_driven_property");
-  strcpy(pt->label, N_("Driven Property"));
-  strcpy(pt->category, "Drivers");
-  strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(pt->idname, "GRAPH_PT_driven_property");
+  STRNCPY(pt->label, N_("Driven Property"));
+  STRNCPY(pt->category, "Drivers");
+  STRNCPY(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   pt->draw = graph_panel_driven_property;
   pt->poll = graph_panel_drivers_poll;
   BLI_addtail(&art->paneltypes, pt);
 
   pt = MEM_callocN(sizeof(PanelType), "spacetype graph panel drivers");
-  strcpy(pt->idname, "GRAPH_PT_drivers");
-  strcpy(pt->label, N_("Driver"));
-  strcpy(pt->category, "Drivers");
-  strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(pt->idname, "GRAPH_PT_drivers");
+  STRNCPY(pt->label, N_("Driver"));
+  STRNCPY(pt->category, "Drivers");
+  STRNCPY(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   pt->draw = graph_panel_drivers;
   pt->draw_header = graph_panel_drivers_header;
   pt->poll = graph_panel_drivers_poll;
   BLI_addtail(&art->paneltypes, pt);
 
   pt = MEM_callocN(sizeof(PanelType), "spacetype graph panel drivers popover");
-  strcpy(pt->idname, "GRAPH_PT_drivers_popover");
-  strcpy(pt->label, N_("Add/Edit Driver"));
-  strcpy(pt->category, "Drivers");
-  strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(pt->idname, "GRAPH_PT_drivers_popover");
+  STRNCPY(pt->label, N_("Add/Edit Driver"));
+  STRNCPY(pt->category, "Drivers");
+  STRNCPY(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   pt->draw = graph_panel_drivers_popover;
   pt->poll = graph_panel_drivers_popover_poll;
   BLI_addtail(&art->paneltypes, pt);
@@ -1488,10 +1518,10 @@ void graph_buttons_register(ARegionType *art)
   WM_paneltype_add(pt);
 
   pt = MEM_callocN(sizeof(PanelType), "spacetype graph panel modifiers");
-  strcpy(pt->idname, "GRAPH_PT_modifiers");
-  strcpy(pt->label, N_("Modifiers"));
-  strcpy(pt->category, "Modifiers");
-  strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(pt->idname, "GRAPH_PT_modifiers");
+  STRNCPY(pt->label, N_("Modifiers"));
+  STRNCPY(pt->category, "Modifiers");
+  STRNCPY(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   pt->flag = PANEL_TYPE_NO_HEADER;
   pt->draw = graph_panel_modifiers;
   pt->poll = graph_panel_poll;
@@ -1501,10 +1531,10 @@ void graph_buttons_register(ARegionType *art)
   ANIM_modifier_panels_register_graph_only(art, GRAPH_FMODIFIER_PANEL_PREFIX, graph_panel_poll);
 
   pt = MEM_callocN(sizeof(PanelType), "spacetype graph panel view");
-  strcpy(pt->idname, "GRAPH_PT_view");
-  strcpy(pt->label, N_("Show Cursor"));
-  strcpy(pt->category, "View");
-  strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(pt->idname, "GRAPH_PT_view");
+  STRNCPY(pt->label, N_("Show Cursor"));
+  STRNCPY(pt->category, "View");
+  STRNCPY(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   pt->draw = graph_panel_cursor;
   pt->draw_header = graph_panel_cursor_header;
   BLI_addtail(&art->paneltypes, pt);

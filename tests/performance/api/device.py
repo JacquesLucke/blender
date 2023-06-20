@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2021-2023 Blender Foundation
+#
 # SPDX-License-Identifier: Apache-2.0
 
 import platform
@@ -39,7 +41,6 @@ def get_gpu_device(args: None) -> List:
             if device.type == device_type:
                 result.append({'type': device.type, 'name': device.name, 'index': index})
                 index += 1
-                break
 
     return result
 

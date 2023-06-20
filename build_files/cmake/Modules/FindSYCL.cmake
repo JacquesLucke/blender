@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2021-2022 Intel Corporation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2021-2022 Intel Corporation
 
 # - Find SYCL library
 # Find the native SYCL header and libraries needed by oneAPI implementation
@@ -108,6 +109,11 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(SYCL
 
 IF(SYCL_FOUND)
   SET(SYCL_INCLUDE_DIR ${SYCL_INCLUDE_DIR} ${SYCL_INCLUDE_DIR}/sycl)
+  IF(WIN32 AND SYCL_LIBRARY_DEBUG)
+    SET(SYCL_LIBRARIES optimized ${SYCL_LIBRARY} debug ${SYCL_LIBRARY_DEBUG})
+  ELSE()
+    SET(SYCL_LIBRARIES ${SYCL_LIBRARY})
+  ENDIF()
 ELSE()
   SET(SYCL_SYCL_FOUND FALSE)
 ENDIF()

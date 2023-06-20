@@ -1,8 +1,10 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Adapted from code Copyright 2009-2010 NVIDIA Corporation,
- * and code copyright 2009-2012 Intel Corporation
+/* SPDX-FileCopyrightText: 2009-2010 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2009-2012 Intel Corporation
+ * SPDX-FileCopyrightText: 2011-2022 Blender Foundation
  *
- * Modifications Copyright 2011-2022 Blender Foundation. */
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Adapted code from NVIDIA Corporation. */
 
 #if BVH_FEATURE(BVH_HAIR)
 #  define NODE_INTERSECT bvh_node_intersect
@@ -50,8 +52,6 @@ ccl_device_inline
   const float tmin = ray->tmin;
   int object = OBJECT_NONE;
   float isect_t = ray->tmax;
-
-  int num_hits_in_instance = 0;
 
   uint num_hits = 0;
   isect_array->t = ray->tmax;
@@ -152,7 +152,6 @@ ccl_device_inline
                   /* Move on to next entry in intersections array. */
                   isect_array++;
                   num_hits++;
-                  num_hits_in_instance++;
                   isect_array->t = isect_t;
                   if (num_hits == max_hits) {
                     return num_hits;
@@ -193,7 +192,6 @@ ccl_device_inline
                   /* Move on to next entry in intersections array. */
                   isect_array++;
                   num_hits++;
-                  num_hits_in_instance++;
                   isect_array->t = isect_t;
                   if (num_hits == max_hits) {
                     return num_hits;
@@ -219,7 +217,6 @@ ccl_device_inline
             bvh_instance_push(kg, object, ray, &P, &dir, &idir);
 #endif
 
-            num_hits_in_instance = 0;
             isect_array->t = isect_t;
 
             ++stack_ptr;

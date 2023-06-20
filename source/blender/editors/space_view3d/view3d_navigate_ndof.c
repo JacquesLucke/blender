@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spview3d
@@ -87,7 +89,7 @@ static float view3d_ndof_pan_speed_calc(RegionView3D *rv3d)
  * \param has_zoom: zoom, otherwise dolly,
  * often `!rv3d->is_persp` since it doesn't make sense to dolly in ortho.
  */
-static void view3d_ndof_pan_zoom(const struct wmNDOFMotionData *ndof,
+static void view3d_ndof_pan_zoom(const wmNDOFMotionData *ndof,
                                  ScrArea *area,
                                  ARegion *region,
                                  const bool has_translate,
@@ -151,7 +153,7 @@ static void view3d_ndof_pan_zoom(const struct wmNDOFMotionData *ndof,
   }
 }
 
-static void view3d_ndof_orbit(const struct wmNDOFMotionData *ndof,
+static void view3d_ndof_orbit(const wmNDOFMotionData *ndof,
                               ScrArea *area,
                               ARegion *region,
                               ViewOpsData *vod,
@@ -382,7 +384,7 @@ static int view3d_ndof_cameraview_pan_zoom(bContext *C, const wmEvent *event)
    * #ED_view3d_camera_view_pan already takes the zoom level into account. */
   mul_v2_fl(pan_vec, pan_speed);
 
-  /* NOTE(@campbellbarton): In principle rotating could pass through to regular
+  /* NOTE(@ideasman42): In principle rotating could pass through to regular
    * non-camera NDOF behavior (exiting the camera-view and rotating).
    * Disabled this block since in practice it's difficult to control NDOF devices
    * to perform some rotation with absolutely no translation. Causing rotation to
@@ -435,8 +437,7 @@ static int ndof_orbit_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
   const wmNDOFMotionData *ndof = event->customdata;
 
-  vod = op->customdata = viewops_data_create(
-      C, event, (viewops_flag_from_prefs() & ~VIEWOPS_FLAG_DEPTH_NAVIGATE));
+  vod = op->customdata = viewops_data_create(C, event, V3D_OP_MODE_NDOF_ORBIT, false);
 
   ED_view3d_smooth_view_force_finish(C, vod->v3d, vod->region);
 
@@ -480,7 +481,7 @@ static int ndof_orbit_invoke(bContext *C, wmOperator *op, const wmEvent *event)
   return OPERATOR_FINISHED;
 }
 
-void VIEW3D_OT_ndof_orbit(struct wmOperatorType *ot)
+void VIEW3D_OT_ndof_orbit(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "NDOF Orbit View";
@@ -522,8 +523,7 @@ static int ndof_orbit_zoom_invoke(bContext *C, wmOperator *op, const wmEvent *ev
 
   const wmNDOFMotionData *ndof = event->customdata;
 
-  vod = op->customdata = viewops_data_create(
-      C, event, (viewops_flag_from_prefs() & ~VIEWOPS_FLAG_DEPTH_NAVIGATE));
+  vod = op->customdata = viewops_data_create(C, event, V3D_OP_MODE_NDOF_ORBIT_ZOOM, false);
 
   ED_view3d_smooth_view_force_finish(C, vod->v3d, vod->region);
 
@@ -549,7 +549,7 @@ static int ndof_orbit_zoom_invoke(bContext *C, wmOperator *op, const wmEvent *ev
     }
   }
   else {
-    /* NOTE: based on feedback from T67579, users want to have pan and orbit enabled at once.
+    /* NOTE: based on feedback from #67579, users want to have pan and orbit enabled at once.
      * It's arguable that orbit shouldn't pan (since we have a pan only operator),
      * so if there are users who like to separate orbit/pan operations - it can be a preference. */
     const bool is_orbit_around_pivot = (U.ndof_flag & NDOF_MODE_ORBIT) ||
@@ -601,7 +601,7 @@ static int ndof_orbit_zoom_invoke(bContext *C, wmOperator *op, const wmEvent *ev
   return OPERATOR_FINISHED;
 }
 
-void VIEW3D_OT_ndof_orbit_zoom(struct wmOperatorType *ot)
+void VIEW3D_OT_ndof_orbit_zoom(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "NDOF Orbit View with Zoom";
@@ -673,7 +673,7 @@ static int ndof_pan_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *e
   return OPERATOR_FINISHED;
 }
 
-void VIEW3D_OT_ndof_pan(struct wmOperatorType *ot)
+void VIEW3D_OT_ndof_pan(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "NDOF Pan View";
@@ -712,7 +712,7 @@ static int ndof_all_invoke(bContext *C, wmOperator *op, const wmEvent *event)
   return ret;
 }
 
-void VIEW3D_OT_ndof_all(struct wmOperatorType *ot)
+void VIEW3D_OT_ndof_all(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "NDOF Transform View";

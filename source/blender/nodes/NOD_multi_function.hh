@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -7,8 +9,6 @@
 #include "DNA_node_types.h"
 
 namespace blender::nodes {
-
-using namespace fn::multi_function_types;
 
 class NodeMultiFunctions;
 
@@ -19,8 +19,8 @@ class NodeMultiFunctionBuilder : NonCopyable, NonMovable {
  private:
   const bNode &node_;
   const bNodeTree &tree_;
-  std::shared_ptr<MultiFunction> owned_built_fn_;
-  const MultiFunction *built_fn_ = nullptr;
+  std::shared_ptr<mf::MultiFunction> owned_built_fn_;
+  const mf::MultiFunction *built_fn_ = nullptr;
 
   friend NodeMultiFunctions;
 
@@ -31,8 +31,8 @@ class NodeMultiFunctionBuilder : NonCopyable, NonMovable {
    * Assign a multi-function for the current node. The input and output parameters of the function
    * have to match the available sockets in the node.
    */
-  void set_matching_fn(const MultiFunction *fn);
-  void set_matching_fn(const MultiFunction &fn);
+  void set_matching_fn(const mf::MultiFunction *fn);
+  void set_matching_fn(const mf::MultiFunction &fn);
 
   /**
    * Utility method for creating and assigning a multi-function when it can't have a static
@@ -50,8 +50,8 @@ class NodeMultiFunctionBuilder : NonCopyable, NonMovable {
 class NodeMultiFunctions {
  public:
   struct Item {
-    const MultiFunction *fn = nullptr;
-    std::shared_ptr<MultiFunction> owned_fn;
+    const mf::MultiFunction *fn = nullptr;
+    std::shared_ptr<mf::MultiFunction> owned_fn;
   };
 
  private:
@@ -82,12 +82,12 @@ inline const bNodeTree &NodeMultiFunctionBuilder::tree()
   return tree_;
 }
 
-inline void NodeMultiFunctionBuilder::set_matching_fn(const MultiFunction *fn)
+inline void NodeMultiFunctionBuilder::set_matching_fn(const mf::MultiFunction *fn)
 {
   built_fn_ = fn;
 }
 
-inline void NodeMultiFunctionBuilder::set_matching_fn(const MultiFunction &fn)
+inline void NodeMultiFunctionBuilder::set_matching_fn(const mf::MultiFunction &fn)
 {
   built_fn_ = &fn;
 }

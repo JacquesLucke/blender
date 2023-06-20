@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup pygen
@@ -12,16 +14,61 @@
 
 #include <Python.h>
 
+#include "BLI_string.h"
 #include "BLI_utildefines.h"
+
 #include "MEM_guardedalloc.h"
 
+#include "GPU_context.h"
 #include "GPU_state.h"
+
+#include "py_capi_utils.h"
+
+#include "BKE_global.h"
 
 #include "../generic/py_capi_utils.h"
 
 #include <epoxy/gl.h>
 
 #include "bgl.h"
+
+#include "CLG_log.h"
+
+static CLG_LogRef LOG = {"bgl"};
+
+/* -------------------------------------------------------------------- */
+/** \name Local utility defines for wrapping OpenGL
+ * \{ */
+
+static void report_deprecated_call(const char *function_name)
+{
+  /* Only report first 10 deprecated calls. BGL is typically used inside an handler that is
+   * triggered at refresh. */
+  static int times = 0;
+  while (times >= 10) {
+    return;
+  }
+  char message[256];
+  SNPRINTF(message,
+           "'bgl.gl%s' is deprecated and will be removed in Blender 4.0. Report or update your "
+           "script to use 'gpu' module.",
+           function_name);
+  CLOG_WARN(&LOG, "%s", message);
+  PyErr_WarnEx(PyExc_DeprecationWarning, message, 1);
+  times++;
+}
+
+static void report_deprecated_call_to_user(void)
+{
+  /* Only report the first deprecated usage. */
+  if (G.opengl_deprecation_usage_detected) {
+    return;
+  }
+  G.opengl_deprecation_usage_detected = true;
+  PyC_FileAndNum(&G.opengl_deprecation_usage_filename, &G.opengl_deprecation_usage_lineno);
+}
+
+/** \} */
 
 /* -------------------------------------------------------------------- */
 /** \name Local utility defines for wrapping OpenGL
@@ -366,14 +413,17 @@ typedef struct BufferOrOffset {
 
 #define ret_def_void
 #define ret_set_void
+#define ret_default_void
 #define ret_ret_void return Py_INCREF(Py_None), Py_None
 
 #define ret_def_GLint int ret_int
 #define ret_set_GLint ret_int =
+#define ret_default_GLint -1
 #define ret_ret_GLint return PyLong_FromLong(ret_int)
 
 #define ret_def_GLuint uint ret_uint
 #define ret_set_GLuint ret_uint =
+#define ret_default_GLuint 0
 #define ret_ret_GLuint return PyLong_FromLong((long)ret_uint)
 
 #if 0
@@ -390,14 +440,19 @@ typedef struct BufferOrOffset {
 
 #define ret_def_GLenum uint ret_uint
 #define ret_set_GLenum ret_uint =
+#define ret_default_GLenum 0
 #define ret_ret_GLenum return PyLong_FromLong((long)ret_uint)
 
 #define ret_def_GLboolean uchar ret_bool
 #define ret_set_GLboolean ret_bool =
+#define ret_default_GLboolean GL_FALSE
 #define ret_ret_GLboolean return PyLong_FromLong((long)ret_bool)
 
-#define ret_def_GLstring const uchar *ret_str
+#define ret_def_GLstring \
+  const char *default_GLstring = ""; \
+  const uchar *ret_str
 #define ret_set_GLstring ret_str =
+#define ret_default_GLstring (const uchar *)default_GLstring
 
 #define ret_ret_GLstring \
   if (ret_str) { \
@@ -504,7 +559,7 @@ static PySequenceMethods Buffer_SeqMethods = {
 };
 
 static PyMappingMethods Buffer_AsMapping = {
-    /*mp_len*/ (lenfunc)Buffer_len,
+    /*mp_length*/ (lenfunc)Buffer_len,
     /*mp_subscript*/ (binaryfunc)Buffer_subscript,
     /*mp_ass_subscript*/ (objobjargproc)Buffer_ass_subscript,
 };
@@ -772,7 +827,8 @@ static PyObject *Buffer_new(PyTypeObject *UNUSED(type), PyObject *args, PyObject
                    pybuffer.format);
     }
     else if (ndimensions != pybuffer.ndim ||
-             !compare_dimensions(ndimensions, dimensions, pybuffer.shape)) {
+             !compare_dimensions(ndimensions, dimensions, pybuffer.shape))
+    {
       PyErr_Format(PyExc_TypeError, "array size does not match");
     }
     else {
@@ -1071,11 +1127,19 @@ static PyObject *Buffer_repr(Buffer *self)
     { \
       arg_def arg_list; \
       ret_def_##ret; \
+      report_deprecated_call(#funcname); \
       if (!PyArg_ParseTuple(args, arg_str arg_list, arg_ref arg_list)) { \
         return NULL; \
       } \
-      GPU_bgl_start(); \
-      ret_set_##ret gl##funcname(arg_var arg_list); \
+      const bool has_opengl_backend = GPU_backend_get_type() == GPU_BACKEND_OPENGL; \
+      if (has_opengl_backend) { \
+        GPU_bgl_start(); \
+        ret_set_##ret gl##funcname(arg_var arg_list); \
+      } \
+      else { \
+        report_deprecated_call_to_user(); \
+        ret_set_##ret ret_default_##ret; \
+      } \
       ret_ret_##ret; \
     }
 #else
@@ -1374,7 +1438,7 @@ BGL_Wrap(TexImage3DMultisample,
 /** \name Module Definition
  * \{ */
 
-static struct PyModuleDef BGL_module_def = {
+static PyModuleDef BGL_module_def = {
     PyModuleDef_HEAD_INIT,
     /*m_name*/ "bgl",
     /*m_doc*/ NULL,
@@ -2588,6 +2652,18 @@ PyObject *BPyInit_bgl(void)
   if (PyType_Ready(&BGL_bufferType) < 0) {
     return NULL; /* should never happen */
   }
+
+  /* Building as a Python module loads all modules
+   * (see code comment around #PyImport_ExtendInittab usage).
+   * The result of this is the `bgl` warning would always show when importing `bpy`.
+   * In the case of Blender as a Python module, suppress the warning. */
+#ifndef WITH_PYTHON_MODULE
+  if (GPU_backend_get_type() != GPU_BACKEND_OPENGL) {
+    CLOG_WARN(&LOG,
+              "'bgl' imported without an OpenGL backend. Please update your add-ons to use the "
+              "'gpu' module. In Blender 4.0 'bgl' will be removed.");
+  }
+#endif
 
   PyModule_AddObject(submodule, "Buffer", (PyObject *)&BGL_bufferType);
   Py_INCREF((PyObject *)&BGL_bufferType);

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "node_geometry_util.hh"
 
@@ -12,23 +14,23 @@
 #include "DNA_volume_types.h"
 
 #include "BKE_material.h"
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 
 namespace blender::nodes::node_geo_set_material_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Geometry>(N_("Geometry"))
-      .supported_type({GEO_COMPONENT_TYPE_MESH,
-                       GEO_COMPONENT_TYPE_VOLUME,
-                       GEO_COMPONENT_TYPE_POINT_CLOUD,
-                       GEO_COMPONENT_TYPE_CURVE});
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().supports_field();
-  b.add_input<decl::Material>(N_("Material")).hide_label();
-  b.add_output<decl::Geometry>(N_("Geometry"));
+  b.add_input<decl::Geometry>("Geometry")
+      .supported_type({GeometryComponent::Type::Mesh,
+                       GeometryComponent::Type::Volume,
+                       GeometryComponent::Type::PointCloud,
+                       GeometryComponent::Type::Curve});
+  b.add_input<decl::Bool>("Selection").default_value(true).hide_value().field_on_all();
+  b.add_input<decl::Material>("Material").hide_label();
+  b.add_output<decl::Geometry>("Geometry").propagate_all();
 }
 
-static void assign_material_to_faces(Mesh &mesh, const IndexMask selection, Material *material)
+static void assign_material_to_faces(Mesh &mesh, const IndexMask &selection, Material *material)
 {
   if (selection.size() != mesh.totpoly) {
     /* If the entire mesh isn't selected, and there is no material slot yet, add an empty
@@ -53,7 +55,7 @@ static void assign_material_to_faces(Mesh &mesh, const IndexMask selection, Mate
   MutableAttributeAccessor attributes = mesh.attributes_for_write();
   SpanAttributeWriter<int> material_indices = attributes.lookup_or_add_for_write_span<int>(
       "material_index", ATTR_DOMAIN_FACE);
-  material_indices.span.fill_indices(selection, new_material_index);
+  index_mask::masked_fill(material_indices.span, new_material_index, selection);
   material_indices.finish();
 }
 
@@ -65,22 +67,27 @@ static void node_geo_exec(GeoNodeExecParams params)
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry");
 
   /* Only add the warnings once, even if there are many unique instances. */
+  bool no_faces_warning = false;
   bool point_selection_warning = false;
   bool volume_selection_warning = false;
   bool curves_selection_warning = false;
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-    if (geometry_set.has_mesh()) {
-      MeshComponent &mesh_component = geometry_set.get_component_for_write<MeshComponent>();
-      Mesh &mesh = *mesh_component.get_for_write();
+    if (Mesh *mesh = geometry_set.get_mesh_for_write()) {
+      if (mesh->totpoly == 0) {
+        if (mesh->totvert > 0) {
+          no_faces_warning = true;
+        }
+      }
+      else {
+        const bke::MeshFieldContext field_context{*mesh, ATTR_DOMAIN_FACE};
+        fn::FieldEvaluator selection_evaluator{field_context, mesh->totpoly};
+        selection_evaluator.add(selection_field);
+        selection_evaluator.evaluate();
+        const IndexMask selection = selection_evaluator.get_evaluated_as_mask(0);
 
-      bke::MeshFieldContext field_context{mesh, ATTR_DOMAIN_FACE};
-      fn::FieldEvaluator selection_evaluator{field_context, mesh.totpoly};
-      selection_evaluator.add(selection_field);
-      selection_evaluator.evaluate();
-      const IndexMask selection = selection_evaluator.get_evaluated_as_mask(0);
-
-      assign_material_to_faces(mesh, selection, material);
+        assign_material_to_faces(*mesh, selection, material);
+      }
     }
     if (Volume *volume = geometry_set.get_volume_for_write()) {
       BKE_id_material_eval_assign(&volume->id, 1, material);
@@ -102,6 +109,10 @@ static void node_geo_exec(GeoNodeExecParams params)
     }
   });
 
+  if (no_faces_warning) {
+    params.error_message_add(NodeWarningType::Info,
+                             TIP_("Mesh has no faces for material assignment"));
+  }
   if (volume_selection_warning) {
     params.error_message_add(
         NodeWarningType::Info,

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2010-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup collada
@@ -129,10 +131,10 @@ bool LightsExporter::exportBlenderProfile(COLLADASW::Light &cla, Light *la)
   cla.addExtraTechniqueParameter("blender", "clipsta", la->clipsta);
   cla.addExtraTechniqueParameter("blender", "clipend", la->clipend);
   cla.addExtraTechniqueParameter("blender", "bias", la->bias);
-  cla.addExtraTechniqueParameter("blender", "soft", la->soft);
   cla.addExtraTechniqueParameter("blender", "bufsize", la->bufsize);
   cla.addExtraTechniqueParameter("blender", "samp", la->samp);
   cla.addExtraTechniqueParameter("blender", "buffers", la->buffers);
+  cla.addExtraTechniqueParameter("blender", "radius", la->radius);
   cla.addExtraTechniqueParameter("blender", "area_shape", la->area_shape);
   cla.addExtraTechniqueParameter("blender", "area_size", la->area_size);
   cla.addExtraTechniqueParameter("blender", "area_sizey", la->area_sizey);

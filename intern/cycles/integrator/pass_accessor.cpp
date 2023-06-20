@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "integrator/pass_accessor.h"
 
@@ -180,7 +181,8 @@ bool PassAccessor::get_render_tile_pixels(const RenderBuffers *render_buffers,
     }
     else if ((pass_info.divide_type != PASS_NONE || pass_info.direct_type != PASS_NONE ||
               pass_info.indirect_type != PASS_NONE) &&
-             mode != PassMode::DENOISED) {
+             mode != PassMode::DENOISED)
+    {
       /* RGB lighting passes that need to divide out color and/or sum direct and indirect.
        * These can also optionally write alpha like the combined pass. */
       get_pass_light_path(render_buffers, buffer_params, destination);

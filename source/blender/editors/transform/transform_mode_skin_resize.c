@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -99,7 +100,7 @@ static void applySkinResize(TransInfo *t, const int UNUSED(mval[2]))
       constraintNumInput(t, t->values_final);
     }
 
-    applySnappingAsGroup(t, t->values_final);
+    transform_snap_mixed_apply(t, t->values_final);
   }
 
   size_to_mat3(mat_final, t->values_final);
@@ -133,10 +134,9 @@ static void applySkinResize(TransInfo *t, const int UNUSED(mval[2]))
   ED_area_status_text(t->area, str);
 }
 
-void initSkinResize(TransInfo *t)
+static void initSkinResize(TransInfo *t, struct wmOperator *UNUSED(op))
 {
   t->mode = TFM_SKIN_RESIZE;
-  t->transform = applySkinResize;
 
   initMouseInputMode(t, &t->mouse, INPUT_SPRING_FLIP);
 
@@ -166,3 +166,14 @@ void initSkinResize(TransInfo *t)
 }
 
 /** \} */
+
+TransModeInfo TransMode_skinresize = {
+    /*flags*/ 0,
+    /*init_fn*/ initSkinResize,
+    /*transform_fn*/ applySkinResize,
+    /*transform_matrix_fn*/ NULL,
+    /*handle_event_fn*/ NULL,
+    /*snap_distance_fn*/ NULL,
+    /*snap_apply_fn*/ NULL,
+    /*draw_fn*/ NULL,
+};

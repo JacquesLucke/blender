@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -7,6 +9,8 @@
  */
 
 #include <string.h>
+
+#include "DNA_asset_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -22,6 +26,7 @@
 
 #include "BLT_translation.h"
 
+#include "DNA_defaults.h"
 #include "DNA_userdef_types.h"
 
 #define U BLI_STATIC_ASSERT(false, "Global 'U' not allowed, only use arguments passed in!")
@@ -32,17 +37,18 @@
 
 bUserAssetLibrary *BKE_preferences_asset_library_add(UserDef *userdef,
                                                      const char *name,
-                                                     const char *path)
+                                                     const char *dirpath)
 {
   bUserAssetLibrary *library = MEM_callocN(sizeof(*library), "bUserAssetLibrary");
+  memcpy(library, DNA_struct_default_get(bUserAssetLibrary), sizeof(*library));
 
   BLI_addtail(&userdef->asset_libraries, library);
 
   if (name) {
     BKE_preferences_asset_library_name_set(userdef, library, name);
   }
-  if (path) {
-    BLI_strncpy(library->path, path, sizeof(library->path));
+  if (dirpath) {
+    STRNCPY(library->dirpath, dirpath);
   }
 
   return library;
@@ -57,7 +63,7 @@ void BKE_preferences_asset_library_name_set(UserDef *userdef,
                                             bUserAssetLibrary *library,
                                             const char *name)
 {
-  BLI_strncpy_utf8(library->name, name, sizeof(library->name));
+  STRNCPY_UTF8(library->name, name);
   BLI_uniquename(&userdef->asset_libraries,
                  library,
                  name,
@@ -68,9 +74,9 @@ void BKE_preferences_asset_library_name_set(UserDef *userdef,
 
 void BKE_preferences_asset_library_path_set(bUserAssetLibrary *library, const char *path)
 {
-  BLI_strncpy(library->path, path, sizeof(library->path));
-  if (BLI_is_file(library->path)) {
-    BLI_path_parent_dir(library->path);
+  STRNCPY(library->dirpath, path);
+  if (BLI_is_file(library->dirpath)) {
+    BLI_path_parent_dir(library->dirpath);
   }
 }
 
@@ -89,7 +95,7 @@ bUserAssetLibrary *BKE_preferences_asset_library_containing_path(const UserDef *
                                                                  const char *path)
 {
   LISTBASE_FOREACH (bUserAssetLibrary *, asset_lib_pref, &userdef->asset_libraries) {
-    if (BLI_path_contains(asset_lib_pref->path, path)) {
+    if (BLI_path_contains(asset_lib_pref->dirpath, path)) {
       return asset_lib_pref;
     }
   }
@@ -115,7 +121,8 @@ void BKE_preferences_asset_library_default_add(UserDef *userdef)
       userdef, DATA_(BKE_PREFS_ASSET_LIBRARY_DEFAULT_NAME), NULL);
 
   /* Add new "Default" library under '[doc_path]/Blender/Assets'. */
-  BLI_path_join(library->path, sizeof(library->path), documents_path, N_("Blender"), N_("Assets"));
+  BLI_path_join(
+      library->dirpath, sizeof(library->dirpath), documents_path, N_("Blender"), N_("Assets"));
 }
 
 /** \} */

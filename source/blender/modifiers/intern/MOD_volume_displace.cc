@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup modifiers
@@ -31,8 +33,8 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "MOD_modifiertypes.h"
-#include "MOD_ui_common.h"
+#include "MOD_modifiertypes.hh"
+#include "MOD_ui_common.hh"
 
 #include "RE_texture.h"
 
@@ -84,7 +86,7 @@ static void foreachTexLink(ModifierData *md, Object *ob, TexWalkFunc walk, void 
   walk(userData, ob, md, "texture");
 }
 
-static bool dependsOnTime(struct Scene * /*scene*/, ModifierData *md)
+static bool dependsOnTime(Scene * /*scene*/, ModifierData *md)
 {
   VolumeDisplaceModifierData *vdmd = reinterpret_cast<VolumeDisplaceModifierData *>(md);
   if (vdmd->texture) {
@@ -168,8 +170,7 @@ template<typename GridType> struct DisplaceOp {
   openvdb::Vec3d evaluate_texture(const openvdb::Vec3f &pos) const
   {
     TexResult texture_result = {0};
-    BKE_texture_get_value(
-        nullptr, this->texture, const_cast<float *>(pos.asV()), &texture_result, false);
+    BKE_texture_get_value(this->texture, const_cast<float *>(pos.asV()), &texture_result, false);
     return {texture_result.trgba[0], texture_result.trgba[1], texture_result.trgba[2]};
   }
 };
@@ -231,7 +232,8 @@ struct DisplaceGridOp {
     openvdb::tools::foreach (temp_grid->beginValueOn(),
                              displace_op,
                              true,
-                             /* Disable sharing of the operator. */ false);
+                             /* Disable sharing of the operator. */
+                             false);
 
     /* It is likely that we produced too many active cells. Those are removed here, to avoid
      * slowing down subsequent operations. */
@@ -301,7 +303,7 @@ static void displace_volume(ModifierData *md, const ModifierEvalContext *ctx, Vo
 
 static void modifyGeometrySet(ModifierData *md,
                               const ModifierEvalContext *ctx,
-                              GeometrySet *geometry_set)
+                              blender::bke::GeometrySet *geometry_set)
 {
   Volume *input_volume = geometry_set->get_volume_for_write();
   if (input_volume != nullptr) {
@@ -310,34 +312,34 @@ static void modifyGeometrySet(ModifierData *md,
 }
 
 ModifierTypeInfo modifierType_VolumeDisplace = {
-    /* name */ N_("Volume Displace"),
-    /* structName */ "VolumeDisplaceModifierData",
-    /* structSize */ sizeof(VolumeDisplaceModifierData),
-    /* srna */ &RNA_VolumeDisplaceModifier,
-    /* type */ eModifierTypeType_NonGeometrical,
-    /* flags */ static_cast<ModifierTypeFlag>(0),
-    /* icon */ ICON_VOLUME_DATA, /* TODO: Use correct icon. */
+    /*name*/ N_("Volume Displace"),
+    /*structName*/ "VolumeDisplaceModifierData",
+    /*structSize*/ sizeof(VolumeDisplaceModifierData),
+    /*srna*/ &RNA_VolumeDisplaceModifier,
+    /*type*/ eModifierTypeType_NonGeometrical,
+    /*flags*/ static_cast<ModifierTypeFlag>(0),
+    /*icon*/ ICON_VOLUME_DATA, /* TODO: Use correct icon. */
 
-    /* copyData */ BKE_modifier_copydata_generic,
+    /*copyData*/ BKE_modifier_copydata_generic,
 
-    /* deformVerts */ nullptr,
-    /* deformMatrices */ nullptr,
-    /* deformVertsEM */ nullptr,
-    /* deformMatricesEM */ nullptr,
-    /* modifyMesh */ nullptr,
-    /* modifyGeometrySet */ modifyGeometrySet,
+    /*deformVerts*/ nullptr,
+    /*deformMatrices*/ nullptr,
+    /*deformVertsEM*/ nullptr,
+    /*deformMatricesEM*/ nullptr,
+    /*modifyMesh*/ nullptr,
+    /*modifyGeometrySet*/ modifyGeometrySet,
 
-    /* initData */ initData,
-    /* requiredDataMask */ nullptr,
-    /* freeData */ nullptr,
-    /* isDisabled */ nullptr,
-    /* updateDepsgraph */ updateDepsgraph,
-    /* dependsOnTime */ dependsOnTime,
-    /* dependsOnNormals */ nullptr,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ foreachTexLink,
-    /* freeRuntimeData */ nullptr,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ nullptr,
-    /* blendRead */ nullptr,
+    /*initData*/ initData,
+    /*requiredDataMask*/ nullptr,
+    /*freeData*/ nullptr,
+    /*isDisabled*/ nullptr,
+    /*updateDepsgraph*/ updateDepsgraph,
+    /*dependsOnTime*/ dependsOnTime,
+    /*dependsOnNormals*/ nullptr,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ foreachTexLink,
+    /*freeRuntimeData*/ nullptr,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ nullptr,
+    /*blendRead*/ nullptr,
 };

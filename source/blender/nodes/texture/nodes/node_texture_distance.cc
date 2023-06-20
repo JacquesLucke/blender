@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup texnodes
@@ -20,7 +21,7 @@ static bNodeSocketTemplate outputs[] = {
     {-1, ""},
 };
 
-static void valuefn(float *out, TexParams *p, bNode *UNUSED(node), bNodeStack **in, short thread)
+static void valuefn(float *out, TexParams *p, bNode * /*node*/, bNodeStack **in, short thread)
 {
   float co1[3], co2[3];
 
@@ -31,7 +32,7 @@ static void valuefn(float *out, TexParams *p, bNode *UNUSED(node), bNodeStack **
 }
 
 static void exec(void *data,
-                 int UNUSED(thread),
+                 int /*thread*/,
                  bNode *node,
                  bNodeExecData *execdata,
                  bNodeStack **in,
@@ -45,7 +46,7 @@ void register_node_type_tex_distance(void)
   static bNodeType ntype;
 
   tex_node_type_base(&ntype, TEX_NODE_DISTANCE, "Distance", NODE_CLASS_CONVERTER);
-  node_type_socket_templates(&ntype, inputs, outputs);
+  blender::bke::node_type_socket_templates(&ntype, inputs, outputs);
   ntype.exec_fn = exec;
 
   nodeRegisterType(&ntype);

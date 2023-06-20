@@ -6,6 +6,9 @@
  * Project page: https://eheitzresearch.wordpress.com/415-2/
  */
 
+/* Ensure common_utiltex_lib is included first. */
+#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
+
 #define USE_LTC
 
 /* Diffuse *clipped* sphere integral. */
@@ -46,7 +49,7 @@ vec3 solve_cubic(vec4 coefs)
   /* Discriminant */
   float discr = dot(vec2(4.0 * delta.x, -delta.y), delta.zy);
 
-  /* Clamping avoid NaN output on some platform. (see T67060) */
+  /* Clamping avoid NaN output on some platform. (see #67060) */
   float sqrt_discr = sqrt(clamp(discr, 0.0, FLT_MAX));
 
   vec2 xlc, xsc;
@@ -141,7 +144,11 @@ mat3 ltc_matrix(vec4 lut)
   return Minv;
 }
 
+#ifdef GPU_METAL
+void ltc_transform_quad(vec3 N, vec3 V, mat3 Minv, thread vec3 *corners)
+#else
 void ltc_transform_quad(vec3 N, vec3 V, mat3 Minv, inout vec3 corners[4])
+#endif
 {
   /* Avoid dot(N, V) == 1 in ortho mode, leading T1 normalize to fail. */
   V = normalize(V + 1e-8);
@@ -182,8 +189,7 @@ float ltc_evaluate_quad(vec3 corners[4], vec3 N)
 float ltc_evaluate_disk_simple(float disk_radius, float NL)
 {
   float r_sqr = disk_radius * disk_radius;
-  float one_r_sqr = 1.0 + r_sqr;
-  float form_factor = r_sqr * inversesqrt(one_r_sqr * one_r_sqr);
+  float form_factor = r_sqr / (1.0 + r_sqr);
   return form_factor * diffuse_sphere_integral(NL, form_factor);
 }
 

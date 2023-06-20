@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edasset
@@ -12,13 +14,31 @@
 
 struct AssetHandle;
 struct AssetLibraryReference;
-struct FileDirEntry;
-struct bContext;
 
-std::string ED_assetlist_asset_filepath_get(const bContext *C,
-                                            const AssetLibraryReference &library_reference,
-                                            const AssetHandle &asset_handle);
+namespace blender::asset_system {
+class AssetLibrary;
+class AssetRepresentation;
+}  // namespace blender::asset_system
+
+/**
+ * Get the asset library being read into an asset-list and identified using \a library_reference.
+ *
+ * \note The asset library may be allocated and loaded asynchronously, so it's not available right
+ *       after fetching, and this function will return null. The asset list code sends `NC_ASSET |
+ *       ND_ASSET_LIST_READING` notifiers until loading is done, they can be used to continuously
+ *       call this function to retrieve the asset library once available.
+ */
+blender::asset_system::AssetLibrary *ED_assetlist_library_get_once_available(
+    const AssetLibraryReference &library_reference);
 
 /* Can return false to stop iterating. */
-using AssetListIterFn = blender::FunctionRef<bool(AssetHandle)>;
+using AssetListHandleIterFn = blender::FunctionRef<bool(AssetHandle)>;
+using AssetListIterFn = blender::FunctionRef<bool(blender::asset_system::AssetRepresentation &)>;
+
+/**
+ * \warning Never keep the asset handle passed to \a fn outside of \a fn's scope. While iterating,
+ * the file data wrapped by the asset handle can be freed, since the file cache has a maximum size.
+ */
+void ED_assetlist_iterate(const AssetLibraryReference &library_reference,
+                          AssetListHandleIterFn fn);
 void ED_assetlist_iterate(const AssetLibraryReference &library_reference, AssetListIterFn fn);

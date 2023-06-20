@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __OSL_H__
 #define __OSL_H__
@@ -91,6 +92,9 @@ class OSLShaderManager : public ShaderManager {
                            const std::string &filepath,
                            const std::string &bytecode_hash = "",
                            const std::string &bytecode = "");
+
+  /* Get image slots used by OSL services on device. */
+  static void osl_image_slots(Device *device, ImageManager *image_manager, set<int> &image_slots);
 
  private:
   void texture_system_init();

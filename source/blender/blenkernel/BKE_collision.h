@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 /** \file
@@ -14,13 +15,11 @@ struct BVHTree;
 struct Collection;
 struct CollisionModifierData;
 struct Depsgraph;
-struct MVert;
 struct MVertTri;
 struct Object;
-struct Scene;
 
 ////////////////////////////////////////
-// used for collisions in collision.c
+// used for collisions in collision.cc
 ////////////////////////////////////////
 
 /* COLLISION FLAGS */
@@ -34,9 +33,9 @@ typedef enum {
 } COLLISION_FLAGS;
 
 ////////////////////////////////////////
-// used for collisions in collision.c
+// used for collisions in collision.cc
 ////////////////////////////////////////
-/* used for collisions in collision.c */
+/* used for collisions in collision.cc */
 typedef struct CollPair {
   unsigned int face1; /* cloth face */
   unsigned int face2; /* object face */
@@ -55,10 +54,12 @@ typedef struct CollPair {
 #else
   int ap1, ap2, ap3, bp1, bp2, bp3;
 #endif
+  /* Barycentric weights of the collision point. */
+  float aw1, aw2, aw3, bw1, bw2, bw3;
   int pointsb[4];
 } CollPair;
 
-/* used for collisions in collision.c */
+/* used for collisions in collision.cc */
 typedef struct EdgeCollPair {
   unsigned int p11, p12, p21, p22;
   float normal[3];
@@ -68,7 +69,7 @@ typedef struct EdgeCollPair {
   float pa[3], pb[3]; /* collision point p1 on face1, p2 on face2 */
 } EdgeCollPair;
 
-/* used for collisions in collision.c */
+/* used for collisions in collision.cc */
 typedef struct FaceCollPair {
   unsigned int p11, p12, p13, p21;
   float normal[3];
@@ -85,16 +86,16 @@ typedef struct FaceCollPair {
 /////////////////////////////////////////////////
 
 /////////////////////////////////////////////////
-// used in modifier.cc from collision.c
+// used in modifier.cc from collision.cc
 /////////////////////////////////////////////////
 
-struct BVHTree *bvhtree_build_from_mvert(const struct MVert *mvert,
+struct BVHTree *bvhtree_build_from_mvert(const float (*positions)[3],
                                          const struct MVertTri *tri,
                                          int tri_num,
                                          float epsilon);
 void bvhtree_update_from_mvert(struct BVHTree *bvhtree,
-                               const struct MVert *mvert,
-                               const struct MVert *mvert_moving,
+                               const float (*positions)[3],
+                               const float (*positions_moving)[3],
                                const struct MVertTri *tri,
                                int tri_num,
                                bool moving);

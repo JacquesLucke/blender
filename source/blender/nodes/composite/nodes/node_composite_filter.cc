@@ -1,11 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2006 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2006 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup cmpnodes
  */
 
-#include "BLI_float3x3.hh"
+#include "BLI_math_matrix_types.hh"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -21,16 +22,16 @@ namespace blender::nodes::node_composite_filter_cc {
 
 static void cmp_node_filter_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Float>(N_("Fac"))
+  b.add_input<decl::Float>("Fac")
       .default_value(1.0f)
       .min(0.0f)
       .max(1.0f)
       .subtype(PROP_FACTOR)
       .compositor_domain_priority(1);
-  b.add_input<decl::Color>(N_("Image"))
+  b.add_input<decl::Color>("Image")
       .default_value({1.0f, 1.0f, 1.0f, 1.0f})
       .compositor_domain_priority(0);
-  b.add_output<decl::Color>(N_("Image"));
+  b.add_output<decl::Color>("Image");
 }
 
 static void node_composit_buts_filter(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -49,7 +50,7 @@ class FilterOperation : public NodeOperation {
     GPUShader *shader = shader_manager().get(get_shader_name());
     GPU_shader_bind(shader);
 
-    GPU_shader_uniform_mat3_as_mat4(shader, "kernel", get_filter_kernel().ptr());
+    GPU_shader_uniform_mat3_as_mat4(shader, "ukernel", get_filter_kernel().ptr());
 
     const Result &input_image = get_input("Image");
     input_image.bind_as_texture(shader, "input_tx");

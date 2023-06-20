@@ -4,6 +4,7 @@
  */
 /* TODO(fclem): This could be augmented by a 2 pass occlusion culling system. */
 
+#pragma BLENDER_REQUIRE(common_view_lib.glsl)
 #pragma BLENDER_REQUIRE(common_math_lib.glsl)
 #pragma BLENDER_REQUIRE(common_intersect_lib.glsl)
 
@@ -33,11 +34,16 @@ void main()
                                     bounds.bounding_corners[1].xyz,
                                     bounds.bounding_corners[2].xyz,
                                     bounds.bounding_corners[3].xyz);
-    Sphere bounding_sphere = Sphere(bounds.bounding_sphere.xyz, bounds.bounding_sphere.w);
-    Sphere inscribed_sphere = Sphere(bounds.bounding_sphere.xyz, bounds._inner_sphere_radius);
+    Sphere bounding_sphere = shape_sphere(bounds.bounding_sphere.xyz, bounds.bounding_sphere.w);
+    Sphere inscribed_sphere = shape_sphere(bounds.bounding_sphere.xyz,
+                                           bounds._inner_sphere_radius);
 
     for (drw_view_id = 0; drw_view_id < view_len; drw_view_id++) {
-      if (intersect_view(inscribed_sphere) == true) {
+      if (drw_view_culling.bound_sphere.w == -1.0) {
+        /* View disabled. */
+        mask_visibility_bit(drw_view_id);
+      }
+      else if (intersect_view(inscribed_sphere) == true) {
         /* Visible. */
       }
       else if (intersect_view(bounding_sphere) == false) {

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edphys
@@ -415,7 +416,7 @@ void PARTICLE_OT_dupliob_refresh(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/************************ move up particle dupliweight operator *********************/
+/************************ move up particle dupli-weight operator *********************/
 
 static int dupliob_move_up_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -676,7 +677,7 @@ void PARTICLE_OT_disconnect_hair(wmOperatorType *ot)
   ot->exec = disconnect_hair_exec;
 
   /* flags */
-  /* No REGISTER, redo does not work due to missing update, see T47750. */
+  /* No REGISTER, redo does not work due to missing update, see #47750. */
   ot->flag = OPTYPE_UNDO;
 
   RNA_def_boolean(
@@ -705,9 +706,8 @@ static bool remap_hair_emitter(Depsgraph *depsgraph,
   PTCacheEditPoint *edit_point;
   PTCacheEditKey *ekey;
   BVHTreeFromMesh bvhtree = {NULL};
-  MFace *mface = NULL, *mf;
-  const MEdge *medge = NULL, *me;
-  MVert *mvert;
+  const MFace *mface = NULL, *mf;
+  const vec2i *edges = NULL, *edge;
   Mesh *mesh, *target_mesh;
   int numverts;
   int k;
@@ -752,11 +752,11 @@ static bool remap_hair_emitter(Depsgraph *depsgraph,
   BKE_mesh_tessface_ensure(mesh);
 
   numverts = mesh->totvert;
-  mvert = BKE_mesh_verts_for_write(mesh);
+  float(*positions)[3] = BKE_mesh_vert_positions_for_write(mesh);
 
   /* convert to global coordinates */
   for (int i = 0; i < numverts; i++) {
-    mul_m4_v3(to_mat, mvert[i].co);
+    mul_m4_v3(to_mat, positions[i]);
   }
 
   if (mesh->totface != 0) {
@@ -764,7 +764,7 @@ static bool remap_hair_emitter(Depsgraph *depsgraph,
     BKE_bvhtree_from_mesh_get(&bvhtree, mesh, BVHTREE_FROM_FACES, 2);
   }
   else if (mesh->totedge != 0) {
-    medge = BKE_mesh_edges(mesh);
+    edges = CustomData_get_layer_named(&mesh->edata, CD_PROP_INT32_2D, ".edge_verts");
     BKE_bvhtree_from_mesh_get(&bvhtree, mesh, BVHTREE_FROM_EDGES, 2);
   }
   else {
@@ -774,7 +774,8 @@ static bool remap_hair_emitter(Depsgraph *depsgraph,
 
   int i;
   for (i = 0, tpa = target_psys->particles, pa = psys->particles; i < target_psys->totpart;
-       i++, tpa++, pa++) {
+       i++, tpa++, pa++)
+  {
     float from_co[3];
     BVHTreeNearest nearest;
 
@@ -803,11 +804,11 @@ static bool remap_hair_emitter(Depsgraph *depsgraph,
 
       mf = &mface[nearest.index];
 
-      copy_v3_v3(v[0], mvert[mf->v1].co);
-      copy_v3_v3(v[1], mvert[mf->v2].co);
-      copy_v3_v3(v[2], mvert[mf->v3].co);
+      copy_v3_v3(v[0], positions[mf->v1]);
+      copy_v3_v3(v[1], positions[mf->v2]);
+      copy_v3_v3(v[2], positions[mf->v3]);
       if (mf->v4) {
-        copy_v3_v3(v[3], mvert[mf->v4].co);
+        copy_v3_v3(v[3], positions[mf->v4]);
         interp_weights_poly_v3(tpa->fuv, v, 4, nearest.co);
       }
       else {
@@ -825,9 +826,9 @@ static bool remap_hair_emitter(Depsgraph *depsgraph,
       }
     }
     else {
-      me = &medge[nearest.index];
+      edge = &edges[nearest.index];
 
-      tpa->fuv[1] = line_point_factor_v3(nearest.co, mvert[me->v1].co, mvert[me->v2].co);
+      tpa->fuv[1] = line_point_factor_v3(nearest.co, positions[edge->x], positions[edge->y]);
       tpa->fuv[0] = 1.0f - tpa->fuv[1];
       tpa->fuv[2] = tpa->fuv[3] = 0.0f;
       tpa->foffset = 0.0f;
@@ -858,7 +859,8 @@ static bool remap_hair_emitter(Depsgraph *depsgraph,
 
       if (edit_point) {
         for (k = 0, key = pa->hair, tkey = tpa->hair, ekey = edit_point->keys; k < tpa->totkey;
-             k++, key++, tkey++, ekey++) {
+             k++, key++, tkey++, ekey++)
+        {
           float co_orig[3];
 
           if (from_global) {
@@ -979,7 +981,7 @@ void PARTICLE_OT_connect_hair(wmOperatorType *ot)
   ot->exec = connect_hair_exec;
 
   /* flags */
-  /* No REGISTER, redo does not work due to missing update, see T47750. */
+  /* No REGISTER, redo does not work due to missing update, see #47750. */
   ot->flag = OPTYPE_UNDO;
 
   RNA_def_boolean(ot->srna, "all", 0, "All Hair", "Connect all hair systems to the emitter mesh");
@@ -1129,8 +1131,8 @@ static bool copy_particle_systems_to_object(const bContext *C,
   psys_start = totpsys > 0 ? tmp_psys[0] : NULL;
 
   /* now append psys to the object and make modifiers */
-  for (i = 0, psys_from = PSYS_FROM_FIRST; i < totpsys;
-       ++i, psys_from = PSYS_FROM_NEXT(psys_from)) {
+  for (i = 0, psys_from = PSYS_FROM_FIRST; i < totpsys; ++i, psys_from = PSYS_FROM_NEXT(psys_from))
+  {
     ParticleSystemModifierData *psmd;
 
     psys = tmp_psys[i];
@@ -1145,7 +1147,7 @@ static bool copy_particle_systems_to_object(const bContext *C,
     /* push on top of the stack, no use trying to reproduce old stack order */
     BLI_addtail(&ob_to->modifiers, md);
 
-    BLI_snprintf(md->name, sizeof(md->name), "ParticleSystem %i", i);
+    SNPRINTF(md->name, "ParticleSystem %i", i);
     BKE_modifier_unique_name(&ob_to->modifiers, (ModifierData *)psmd);
 
     psmd->psys = psys;
@@ -1165,7 +1167,8 @@ static bool copy_particle_systems_to_object(const bContext *C,
    * the remapping otherwise makes final_dm invalid!
    */
   for (psys = psys_start, psys_from = PSYS_FROM_FIRST, i = 0; psys;
-       psys = psys->next, psys_from = PSYS_FROM_NEXT(psys_from), i++) {
+       psys = psys->next, psys_from = PSYS_FROM_NEXT(psys_from), i++)
+  {
     float(*from_mat)[4], (*to_mat)[4];
 
     switch (space) {

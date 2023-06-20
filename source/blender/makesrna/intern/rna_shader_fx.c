@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -8,7 +10,7 @@
 #include <limits.h>
 #include <stdlib.h>
 
-#include "DNA_gpencil_types.h"
+#include "DNA_gpencil_legacy_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_shader_fx_types.h"
@@ -127,10 +129,10 @@ static void rna_ShaderFx_name_set(PointerRNA *ptr, const char *value)
   char oldname[sizeof(gmd->name)];
 
   /* make a copy of the old name first */
-  BLI_strncpy(oldname, gmd->name, sizeof(gmd->name));
+  STRNCPY(oldname, gmd->name);
 
   /* copy the new name into the name slot */
-  BLI_strncpy_utf8(gmd->name, value, sizeof(gmd->name));
+  STRNCPY_UTF8(gmd->name, value);
 
   /* make sure the name is truly unique */
   if (ptr->owner_id) {
@@ -432,7 +434,7 @@ static void rna_def_shader_fx_shadow(BlenderRNA *brna)
   prop = RNA_def_property(srna, "scale", PROP_FLOAT, PROP_XYZ);
   RNA_def_property_float_sdna(prop, NULL, "scale");
   RNA_def_property_range(prop, -FLT_MAX, FLT_MAX);
-  RNA_def_property_ui_text(prop, "Scale", "Offset of the shadow");
+  RNA_def_property_ui_text(prop, "Scale", "Scale of the shadow");
   RNA_def_property_update(prop, NC_OBJECT | ND_SHADERFX, "rna_ShaderFx_update");
 
   prop = RNA_def_property(srna, "shadow_color", PROP_FLOAT, PROP_COLOR);

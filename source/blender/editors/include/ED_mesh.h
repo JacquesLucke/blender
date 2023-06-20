@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2008 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2008 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup editors
@@ -42,7 +43,7 @@ struct bDeformGroup;
 struct wmKeyConfig;
 struct wmOperator;
 
-/* editmesh_utils.c */
+/* editmesh_utils.cc */
 
 /**
  * \param em: Edit-mesh used for generating mirror data.
@@ -88,7 +89,7 @@ void EDBM_mesh_make(struct Object *ob, int select_mode, bool add_key_index);
 void EDBM_mesh_free_data(struct BMEditMesh *em);
 /**
  * \warning This can invalidate the #Mesh runtime cache of other objects (for linked duplicates).
- * Most callers should run #DEG_id_tag_update on `ob->data`, see: T46738, T46913.
+ * Most callers should run #DEG_id_tag_update on `ob->data`, see: #46738, #46913.
  * This ensures #BKE_object_free_derived_caches runs on all objects that use this mesh.
  */
 void EDBM_mesh_load_ex(struct Main *bmain, struct Object *ob, bool free_data);
@@ -142,8 +143,15 @@ struct UvElementMap *BM_uv_element_map_create(struct BMesh *bm,
                                               bool use_seams,
                                               bool do_islands);
 void BM_uv_element_map_free(struct UvElementMap *element_map);
+
+/**
+ * Return the #UvElement associated with a given #BMLoop, or NULL if no association exists.
+ *
+ * \param element_map: The #UvElementMap to look in.
+ * \param l: The loop to search for.
+ * \return The #UvElement associated with #l, or NULL if not found. (e.g. the vertex is hidden.)
+ */
 struct UvElement *BM_uv_element_get(const struct UvElementMap *element_map,
-                                    const struct BMFace *efa,
                                     const struct BMLoop *l);
 struct UvElement *BM_uv_element_get_head(struct UvElementMap *element_map,
                                          struct UvElement *child);
@@ -153,7 +161,7 @@ struct UvElement **BM_uv_element_map_ensure_head_table(struct UvElementMap *elem
 int *BM_uv_element_map_ensure_unique_index(struct UvElementMap *element_map);
 
 /**
- * Can we edit UV's for this mesh?
+ * Can we edit UVs for this mesh?
  */
 bool EDBM_uv_check(struct BMEditMesh *em);
 /**
@@ -167,7 +175,7 @@ struct UvMapVert *BM_uv_vert_map_at_index(struct UvVertMap *vmap, unsigned int v
 /**
  * Return a new #UvVertMap from the edit-mesh.
  */
-struct UvVertMap *BM_uv_vert_map_create(struct BMesh *bm, bool use_select, bool use_winding);
+struct UvVertMap *BM_uv_vert_map_create(struct BMesh *bm, bool use_select);
 
 void EDBM_flag_enable_all(struct BMEditMesh *em, char hflag);
 void EDBM_flag_disable_all(struct BMEditMesh *em, char hflag);
@@ -419,6 +427,14 @@ void paintface_select_linked(struct bContext *C,
                              struct Object *ob,
                              const int mval[2],
                              bool select);
+
+void paintface_select_loop(struct bContext *C, struct Object *ob, const int mval[2], bool select);
+/**
+ * Grow the selection of faces.
+ * \param face_step: If true will also select faces that only touch on the corner.
+ */
+void paintface_select_more(struct Mesh *mesh, bool face_step);
+void paintface_select_less(struct Mesh *mesh, bool face_step);
 bool paintface_minmax(struct Object *ob, float r_min[3], float r_max[3]);
 
 void paintface_hide(struct bContext *C, struct Object *ob, bool unselected);
@@ -437,7 +453,15 @@ void paintvert_select_ungrouped(struct Object *ob, bool extend, bool flush_flags
  */
 void paintvert_flush_flags(struct Object *ob);
 void paintvert_tag_select_update(struct bContext *C, struct Object *ob);
-
+/* Select vertices that are connected to already selected vertices. */
+void paintvert_select_linked(struct bContext *C, struct Object *ob);
+/* Select vertices that are linked to the vertex under the given region space coordinates. */
+void paintvert_select_linked_pick(struct bContext *C,
+                                  struct Object *ob,
+                                  const int region_coordinates[2],
+                                  bool select);
+void paintvert_select_more(struct Mesh *mesh, bool face_step);
+void paintvert_select_less(struct Mesh *mesh, bool face_step);
 void paintvert_hide(struct bContext *C, struct Object *ob, bool unselected);
 void paintvert_reveal(struct bContext *C, struct Object *ob, bool select);
 
@@ -552,14 +576,19 @@ void ED_mesh_geometry_clear(struct Mesh *mesh);
 
 void ED_mesh_update(struct Mesh *mesh, struct bContext *C, bool calc_edges, bool calc_edges_loose);
 
+bool *ED_mesh_uv_map_vert_select_layer_ensure(struct Mesh *mesh, int uv_map_index);
+bool *ED_mesh_uv_map_edge_select_layer_ensure(struct Mesh *mesh, int uv_map_index);
+bool *ED_mesh_uv_map_pin_layer_ensure(struct Mesh *mesh, int uv_map_index);
+const bool *ED_mesh_uv_map_vert_select_layer_get(const struct Mesh *mesh, int uv_map_index);
+const bool *ED_mesh_uv_map_edge_select_layer_get(const struct Mesh *mesh, int uv_map_index);
+const bool *ED_mesh_uv_map_pin_layer_get(const struct Mesh *mesh, int uv_map_index);
+
 bool ED_mesh_edge_is_loose(const struct Mesh *mesh, int index);
 
 void ED_mesh_uv_ensure(struct Mesh *me, const char *name);
 int ED_mesh_uv_add(
     struct Mesh *me, const char *name, bool active_set, bool do_init, struct ReportList *reports);
-bool ED_mesh_uv_remove_index(struct Mesh *me, int n);
-bool ED_mesh_uv_remove_active(struct Mesh *me);
-bool ED_mesh_uv_remove_named(struct Mesh *me, const char *name);
+
 void ED_mesh_uv_loop_reset(struct bContext *C, struct Mesh *me);
 /**
  * Without a #bContext, called when UV-editing.
@@ -568,10 +597,6 @@ void ED_mesh_uv_loop_reset_ex(struct Mesh *me, int layernum);
 bool ED_mesh_color_ensure(struct Mesh *me, const char *name);
 int ED_mesh_color_add(
     struct Mesh *me, const char *name, bool active_set, bool do_init, struct ReportList *reports);
-int ED_mesh_sculpt_color_add(struct Mesh *me,
-                             const char *name,
-                             bool do_init,
-                             struct ReportList *reports);
 
 void ED_mesh_report_mirror(struct wmOperator *op, int totmirr, int totfail);
 void ED_mesh_report_mirror_ex(struct wmOperator *op, int totmirr, int totfail, char selectmode);
@@ -580,6 +605,12 @@ void ED_mesh_report_mirror_ex(struct wmOperator *op, int totmirr, int totfail, c
  * Returns the pinned mesh, the mesh from the pinned object, or the mesh from the active object.
  */
 struct Mesh *ED_mesh_context(struct bContext *C);
+
+/**
+ * Split all edges that would appear sharp based on face and edge sharpness tags and the
+ * auto smooth angle.
+ */
+void ED_mesh_split_faces(struct Mesh *mesh);
 
 /* mesh backup */
 typedef struct BMBackup {

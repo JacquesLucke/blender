@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation, Joshua Leung. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation, Joshua Leung. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -61,7 +62,7 @@ static void nla_tweakmode_find_active(const ListBase /* NlaTrack */ *nla_tracks,
 
 /* Freeing ------------------------------------------- */
 
-void BKE_nlastrip_free(ListBase *strips, NlaStrip *strip, bool do_id_user)
+void BKE_nlastrip_free(NlaStrip *strip, const bool do_id_user)
 {
   NlaStrip *cs, *csn;
 
@@ -73,17 +74,13 @@ void BKE_nlastrip_free(ListBase *strips, NlaStrip *strip, bool do_id_user)
   /* free child-strips */
   for (cs = strip->strips.first; cs; cs = csn) {
     csn = cs->next;
-    BKE_nlastrip_free(&strip->strips, cs, do_id_user);
+    BKE_nlastrip_remove_and_free(&strip->strips, cs, do_id_user);
   }
 
   /* remove reference to action */
   if (strip->act != NULL && do_id_user) {
     id_us_min(&strip->act->id);
   }
-
-  /* free remapping info */
-  // if (strip->remap)
-  //  BKE_animremap_free();
 
   /* free own F-Curves */
   BKE_fcurves_free(&strip->fcurves);
@@ -92,15 +89,10 @@ void BKE_nlastrip_free(ListBase *strips, NlaStrip *strip, bool do_id_user)
   free_fmodifiers(&strip->modifiers);
 
   /* free the strip itself */
-  if (strips) {
-    BLI_freelinkN(strips, strip);
-  }
-  else {
-    MEM_freeN(strip);
-  }
+  MEM_freeN(strip);
 }
 
-void BKE_nlatrack_free(ListBase *tracks, NlaTrack *nlt, bool do_id_user)
+void BKE_nlatrack_free(NlaTrack *nlt, const bool do_id_user)
 {
   NlaStrip *strip, *stripn;
 
@@ -112,16 +104,11 @@ void BKE_nlatrack_free(ListBase *tracks, NlaTrack *nlt, bool do_id_user)
   /* free strips */
   for (strip = nlt->strips.first; strip; strip = stripn) {
     stripn = strip->next;
-    BKE_nlastrip_free(&nlt->strips, strip, do_id_user);
+    BKE_nlastrip_remove_and_free(&nlt->strips, strip, do_id_user);
   }
 
   /* free NLA track itself now */
-  if (tracks) {
-    BLI_freelinkN(tracks, nlt);
-  }
-  else {
-    MEM_freeN(nlt);
-  }
+  MEM_freeN(nlt);
 }
 
 void BKE_nla_tracks_free(ListBase *tracks, bool do_id_user)
@@ -136,7 +123,7 @@ void BKE_nla_tracks_free(ListBase *tracks, bool do_id_user)
   /* free tracks one by one */
   for (nlt = tracks->first; nlt; nlt = nltn) {
     nltn = nlt->next;
-    BKE_nlatrack_free(tracks, nlt, do_id_user);
+    BKE_nlatrack_remove_and_free(tracks, nlt, do_id_user);
   }
 
   /* clear the list's pointers to be safe */
@@ -350,47 +337,113 @@ void BKE_nla_tracks_copy_from_adt(Main *bmain,
 
 /* Adding ------------------------------------------- */
 
-NlaTrack *BKE_nlatrack_add(AnimData *adt, NlaTrack *prev, const bool is_liboverride)
+NlaTrack *BKE_nlatrack_new(void)
 {
-  NlaTrack *nlt;
-
-  /* sanity checks */
-  if (adt == NULL) {
-    return NULL;
-  }
-
   /* allocate new track */
-  nlt = MEM_callocN(sizeof(NlaTrack), "NlaTrack");
+  NlaTrack *nlt = MEM_callocN(sizeof(NlaTrack), "NlaTrack");
 
   /* set settings requiring the track to not be part of the stack yet */
   nlt->flag = NLATRACK_SELECTED | NLATRACK_OVERRIDELIBRARY_LOCAL;
-  nlt->index = BLI_listbase_count(&adt->nla_tracks);
+
+  return nlt;
+}
+
+void BKE_nlatrack_insert_before(ListBase *nla_tracks,
+                                NlaTrack *next,
+                                NlaTrack *new_track,
+                                bool is_liboverride)
+{
+
+  if (is_liboverride) {
+    /* Currently, all library override tracks are assumed to be grouped together at the start of
+     * the list. Non overridden must be placed after last library track. */
+    if (next != NULL && (next->flag & NLATRACK_OVERRIDELIBRARY_LOCAL) == 0) {
+      BKE_nlatrack_insert_after(nla_tracks, next, new_track, is_liboverride);
+      return;
+    }
+  }
+
+  BLI_insertlinkbefore(nla_tracks, next, new_track);
+  new_track->index = BLI_findindex(nla_tracks, new_track);
+
+  /* Must have unique name, but we need to seed this. */
+  STRNCPY(new_track->name, "NlaTrack");
+
+  BLI_uniquename(nla_tracks,
+                 new_track,
+                 DATA_("NlaTrack"),
+                 '.',
+                 offsetof(NlaTrack, name),
+                 sizeof(new_track->name));
+}
+
+void BKE_nlatrack_insert_after(ListBase *nla_tracks,
+                               NlaTrack *prev,
+                               NlaTrack *new_track,
+                               const bool is_liboverride)
+{
+  BLI_assert(nla_tracks);
+  BLI_assert(new_track);
+
+  /** If NULL, then caller intends to insert a new head. But, tracks are not allowed to be placed
+   * before library overrides. So it must inserted after the last override. */
+  if (prev == NULL) {
+    NlaTrack *first_track = (NlaTrack *)nla_tracks->first;
+    if (first_track != NULL && (first_track->flag & NLATRACK_OVERRIDELIBRARY_LOCAL) == 0) {
+      prev = first_track;
+    }
+  }
 
   /* In liboverride case, we only add local tracks after all those coming from the linked data,
    * so we need to find the first local track. */
   if (is_liboverride && prev != NULL && (prev->flag & NLATRACK_OVERRIDELIBRARY_LOCAL) == 0) {
     NlaTrack *first_local = prev->next;
     for (; first_local != NULL && (first_local->flag & NLATRACK_OVERRIDELIBRARY_LOCAL) == 0;
-         first_local = first_local->next) {
+         first_local = first_local->next)
+    {
     }
     prev = first_local != NULL ? first_local->prev : NULL;
   }
+
   /* Add track to stack, and make it the active one. */
-  if (prev != NULL) {
-    BLI_insertlinkafter(&adt->nla_tracks, prev, nlt);
-  }
-  else {
-    BLI_addtail(&adt->nla_tracks, nlt);
-  }
-  BKE_nlatrack_set_active(&adt->nla_tracks, nlt);
+  BLI_insertlinkafter(nla_tracks, prev, new_track);
+  new_track->index = BLI_findindex(nla_tracks, new_track);
 
   /* must have unique name, but we need to seed this */
-  strcpy(nlt->name, "NlaTrack");
-  BLI_uniquename(
-      &adt->nla_tracks, nlt, DATA_("NlaTrack"), '.', offsetof(NlaTrack, name), sizeof(nlt->name));
+  BLI_uniquename(nla_tracks,
+                 new_track,
+                 DATA_("NlaTrack"),
+                 '.',
+                 offsetof(NlaTrack, name),
+                 sizeof(new_track->name));
+}
 
-  /* return the new track */
-  return nlt;
+NlaTrack *BKE_nlatrack_new_before(ListBase *nla_tracks, NlaTrack *next, bool is_liboverride)
+{
+  NlaTrack *new_track = BKE_nlatrack_new();
+
+  BKE_nlatrack_insert_before(nla_tracks, next, new_track, is_liboverride);
+
+  return new_track;
+}
+
+NlaTrack *BKE_nlatrack_new_after(ListBase *nla_tracks, NlaTrack *prev, bool is_liboverride)
+{
+  NlaTrack *new_track = BKE_nlatrack_new();
+
+  BKE_nlatrack_insert_after(nla_tracks, prev, new_track, is_liboverride);
+
+  return new_track;
+}
+
+NlaTrack *BKE_nlatrack_new_head(ListBase *nla_tracks, bool is_liboverride)
+{
+  return BKE_nlatrack_new_before(nla_tracks, (NlaTrack *)nla_tracks->first, is_liboverride);
+}
+
+NlaTrack *BKE_nlatrack_new_tail(ListBase *nla_tracks, const bool is_liboverride)
+{
+  return BKE_nlatrack_new_after(nla_tracks, (NlaTrack *)nla_tracks->last, is_liboverride);
 }
 
 NlaStrip *BKE_nlastrip_new(bAction *act)
@@ -462,9 +515,10 @@ NlaStrip *BKE_nlastack_add_strip(AnimData *adt, bAction *act, const bool is_libo
     /* trying to add to the last track failed (no track or no space),
      * so add a new track to the stack, and add to that...
      */
-    nlt = BKE_nlatrack_add(adt, NULL, is_liboverride);
+    nlt = BKE_nlatrack_new_tail(&adt->nla_tracks, is_liboverride);
+    BKE_nlatrack_set_active(&adt->nla_tracks, nlt);
     BKE_nlatrack_add_strip(nlt, strip, is_liboverride);
-    BLI_strncpy(nlt->name, act->id.name + 2, sizeof(nlt->name));
+    STRNCPY(nlt->name, act->id.name + 2);
   }
 
   /* automatically name it too */
@@ -521,6 +575,20 @@ void BKE_nla_strip_foreach_id(NlaStrip *strip, LibraryForeachIDData *data)
   LISTBASE_FOREACH (NlaStrip *, substrip, &strip->strips) {
     BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(data, BKE_nla_strip_foreach_id(substrip, data));
   }
+}
+
+/* Removing ------------------------------------------ */
+
+void BKE_nlatrack_remove(ListBase *tracks, NlaTrack *nlt)
+{
+  BLI_assert(tracks);
+  BLI_remlink(tracks, nlt);
+}
+
+void BKE_nlatrack_remove_and_free(ListBase *tracks, NlaTrack *nlt, bool do_id_user)
+{
+  BKE_nlatrack_remove(tracks, nlt);
+  BKE_nlatrack_free(nlt, do_id_user);
 }
 
 /* *************************************************** */
@@ -746,7 +814,7 @@ void BKE_nlastrips_sort_strips(ListBase *strips)
 
     for (sstrip = tmp.last; sstrip; sstrip = sstrip->prev) {
       /* check if add after */
-      if (sstrip->end <= strip->start) {
+      if (sstrip->start <= strip->start) {
         BLI_insertlinkafter(&tmp, sstrip, strip);
         not_added = 0;
         break;
@@ -764,25 +832,18 @@ void BKE_nlastrips_sort_strips(ListBase *strips)
   strips->last = tmp.last;
 }
 
-bool BKE_nlastrips_add_strip(ListBase *strips, NlaStrip *strip)
+void BKE_nlastrips_add_strip_unsafe(ListBase *strips, NlaStrip *strip)
 {
   NlaStrip *ns;
   bool not_added = true;
 
   /* sanity checks */
-  if (ELEM(NULL, strips, strip)) {
-    return false;
-  }
-
-  /* check if any space to add */
-  if (BKE_nlastrips_has_space(strips, strip->start, strip->end) == 0) {
-    return false;
-  }
+  BLI_assert(!ELEM(NULL, strips, strip));
 
   /* find the right place to add the strip to the nominated track */
   for (ns = strips->first; ns; ns = ns->next) {
     /* if current strip occurs after the new strip, add it before */
-    if (ns->start >= strip->end) {
+    if (ns->start >= strip->start) {
       BLI_insertlinkbefore(strips, ns, strip);
       not_added = 0;
       break;
@@ -792,8 +853,19 @@ bool BKE_nlastrips_add_strip(ListBase *strips, NlaStrip *strip)
     /* just add to the end of the list of the strips then... */
     BLI_addtail(strips, strip);
   }
+}
 
-  /* added... */
+bool BKE_nlastrips_add_strip(ListBase *strips, NlaStrip *strip)
+{
+  if (ELEM(NULL, strips, strip)) {
+    return false;
+  }
+
+  if (!BKE_nlastrips_has_space(strips, strip->start, strip->end)) {
+    return false;
+  }
+
+  BKE_nlastrips_add_strip_unsafe(strips, strip);
   return true;
 }
 
@@ -844,8 +916,8 @@ void BKE_nlastrips_make_metas(ListBase *strips, bool is_temp)
       mstrip->end = strip->end;
     }
     else {
-      /* current strip wasn't selected, so the end of 'island' of selected strips has been reached,
-       * so stop adding strips to the current meta
+      /* current strip wasn't selected, so the end of 'island' of selected strips has been
+       * reached, so stop adding strips to the current meta.
        */
       mstrip = NULL;
     }
@@ -871,7 +943,7 @@ void BKE_nlastrips_clear_metastrip(ListBase *strips, NlaStrip *strip)
   }
 
   /* free the meta-strip now */
-  BKE_nlastrip_free(strips, strip, true);
+  BKE_nlastrip_remove_and_free(strips, strip, true);
 }
 
 void BKE_nlastrips_clear_metas(ListBase *strips, bool only_sel, bool only_temp)
@@ -973,19 +1045,17 @@ void BKE_nlameta_flush_transforms(NlaStrip *mstrip)
   oEnd = ((NlaStrip *)mstrip->strips.last)->end;
   offset = mstrip->start - oStart;
 
+  /* check if scale changed */
+  oLen = oEnd - oStart;
+  nLen = mstrip->end - mstrip->start;
+  scaleChanged = !IS_EQF(oLen, nLen);
+
   /* optimization:
    * don't flush if nothing changed yet
    * TODO: maybe we need a flag to say always flush?
    */
-  if (IS_EQF(oStart, mstrip->start) && IS_EQF(oEnd, mstrip->end)) {
+  if (IS_EQF(oStart, mstrip->start) && IS_EQF(oEnd, mstrip->end) && !scaleChanged) {
     return;
-  }
-
-  /* check if scale changed */
-  oLen = oEnd - oStart;
-  nLen = mstrip->end - mstrip->start;
-  if (IS_EQF(nLen, oLen) == 0) {
-    scaleChanged = 1;
   }
 
   /* for each child-strip, calculate new start/end points based on this new info */
@@ -1001,6 +1071,12 @@ void BKE_nlameta_flush_transforms(NlaStrip *mstrip)
        * then wait for second pass to flush scale properly. */
       strip->start = (p1 * nLen) + mstrip->start;
       strip->end = (p2 * nLen) + mstrip->start;
+
+      /* Recompute the playback scale, given the new start & end frame of the strip. */
+      const double action_len = strip->actend - strip->actstart;
+      const double repeated_len = action_len * strip->repeat;
+      const double strip_len = strip->end - strip->start;
+      strip->scale = strip_len / repeated_len;
     }
     else {
       /* just apply the changes in offset to both ends of the strip */
@@ -1172,14 +1248,23 @@ bool BKE_nlatrack_add_strip(NlaTrack *nlt, NlaStrip *strip, const bool is_libove
     return false;
   }
 
-  /* Do not allow adding strips if this track is locked, or not a local one in liboverride case. */
+  /*
+   * Do not allow adding strips if this track is locked, or not a local one in liboverride case.
+   */
   if (nlt->flag & NLATRACK_PROTECTED ||
-      (is_liboverride && (nlt->flag & NLATRACK_OVERRIDELIBRARY_LOCAL) == 0)) {
+      (is_liboverride && (nlt->flag & NLATRACK_OVERRIDELIBRARY_LOCAL) == 0))
+  {
     return false;
   }
 
   /* try to add the strip to the track using a more generic function */
   return BKE_nlastrips_add_strip(&nlt->strips, strip);
+}
+
+void BKE_nlatrack_remove_strip(NlaTrack *track, NlaStrip *strip)
+{
+  BLI_assert(track);
+  BKE_nlastrip_remove(&track->strips, strip);
 }
 
 bool BKE_nlatrack_get_bounds(NlaTrack *nlt, float bounds[2])
@@ -1273,7 +1358,7 @@ float BKE_nlastrip_compute_frame_to_next_strip(NlaStrip *strip)
   return limit_next;
 }
 
-NlaStrip *BKE_nlastrip_next_in_track(struct NlaStrip *strip, bool skip_transitions)
+NlaStrip *BKE_nlastrip_next_in_track(NlaStrip *strip, bool skip_transitions)
 {
   NlaStrip *next = strip->next;
   while (next != NULL) {
@@ -1287,7 +1372,7 @@ NlaStrip *BKE_nlastrip_next_in_track(struct NlaStrip *strip, bool skip_transitio
   return NULL;
 }
 
-NlaStrip *BKE_nlastrip_prev_in_track(struct NlaStrip *strip, bool skip_transitions)
+NlaStrip *BKE_nlastrip_prev_in_track(NlaStrip *strip, bool skip_transitions)
 {
   NlaStrip *prev = strip->prev;
   while (prev != NULL) {
@@ -1308,6 +1393,18 @@ NlaStrip *BKE_nlastrip_find_active(NlaTrack *nlt)
   }
 
   return nlastrip_find_active(&nlt->strips);
+}
+
+void BKE_nlastrip_remove(ListBase *strips, NlaStrip *strip)
+{
+  BLI_assert(strips);
+  BLI_remlink(strips, strip);
+}
+
+void BKE_nlastrip_remove_and_free(ListBase *strips, NlaStrip *strip, const bool do_id_user)
+{
+  BKE_nlastrip_remove(strips, strip);
+  BKE_nlastrip_free(strip, do_id_user);
 }
 
 void BKE_nlastrip_set_active(AnimData *adt, NlaStrip *strip)
@@ -1348,11 +1445,13 @@ bool BKE_nlastrip_within_bounds(NlaStrip *strip, float min, float max)
    * - second 2 cases cover when the strip length is greater than the bounding area
    */
   if ((stripLen < boundsLen) &&
-      !(IN_RANGE(strip->start, min, max) || IN_RANGE(strip->end, min, max))) {
+      !(IN_RANGE(strip->start, min, max) || IN_RANGE(strip->end, min, max)))
+  {
     return false;
   }
   if ((stripLen > boundsLen) &&
-      !(IN_RANGE(min, strip->start, strip->end) || IN_RANGE(max, strip->start, strip->end))) {
+      !(IN_RANGE(min, strip->start, strip->end) || IN_RANGE(max, strip->start, strip->end)))
+  {
     return false;
   }
 
@@ -1517,6 +1616,30 @@ void BKE_nlastrip_recalculate_bounds(NlaStrip *strip)
   nlastrip_fix_resize_overlaps(strip);
 }
 
+void BKE_nlastrip_recalculate_blend(NlaStrip *strip)
+{
+
+  /* check if values need to be re-calculated. */
+  if (strip->blendin == 0 && strip->blendout == 0) {
+    return;
+  }
+
+  const double strip_len = strip->end - strip->start;
+  double blend_in = strip->blendin;
+  double blend_out = strip->blendout;
+
+  double blend_in_max = strip_len - blend_out;
+
+  CLAMP_MIN(blend_in_max, 0);
+
+  /* blend-out is limited to the length of the strip. */
+  CLAMP(blend_in, 0, blend_in_max);
+  CLAMP(blend_out, 0, strip_len - blend_in);
+
+  strip->blendin = blend_in;
+  strip->blendout = blend_out;
+}
+
 /* Animated Strips ------------------------------------------- */
 
 bool BKE_nlatrack_has_animated_strips(NlaTrack *nlt)
@@ -1676,18 +1799,16 @@ void BKE_nlastrip_validate_name(AnimData *adt, NlaStrip *strip)
   if (strip->name[0] == 0) {
     switch (strip->type) {
       case NLASTRIP_TYPE_CLIP: /* act-clip */
-        BLI_strncpy(strip->name,
-                    (strip->act) ? (strip->act->id.name + 2) : ("<No Action>"),
-                    sizeof(strip->name));
+        STRNCPY(strip->name, (strip->act) ? (strip->act->id.name + 2) : ("<No Action>"));
         break;
       case NLASTRIP_TYPE_TRANSITION: /* transition */
-        BLI_strncpy(strip->name, "Transition", sizeof(strip->name));
+        STRNCPY(strip->name, "Transition");
         break;
       case NLASTRIP_TYPE_META: /* meta */
-        BLI_strncpy(strip->name, "Meta", sizeof(strip->name));
+        STRNCPY(strip->name, "Meta");
         break;
       default:
-        BLI_strncpy(strip->name, "NLA Strip", sizeof(strip->name));
+        STRNCPY(strip->name, "NLA Strip");
         break;
     }
   }
@@ -1834,9 +1955,32 @@ static void BKE_nlastrip_validate_autoblends(NlaTrack *nlt, NlaStrip *nls)
   }
 }
 
+/**
+ * Ensure every transition's start/end properly set.
+ * Strip will be removed / freed if it doesn't fit (invalid).
+ * Return value indicates if passed strip is valid/fixed or invalid/removed.
+ */
+static bool nlastrip_validate_transition_start_end(NlaStrip *strip)
+{
+
+  if (!(strip->type & NLASTRIP_TYPE_TRANSITION)) {
+    return true;
+  }
+  if (strip->prev) {
+    strip->start = strip->prev->end;
+  }
+  if (strip->next) {
+    strip->end = strip->next->start;
+  }
+  if (strip->start >= strip->end || strip->prev == NULL || strip->next == NULL) {
+    BKE_nlastrip_free(strip, true);
+    return false;
+  }
+  return true;
+}
+
 void BKE_nla_validate_state(AnimData *adt)
 {
-  NlaStrip *strip = NULL;
   NlaTrack *nlt;
 
   /* sanity checks */
@@ -1847,9 +1991,18 @@ void BKE_nla_validate_state(AnimData *adt)
   /* Adjust blending values for auto-blending,
    * and also do an initial pass to find the earliest strip. */
   for (nlt = adt->nla_tracks.first; nlt; nlt = nlt->next) {
-    for (strip = nlt->strips.first; strip; strip = strip->next) {
+    LISTBASE_FOREACH_MUTABLE (NlaStrip *, strip, &nlt->strips) {
+
+      if (!nlastrip_validate_transition_start_end(strip)) {
+        printf(
+            "While moving NLA strips, a transition strip could no longer be applied to the new "
+            "positions and was removed.\n");
+        continue;
+      }
+
       /* auto-blending first */
       BKE_nlastrip_validate_autoblends(nlt, strip);
+      BKE_nlastrip_recalculate_blend(strip);
     }
   }
 }
@@ -1901,7 +2054,8 @@ bool BKE_nla_action_stash(AnimData *adt, const bool is_liboverride)
     }
   }
 
-  nlt = BKE_nlatrack_add(adt, prev_track, is_liboverride);
+  nlt = BKE_nlatrack_new_after(&adt->nla_tracks, prev_track, is_liboverride);
+  BKE_nlatrack_set_active(&adt->nla_tracks, nlt);
   BLI_assert(nlt != NULL);
 
   /* We need to ensure that if there wasn't any previous instance,
@@ -1911,7 +2065,7 @@ bool BKE_nla_action_stash(AnimData *adt, const bool is_liboverride)
     BLI_addhead(&adt->nla_tracks, nlt);
   }
 
-  BLI_strncpy(nlt->name, STASH_TRACK_NAME, sizeof(nlt->name));
+  STRNCPY(nlt->name, STASH_TRACK_NAME);
   BLI_uniquename(
       &adt->nla_tracks, nlt, STASH_TRACK_NAME, '.', offsetof(NlaTrack, name), sizeof(nlt->name));
 
@@ -1976,8 +2130,7 @@ void BKE_nla_action_pushdown(AnimData *adt, const bool is_liboverride)
 
   /* copy current "action blending" settings from adt to the strip,
    * as it was keyframed with these settings, so omitting them will
-   * change the effect  [T54233]
-   */
+   * change the effect [#54233]. */
   strip->blendmode = adt->act_blendmode;
   strip->influence = adt->act_influence;
   strip->extendmode = adt->act_extendmode;
@@ -2025,7 +2178,8 @@ static void nla_tweakmode_find_active(const ListBase /* NlaTrack */ *nla_tracks,
   /* There are situations where we may have multiple strips selected and we want to enter
    * tweak-mode on all of those at once. Usually in those cases,
    * it will usually just be a single strip per AnimData.
-   * In such cases, compromise and take the last selected track and/or last selected strip, T28468.
+   * In such cases, compromise and take the last selected track and/or last selected strip,
+   * #28468.
    */
   if (activeTrack == NULL) {
     /* try last selected track for active strip */
@@ -2100,7 +2254,8 @@ bool BKE_nla_tweakmode_enter(AnimData *adt)
   activeStrip->flag &= ~NLASTRIP_FLAG_TWEAKUSER;
 
   /* go over all the tracks after AND INCLUDING the active one, tagging them as being disabled
-   * - the active track needs to also be tagged, otherwise, it'll overlap with the tweaks going on
+   * - the active track needs to also be tagged, otherwise, it'll overlap with the tweaks going
+   * on.
    */
   activeTrack->flag |= NLATRACK_DISABLED;
   if ((adt->flag & ADT_NLA_EVAL_UPPER_TRACKS) == 0) {
@@ -2145,7 +2300,7 @@ void BKE_nla_tweakmode_exit(AnimData *adt)
 
   /* sync the length of the user-strip with the new state of the action
    * but only if the user has explicitly asked for this to happen
-   * (see T34645 for things to be careful about)
+   * (see #34645 for things to be careful about)
    */
   if ((adt->actstrip) && (adt->actstrip->flag & NLASTRIP_FLAG_SYNC_LENGTH)) {
     strip = adt->actstrip;
@@ -2165,7 +2320,8 @@ void BKE_nla_tweakmode_exit(AnimData *adt)
     for (strip = nlt->strips.first; strip; strip = strip->next) {
       /* sync strip extents if this strip uses the same action */
       if ((adt->actstrip) && (adt->actstrip->act == strip->act) &&
-          (strip->flag & NLASTRIP_FLAG_SYNC_LENGTH)) {
+          (strip->flag & NLASTRIP_FLAG_SYNC_LENGTH))
+      {
         BKE_nlastrip_recalculate_bounds_sync_action(strip);
       }
 
@@ -2232,7 +2388,7 @@ static void blend_lib_read_nla_strips(BlendLibReader *reader, ID *id, ListBase *
     BKE_fcurve_blend_read_lib(reader, id, &strip->fcurves);
 
     /* reassign the counted-reference to action */
-    BLO_read_id_address(reader, id->lib, &strip->act);
+    BLO_read_id_address(reader, id, &strip->act);
   }
 }
 
@@ -2289,7 +2445,7 @@ void BKE_nla_blend_read_lib(BlendLibReader *reader, ID *id, ListBase *tracks)
   }
 }
 
-void BKE_nla_blend_read_expand(struct BlendExpander *expander, struct ListBase *tracks)
+void BKE_nla_blend_read_expand(BlendExpander *expander, ListBase *tracks)
 {
   /* nla-data - referenced actions */
   LISTBASE_FOREACH (NlaTrack *, nlt, tracks) {

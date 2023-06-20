@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup blenloader
@@ -20,7 +22,8 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_main_namemap.h"
-#include "BKE_node.h"
+#include "BKE_node.hh"
+#include "BKE_node_runtime.hh"
 
 #include "MEM_guardedalloc.h"
 
@@ -31,7 +34,7 @@ using blender::StringRef;
 
 ARegion *do_versions_add_region_if_not_found(ListBase *regionbase,
                                              int region_type,
-                                             const char *name,
+                                             const char *allocname,
                                              int link_after_region_type)
 {
   ARegion *link_after_region = nullptr;
@@ -44,7 +47,28 @@ ARegion *do_versions_add_region_if_not_found(ListBase *regionbase,
     }
   }
 
-  ARegion *new_region = static_cast<ARegion *>(MEM_callocN(sizeof(ARegion), name));
+  ARegion *new_region = static_cast<ARegion *>(MEM_callocN(sizeof(ARegion), allocname));
+  new_region->regiontype = region_type;
+  BLI_insertlinkafter(regionbase, link_after_region, new_region);
+  return new_region;
+}
+
+ARegion *do_versions_ensure_region(ListBase *regionbase,
+                                   int region_type,
+                                   const char *allocname,
+                                   int link_after_region_type)
+{
+  ARegion *link_after_region = nullptr;
+  LISTBASE_FOREACH (ARegion *, region, regionbase) {
+    if (region->regiontype == region_type) {
+      return region;
+    }
+    if (region->regiontype == link_after_region_type) {
+      link_after_region = region;
+    }
+  }
+
+  ARegion *new_region = MEM_cnew<ARegion>(allocname);
   new_region->regiontype = region_type;
   BLI_insertlinkafter(regionbase, link_after_region, new_region);
   return new_region;
@@ -81,10 +105,10 @@ static void change_node_socket_name(ListBase *sockets, const char *old_name, con
 {
   LISTBASE_FOREACH (bNodeSocket *, socket, sockets) {
     if (STREQ(socket->name, old_name)) {
-      BLI_strncpy(socket->name, new_name, sizeof(socket->name));
+      STRNCPY(socket->name, new_name);
     }
     if (STREQ(socket->identifier, old_name)) {
-      BLI_strncpy(socket->identifier, new_name, sizeof(socket->name));
+      STRNCPY(socket->identifier, new_name);
     }
   }
 }
@@ -115,7 +139,7 @@ void version_node_socket_name(bNodeTree *ntree,
                               const char *old_name,
                               const char *new_name)
 {
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+  for (bNode *node : ntree->all_nodes()) {
     if (node->type == node_type) {
       change_node_socket_name(&node->inputs, old_name, new_name);
       change_node_socket_name(&node->outputs, old_name, new_name);
@@ -128,7 +152,7 @@ void version_node_input_socket_name(bNodeTree *ntree,
                                     const char *old_name,
                                     const char *new_name)
 {
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+  for (bNode *node : ntree->all_nodes()) {
     if (node->type == node_type) {
       change_node_socket_name(&node->inputs, old_name, new_name);
     }
@@ -140,7 +164,7 @@ void version_node_output_socket_name(bNodeTree *ntree,
                                      const char *old_name,
                                      const char *new_name)
 {
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+  for (bNode *node : ntree->all_nodes()) {
     if (node->type == node_type) {
       change_node_socket_name(&node->outputs, old_name, new_name);
     }
@@ -164,10 +188,10 @@ bNodeSocket *version_node_add_socket_if_not_exist(bNodeTree *ntree,
 
 void version_node_id(bNodeTree *ntree, const int node_type, const char *new_name)
 {
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+  for (bNode *node : ntree->all_nodes()) {
     if (node->type == node_type) {
       if (!STREQ(node->idname, new_name)) {
-        strcpy(node->idname, new_name);
+        STRNCPY(node->idname, new_name);
       }
     }
   }
@@ -183,15 +207,16 @@ void version_node_socket_index_animdata(Main *bmain,
 
   /* The for loop for the input ids is at the top level otherwise we lose the animation
    * keyframe data. Not sure what causes that, so I (Sybren) moved the code here from
-   * versioning_290.c as-is (structure-wise). */
+   * versioning_290.cc as-is (structure-wise). */
   for (int input_index = total_number_of_sockets - 1; input_index >= socket_index_orig;
-       input_index--) {
+       input_index--)
+  {
     FOREACH_NODETREE_BEGIN (bmain, ntree, owner_id) {
       if (ntree->type != node_tree_type) {
         continue;
       }
 
-      LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+      for (bNode *node : ntree->all_nodes()) {
         if (node->type != node_type) {
           continue;
         }
@@ -216,17 +241,17 @@ void version_node_socket_index_animdata(Main *bmain,
 
 void version_socket_update_is_used(bNodeTree *ntree)
 {
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+  for (bNode *node : ntree->all_nodes()) {
     LISTBASE_FOREACH (bNodeSocket *, socket, &node->inputs) {
-      socket->flag &= ~SOCK_IN_USE;
+      socket->flag &= ~SOCK_IS_LINKED;
     }
     LISTBASE_FOREACH (bNodeSocket *, socket, &node->outputs) {
-      socket->flag &= ~SOCK_IN_USE;
+      socket->flag &= ~SOCK_IS_LINKED;
     }
   }
   LISTBASE_FOREACH (bNodeLink *, link, &ntree->links) {
-    link->fromsock->flag |= SOCK_IN_USE;
-    link->tosock->flag |= SOCK_IN_USE;
+    link->fromsock->flag |= SOCK_IS_LINKED;
+    link->tosock->flag |= SOCK_IS_LINKED;
   }
 }
 
@@ -261,5 +286,42 @@ void node_tree_relink_with_socket_id_map(bNodeTree &ntree,
         old_socket->link = nullptr;
       }
     }
+  }
+}
+
+static blender::Vector<bNodeLink *> find_connected_links(bNodeTree *ntree, bNodeSocket *in_socket)
+{
+  blender::Vector<bNodeLink *> links;
+  LISTBASE_FOREACH (bNodeLink *, link, &ntree->links) {
+    if (link->tosock == in_socket) {
+      links.append(link);
+    }
+  }
+  return links;
+}
+
+void add_realize_instances_before_socket(bNodeTree *ntree,
+                                         bNode *node,
+                                         bNodeSocket *geometry_socket)
+{
+  BLI_assert(geometry_socket->type == SOCK_GEOMETRY);
+  blender::Vector<bNodeLink *> links = find_connected_links(ntree, geometry_socket);
+  for (bNodeLink *link : links) {
+    /* If the realize instances node is already before this socket, no need to continue. */
+    if (link->fromnode->type == GEO_NODE_REALIZE_INSTANCES) {
+      return;
+    }
+
+    bNode *realize_node = nodeAddStaticNode(nullptr, ntree, GEO_NODE_REALIZE_INSTANCES);
+    realize_node->parent = node->parent;
+    realize_node->locx = node->locx - 100;
+    realize_node->locy = node->locy;
+    nodeAddLink(ntree,
+                link->fromnode,
+                link->fromsock,
+                realize_node,
+                static_cast<bNodeSocket *>(realize_node->inputs.first));
+    link->fromnode = realize_node;
+    link->fromsock = static_cast<bNodeSocket *>(realize_node->outputs.first);
   }
 }

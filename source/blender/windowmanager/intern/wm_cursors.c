@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005-2007 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005-2007 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup wm
@@ -154,7 +155,8 @@ void WM_cursor_set(wmWindow *win, int curs)
   GHOST_TStandardCursor ghost_cursor = convert_to_ghost_standard_cursor(curs);
 
   if (ghost_cursor != GHOST_kStandardCursorCustom &&
-      GHOST_HasCursorShape(win->ghostwin, ghost_cursor)) {
+      GHOST_HasCursorShape(win->ghostwin, ghost_cursor))
+  {
     /* Use native GHOST cursor when available. */
     GHOST_SetCursorShape(win->ghostwin, ghost_cursor);
   }
@@ -171,9 +173,9 @@ void WM_cursor_set(wmWindow *win, int curs)
   }
 }
 
-bool WM_cursor_set_from_tool(struct wmWindow *win, const ScrArea *area, const ARegion *region)
+bool WM_cursor_set_from_tool(wmWindow *win, const ScrArea *area, const ARegion *region)
 {
-  if (region && (region->regiontype != RGN_TYPE_WINDOW)) {
+  if (region && !ELEM(region->regiontype, RGN_TYPE_WINDOW, RGN_TYPE_PREVIEW)) {
     return false;
   }
 
@@ -223,22 +225,33 @@ void WM_cursor_wait(bool val)
   }
 }
 
-void WM_cursor_grab_enable(wmWindow *win, int wrap, bool hide, int bounds[4])
+void WM_cursor_grab_enable(wmWindow *win,
+                           const eWM_CursorWrapAxis wrap,
+                           const rcti *wrap_region,
+                           const bool hide)
 {
+  int _wrap_region_buf[4];
+  int *wrap_region_screen = NULL;
+
   /* Only grab cursor when not running debug.
    * It helps not to get a stuck WM when hitting a break-point. */
   GHOST_TGrabCursorMode mode = GHOST_kGrabNormal;
   GHOST_TAxisFlag mode_axis = GHOST_kAxisX | GHOST_kAxisY;
 
-  if (bounds) {
-    wm_cursor_position_to_ghost_screen_coords(win, &bounds[0], &bounds[1]);
-    wm_cursor_position_to_ghost_screen_coords(win, &bounds[2], &bounds[3]);
+  if (wrap_region) {
+    wrap_region_screen = _wrap_region_buf;
+    wrap_region_screen[0] = wrap_region->xmin;
+    wrap_region_screen[1] = wrap_region->ymax;
+    wrap_region_screen[2] = wrap_region->xmax;
+    wrap_region_screen[3] = wrap_region->ymin;
+    wm_cursor_position_to_ghost_screen_coords(win, &wrap_region_screen[0], &wrap_region_screen[1]);
+    wm_cursor_position_to_ghost_screen_coords(win, &wrap_region_screen[2], &wrap_region_screen[3]);
   }
 
   if (hide) {
     mode = GHOST_kGrabHide;
   }
-  else if (wrap) {
+  else if (wrap != WM_CURSOR_WRAP_NONE) {
     mode = GHOST_kGrabWrap;
 
     if (wrap == WM_CURSOR_WRAP_X) {
@@ -252,7 +265,7 @@ void WM_cursor_grab_enable(wmWindow *win, int wrap, bool hide, int bounds[4])
   if ((G.debug & G_DEBUG) == 0) {
     if (win->ghostwin) {
       if (win->eventstate->tablet.is_motion_absolute == false) {
-        GHOST_SetCursorGrab(win->ghostwin, mode, mode_axis, bounds, NULL);
+        GHOST_SetCursorGrab(win->ghostwin, mode, mode_axis, wrap_region_screen, NULL);
       }
 
       win->grabcursor = mode;
@@ -280,7 +293,7 @@ void WM_cursor_grab_disable(wmWindow *win, const int mouse_ungrab_xy[2])
 
 static void wm_cursor_warp_relative(wmWindow *win, int x, int y)
 {
-  /* NOTE: don't use wmEvent coords because of continuous grab T36409. */
+  /* NOTE: don't use wmEvent coords because of continuous grab #36409. */
   int cx, cy;
   wm_cursor_position_get(win, &cx, &cy);
   WM_cursor_warp(win, cx + x, cy + y);
@@ -373,7 +386,7 @@ void WM_cursor_time(wmWindow *win, int nr)
  *
  * There is a nice Python GUI utility that can be used for drawing cursors in
  * this format in the Blender source distribution, in
- * `./source/tools/utils/make_cursor_gui.py` .
+ * `./tools/utils/make_cursor_gui.py` .
  *
  * Start it with the command `python3 make_cursor_gui.py`
  * It will copy its output to the console when you press 'Do it'.

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -20,33 +21,58 @@ CCL_NAMESPACE_BEGIN
  * them separately. */
 
 ccl_device_inline void bsdf_eval_init(ccl_private BsdfEval *eval,
-                                      const ClosureType closure_type,
+                                      ccl_private const ShaderClosure *sc,
+                                      const float3 wo,
                                       Spectrum value)
 {
   eval->diffuse = zero_spectrum();
   eval->glossy = zero_spectrum();
 
-  if (CLOSURE_IS_BSDF_DIFFUSE(closure_type)) {
+  if (CLOSURE_IS_BSDF_DIFFUSE(sc->type)) {
     eval->diffuse = value;
   }
-  else if (CLOSURE_IS_BSDF_GLOSSY(closure_type)) {
+  else if (CLOSURE_IS_BSDF_GLOSSY(sc->type)) {
     eval->glossy = value;
+  }
+  else if (CLOSURE_IS_GLASS(sc->type)) {
+    /* Glass can count as glossy or transmission, depending on which side we end up on. */
+    if (dot(sc->N, wo) > 0.0f) {
+      eval->glossy = value;
+    }
   }
 
   eval->sum = value;
 }
 
+ccl_device_inline void bsdf_eval_init(ccl_private BsdfEval *eval, Spectrum value)
+{
+  eval->diffuse = zero_spectrum();
+  eval->glossy = zero_spectrum();
+  eval->sum = value;
+}
+
 ccl_device_inline void bsdf_eval_accum(ccl_private BsdfEval *eval,
-                                       const ClosureType closure_type,
+                                       ccl_private const ShaderClosure *sc,
+                                       const float3 wo,
                                        Spectrum value)
 {
-  if (CLOSURE_IS_BSDF_DIFFUSE(closure_type)) {
+  if (CLOSURE_IS_BSDF_DIFFUSE(sc->type)) {
     eval->diffuse += value;
   }
-  else if (CLOSURE_IS_BSDF_GLOSSY(closure_type)) {
+  else if (CLOSURE_IS_BSDF_GLOSSY(sc->type)) {
     eval->glossy += value;
   }
+  else if (CLOSURE_IS_GLASS(sc->type)) {
+    if (dot(sc->N, wo) > 0.0f) {
+      eval->glossy += value;
+    }
+  }
 
+  eval->sum += value;
+}
+
+ccl_device_inline void bsdf_eval_accum(ccl_private BsdfEval *eval, Spectrum value)
+{
   eval->sum += value;
 }
 
@@ -364,7 +390,10 @@ ccl_device_inline void film_write_emission_or_background_pass(
   }
 #  endif /* __DENOISING_FEATURES__ */
 
-  if (lightgroup != LIGHTGROUP_NONE && kernel_data.film.pass_lightgroup != PASS_UNUSED) {
+  const bool is_shadowcatcher = (path_flag & PATH_RAY_SHADOW_CATCHER_HIT) != 0;
+  if (!is_shadowcatcher && lightgroup != LIGHTGROUP_NONE &&
+      kernel_data.film.pass_lightgroup != PASS_UNUSED)
+  {
     film_write_pass_spectrum(buffer + kernel_data.film.pass_lightgroup + 3 * lightgroup,
                              contribution);
   }
@@ -373,13 +402,12 @@ ccl_device_inline void film_write_emission_or_background_pass(
     /* Directly visible, write to emission or background pass. */
     pass_offset = pass;
   }
-  else if (kernel_data.kernel_features & KERNEL_FEATURE_LIGHT_PASSES) {
+  else if (is_shadowcatcher) {
     /* Don't write any light passes for shadow catcher, for easier
      * compositing back together of the combined pass. */
-    if (path_flag & PATH_RAY_SHADOW_CATCHER_HIT) {
-      return;
-    }
-
+    return;
+  }
+  else if (kernel_data.kernel_features & KERNEL_FEATURE_LIGHT_PASSES) {
     if (path_flag & PATH_RAY_SURFACE_PASS) {
       /* Indirectly visible through reflection. */
       const Spectrum diffuse_weight = INTEGRATOR_STATE(state, path, pass_diffuse_weight);
@@ -526,17 +554,6 @@ ccl_device_inline void film_write_direct_light(KernelGlobals kg,
       if (pass_offset != PASS_UNUSED) {
         film_write_pass_spectrum(buffer + pass_offset, contribution);
       }
-    }
-
-    /* Write shadow pass. */
-    if (kernel_data.film.pass_shadow != PASS_UNUSED && (path_flag & PATH_RAY_SHADOW_FOR_LIGHT) &&
-        (path_flag & PATH_RAY_TRANSPARENT_BACKGROUND)) {
-      const Spectrum unshadowed_throughput = INTEGRATOR_STATE(
-          state, shadow_path, unshadowed_throughput);
-      const Spectrum shadowed_throughput = INTEGRATOR_STATE(state, shadow_path, throughput);
-      const Spectrum shadow = safe_divide(shadowed_throughput, unshadowed_throughput) *
-                              kernel_data.film.pass_shadow_scale;
-      film_write_pass_spectrum(buffer + kernel_data.film.pass_shadow, shadow);
     }
   }
 #endif

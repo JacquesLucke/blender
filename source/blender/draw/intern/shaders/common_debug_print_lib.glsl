@@ -202,6 +202,8 @@ void drw_print_value(int value)
   drw_print_value_uint(uint(abs(value)), false, (value < 0), false);
 }
 
+#ifndef GPU_METAL
+
 void drw_print_value(bool value)
 {
   if (value) {
@@ -211,6 +213,8 @@ void drw_print_value(bool value)
     drw_print_no_endl("false");
   }
 }
+
+#endif
 
 /* NOTE(@fclem): This is homebrew and might not be 100% accurate (accuracy has
  * not been tested and might dependent on compiler implementation). If unsure,
@@ -334,7 +338,7 @@ void drw_print_value(vec2 value)
 
 void drw_print_value(vec3 value)
 {
-  drw_print_no_endl("vec3(", value[0], ", ", value[1], ", ", value[1], ")");
+  drw_print_no_endl("vec3(", value[0], ", ", value[1], ", ", value[2], ")");
 }
 
 void drw_print_value(vec4 value)
@@ -349,7 +353,7 @@ void drw_print_value(ivec2 value)
 
 void drw_print_value(ivec3 value)
 {
-  drw_print_no_endl("ivec3(", value[0], ", ", value[1], ", ", value[1], ")");
+  drw_print_no_endl("ivec3(", value[0], ", ", value[1], ", ", value[2], ")");
 }
 
 void drw_print_value(ivec4 value)
@@ -364,7 +368,7 @@ void drw_print_value(uvec2 value)
 
 void drw_print_value(uvec3 value)
 {
-  drw_print_no_endl("uvec3(", value[0], ", ", value[1], ", ", value[1], ")");
+  drw_print_no_endl("uvec3(", value[0], ", ", value[1], ", ", value[2], ")");
 }
 
 void drw_print_value(uvec4 value)
@@ -379,10 +383,20 @@ void drw_print_value(bvec2 value)
 
 void drw_print_value(bvec3 value)
 {
-  drw_print_no_endl("bvec3(", value[0], ", ", value[1], ", ", value[1], ")");
+  drw_print_no_endl("bvec3(", value[0], ", ", value[1], ", ", value[2], ")");
 }
 
 void drw_print_value(bvec4 value)
 {
   drw_print_no_endl("bvec4(", value[0], ", ", value[1], ", ", value[2], ", ", value[3], ")");
+}
+
+void drw_print_value(mat4 value)
+{
+  drw_print("mat4x4(");
+  drw_print("  ", value[0]);
+  drw_print("  ", value[1]);
+  drw_print("  ", value[2]);
+  drw_print("  ", value[3]);
+  drw_print(")");
 }

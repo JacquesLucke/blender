@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 /** \file
  * \ingroup GHOST
  * \brief GHOST C-API function and type declarations.
@@ -162,7 +163,7 @@ extern void GHOST_GetAllDisplayDimensions(GHOST_SystemHandle systemhandle,
  * \param height: The height the window.
  * \param state: The state of the window when opened.
  * \param is_dialog: Stay on top of parent window, no icon in taskbar, can't be minimized.
- * \param glSettings: Misc OpenGL options.
+ * \param gpuSettings: Misc GPU options.
  * \return A handle to the new window ( == NULL if creation failed).
  */
 extern GHOST_WindowHandle GHOST_CreateWindow(GHOST_SystemHandle systemhandle,
@@ -174,17 +175,17 @@ extern GHOST_WindowHandle GHOST_CreateWindow(GHOST_SystemHandle systemhandle,
                                              uint32_t height,
                                              GHOST_TWindowState state,
                                              bool is_dialog,
-                                             GHOST_GLSettings glSettings);
+                                             GHOST_GPUSettings gpuSettings);
 
 /**
  * Create a new off-screen context.
  * Never explicitly delete the context, use #disposeContext() instead.
  * \param systemhandle: The handle to the system.
- * \param glSettings: Misc OpenGL options.
+ * \param gpuSettings: Misc GPU options.
  * \return A handle to the new context ( == NULL if creation failed).
  */
-extern GHOST_ContextHandle GHOST_CreateOpenGLContext(GHOST_SystemHandle systemhandle,
-                                                     GHOST_GLSettings glSettings);
+extern GHOST_ContextHandle GHOST_CreateGPUContext(GHOST_SystemHandle systemhandle,
+                                                  GHOST_GPUSettings gpuSettings);
 
 /**
  * Dispose of a context.
@@ -192,8 +193,8 @@ extern GHOST_ContextHandle GHOST_CreateOpenGLContext(GHOST_SystemHandle systemha
  * \param contexthandle: Handle to the context to be disposed.
  * \return Indication of success.
  */
-extern GHOST_TSuccess GHOST_DisposeOpenGLContext(GHOST_SystemHandle systemhandle,
-                                                 GHOST_ContextHandle contexthandle);
+extern GHOST_TSuccess GHOST_DisposeGPUContext(GHOST_SystemHandle systemhandle,
+                                              GHOST_ContextHandle contexthandle);
 
 /**
  * Returns the window user data.
@@ -561,6 +562,13 @@ extern GHOST_TSuccess GHOST_SetDrawingContextType(GHOST_WindowHandle windowhandl
                                                   GHOST_TDrawingContextType type);
 
 /**
+ * Returns the drawing context used in the this window.
+ * \param windowhandle: The handle to the window.
+ * \return The window drawing context.
+ */
+extern GHOST_ContextHandle GHOST_GetDrawingContext(GHOST_WindowHandle windowhandle);
+
+/**
  * Sets the title displayed in the title bar.
  * \param windowhandle: The handle to the window.
  * \param title: The title to display in the title bar.
@@ -723,24 +731,24 @@ extern GHOST_TSuccess GHOST_InvalidateWindow(GHOST_WindowHandle windowhandle);
  * \param contexthandle: The handle to the context.
  * \return A success indicator.
  */
-extern GHOST_TSuccess GHOST_ActivateOpenGLContext(GHOST_ContextHandle contexthandle);
+extern GHOST_TSuccess GHOST_ActivateGPUContext(GHOST_ContextHandle contexthandle);
 
 /**
  * Release the drawing context bound to this thread.
  * \param contexthandle: The handle to the context.
  * \return A success indicator.
  */
-extern GHOST_TSuccess GHOST_ReleaseOpenGLContext(GHOST_ContextHandle contexthandle);
+extern GHOST_TSuccess GHOST_ReleaseGPUContext(GHOST_ContextHandle contexthandle);
 
 /**
- * Get the OpenGL frame-buffer handle that serves as a default frame-buffer.
+ * Get the GPU frame-buffer handle that serves as a default frame-buffer.
  */
-extern unsigned int GHOST_GetContextDefaultOpenGLFramebuffer(GHOST_ContextHandle contexthandle);
+extern unsigned int GHOST_GetContextDefaultGPUFramebuffer(GHOST_ContextHandle contexthandle);
 
 /**
- * Get the OpenGL frame-buffer handle that serves as a default frame-buffer.
+ * Get the GPU frame-buffer handle that serves as a default frame-buffer.
  */
-extern unsigned int GHOST_GetDefaultOpenGLFramebuffer(GHOST_WindowHandle windowhandle);
+extern unsigned int GHOST_GetDefaultGPUFramebuffer(GHOST_WindowHandle windowhandle);
 
 /**
  * Use multi-touch gestures if supported.
@@ -905,6 +913,27 @@ extern char *GHOST_getClipboard(bool selection);
 extern void GHOST_putClipboard(const char *buffer, bool selection);
 
 /**
+ * Returns GHOST_kSuccess if the clipboard contains an image.
+ */
+extern GHOST_TSuccess GHOST_hasClipboardImage(void);
+
+/**
+ * Get image data from the Clipboard
+ * \param r_width: the returned image width in pixels.
+ * \param r_height: the returned image height in pixels.
+ * \return pointer uint array in RGBA byte order. Caller must free.
+ */
+extern uint *GHOST_getClipboardImage(int *r_width, int *r_height);
+
+/**
+ * Put image data to the Clipboard
+ * \param rgba: uint array in RGBA byte order.
+ * \param width: the image width in pixels.
+ * \param height: the image height in pixels.
+ */
+extern GHOST_TSuccess GHOST_putClipboardImage(uint *rgba, int width, int height);
+
+/**
  * Set the Console State
  * \param action: console state
  * \return current status (1 -visible, 0 - hidden)
@@ -917,14 +946,9 @@ extern bool GHOST_setConsoleWindowState(GHOST_TConsoleWindowState action);
 extern bool GHOST_UseNativePixels(void);
 
 /**
- * Warp the cursor, if supported.
+ * Return features which are supported by the GHOST back-end.
  */
-extern bool GHOST_SupportsCursorWarp(void);
-
-/**
- * Support positioning windows (when false `wmWindow.x,y` are meaningless).
- */
-extern bool GHOST_SupportsWindowPosition(void);
+extern GHOST_TCapabilityFlag GHOST_GetCapabilities(void);
 
 /**
  * Assign the callback which generates a back-trace (may be NULL).
@@ -935,6 +959,11 @@ extern void GHOST_SetBacktraceHandler(GHOST_TBacktraceFn backtrace_fn);
  * Focus window after opening, or put them in the background.
  */
 extern void GHOST_UseWindowFocus(bool use_focus);
+
+/**
+ * Focus and raise windows on mouse hover.
+ */
+extern void GHOST_SetAutoFocus(bool auto_focus);
 
 /**
  * If window was opened using native pixel size, it returns scaling factor.
@@ -1044,7 +1073,7 @@ int GHOST_XrSessionIsRunning(const GHOST_XrContextHandle xr_context);
 
 /**
  * Check if \a xr_context has a session that requires an upside-down frame-buffer (compared to
- * OpenGL). If true, the render result should be flipped vertically for correct output.
+ * GPU). If true, the render result should be flipped vertically for correct output.
  * \note Only to be called after session start, may otherwise result in a false negative.
  */
 int GHOST_XrSessionNeedsUpsideDownDrawing(const GHOST_XrContextHandle xr_context);
@@ -1188,24 +1217,89 @@ int GHOST_XrGetControllerModelData(GHOST_XrContextHandle xr_context,
 #ifdef WITH_VULKAN_BACKEND
 
 /**
- * Return vulkan handles for the given context.
+ * Get Vulkan handles for the given context.
+ *
+ * These handles are the same for a given context.
+ * Should only be called when using a Vulkan context.
+ * Other contexts will not return any handles and leave the
+ * handles where the parameters are referring to unmodified.
+ *
+ * \param context: GHOST context handle of a vulkan context to
+ *     get the Vulkan handles from.
+ * \param r_instance: After calling this function the VkInstance
+ *     referenced by this parameter will contain the VKInstance handle
+ *     of the context associated with the `context` parameter.
+ * \param r_physical_device: After calling this function the VkPhysicalDevice
+ *     referenced by this parameter will contain the VKPhysicalDevice handle
+ *     of the context associated with the `context` parameter.
+ * \param r_device: After calling this function the VkDevice
+ *     referenced by this parameter will contain the VKDevice handle
+ *     of the context associated with the `context` parameter.
+ * \param r_graphic_queue_family: After calling this function the uint32_t
+ *     referenced by this parameter will contain the graphic queue family id
+ *     of the context associated with the `context` parameter.
+ * \param r_queue: After calling this function the VkQueue
+ *     referenced by this parameter will contain the VKQueue handle
+ *     of the context associated with the `context` parameter.
  */
 void GHOST_GetVulkanHandles(GHOST_ContextHandle context,
                             void *r_instance,
                             void *r_physical_device,
                             void *r_device,
-                            uint32_t *r_graphic_queue_familly);
+                            uint32_t *r_graphic_queue_family,
+                            void *r_queue);
 
 /**
- * Return vulkan backbuffer resources handles for the given window.
+ * Return Vulkan command buffer.
+ *
+ * Command buffers are different for each image in the swap chain.
+ * At the start of each frame the correct command buffer should be
+ * retrieved with this function.
+ *
+ * Should only be called when using a Vulkan context.
+ * Other contexts will not return any handles and leave the
+ * handles where the parameters are referring to unmodified.
+ *
+ * \param context:  GHOST context handle to a vulkan context to get the
+ *     command queue from.
+ * \param r_command_buffer: After calling this function the VkCommandBuffer
+ *     referenced by this parameter will contain the VKCommandBuffer handle
+ *     of the current back buffer (when swap chains are enabled) or
+ *     it will contain a general VkCommandQueue.
+ */
+void GHOST_GetVulkanCommandBuffer(GHOST_ContextHandle context, void *r_command_buffer);
+
+/**
+ * Gets the Vulkan back-buffer related resource handles associated with the Vulkan context.
+ * Needs to be called after each swap event as the back-buffer will change.
+ *
+ * Should only be called when using a Vulkan context with an active swap chain.
+ * Other contexts will not return any handles and leave the
+ * handles where the parameters are referring to unmodified.
+ *
+ * \param windowhandle:  GHOST window handle to a window to get the resource from.
+ * \param r_image: After calling this function the VkImage
+ *     referenced by this parameter will contain the VKImage handle
+ *     of the current back buffer.
+ * \param r_framebuffer: After calling this function the VkFramebuffer
+ *     referenced by this parameter will contain the VKFramebuffer handle
+ *     of the current back buffer.
+ * \param r_render_pass: After calling this function the VkRenderPass
+ *     referenced by this parameter will contain the VKRenderPass handle
+ *     of the current back buffer.
+ * \param r_extent: After calling this function the VkExtent2D
+ *     referenced by this parameter will contain the size of the
+ *     frame buffer and image in pixels.
+ * \param r_fb_id: After calling this function the uint32_t
+ *     referenced by this parameter will contain the id of the
+ *     framebuffer of the current back buffer.
  */
 void GHOST_GetVulkanBackbuffer(GHOST_WindowHandle windowhandle,
-                               void *image,
-                               void *framebuffer,
-                               void *command_buffer,
-                               void *render_pass,
-                               void *extent,
-                               uint32_t *fb_id);
+                               void *r_image,
+                               void *r_framebuffer,
+                               void *r_render_pass,
+                               void *r_extent,
+                               uint32_t *r_fb_id);
 
 #endif
 

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2006 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2006 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup cmpnodes
@@ -7,7 +8,7 @@
 
 #include <cmath>
 
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -27,9 +28,17 @@ NODE_STORAGE_FUNCS(NodeBoxMask)
 
 static void cmp_node_boxmask_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Float>(N_("Mask")).default_value(0.0f).min(0.0f).max(1.0f);
-  b.add_input<decl::Float>(N_("Value")).default_value(1.0f).min(0.0f).max(1.0f);
-  b.add_output<decl::Float>(N_("Mask"));
+  b.add_input<decl::Float>("Mask")
+      .default_value(0.0f)
+      .min(0.0f)
+      .max(1.0f)
+      .compositor_domain_priority(0);
+  b.add_input<decl::Float>("Value")
+      .default_value(1.0f)
+      .min(0.0f)
+      .max(1.0f)
+      .compositor_domain_priority(1);
+  b.add_output<decl::Float>("Mask");
 }
 
 static void node_composit_init_boxmask(bNodeTree * /*ntree*/, bNode *node)
@@ -100,7 +109,7 @@ class BoxMaskOperation : public NodeOperation {
   Domain compute_domain() override
   {
     if (get_input("Mask").is_single_value()) {
-      return Domain(context().get_output_size());
+      return Domain(context().get_compositing_region_size());
     }
     return get_input("Mask").domain();
   }

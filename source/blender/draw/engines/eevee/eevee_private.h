@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2016 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -17,6 +18,8 @@
 
 #include "BKE_camera.h"
 
+#include "engine_eevee_shared_defines.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -27,18 +30,6 @@ struct Object;
 struct RenderLayer;
 
 extern struct DrawEngineType draw_engine_eevee_type;
-
-/* Minimum UBO is 16384 bytes */
-#define MAX_PROBE 128 /* TODO: find size by dividing UBO max size by probe data size. */
-#define MAX_GRID 64   /* TODO: find size by dividing UBO max size by grid data size. */
-#define MAX_PLANAR 16 /* TODO: find size by dividing UBO max size by grid data size. */
-#define MAX_LIGHT 128 /* TODO: find size by dividing UBO max size by light data size. */
-#define MAX_CASCADE_NUM 4
-#define MAX_SHADOW 128 /* TODO: Make this depends on #GL_MAX_ARRAY_TEXTURE_LAYERS. */
-#define MAX_SHADOW_CASCADE 8
-#define MAX_SHADOW_CUBE (MAX_SHADOW - MAX_CASCADE_NUM * MAX_SHADOW_CASCADE)
-#define MAX_BLOOM_STEP 16
-#define MAX_AOVS 64
 
 /* Special value chosen to not be altered by depth of field sample count. */
 #define TAA_MAX_SAMPLE 10000926
@@ -55,23 +46,7 @@ extern struct DrawEngineType draw_engine_eevee_type;
 #  define SHADER_IRRADIANCE "#define IRRADIANCE_HL2\n"
 #endif
 
-/* Macro causes over indentation. */
-/* clang-format off */
-#define SHADER_DEFINES \
-  "#define EEVEE_ENGINE\n" \
-  "#define MAX_PROBE " STRINGIFY(MAX_PROBE) "\n" \
-  "#define MAX_GRID " STRINGIFY(MAX_GRID) "\n" \
-  "#define MAX_PLANAR " STRINGIFY(MAX_PLANAR) "\n" \
-  "#define MAX_LIGHT " STRINGIFY(MAX_LIGHT) "\n" \
-  "#define MAX_SHADOW " STRINGIFY(MAX_SHADOW) "\n" \
-  "#define MAX_SHADOW_CUBE " STRINGIFY(MAX_SHADOW_CUBE) "\n" \
-  "#define MAX_SHADOW_CASCADE " STRINGIFY(MAX_SHADOW_CASCADE) "\n" \
-  "#define MAX_CASCADE_NUM " STRINGIFY(MAX_CASCADE_NUM) "\n" \
-  SHADER_IRRADIANCE
-/* clang-format on */
-
 #define EEVEE_PROBE_MAX min_ii(MAX_PROBE, GPU_max_texture_layers() / 6)
-#define EEVEE_VELOCITY_TILE_SIZE 32
 #define USE_VOLUME_OPTI (GPU_shader_image_load_store_support())
 
 #define SWAP_DOUBLE_BUFFERS() \
@@ -194,19 +169,6 @@ typedef enum EEVEE_DofGatherPass {
   DOF_GATHER_MAX_PASS,
 } EEVEE_DofGatherPass;
 
-#define DOF_TILE_DIVISOR 16
-#define DOF_BOKEH_LUT_SIZE 32
-#define DOF_GATHER_RING_COUNT 5
-#define DOF_DILATE_RING_COUNT 3
-#define DOF_FAST_GATHER_COC_ERROR 0.05
-
-#define DOF_SHADER_DEFINES \
-  "#define DOF_TILE_DIVISOR " STRINGIFY(DOF_TILE_DIVISOR) "\n" \
-  "#define DOF_BOKEH_LUT_SIZE " STRINGIFY(DOF_BOKEH_LUT_SIZE) "\n" \
-  "#define DOF_GATHER_RING_COUNT " STRINGIFY(DOF_GATHER_RING_COUNT) "\n" \
-  "#define DOF_DILATE_RING_COUNT " STRINGIFY(DOF_DILATE_RING_COUNT) "\n" \
-  "#define DOF_FAST_GATHER_COC_ERROR " STRINGIFY(DOF_FAST_GATHER_COC_ERROR) "\n"
-
 /* ************ PROBE UBO ************* */
 
 /* They are the same struct as their Cache siblings.
@@ -281,6 +243,8 @@ typedef struct EEVEE_PassList {
   struct DRWPass *volumetric_accum_ps;
   struct DRWPass *ssr_raytrace;
   struct DRWPass *ssr_resolve;
+  struct DRWPass *ssr_resolve_probe;
+  struct DRWPass *ssr_resolve_refl;
   struct DRWPass *sss_blur_ps;
   struct DRWPass *sss_resolve_ps;
   struct DRWPass *sss_translucency_ps;
@@ -304,6 +268,7 @@ typedef struct EEVEE_PassList {
   /* Render-pass Accumulation. */
   struct DRWPass *material_accum_ps;
   struct DRWPass *background_accum_ps;
+  struct DRWPass *transparent_accum_ps;
   struct DRWPass *cryptomatte_ps;
 
   struct DRWPass *depth_ps;
@@ -387,6 +352,8 @@ typedef struct EEVEE_FramebufferList {
   struct GPUFrameBuffer *double_buffer_fb;
   struct GPUFrameBuffer *double_buffer_color_fb;
   struct GPUFrameBuffer *double_buffer_depth_fb;
+  struct GPUFrameBuffer *transparent_rpass_fb;
+  struct GPUFrameBuffer *transparent_rpass_accum_fb;
   struct GPUFrameBuffer *taa_history_fb;
   struct GPUFrameBuffer *taa_history_color_fb;
 } EEVEE_FramebufferList;
@@ -407,6 +374,9 @@ typedef struct EEVEE_TextureList {
   struct GPUTexture *bloom_accum;
   struct GPUTexture *ssr_accum;
   struct GPUTexture *shadow_accum;
+  struct GPUTexture *transparent_accum;
+  struct GPUTexture *transparent_depth_tmp;
+  struct GPUTexture *transparent_color_tmp;
   struct GPUTexture *cryptomatte;
   struct GPUTexture *taa_history;
   /* Could not be pool texture because of mipmapping. */
@@ -646,7 +616,7 @@ typedef struct EEVEE_MotionBlurData {
 typedef struct EEVEE_ObjectKey {
   /** Object or source object for duplis. */
   /** WORKAROUND: The pointer is different for particle systems and do not point to the real
-   * object. (See T97380) */
+   * object. (See #97380) */
   void *ob;
   /** Parent object for duplis */
   struct Object *parent;
@@ -739,6 +709,9 @@ typedef struct EEVEE_EffectsInfo {
   struct GPUTexture *ssr_specrough_input;
   struct GPUTexture *ssr_hit_output;
   struct GPUTexture *ssr_hit_depth;
+  /* Intel devices require a split execution due to shader issue */
+  bool use_split_ssr_pass;
+
   /* Temporal Anti Aliasing */
   int taa_reproject_sample;
   int taa_current_sample;
@@ -1027,7 +1000,7 @@ typedef struct EEVEE_PrivateData {
   float camtexcofac[4];
   float size_orig[2];
 
-  /* Cached original camera when rendering for motion blur (see T79637). */
+  /* Cached original camera when rendering for motion blur (see #79637). */
   struct Object *cam_original_ob;
 
   /* Mist Settings */
@@ -1039,6 +1012,8 @@ typedef struct EEVEE_PrivateData {
   /* Compiling shaders count. This is to track if a shader has finished compiling. */
   int queued_shaders_count;
   int queued_shaders_count_prev;
+  /* Optimizing shaders count. */
+  int queued_optimise_shaders_count;
 
   /* LookDev Settings */
   int studiolight_index;
@@ -1247,6 +1222,9 @@ struct GPUShader *EEVEE_shaders_effect_ambient_occlusion_sh_get(void);
 struct GPUShader *EEVEE_shaders_effect_ambient_occlusion_debug_sh_get(void);
 struct GPUShader *EEVEE_shaders_effect_reflection_trace_sh_get(void);
 struct GPUShader *EEVEE_shaders_effect_reflection_resolve_sh_get(void);
+struct GPUShader *EEVEE_shaders_effect_reflection_resolve_probe_sh_get(void);
+struct GPUShader *EEVEE_shaders_effect_reflection_resolve_refl_sh_get(void);
+struct GPUShader *EEVEE_shaders_renderpasses_accumulate_sh_get(void);
 struct GPUShader *EEVEE_shaders_renderpasses_post_process_sh_get(void);
 struct GPUShader *EEVEE_shaders_cryptomatte_sh_get(bool is_hair);
 struct GPUShader *EEVEE_shaders_shadow_sh_get(void);
@@ -1295,13 +1273,14 @@ struct GPUMaterial *EEVEE_material_get(
     EEVEE_Data *vedata, struct Scene *scene, Material *ma, World *wo, int options);
 void EEVEE_shaders_free(void);
 
-void eevee_shader_extra_init(void);
-void eevee_shader_extra_exit(void);
 void eevee_shader_material_create_info_amend(GPUMaterial *gpumat,
-                                             GPUCodegenOutput *codegen,
-                                             char *frag,
+                                             GPUCodegenOutput *codegen_,
                                              char *vert,
                                              char *geom,
+                                             char *frag,
+                                             const char *vert_info_name,
+                                             const char *geom_info_name,
+                                             const char *frag_info_name,
                                              char *defines);
 GPUShader *eevee_shaders_sh_create_helper(const char *name,
                                           const char *vert_name,
@@ -1504,6 +1483,8 @@ void EEVEE_renderpasses_cache_finish(EEVEE_ViewLayerData *sldata, EEVEE_Data *ve
 void EEVEE_renderpasses_output_accumulate(EEVEE_ViewLayerData *sldata,
                                           EEVEE_Data *vedata,
                                           bool post_effect);
+void EEVEE_material_transparent_output_init(EEVEE_Data *vedata);
+void EEVEE_material_transparent_output_accumulate(EEVEE_Data *vedata);
 /**
  * Post-process data to construct a specific render-pass
  *

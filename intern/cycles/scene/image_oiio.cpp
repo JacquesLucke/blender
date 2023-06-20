@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/image_oiio.h"
 
@@ -9,13 +10,9 @@
 
 CCL_NAMESPACE_BEGIN
 
-OIIOImageLoader::OIIOImageLoader(const string &filepath) : filepath(filepath)
-{
-}
+OIIOImageLoader::OIIOImageLoader(const string &filepath) : filepath(filepath) {}
 
-OIIOImageLoader::~OIIOImageLoader()
-{
-}
+OIIOImageLoader::~OIIOImageLoader() {}
 
 bool OIIOImageLoader::load_metadata(const ImageDeviceFeatures & /*features*/,
                                     ImageMetaData &metadata)
@@ -85,6 +82,7 @@ bool OIIOImageLoader::load_metadata(const ImageDeviceFeatures & /*features*/,
   }
 
   metadata.colorspace_file_format = in->format_name();
+  metadata.colorspace_file_hint = spec.get_string_attribute("oiio:ColorSpace");
 
   in->close();
 
@@ -112,14 +110,18 @@ static void oiio_load_pixels(const ImageMetaData &metadata,
 
   if (depth <= 1) {
     size_t scanlinesize = width * components * sizeof(StorageType);
-    in->read_image(FileFormat,
+    in->read_image(0,
+                   0,
+                   0,
+                   components,
+                   FileFormat,
                    (uchar *)readpixels + (height - 1) * scanlinesize,
                    AutoStride,
                    -scanlinesize,
                    AutoStride);
   }
   else {
-    in->read_image(FileFormat, (uchar *)readpixels);
+    in->read_image(0, 0, 0, components, FileFormat, (uchar *)readpixels);
   }
 
   if (components > 4) {
@@ -204,6 +206,11 @@ bool OIIOImageLoader::load_pixels(const ImageMetaData &metadata,
       }
       /* OIIO DDS reader never sets UnassociatedAlpha attribute. */
       if (strcmp(in->format_name(), "dds") == 0) {
+        do_associate_alpha = true;
+      }
+      /* Workaround OIIO bug that sets oiio:UnassociatedAlpha on the last layer
+       * but not composite image that we read. */
+      if (strcmp(in->format_name(), "psd") == 0) {
         do_associate_alpha = true;
       }
     }

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2007 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2007 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup nodes
@@ -11,13 +12,11 @@
 #include "DNA_node_types.h"
 #include "DNA_scene_types.h"
 
-#include "BLT_translation.h"
-
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_main.h"
-#include "BKE_node.h"
+#include "BKE_node.hh"
 #include "BKE_node_runtime.hh"
 #include "BKE_node_tree_update.h"
 #include "BKE_tracking.h"
@@ -25,7 +24,7 @@
 #include "UI_resources.h"
 
 #include "node_common.h"
-#include "node_util.h"
+#include "node_util.hh"
 
 #include "RNA_access.h"
 #include "RNA_prototypes.h"
@@ -62,22 +61,6 @@ static void foreach_nodeclass(Scene * /*scene*/, void *calldata, bNodeClassCallb
   func(calldata, NODE_CLASS_LAYOUT, N_("Layout"));
 }
 
-static void free_node_cache(bNodeTree * /*ntree*/, bNode *node)
-{
-  LISTBASE_FOREACH (bNodeSocket *, sock, &node->outputs) {
-    if (sock->cache) {
-      sock->cache = nullptr;
-    }
-  }
-}
-
-static void free_cache(bNodeTree *ntree)
-{
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-    free_node_cache(ntree, node);
-  }
-}
-
 /* local tree then owns all compbufs */
 static void localize(bNodeTree *localtree, bNodeTree *ntree)
 {
@@ -91,7 +74,7 @@ static void localize(bNodeTree *localtree, bNodeTree *ntree)
     local_node->runtime->original = node;
 
     /* move over the compbufs */
-    /* right after #ntreeCopyTree() `oldsock` pointers are valid */
+    /* right after #blender::bke::ntreeCopyTree() `oldsock` pointers are valid */
 
     if (ELEM(node->type, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER)) {
       if (node->id) {
@@ -111,13 +94,10 @@ static void localize(bNodeTree *localtree, bNodeTree *ntree)
 
 static void local_merge(Main *bmain, bNodeTree *localtree, bNodeTree *ntree)
 {
-  bNode *lnode;
-  bNodeSocket *lsock;
-
   /* move over the compbufs and previews */
-  BKE_node_preview_merge_tree(ntree, localtree, true);
+  blender::bke::node_preview_merge_tree(ntree, localtree, true);
 
-  for (lnode = (bNode *)localtree->nodes.first; lnode; lnode = lnode->next) {
+  for (bNode *lnode = (bNode *)localtree->nodes.first; lnode; lnode = lnode->next) {
     if (bNode *orig_node = nodeFindNodebyName(ntree, lnode->name)) {
       if (ELEM(lnode->type, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER)) {
         if (lnode->id && (lnode->flag & NODE_DO_OUTPUT)) {
@@ -135,14 +115,6 @@ static void local_merge(Main *bmain, bNodeTree *localtree, bNodeTree *ntree)
           }
 
           orig_node->storage = BKE_tracking_distortion_copy((MovieDistortion *)lnode->storage);
-        }
-      }
-
-      for (lsock = (bNodeSocket *)lnode->outputs.first; lsock; lsock = lsock->next) {
-        if (bNodeSocket *orig_socket = nodeFindSocket(orig_node, SOCK_OUT, lsock->identifier)) {
-          orig_socket->cache = lsock->cache;
-          lsock->cache = nullptr;
-          orig_socket = nullptr;
         }
       }
     }
@@ -169,7 +141,7 @@ static void composite_node_add_init(bNodeTree * /*bnodetree*/, bNode *bnode)
 static bool composite_node_tree_socket_type_valid(bNodeTreeType * /*ntreetype*/,
                                                   bNodeSocketType *socket_type)
 {
-  return nodeIsStaticSocketType(socket_type) &&
+  return blender::bke::nodeIsStaticSocketType(socket_type) &&
          ELEM(socket_type->type, SOCK_FLOAT, SOCK_VECTOR, SOCK_RGBA);
 }
 
@@ -180,14 +152,12 @@ void register_node_tree_type_cmp()
   bNodeTreeType *tt = ntreeType_Composite = MEM_cnew<bNodeTreeType>(__func__);
 
   tt->type = NTREE_COMPOSIT;
-  strcpy(tt->idname, "CompositorNodeTree");
-  strcpy(tt->group_idname, "CompositorNodeGroup");
-  strcpy(tt->ui_name, N_("Compositor"));
+  STRNCPY(tt->idname, "CompositorNodeTree");
+  STRNCPY(tt->group_idname, "CompositorNodeGroup");
+  STRNCPY(tt->ui_name, N_("Compositor"));
   tt->ui_icon = ICON_NODE_COMPOSITING;
-  strcpy(tt->ui_description, N_("Compositing nodes"));
+  STRNCPY(tt->ui_description, N_("Compositing nodes"));
 
-  tt->free_cache = free_cache;
-  tt->free_node_cache = free_node_cache;
   tt->foreach_nodeclass = foreach_nodeclass;
   tt->localize = localize;
   tt->local_merge = local_merge;
@@ -201,17 +171,18 @@ void register_node_tree_type_cmp()
   ntreeTypeAdd(tt);
 }
 
-void ntreeCompositExecTree(Scene *scene,
+void ntreeCompositExecTree(Render *render,
+                           Scene *scene,
                            bNodeTree *ntree,
                            RenderData *rd,
-                           int rendering,
+                           bool rendering,
                            int do_preview,
                            const char *view_name)
 {
 #ifdef WITH_COMPOSITOR_CPU
-  COM_execute(rd, scene, ntree, rendering, view_name);
+  COM_execute(render, rd, scene, ntree, rendering, view_name);
 #else
-  UNUSED_VARS(scene, ntree, rd, rendering, view_name);
+  UNUSED_VARS(render, scene, ntree, rd, rendering, view_name);
 #endif
 
   UNUSED_VARS(do_preview);
@@ -225,7 +196,7 @@ void ntreeCompositUpdateRLayers(bNodeTree *ntree)
     return;
   }
 
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+  for (bNode *node : ntree->all_nodes()) {
     if (node->type == CMP_NODE_R_LAYERS) {
       node_cmp_rlayers_outputs(ntree, node);
     }
@@ -240,9 +211,10 @@ void ntreeCompositTagRender(Scene *scene)
    * ideally render struct would store own main AND original G_MAIN. */
 
   for (Scene *sce_iter = (Scene *)G_MAIN->scenes.first; sce_iter;
-       sce_iter = (Scene *)sce_iter->id.next) {
+       sce_iter = (Scene *)sce_iter->id.next)
+  {
     if (sce_iter->nodetree) {
-      LISTBASE_FOREACH (bNode *, node, &sce_iter->nodetree->nodes) {
+      for (bNode *node : sce_iter->nodetree->all_nodes()) {
         if (node->id == (ID *)scene || node->type == CMP_NODE_COMPOSITE) {
           BKE_ntree_update_tag_node_property(sce_iter->nodetree, node);
         }
@@ -255,14 +227,15 @@ void ntreeCompositTagRender(Scene *scene)
   BKE_ntree_update_main(G_MAIN, nullptr);
 }
 
-/* XXX after render animation system gets a refresh, this call allows composite to end clean */
 void ntreeCompositClearTags(bNodeTree *ntree)
 {
+  /* XXX: after render animation system gets a refresh, this call allows composite to end clean. */
+
   if (ntree == nullptr) {
     return;
   }
 
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+  for (bNode *node : ntree->all_nodes()) {
     node->runtime->need_exec = 0;
     if (node->type == NODE_GROUP) {
       ntreeCompositClearTags((bNodeTree *)node->id);

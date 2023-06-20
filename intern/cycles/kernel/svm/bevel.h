@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -188,6 +189,7 @@ ccl_device float3 svm_bevel(
     ray.self.prim = PRIM_NONE;
     ray.self.light_object = OBJECT_NONE;
     ray.self.light_prim = PRIM_NONE;
+    ray.self.light = LAMP_NONE;
 
     /* Intersect with the same object. if multiple intersections are found it
      * will use at most LOCAL_MAX_HITS hits, a random subset of all hits. */
@@ -224,7 +226,7 @@ ccl_device float3 svm_bevel(
       float3 hit_Ng = isect.Ng[hit];
       int object = isect.hits[hit].object;
       int object_flag = kernel_data_fetch(object_flag, object);
-      if (object_flag & SD_OBJECT_NEGATIVE_SCALE_APPLIED) {
+      if (object_negative_scale_applied(object_flag)) {
         hit_Ng = -hit_Ng;
       }
 

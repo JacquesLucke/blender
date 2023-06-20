@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "COM_WorkScheduler.h"
 
@@ -129,7 +130,8 @@ static void opencl_start(const CompositorContext &context)
 static bool opencl_schedule(WorkPackage *package)
 {
   if (package->type == eWorkPackageType::Tile && package->execution_group->get_flags().open_cl &&
-      g_work_scheduler.opencl.active) {
+      g_work_scheduler.opencl.active)
+  {
     BLI_thread_queue_push(g_work_scheduler.opencl.queue, package);
     return true;
   }
@@ -266,7 +268,7 @@ static void opencl_initialize(const bool use_opencl)
 
 static void opencl_deinitialize()
 {
-  g_work_scheduler.opencl.devices.clear_and_make_inline();
+  g_work_scheduler.opencl.devices.clear_and_shrink();
 
   if (g_work_scheduler.opencl.program) {
     clReleaseProgram(g_work_scheduler.opencl.program);
@@ -364,7 +366,7 @@ static void threading_model_queue_deinitialize()
 {
   /* deinitialize CPU threads */
   if (g_work_scheduler.queue.initialized) {
-    g_work_scheduler.queue.devices.clear_and_make_inline();
+    g_work_scheduler.queue.devices.clear_and_shrink();
 
     BLI_thread_local_delete(g_thread_device);
     g_work_scheduler.queue.initialized = false;

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
@@ -22,11 +24,13 @@ set(INC
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
+set(INC_SYS
+)
 
 set(SRC
   ed_draw.c
   ed_transverts.c
-  ed_util.c
+  ed_util.cc
   ed_util_imbuf.c
   ed_util_ops.cc
   ed_viewer_path.cc
@@ -50,7 +54,8 @@ set(SRC
   ../include/ED_geometry.h
   ../include/ED_gizmo_library.h
   ../include/ED_gizmo_utils.h
-  ../include/ED_gpencil.h
+  ../include/ED_gpencil_legacy.h
+  ../include/ED_grease_pencil.h
   ../include/ED_image.h
   ../include/ED_info.h
   ../include/ED_keyframes_draw.h
@@ -63,6 +68,7 @@ set(SRC
   ../include/ED_mball.h
   ../include/ED_mesh.h
   ../include/ED_node.h
+  ../include/ED_node.hh
   ../include/ED_numinput.h
   ../include/ED_object.h
   ../include/ED_outliner.h

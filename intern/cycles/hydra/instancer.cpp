@@ -1,6 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2022 NVIDIA Corporation
- * Copyright 2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2022 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "hydra/instancer.h"
 
@@ -26,9 +27,7 @@ HdCyclesInstancer::HdCyclesInstancer(HdSceneDelegate *delegate,
 {
 }
 
-HdCyclesInstancer::~HdCyclesInstancer()
-{
-}
+HdCyclesInstancer::~HdCyclesInstancer() {}
 
 #if PXR_VERSION > 2011
 void HdCyclesInstancer::Sync(HdSceneDelegate *sceneDelegate,
@@ -50,7 +49,8 @@ void HdCyclesInstancer::SyncPrimvars()
       sceneDelegate->GetRenderIndex().GetChangeTracker().GetInstancerDirtyBits(GetId());
 
   for (const HdPrimvarDescriptor &desc :
-       sceneDelegate->GetPrimvarDescriptors(GetId(), HdInterpolationInstance)) {
+       sceneDelegate->GetPrimvarDescriptors(GetId(), HdInterpolationInstance))
+  {
     if (!HdChangeTracker::IsPrimvarDirty(dirtyBits, GetId(), desc.name)) {
       continue;
     }
@@ -121,7 +121,8 @@ VtMatrix4dArray HdCyclesInstancer::ComputeInstanceTransforms(const SdfPath &prot
   VtMatrix4dArray resultTransforms;
 
   if (const auto instancer = static_cast<HdCyclesInstancer *>(
-          GetDelegate()->GetRenderIndex().GetInstancer(GetParentId()))) {
+          GetDelegate()->GetRenderIndex().GetInstancer(GetParentId())))
+  {
     for (const GfMatrix4d &parentTransform : instancer->ComputeInstanceTransforms(GetId())) {
       for (const GfMatrix4d &localTransform : transforms) {
         resultTransforms.push_back(parentTransform * localTransform);

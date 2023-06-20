@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup render
@@ -52,12 +53,13 @@ static int point_data_used(PointDensity *pd)
 
   if (pd->source == TEX_PD_PSYS) {
     if ((pd->falloff_type == TEX_PD_FALLOFF_PARTICLE_VEL) ||
-        (pd->color_source == TEX_PD_COLOR_PARTVEL) ||
-        (pd->color_source == TEX_PD_COLOR_PARTSPEED)) {
+        (pd->color_source == TEX_PD_COLOR_PARTVEL) || (pd->color_source == TEX_PD_COLOR_PARTSPEED))
+    {
       pd_bitflag |= POINT_DATA_VEL;
     }
     if ((pd->color_source == TEX_PD_COLOR_PARTAGE) ||
-        (pd->falloff_type == TEX_PD_FALLOFF_PARTICLE_AGE)) {
+        (pd->falloff_type == TEX_PD_FALLOFF_PARTICLE_AGE))
+    {
       pd_bitflag |= POINT_DATA_LIFE;
     }
   }
@@ -155,7 +157,8 @@ static void pointdensity_cache_psys(
   ParticleSimulationData sim = {NULL};
   ParticleData *pa = NULL;
   float cfra = BKE_scene_ctime_get(scene);
-  int i /*, Childexists*/ /* UNUSED */;
+  int i;
+  // int childexists = 0; /* UNUSED */
   int total_particles;
   int data_used;
   float *data_vel, *data_life;
@@ -266,7 +269,7 @@ static void pointdensity_cache_vertex_color(PointDensity *pd,
                                             Mesh *mesh,
                                             float *data_color)
 {
-  const MLoop *mloop = BKE_mesh_loops(mesh);
+  const int *corner_verts = BKE_mesh_corner_verts(mesh);
   const int totloop = mesh->totloop;
   char layername[MAX_CUSTOMDATA_LAYER_NAME];
   int i;
@@ -287,7 +290,7 @@ static void pointdensity_cache_vertex_color(PointDensity *pd,
   int *mcorners = MEM_callocN(sizeof(int) * pd->totpoints, "point density corner count");
 
   for (i = 0; i < totloop; i++) {
-    int v = mloop[i].v;
+    int v = corner_verts[i];
 
     if (mcorners[v] == 0) {
       rgb_uchar_to_float(&data_color[v * 3], &mcol[i].r);
@@ -353,7 +356,7 @@ static void pointdensity_cache_vertex_weight(PointDensity *pd,
 static void pointdensity_cache_vertex_normal(Mesh *mesh, float *data_color)
 {
   BLI_assert(data_color);
-  const float(*vert_normals)[3] = BKE_mesh_vertex_normals_ensure(mesh);
+  const float(*vert_normals)[3] = BKE_mesh_vert_normals_ensure(mesh);
   memcpy(data_color, vert_normals, sizeof(float[3]) * mesh->totvert);
 }
 
@@ -361,7 +364,6 @@ static void pointdensity_cache_object(PointDensity *pd, Object *ob)
 {
   float *data_color;
   int i;
-  const MVert *mvert = NULL, *mv;
   Mesh *mesh = ob->data;
 
 #if 0 /* UNUSED */
@@ -377,7 +379,7 @@ static void pointdensity_cache_object(PointDensity *pd, Object *ob)
   }
 #endif
 
-  mvert = BKE_mesh_verts(mesh); /* local object space */
+  const float(*positions)[3] = BKE_mesh_vert_positions(mesh); /* local object space */
   pd->totpoints = mesh->totvert;
   if (pd->totpoints == 0) {
     return;
@@ -387,10 +389,10 @@ static void pointdensity_cache_object(PointDensity *pd, Object *ob)
   alloc_point_data(pd);
   point_data_pointers(pd, NULL, NULL, &data_color);
 
-  for (i = 0, mv = mvert; i < pd->totpoints; i++, mv++) {
+  for (i = 0; i < pd->totpoints; i++) {
     float co[3];
 
-    copy_v3_v3(co, mv->co);
+    copy_v3_v3(co, positions[i]);
 
     switch (pd->ob_cache_space) {
       case TEX_PD_OBJECTSPACE:
@@ -484,7 +486,7 @@ typedef struct PointDensityRangeData {
   short falloff_type;
   short noise_influence;
   float *age;
-  struct CurveMapping *density_curve;
+  CurveMapping *density_curve;
   float velscale;
 } PointDensityRangeData;
 
@@ -565,7 +567,7 @@ static void init_pointdensityrangedata(PointDensity *pd,
                                        float *vec,
                                        float *age,
                                        float *col,
-                                       struct CurveMapping *density_curve,
+                                       CurveMapping *density_curve,
                                        float velscale)
 {
   pdr->squared_radius = pd->radius * pd->radius;
@@ -796,7 +798,7 @@ static void particle_system_minmax(Depsgraph *depsgraph,
   psys_sim_data_free(&sim);
 }
 
-void RE_point_density_cache(struct Depsgraph *depsgraph, PointDensity *pd)
+void RE_point_density_cache(Depsgraph *depsgraph, PointDensity *pd)
 {
   Scene *scene = DEG_get_evaluated_scene(depsgraph);
 
@@ -806,8 +808,8 @@ void RE_point_density_cache(struct Depsgraph *depsgraph, PointDensity *pd)
   BLI_mutex_unlock(&sample_mutex);
 }
 
-void RE_point_density_minmax(struct Depsgraph *depsgraph,
-                             struct PointDensity *pd,
+void RE_point_density_minmax(Depsgraph *depsgraph,
+                             PointDensity *pd,
                              float r_min[3],
                              float r_max[3])
 {
@@ -939,11 +941,9 @@ void RE_point_density_sample(Depsgraph *depsgraph,
   free_pointdensity(pd);
 }
 
-void RE_point_density_free(struct PointDensity *pd)
+void RE_point_density_free(PointDensity *pd)
 {
   free_pointdensity(pd);
 }
 
-void RE_point_density_fix_linking(void)
-{
-}
+void RE_point_density_fix_linking(void) {}

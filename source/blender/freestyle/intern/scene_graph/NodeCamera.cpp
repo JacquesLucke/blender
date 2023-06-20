@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2008-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -91,9 +93,7 @@ NodeOrthographicCamera::NodeOrthographicCamera(
   projection_matrix_[11] = -(zFar + zNear) / (zFar - zNear);
 }
 
-NodePerspectiveCamera::NodePerspectiveCamera() : NodeCamera(NodeCamera::PERSPECTIVE)
-{
-}
+NodePerspectiveCamera::NodePerspectiveCamera() : NodeCamera(NodeCamera::PERSPECTIVE) {}
 
 NodePerspectiveCamera::NodePerspectiveCamera(double fovy, double aspect, double zNear, double zFar)
     : NodeCamera(NodeCamera::PERSPECTIVE)

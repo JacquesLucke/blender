@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edmesh
@@ -25,7 +26,7 @@ struct wmKeyMap;
 struct wmOperator;
 struct wmOperatorType;
 
-/* *** editmesh_utils.c *** */
+/* *** editmesh_utils.cc *** */
 
 /*
  * ok: the EDBM module is for editmode bmesh stuff.  in contrast, the
@@ -49,7 +50,8 @@ bool EDBM_op_call_silentf(struct BMEditMesh *em, const char *fmt, ...);
  * These next two functions are the split version of EDBM_op_callf, so you can
  * do stuff with a bmesh operator, after initializing it but before executing it.
  *
- * execute the operator with BM_Exec_Op */
+ * execute the operator with #BMO_op_exec.
+ */
 bool EDBM_op_init(
     struct BMEditMesh *em, struct BMOperator *bmop, struct wmOperator *op, const char *fmt, ...);
 
@@ -119,6 +121,10 @@ void MESH_OT_primitive_ico_sphere_add(struct wmOperatorType *ot);
 /* *** editmesh_add_gizmo.c *** */
 
 void MESH_OT_primitive_cube_add_gizmo(struct wmOperatorType *ot);
+
+/* *** editmesh_attribute.cc *** */
+
+void MESH_OT_attribute_set(struct wmOperatorType *ot);
 
 /* *** editmesh_bevel.c *** */
 
@@ -226,7 +232,7 @@ void MESH_OT_shortest_path_select(struct wmOperatorType *ot);
 
 extern struct EnumPropertyItem *corner_type_items;
 
-/* *** editmesh_tools.c *** */
+/* *** editmesh_tools.cc *** */
 void MESH_OT_subdivide(struct wmOperatorType *ot);
 void MESH_OT_subdivide_edgering(struct wmOperatorType *ot);
 void MESH_OT_unsubdivide(struct wmOperatorType *ot);
@@ -294,8 +300,9 @@ void MESH_OT_set_normals_from_faces(struct wmOperatorType *ot);
 void MESH_OT_average_normals(struct wmOperatorType *ot);
 void MESH_OT_smooth_normals(struct wmOperatorType *ot);
 void MESH_OT_mod_weighted_strength(struct wmOperatorType *ot);
+void MESH_OT_flip_quad_tessellation(struct wmOperatorType *ot);
 
-/* *** editmesh_mask_extract.c *** */
+/* *** editmesh_mask_extract.cc *** */
 
 void MESH_OT_paint_mask_extract(struct wmOperatorType *ot);
 void MESH_OT_face_set_extract(struct wmOperatorType *ot);
@@ -318,14 +325,6 @@ void MESH_OT_customdata_skin_add(struct wmOperatorType *ot);
 void MESH_OT_customdata_skin_clear(struct wmOperatorType *ot);
 void MESH_OT_customdata_custom_splitnormals_add(struct wmOperatorType *ot);
 void MESH_OT_customdata_custom_splitnormals_clear(struct wmOperatorType *ot);
-void MESH_OT_customdata_bevel_weight_vertex_add(struct wmOperatorType *ot);
-void MESH_OT_customdata_bevel_weight_vertex_clear(struct wmOperatorType *ot);
-void MESH_OT_customdata_bevel_weight_edge_add(struct wmOperatorType *ot);
-void MESH_OT_customdata_bevel_weight_edge_clear(struct wmOperatorType *ot);
-void MESH_OT_customdata_crease_vertex_add(struct wmOperatorType *ot);
-void MESH_OT_customdata_crease_vertex_clear(struct wmOperatorType *ot);
-void MESH_OT_customdata_crease_edge_add(struct wmOperatorType *ot);
-void MESH_OT_customdata_crease_edge_clear(struct wmOperatorType *ot);
 
 #ifdef __cplusplus
 }

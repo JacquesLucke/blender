@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2008-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -635,7 +637,8 @@ WFace *WShape::MakeFace(vector<WVertex *> &iVertexList,
 
   if (3 == iVertexList.size()) {
     if ((iVertexList[0] == iVertexList[1]) || (iVertexList[0] == iVertexList[2]) ||
-        (iVertexList[2] == iVertexList[1])) {
+        (iVertexList[2] == iVertexList[1]))
+    {
       cerr << "Warning: degenerated triangle detected, correcting" << endl;
       return nullptr;
     }
@@ -644,7 +647,7 @@ WFace *WShape::MakeFace(vector<WVertex *> &iVertexList,
   vector<WVertex *>::iterator it;
 
   // compute the face normal (v1v2 ^ v1v3)
-  // Double precision numbers are used here to avoid truncation errors [T47705]
+  // Double precision numbers are used here to avoid truncation errors [#47705]
   Vec3r v1, v2, v3;
   it = iVertexList.begin();
   v1 = (*it)->GetVertex();
@@ -713,7 +716,8 @@ real WShape::ComputeMeanEdgeSize() const
   real meanEdgeSize = 0.0;
   for (vector<WEdge *>::const_iterator it = _EdgeList.begin(), itend = _EdgeList.end();
        it != itend;
-       it++) {
+       it++)
+  {
     meanEdgeSize += (*it)->GetaOEdge()->GetVec().norm();
   }
   return meanEdgeSize / (real)_EdgeList.size();

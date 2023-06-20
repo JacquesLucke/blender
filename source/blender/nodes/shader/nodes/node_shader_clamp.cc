@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup shdnodes
@@ -15,10 +16,10 @@ namespace blender::nodes::node_shader_clamp_cc {
 static void sh_node_clamp_declare(NodeDeclarationBuilder &b)
 {
   b.is_function_node();
-  b.add_input<decl::Float>(N_("Value")).default_value(1.0f);
-  b.add_input<decl::Float>(N_("Min")).default_value(0.0f).min(-10000.0f).max(10000.0f);
-  b.add_input<decl::Float>(N_("Max")).default_value(1.0f).min(-10000.0f).max(10000.0f);
-  b.add_output<decl::Float>(N_("Result"));
+  b.add_input<decl::Float>("Value").default_value(1.0f);
+  b.add_input<decl::Float>("Min").default_value(0.0f).min(-10000.0f).max(10000.0f);
+  b.add_input<decl::Float>("Max").default_value(1.0f).min(-10000.0f).max(10000.0f);
+  b.add_output<decl::Float>("Result");
 }
 
 static void node_shader_buts_clamp(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -44,17 +45,17 @@ static int gpu_shader_clamp(GPUMaterial *mat,
 
 static void sh_node_clamp_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
-  static fn::CustomMF_SI_SI_SI_SO<float, float, float, float> minmax_fn{
+  static auto minmax_fn = mf::build::SI3_SO<float, float, float, float>(
       "Clamp (Min Max)",
-      [](float value, float min, float max) { return std::min(std::max(value, min), max); }};
-  static fn::CustomMF_SI_SI_SI_SO<float, float, float, float> range_fn{
+      [](float value, float min, float max) { return std::min(std::max(value, min), max); });
+  static auto range_fn = mf::build::SI3_SO<float, float, float, float>(
       "Clamp (Range)", [](float value, float a, float b) {
         if (a < b) {
           return clamp_f(value, a, b);
         }
 
         return clamp_f(value, b, a);
-      }};
+      });
 
   int clamp_type = builder.node().custom1;
   if (clamp_type == NODE_CLAMP_MINMAX) {

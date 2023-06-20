@@ -126,10 +126,10 @@ TReturn metalrt_local_hit(constant KernelParamsMetal &launch_params_metal,
   isect->v = barycentrics.y;
 
   /* Record geometric normal */
-  const uint tri_vindex = kernel_data_fetch(tri_vindex, isect->prim).w;
-  const float3 tri_a = float3(kernel_data_fetch(tri_verts, tri_vindex + 0));
-  const float3 tri_b = float3(kernel_data_fetch(tri_verts, tri_vindex + 1));
-  const float3 tri_c = float3(kernel_data_fetch(tri_verts, tri_vindex + 2));
+  const packed_uint3 tri_vindex = kernel_data_fetch(tri_vindex, isect->prim);
+  const float3 tri_a = float3(kernel_data_fetch(tri_verts, tri_vindex.x));
+  const float3 tri_b = float3(kernel_data_fetch(tri_verts, tri_vindex.y));
+  const float3 tri_c = float3(kernel_data_fetch(tri_verts, tri_vindex.z));
   payload.local_isect.Ng[hit] = normalize(cross(tri_b - tri_a, tri_c - tri_a));
 
   /* Continue tracing (without this the trace call would return after the first hit) */
@@ -139,6 +139,20 @@ TReturn metalrt_local_hit(constant KernelParamsMetal &launch_params_metal,
 #endif
 }
 
+[[intersection(triangle, triangle_data )]] TriangleIntersectionResult
+__anyhit__cycles_metalrt_local_hit_tri_prim(
+    constant KernelParamsMetal &launch_params_metal [[buffer(1)]],
+    ray_data MetalKernelContext::MetalRTIntersectionLocalPayload &payload [[payload]],
+    uint primitive_id [[primitive_id]],
+    float2 barycentrics [[barycentric_coord]],
+    float ray_tmax [[distance]])
+{
+  //instance_id, aka the user_id has been removed. If we take this function we optimized the
+  //SSS for starting traversal from a primitive acceleration structure instead of the root of the global AS.
+  //this means we will always be intersecting the correct object no need for the userid to check
+  return metalrt_local_hit<TriangleIntersectionResult, METALRT_HIT_TRIANGLE>(
+      launch_params_metal, payload, payload.local_object, primitive_id, barycentrics, ray_tmax);
+}
 [[intersection(triangle, triangle_data, METALRT_TAGS)]] TriangleIntersectionResult
 __anyhit__cycles_metalrt_local_hit_tri(
     constant KernelParamsMetal &launch_params_metal [[buffer(1)]],
@@ -154,6 +168,17 @@ __anyhit__cycles_metalrt_local_hit_tri(
 
 [[intersection(bounding_box, triangle_data, METALRT_TAGS)]] BoundingBoxIntersectionResult
 __anyhit__cycles_metalrt_local_hit_box(const float ray_tmax [[max_distance]])
+{
+  /* unused function */
+  BoundingBoxIntersectionResult result;
+  result.distance = ray_tmax;
+  result.accept = false;
+  result.continue_search = false;
+  return result;
+}
+
+[[intersection(bounding_box, triangle_data )]] BoundingBoxIntersectionResult
+__anyhit__cycles_metalrt_local_hit_box_prim(const float ray_tmax [[max_distance]])
 {
   /* unused function */
   BoundingBoxIntersectionResult result;
@@ -264,9 +289,8 @@ bool metalrt_shadow_all_hit(constant KernelParamsMetal &launch_params_metal,
     }
 
     if (ray_tmax >= max_recorded_t) {
-      /* Accept hit, so that we don't consider any more hits beyond the distance of the
-       * current hit anymore. */
-      payload.result = true;
+      /* Ray hits are not guaranteed to be ordered by distance so don't exit early here.
+       * Continue search. */
       return true;
     }
 

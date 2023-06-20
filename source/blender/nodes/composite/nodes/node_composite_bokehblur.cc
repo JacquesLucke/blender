@@ -1,12 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2006 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2006 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup cmpnodes
  */
 
 #include "BLI_math_base.hh"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -24,23 +25,23 @@ namespace blender::nodes::node_composite_bokehblur_cc {
 
 static void cmp_node_bokehblur_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Color>(N_("Image"))
+  b.add_input<decl::Color>("Image")
       .default_value({0.8f, 0.8f, 0.8f, 1.0f})
       .compositor_domain_priority(0);
-  b.add_input<decl::Color>(N_("Bokeh"))
+  b.add_input<decl::Color>("Bokeh")
       .default_value({1.0f, 1.0f, 1.0f, 1.0f})
       .compositor_skip_realization();
-  b.add_input<decl::Float>(N_("Size"))
+  b.add_input<decl::Float>("Size")
       .default_value(1.0f)
       .min(0.0f)
       .max(10.0f)
       .compositor_domain_priority(1);
-  b.add_input<decl::Float>(N_("Bounding box"))
+  b.add_input<decl::Float>("Bounding box")
       .default_value(1.0f)
       .min(0.0f)
       .max(1.0f)
       .compositor_domain_priority(2);
-  b.add_output<decl::Color>(N_("Image"));
+  b.add_output<decl::Color>("Image");
 }
 
 static void node_composit_init_bokehblur(bNodeTree * /*ntree*/, bNode *node)
@@ -195,7 +196,7 @@ class BokehBlurOperation : public NodeOperation {
 
   int get_max_size()
   {
-    return static_cast<int>(bnode().custom4);
+    return int(bnode().custom4);
   }
 };
 

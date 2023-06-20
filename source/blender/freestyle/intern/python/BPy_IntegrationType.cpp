@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2004-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -66,7 +68,8 @@ static PyObject *Integrator_integrate(PyObject * /*self*/, PyObject *args, PyObj
                                    &Interface0DIterator_Type,
                                    &obj3,
                                    &IntegrationType_Type,
-                                   &obj4)) {
+                                   &obj4))
+  {
     return nullptr;
   }
 
@@ -116,10 +119,10 @@ static PyModuleDef module_definition = {
     /*m_doc*/ module_docstring,
     /*m_size*/ -1,
     /*m_methods*/ module_functions,
-    /*m_slots*/ NULL,
-    /*m_traverse*/ NULL,
-    /*m_clear*/ NULL,
-    /*m_free*/ NULL,
+    /*m_slots*/ nullptr,
+    /*m_traverse*/ nullptr,
+    /*m_clear*/ nullptr,
+    /*m_free*/ nullptr,
 };
 
 /*-----------------------BPy_IntegrationType type definition ------------------------------*/

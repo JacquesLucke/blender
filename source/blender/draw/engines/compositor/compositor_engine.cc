@@ -1,16 +1,26 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_listbase.h"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
+#include "BLI_rect.h"
 #include "BLI_string_ref.hh"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
+#include "DNA_ID.h"
 #include "DNA_ID_enums.h"
+#include "DNA_camera_types.h"
+#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_vec_types.h"
+#include "DNA_view3d_types.h"
 
 #include "DEG_depsgraph_query.h"
+
+#include "ED_view3d.h"
 
 #include "DRW_render.h"
 
@@ -20,7 +30,10 @@
 #include "COM_evaluator.hh"
 #include "COM_texture_pool.hh"
 
+#include "GPU_context.h"
 #include "GPU_texture.h"
+
+#include "compositor_engine.h" /* Own include. */
 
 namespace blender::draw::compositor {
 
@@ -45,14 +58,94 @@ class Context : public realtime_compositor::Context {
   {
   }
 
-  const Scene *get_scene() const override
+  const bNodeTree &get_node_tree() const override
   {
-    return DRW_context_state_get()->scene;
+    return *DRW_context_state_get()->scene->nodetree;
   }
 
-  int2 get_output_size() override
+  bool use_file_output() const override
+  {
+    return false;
+  }
+
+  /* The viewport compositor doesn't really support the composite output, it only displays the
+   * viewer output in the viewport. Settings this to false will make the compositor use the
+   * composite output as fallback viewer if no other viewer exists. */
+  bool use_composite_output() const override
+  {
+    return false;
+  }
+
+  bool use_texture_color_management() const override
+  {
+    return BKE_scene_check_color_management_enabled(DRW_context_state_get()->scene);
+  }
+
+  const RenderData &get_render_data() const override
+  {
+    return DRW_context_state_get()->scene->r;
+  }
+
+  int2 get_render_size() const override
   {
     return int2(float2(DRW_viewport_size_get()));
+  }
+
+  /* Returns true if the viewport is in camera view and has an opaque passepartout, that is, the
+   * area outside of the camera border is not visible. */
+  bool is_opaque_camera_view() const
+  {
+    /* Check if the viewport is in camera view. */
+    if (DRW_context_state_get()->rv3d->persp != RV3D_CAMOB) {
+      return false;
+    }
+
+    /* Check if the camera object that is currently in view is an actual camera. It is possible for
+     * a non camera object to be used as a camera, in which case, there will be no passepartout or
+     * any other camera setting, so those pseudo cameras can be ignored. */
+    Object *camera_object = DRW_context_state_get()->v3d->camera;
+    if (camera_object->type != OB_CAMERA) {
+      return false;
+    }
+
+    /* Check if the camera has passepartout active and is totally opaque. */
+    Camera *cam = static_cast<Camera *>(camera_object->data);
+    if (!(cam->flag & CAM_SHOWPASSEPARTOUT) || cam->passepartalpha != 1.0f) {
+      return false;
+    }
+
+    return true;
+  }
+
+  rcti get_compositing_region() const override
+  {
+    const int2 viewport_size = int2(float2(DRW_viewport_size_get()));
+    const rcti render_region = rcti{0, viewport_size.x, 0, viewport_size.y};
+
+    /* If the camera view is not opaque, that means the content outside of the camera region is
+     * visible to some extent, so it would make sense to include them in the compositing region.
+     * Otherwise, we limit the compositing region to the visible camera region because anything
+     * outside of the camera region will not be visible anyways. */
+    if (!is_opaque_camera_view()) {
+      return render_region;
+    }
+
+    rctf camera_border;
+    ED_view3d_calc_camera_border(DRW_context_state_get()->scene,
+                                 DRW_context_state_get()->depsgraph,
+                                 DRW_context_state_get()->region,
+                                 DRW_context_state_get()->v3d,
+                                 DRW_context_state_get()->rv3d,
+                                 &camera_border,
+                                 false);
+
+    rcti camera_region;
+    BLI_rcti_rctf_copy_floor(&camera_region, &camera_border);
+
+    rcti visible_camera_region;
+    BLI_rcti_isect(&render_region, &camera_region, &visible_camera_region);
+
+    return visible_camera_region;
   }
 
   GPUTexture *get_output_texture() override
@@ -60,21 +153,40 @@ class Context : public realtime_compositor::Context {
     return DRW_viewport_texture_list_get()->color;
   }
 
-  GPUTexture *get_input_texture(int /*view_layer*/, eScenePassType /*pass_type*/) override
+  GPUTexture *get_viewer_output_texture() override
   {
-    return get_output_texture();
+    return DRW_viewport_texture_list_get()->color;
+  }
+
+  GPUTexture *get_input_texture(int view_layer, const char *pass_name) override
+  {
+    if (view_layer == 0 && STREQ(pass_name, RE_PASSNAME_COMBINED)) {
+      return get_output_texture();
+    }
+    else {
+      return nullptr;
+    }
   }
 
   StringRef get_view_name() override
   {
     const SceneRenderView *view = static_cast<SceneRenderView *>(
-        BLI_findlink(&get_scene()->r.views, DRW_context_state_get()->v3d->multiview_eye));
+        BLI_findlink(&get_render_data().views, DRW_context_state_get()->v3d->multiview_eye));
     return view->name;
   }
 
   void set_info_message(StringRef message) const override
   {
     message.copy(info_message_, GPU_INFO_SIZE);
+  }
+
+  IDRecalcFlag query_id_recalc_flag(ID *id) const override
+  {
+    DrawEngineType *owner = &draw_engine_compositor_type;
+    DrawData *draw_data = DRW_drawdata_ensure(id, owner, sizeof(DrawData), nullptr, nullptr);
+    IDRecalcFlag recalc_flag = IDRecalcFlag(draw_data->recalc);
+    draw_data->recalc = IDRecalcFlag(0);
+    return recalc_flag;
   }
 };
 
@@ -83,36 +195,36 @@ class Engine {
   TexturePool texture_pool_;
   Context context_;
   realtime_compositor::Evaluator evaluator_;
-  /* Stores the viewport size at the time the last compositor evaluation happened. See the
-   * update_viewport_size method for more information. */
-  int2 last_viewport_size_;
+  /* Stores the compositing region size at the time the last compositor evaluation happened. See
+   * the update_compositing_region_size method for more information. */
+  int2 last_compositing_region_size_;
 
  public:
   Engine(char *info_message)
       : context_(texture_pool_, info_message),
-        evaluator_(context_, node_tree()),
-        last_viewport_size_(context_.get_output_size())
+        evaluator_(context_),
+        last_compositing_region_size_(context_.get_compositing_region_size())
   {
   }
 
-  /* Update the viewport size and evaluate the compositor. */
+  /* Update the compositing region size and evaluate the compositor. */
   void draw()
   {
-    update_viewport_size();
+    update_compositing_region_size();
     evaluator_.evaluate();
   }
 
-  /* If the size of the viewport changed from the last time the compositor was evaluated, update
-   * the viewport size and reset the evaluator. That's because the evaluator compiles the node tree
-   * in a manner that is specifically optimized for the size of the viewport. This should be called
-   * before evaluating the compositor. */
-  void update_viewport_size()
+  /* If the size of the compositing region changed from the last time the compositor was evaluated,
+   * update the last compositor region size and reset the evaluator. That's because the evaluator
+   * compiles the node tree in a manner that is specifically optimized for the size of the
+   * compositing region. This should be called before evaluating the compositor. */
+  void update_compositing_region_size()
   {
-    if (last_viewport_size_ == context_.get_output_size()) {
+    if (last_compositing_region_size_ == context_.get_compositing_region_size()) {
       return;
     }
 
-    last_viewport_size_ = context_.get_output_size();
+    last_compositing_region_size_ = context_.get_compositing_region_size();
 
     evaluator_.reset();
   }
@@ -123,12 +235,6 @@ class Engine {
     if (DEG_id_type_updated(depsgraph, ID_NT)) {
       evaluator_.reset();
     }
-  }
-
-  /* Get a reference to the compositor node tree. */
-  static bNodeTree &node_tree()
-  {
-    return *DRW_context_state_get()->scene->nodetree;
   }
 };
 
@@ -163,8 +269,39 @@ static void compositor_engine_free(void *instance_data)
 
 static void compositor_engine_draw(void *data)
 {
-  const COMPOSITOR_Data *compositor_data = static_cast<COMPOSITOR_Data *>(data);
+  COMPOSITOR_Data *compositor_data = static_cast<COMPOSITOR_Data *>(data);
+
+#if defined(__APPLE__)
+  if (GPU_backend_get_type() == GPU_BACKEND_METAL) {
+    /* NOTE(Metal): Isolate Compositor compute work in individual command buffer to improve
+     * workload scheduling. When expensive compositor nodes are in the graph, these can stall out
+     * the GPU for extended periods of time and sub-optimally schedule work for execution. */
+    GPU_flush();
+  }
+  else {
+    /* Realtime Compositor is not supported on macOS with the OpenGL backend. */
+    blender::StringRef("Viewport compositor is only supported on MacOS with the Metal Backend.")
+        .copy(compositor_data->info, GPU_INFO_SIZE);
+    return;
+  }
+#endif
+
+  /* Execute Compositor render commands. */
   compositor_data->instance_data->draw();
+
+#if defined(__APPLE__)
+  /* NOTE(Metal): Following previous flush to break command stream, with compositor command
+   * buffers potentially being heavy, we avoid issuing subsequent commands until compositor work
+   * has completed. If subsequent work is prematurely queued up, the subsequent command buffers
+   * will be blocked behind compositor work and may trigger a command buffer time-out error. As a
+   * result, we should wait for compositor work to complete.
+   *
+   * This is not an efficient approach for peak performance, but a catch-all to prevent command
+   * buffer failure, until the offending cases can be resolved. */
+  if (GPU_backend_get_type() == GPU_BACKEND_METAL) {
+    GPU_finish();
+  }
+#endif
 }
 
 static void compositor_engine_update(void *data)
@@ -184,20 +321,20 @@ extern "C" {
 static const DrawEngineDataSize compositor_data_size = DRW_VIEWPORT_DATA_SIZE(COMPOSITOR_Data);
 
 DrawEngineType draw_engine_compositor_type = {
-    nullptr,                   /* next */
-    nullptr,                   /* prev */
-    N_("Compositor"),          /* idname */
-    &compositor_data_size,     /* vedata_size */
-    &compositor_engine_init,   /* engine_init */
-    nullptr,                   /* engine_free */
-    &compositor_engine_free,   /* instance_free */
-    nullptr,                   /* cache_init */
-    nullptr,                   /* cache_populate */
-    nullptr,                   /* cache_finish */
-    &compositor_engine_draw,   /* draw_scene */
-    &compositor_engine_update, /* view_update */
-    nullptr,                   /* id_update */
-    nullptr,                   /* render_to_image */
-    nullptr,                   /* store_metadata */
+    /*next*/ nullptr,
+    /*prev*/ nullptr,
+    /*idname*/ N_("Compositor"),
+    /*vedata_size*/ &compositor_data_size,
+    /*engine_init*/ &compositor_engine_init,
+    /*engine_free*/ nullptr,
+    /*instance_free*/ &compositor_engine_free,
+    /*cache_init*/ nullptr,
+    /*cache_populate*/ nullptr,
+    /*cache_finish*/ nullptr,
+    /*draw_scene*/ &compositor_engine_draw,
+    /*view_update*/ &compositor_engine_update,
+    /*id_update*/ nullptr,
+    /*render_to_image*/ nullptr,
+    /*store_metadata*/ nullptr,
 };
 }

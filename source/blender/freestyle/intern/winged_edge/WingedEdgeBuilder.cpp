@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2008-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -201,7 +203,8 @@ bool WingedEdgeBuilder::buildWShape(WShape &shape, IndexedFaceSet &ifs)
   set<Vec3f> normalsSet;
   vector<WVertex *> &wvertices = shape.getVertexList();
   for (vector<WVertex *>::iterator wv = wvertices.begin(), wvend = wvertices.end(); wv != wvend;
-       ++wv) {
+       ++wv)
+  {
     if ((*wv)->isBoundary()) {
       continue;
     }

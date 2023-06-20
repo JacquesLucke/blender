@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2016 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw_engine
@@ -200,8 +201,12 @@ typedef struct WORKBENCH_UBO_World {
 
   int matcap_orientation;
   int use_specular; /* Bools are 32bit ints in GLSL. */
-  int _pad1;
+  float xray_alpha; /* Workbench Next */
   int _pad2;
+
+  /* Workbench Next data
+   * (Not used here, but needs to be kept in sync with workbench_shader_shared WorldData) */
+  float background_color[4];
 } WORKBENCH_UBO_World;
 
 BLI_STATIC_ASSERT_ALIGN(WORKBENCH_UBO_World, 16)
@@ -265,7 +270,7 @@ typedef struct WORKBENCH_PrivateData {
   /** If the shadow has changed direction and ob bboxes needs to be updated. */
   bool shadow_changed;
 
-  /* Temporal Antialiasing */
+  /* Temporal Anti-aliasing. */
   /** Total number of samples to after which TAA stops accumulating samples. */
   int taa_sample_len;
   /** Total number of samples of the previous TAA. When changed TAA will be reset. */
@@ -495,7 +500,7 @@ DRWShadingGroup *workbench_image_setup_ex(WORKBENCH_PrivateData *wpd,
                                           int mat_nr,
                                           Image *ima,
                                           ImageUser *iuser,
-                                          eGPUSamplerState sampler,
+                                          GPUSamplerState sampler,
                                           eWORKBENCH_DataType datatype);
 
 #define WORKBENCH_OBJECT_DATATYPE(ob) \

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bmesh
@@ -72,7 +74,7 @@ void bmo_symmetrize_exec(BMesh *bm, BMOperator *op)
                "use_shapekey");
 
   /* important 'flip_multires' is disabled,
-   * otherwise multi-res data will be reversed, see: T47788 */
+   * otherwise multi-res data will be reversed, see: #47788 */
   BMO_op_callf(bm, op->flag, "reverse_faces faces=%S", &op_dupe, "geom.out");
 
   /* Weld verts */

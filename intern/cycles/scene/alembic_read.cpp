@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2021-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2021-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/alembic_read.h"
 #include "scene/alembic.h"
@@ -470,7 +471,8 @@ static void add_subd_edge_creases(CachedData &cached_data,
                                   chrono_t time)
 {
   if (!(data.crease_indices.valid() && data.crease_lengths.valid() &&
-        data.crease_sharpnesses.valid())) {
+        data.crease_sharpnesses.valid()))
+  {
     return;
   }
 
@@ -519,7 +521,8 @@ static void add_subd_vertex_creases(CachedData &cached_data,
   const FloatArraySamplePtr creases_sharpnesses = data.crease_sharpnesses.getValue(iss);
 
   if (!(creases_indices && creases_sharpnesses) ||
-      creases_indices->size() != creases_sharpnesses->size()) {
+      creases_indices->size() != creases_sharpnesses->size())
+  {
     return;
   }
 
@@ -661,8 +664,8 @@ static void read_points_data(CachedData &cached_data, const PointsSchemaData &da
 
     if (do_radius) {
       radius = (*radiuses)[offset + i];
-      a_radius.push_back_slow(radius);
     }
+    a_radius.push_back_slow(radius * data.radius_scale);
 
     a_shader.push_back_slow((int)0);
   }

@@ -1,5 +1,7 @@
+# SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+#
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2011-2022 Blender Foundation
+
 from __future__ import annotations
 
 
@@ -172,6 +174,8 @@ def system_info():
 
 
 def list_render_passes(scene, srl):
+    import _cycles
+
     crl = srl.cycles
 
     # Combined pass.
@@ -204,7 +208,6 @@ def list_render_passes(scene, srl):
     if crl.use_pass_volume_indirect:       yield ("VolumeInd",     "RGB",  'COLOR')
     if srl.use_pass_emit:                  yield ("Emit",          "RGB",  'COLOR')
     if srl.use_pass_environment:           yield ("Env",           "RGB",  'COLOR')
-    if srl.use_pass_shadow:                yield ("Shadow",        "RGB",  'COLOR')
     if srl.use_pass_ambient_occlusion:     yield ("AO",            "RGB",  'COLOR')
     if crl.use_pass_shadow_catcher:        yield ("Shadow Catcher",      "RGB",  'COLOR')
     # autopep8: on
@@ -250,6 +253,12 @@ def list_render_passes(scene, srl):
     # Light groups.
     for lightgroup in srl.lightgroups:
         yield ("Combined_%s" % lightgroup.name, "RGB", 'COLOR')
+
+    # Path guiding debug passes.
+    if _cycles.with_debug:
+        yield ("Guiding Color", "RGB", 'COLOR')
+        yield ("Guiding Probability", "X", 'VALUE')
+        yield ("Guiding Average Roughness", "X", 'VALUE')
 
 
 def register_passes(engine, scene, view_layer):

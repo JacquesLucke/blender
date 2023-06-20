@@ -22,7 +22,7 @@ void main()
   }
 
   /* Sun lights are packed at the end of the array. Perform early copy. */
-  if (light.type == LIGHT_SUN) {
+  if (is_sun_light(light.type)) {
     /* NOTE: We know the index because sun lights are packed at the start of the input buffer. */
     out_light_buf[light_cull_buf.local_lights_len + l_idx] = light;
     return;
@@ -45,7 +45,8 @@ void main()
     case LIGHT_RECT:
     case LIGHT_ELLIPSE:
     case LIGHT_POINT:
-      sphere = Sphere(light._position, light.influence_radius_max);
+      sphere.center = light._position;
+      sphere.radius = light.influence_radius_max;
       break;
   }
 

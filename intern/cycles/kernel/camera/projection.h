@@ -1,10 +1,9 @@
-/* SPDX-License-Identifier: BSD-3-Clause
- * Parts adapted from Open Shading Language with this license:
+/* SPDX-FileCopyrightText: 2009-2010 Sony Pictures Imageworks Inc., et al.
+ * SPDX-FileCopyrightText: 2011-2022 Blender Foundation
  *
- * Copyright (c) 2009-2010 Sony Pictures Imageworks Inc., et al.
- * All Rights Reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
  *
- * Modifications Copyright 2011-2022 Blender Foundation. */
+ * Adapted code from Open Shading Language. */
 
 #pragma once
 
@@ -202,7 +201,7 @@ ccl_device float2 direction_to_mirrorball(float3 dir)
 }
 
 /* Single face of a equiangular cube map projection as described in
-   https://blog.google/products/google-ar-vr/bringing-pixels-front-and-center-vr-video/ */
+ * https://blog.google/products/google-ar-vr/bringing-pixels-front-and-center-vr-video/ */
 ccl_device float3 equiangular_cubemap_face_to_direction(float u, float v)
 {
   u = (1.0f - u);

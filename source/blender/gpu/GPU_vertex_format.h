@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 by Mike Erwin. All rights reserved. */
+/* SPDX-FileCopyrightText: 2016 by Mike Erwin. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -37,6 +38,8 @@ typedef enum {
 
   GPU_COMP_I10,
   /* Warning! adjust GPUVertAttr if changing. */
+
+  GPU_COMP_MAX
 } GPUVertCompType;
 
 typedef enum {

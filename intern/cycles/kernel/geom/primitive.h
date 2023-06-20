@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 /* Primitive Utilities
  *
@@ -318,7 +319,8 @@ ccl_device_forceinline float4 primitive_motion_vector(KernelGlobals kg,
     }
     else
 #endif
-        if (sd->type & PRIMITIVE_TRIANGLE) {
+        if (sd->type & PRIMITIVE_TRIANGLE)
+    {
       /* Triangle */
       if (subd_triangle_patch(kg, sd->prim) == ~0) {
         motion_pre = triangle_attribute_float3(kg, sd, desc, NULL, NULL);

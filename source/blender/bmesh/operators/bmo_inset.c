@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bmesh
@@ -20,7 +22,7 @@
 
 #include "intern/bmesh_operators_private.h" /* own include */
 
-/* Merge loop-data that diverges, see: T41445 */
+/* Merge loop-data that diverges, see: #41445 */
 #define USE_LOOP_CUSTOMDATA_MERGE
 
 #define ELE_NEW 1
@@ -97,7 +99,7 @@ static void bm_interp_face_free(InterpFace *iface, BMesh *bm)
 
 #ifdef USE_LOOP_CUSTOMDATA_MERGE
 /**
- * This function merges loop customdata (UV's)
+ * This function merges loop customdata (UVs)
  * where interpolating the values across the face causes values to diverge.
  */
 static void bm_loop_customdata_merge(BMesh *bm,
@@ -177,7 +179,7 @@ static void bm_loop_customdata_merge(BMesh *bm,
                                 BM_ELEM_CD_GET_VOID_P(l_a_outer, offset),
                                 BM_ELEM_CD_GET_VOID_P(l_b_outer, offset)) == true)
 
-    /* Epsilon for comparing UV's is too big, gives noticeable problems. */
+    /* Epsilon for comparing UVs is too big, gives noticeable problems. */
 #  if 0
         &&
         /* check if the data ends up diverged */
@@ -185,7 +187,8 @@ static void bm_loop_customdata_merge(BMesh *bm,
                                 BM_ELEM_CD_GET_VOID_P(l_a_inner, offset),
                                 BM_ELEM_CD_GET_VOID_P(l_b_inner, offset)) == false)
 #  endif
-    ) {
+    )
+    {
       /* no need to allocate a temp block:
        * a = (a + b);
        * a *= 0.5f;
@@ -207,7 +210,8 @@ static void bm_loop_customdata_merge(BMesh *bm,
 
       /* check if the 2 faces share an edge */
       if (is_flip ? (l_b_inner_inset->e == l_a_inner_inset->prev->e) :
-                    (l_a_inner_inset->e == l_b_inner_inset->prev->e)) {
+                    (l_a_inner_inset->e == l_b_inner_inset->prev->e))
+      {
         /* simple case, we have all loops already */
       }
       else {
@@ -222,7 +226,8 @@ static void bm_loop_customdata_merge(BMesh *bm,
               void *data_dst = BM_ELEM_CD_GET_VOID_P(l_iter, offset);
 
               if (CustomData_data_equals(type, data_dst, data_cmp_a) ||
-                  CustomData_data_equals(type, data_dst, data_cmp_b)) {
+                  CustomData_data_equals(type, data_dst, data_cmp_b))
+              {
                 CustomData_data_copy_value(type, data_src, data_dst);
               }
             }
@@ -721,7 +726,8 @@ void bmo_inset_region_exec(BMesh *bm, BMOperator *op)
         (use_boundary && BM_edge_is_boundary(e) && BM_elem_flag_test(e->l->f, BM_ELEM_TAG)) ||
 
         /* tag if edge is an interior edge in between a tagged and untagged face */
-        bm_edge_is_mixed_face_tag(e->l)) {
+        bm_edge_is_mixed_face_tag(e->l))
+    {
       /* tag */
       BM_elem_flag_enable(e->v1, BM_ELEM_TAG);
       BM_elem_flag_enable(e->v2, BM_ELEM_TAG);
@@ -760,7 +766,7 @@ void bmo_inset_region_exec(BMesh *bm, BMOperator *op)
     vert_coords = BLI_ghash_ptr_new(__func__);
   }
 
-  /* util macros */
+  /* Utility macros. */
 #define VERT_ORIG_STORE(_v) \
   { \
     float *_co = BLI_memarena_alloc(vert_coords_orig, sizeof(float[3])); \
@@ -953,10 +959,10 @@ void bmo_inset_region_exec(BMesh *bm, BMOperator *op)
                   is_mid = false;
                 }
 
-                /* Disable since this gives odd results at times, see T39288. */
+                /* Disable since this gives odd results at times, see #39288. */
 #if 0
                 else if (compare_v3v3(f_a->no, f_b->no, 0.001f) == false) {
-                  /* epsilon increased to fix T32329. */
+                  /* epsilon increased to fix #32329. */
 
                   /* faces don't touch,
                    * just get cross product of their normals, its *good enough*
@@ -1183,7 +1189,7 @@ void bmo_inset_region_exec(BMesh *bm, BMOperator *op)
     f = BM_face_create_verts(bm, varr, j, es->l->f, BM_CREATE_NOP, true);
     BMO_face_flag_enable(bm, f, ELE_NEW);
 
-    /* Copy for loop data, otherwise UV's and vcols are no good.
+    /* Copy for loop data, otherwise UVs and vertex-colors are no good.
      * tiny speedup here we could be more clever and copy from known adjacent data
      * also - we could attempt to interpolate the loop data,
      * this would be much slower but more useful too. */

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2004-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -61,7 +63,8 @@ static int DensityF1D___init__(BPy_DensityF1D *self, PyObject *args, PyObject *k
   float f = 2.0;
 
   if (!PyArg_ParseTupleAndKeywords(
-          args, kwds, "|dO!f", (char **)kwlist, &d, &IntegrationType_Type, &obj, &f)) {
+          args, kwds, "|dO!f", (char **)kwlist, &d, &IntegrationType_Type, &obj, &f))
+  {
     return -1;
   }
   IntegrationType t = (obj) ? IntegrationType_from_BPy_IntegrationType(obj) : MEAN;

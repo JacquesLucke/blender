@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2019 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2019 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 #include "usd_writer_light.h"
 #include "usd_hierarchy_iterator.h"
 
@@ -16,9 +17,7 @@
 
 namespace blender::io::usd {
 
-USDLightWriter::USDLightWriter(const USDExporterContext &ctx) : USDAbstractWriter(ctx)
-{
-}
+USDLightWriter::USDLightWriter(const USDExporterContext &ctx) : USDAbstractWriter(ctx) {}
 
 bool USDLightWriter::is_supported(const HierarchyContext *context) const
 {
@@ -80,7 +79,7 @@ void USDLightWriter::do_write(HierarchyContext &context)
       break;
     case LA_LOCAL: {
       pxr::UsdLuxSphereLight sphere_light = pxr::UsdLuxSphereLight::Define(stage, usd_path);
-      sphere_light.CreateRadiusAttr().Set(light->area_size, timecode);
+      sphere_light.CreateRadiusAttr().Set(light->radius, timecode);
 #if PXR_VERSION >= 2111
       usd_light_api = sphere_light.LightAPI();
 #else

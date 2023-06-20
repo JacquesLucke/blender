@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -10,17 +11,11 @@
 CCL_NAMESPACE_BEGIN
 
 #ifdef __KERNEL_AVX__
-__forceinline vint8::vint8()
-{
-}
+__forceinline vint8::vint8() {}
 
-__forceinline vint8::vint8(const vint8 &a) : m256(a.m256)
-{
-}
+__forceinline vint8::vint8(const vint8 &a) : m256(a.m256) {}
 
-__forceinline vint8::vint8(const __m256i &a) : m256(a)
-{
-}
+__forceinline vint8::vint8(const __m256i &a) : m256(a) {}
 
 __forceinline vint8::operator const __m256i &() const
 {

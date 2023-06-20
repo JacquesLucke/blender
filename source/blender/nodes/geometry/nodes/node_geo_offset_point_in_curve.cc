@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_task.hh"
 
@@ -26,21 +28,21 @@ namespace blender::nodes::node_geo_offset_point_in_curve_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Int>(N_("Point Index"))
+  b.add_input<decl::Int>("Point Index")
       .implicit_field(implicit_field_inputs::index)
+      .description("The index of the control point to evaluate. Defaults to the current index");
+  b.add_input<decl::Int>("Offset").supports_field().description(
+      "The number of control points along the curve to traverse");
+  b.add_output<decl::Bool>("Is Valid Offset")
+      .field_source_reference_all()
       .description(
-          N_("The index of the control point to evaluate. Defaults to the current index"));
-  b.add_input<decl::Int>(N_("Offset"))
-      .supports_field()
-      .description(N_("The number of control points along the curve to traverse"));
-  b.add_output<decl::Bool>(N_("Is Valid Offset"))
-      .dependent_field()
-      .description(N_("Whether the input control point plus the offset is a valid index of the "
-                      "original curve"));
-  b.add_output<decl::Int>(N_("Point Index"))
-      .dependent_field()
-      .description(N_("The index of the control point plus the offset within the entire "
-                      "curves data-block"));
+          "Whether the input control point plus the offset is a valid index of the "
+          "original curve");
+  b.add_output<decl::Int>("Point Index")
+      .field_source_reference_all()
+      .description(
+          "The index of the control point plus the offset within the entire "
+          "curves data-block");
 }
 
 class ControlPointNeighborFieldInput final : public bke::CurvesFieldInput {
@@ -59,8 +61,9 @@ class ControlPointNeighborFieldInput final : public bke::CurvesFieldInput {
 
   GVArray get_varray_for_context(const bke::CurvesGeometry &curves,
                                  const eAttrDomain domain,
-                                 const IndexMask mask) const final
+                                 const IndexMask &mask) const final
   {
+    const OffsetIndices points_by_curve = curves.points_by_curve();
     const VArray<bool> cyclic = curves.cyclic();
     const Array<int> parent_curves = curves.point_to_curve_map();
 
@@ -73,21 +76,27 @@ class ControlPointNeighborFieldInput final : public bke::CurvesFieldInput {
     const VArray<int> offsets = evaluator.get_evaluated<int>(1);
 
     Array<int> output(mask.min_array_size());
-    for (const int i_selection : mask) {
+    mask.foreach_index([&](const int i_selection) {
       const int i_point = std::clamp(indices[i_selection], 0, curves.points_num() - 1);
       const int i_curve = parent_curves[i_point];
-      const IndexRange curve_points = curves.points_for_curve(i_curve);
+      const IndexRange curve_points = points_by_curve[i_curve];
       const int offset_point = i_point + offsets[i_point];
 
       if (cyclic[i_curve]) {
         output[i_selection] = apply_offset_in_cyclic_range(
             curve_points, i_point, offsets[i_selection]);
-        continue;
+        return;
       }
       output[i_selection] = std::clamp(offset_point, 0, curves.points_num() - 1);
-    }
+    });
 
     return VArray<int>::ForContainer(std::move(output));
+  }
+
+  void for_each_field_input_recursive(FunctionRef<void(const FieldInput &)> fn) const override
+  {
+    index_.node().for_each_field_input_recursive(fn);
+    offset_.node().for_each_field_input_recursive(fn);
   }
 };
 
@@ -107,9 +116,10 @@ class OffsetValidFieldInput final : public bke::CurvesFieldInput {
 
   GVArray get_varray_for_context(const bke::CurvesGeometry &curves,
                                  const eAttrDomain domain,
-                                 const IndexMask mask) const final
+                                 const IndexMask &mask) const final
   {
     const VArray<bool> cyclic = curves.cyclic();
+    const OffsetIndices points_by_curve = curves.points_by_curve();
     const Array<int> parent_curves = curves.point_to_curve_map();
 
     const bke::CurvesFieldContext context{curves, domain};
@@ -121,22 +131,28 @@ class OffsetValidFieldInput final : public bke::CurvesFieldInput {
     const VArray<int> offsets = evaluator.get_evaluated<int>(1);
 
     Array<bool> output(mask.min_array_size());
-    for (const int i_selection : mask) {
+    mask.foreach_index([&](const int i_selection) {
       const int i_point = indices[i_selection];
       if (!curves.points_range().contains(i_point)) {
         output[i_selection] = false;
-        continue;
+        return;
       }
 
       const int i_curve = parent_curves[i_point];
-      const IndexRange curve_points = curves.points_for_curve(i_curve);
+      const IndexRange curve_points = points_by_curve[i_curve];
       if (cyclic[i_curve]) {
         output[i_selection] = true;
-        continue;
+        return;
       }
       output[i_selection] = curve_points.contains(i_point + offsets[i_selection]);
-    };
+    });
     return VArray<bool>::ForContainer(std::move(output));
+  }
+
+  void for_each_field_input_recursive(FunctionRef<void(const FieldInput &)> fn) const override
+  {
+    index_.node().for_each_field_input_recursive(fn);
+    offset_.node().for_each_field_input_recursive(fn);
   }
 };
 

@@ -1,8 +1,10 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <vector>
 
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_span.hh"
 #include "BLI_utildefines.h"
 
@@ -10,7 +12,7 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_volume_types.h"
 
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 #include "BKE_volume.h"
 
 #ifdef WITH_OPENVDB
@@ -99,7 +101,7 @@ struct VolumeToMeshOp {
     openvdb::tools::volumeToMesh(
         grid, this->verts, this->tris, this->quads, this->threshold, this->adaptivity);
 
-    /* Better align generated mesh with volume (see T85312). */
+    /* Better align generated mesh with volume (see #85312). */
     openvdb::Vec3s offset = grid.voxelSize() / 2.0f;
     for (openvdb::Vec3s &position : this->verts) {
       position += offset;
@@ -113,23 +115,19 @@ void fill_mesh_from_openvdb_data(const Span<openvdb::Vec3s> vdb_verts,
                                  const int vert_offset,
                                  const int poly_offset,
                                  const int loop_offset,
-                                 MutableSpan<MVert> verts,
-                                 MutableSpan<MPoly> polys,
-                                 MutableSpan<MLoop> loops)
+                                 MutableSpan<float3> vert_positions,
+                                 MutableSpan<int> poly_offsets,
+                                 MutableSpan<int> corner_verts)
 {
   /* Write vertices. */
-  for (const int i : vdb_verts.index_range()) {
-    const blender::float3 co = blender::float3(vdb_verts[i].asV());
-    copy_v3_v3(verts[vert_offset + i].co, co);
-  }
+  vert_positions.slice(vert_offset, vdb_verts.size()).copy_from(vdb_verts.cast<float3>());
 
   /* Write triangles. */
   for (const int i : vdb_tris.index_range()) {
-    polys[poly_offset + i].loopstart = loop_offset + 3 * i;
-    polys[poly_offset + i].totloop = 3;
+    poly_offsets[poly_offset + i] = loop_offset + 3 * i;
     for (int j = 0; j < 3; j++) {
       /* Reverse vertex order to get correct normals. */
-      loops[loop_offset + 3 * i + j].v = vert_offset + vdb_tris[i][2 - j];
+      corner_verts[loop_offset + 3 * i + j] = vert_offset + vdb_tris[i][2 - j];
     }
   }
 
@@ -137,11 +135,10 @@ void fill_mesh_from_openvdb_data(const Span<openvdb::Vec3s> vdb_verts,
   const int quad_offset = poly_offset + vdb_tris.size();
   const int quad_loop_offset = loop_offset + vdb_tris.size() * 3;
   for (const int i : vdb_quads.index_range()) {
-    polys[quad_offset + i].loopstart = quad_loop_offset + 4 * i;
-    polys[quad_offset + i].totloop = 4;
+    poly_offsets[quad_offset + i] = quad_loop_offset + 4 * i;
     for (int j = 0; j < 4; j++) {
       /* Reverse vertex order to get correct normals. */
-      loops[quad_loop_offset + 4 * i + j].v = vert_offset + vdb_quads[i][3 - j];
+      corner_verts[quad_loop_offset + 4 * i + j] = vert_offset + vdb_quads[i][3 - j];
     }
   }
 }
@@ -170,7 +167,7 @@ Mesh *volume_to_mesh(const openvdb::GridBase &grid,
 
   const int tot_loops = 3 * mesh_data.tris.size() + 4 * mesh_data.quads.size();
   const int tot_polys = mesh_data.tris.size() + mesh_data.quads.size();
-  Mesh *mesh = BKE_mesh_new_nomain(mesh_data.verts.size(), 0, 0, tot_loops, tot_polys);
+  Mesh *mesh = BKE_mesh_new_nomain(mesh_data.verts.size(), 0, tot_polys, tot_loops);
 
   fill_mesh_from_openvdb_data(mesh_data.verts,
                               mesh_data.tris,
@@ -178,11 +175,12 @@ Mesh *volume_to_mesh(const openvdb::GridBase &grid,
                               0,
                               0,
                               0,
-                              mesh->verts_for_write(),
-                              mesh->polys_for_write(),
-                              mesh->loops_for_write());
+                              mesh->vert_positions_for_write(),
+                              mesh->poly_offsets_for_write(),
+                              mesh->corner_verts_for_write());
 
   BKE_mesh_calc_edges(mesh, false, false);
+  BKE_mesh_smooth_flag_set(mesh, false);
 
   return mesh;
 }

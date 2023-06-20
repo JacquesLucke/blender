@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2021-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2021-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifdef WITH_METAL
 
@@ -13,11 +14,33 @@
 #  include "util/path.h"
 #  include "util/time.h"
 
+#  include <crt_externs.h>
+
 CCL_NAMESPACE_BEGIN
 
 class MetalDevice;
 
-BVHLayoutMask MetalDevice::get_bvh_layout_mask() const
+thread_mutex MetalDevice::existing_devices_mutex;
+std::map<int, MetalDevice *> MetalDevice::active_device_ids;
+
+/* Thread-safe device access for async work. Calling code must pass an appropriately scoped lock
+ * to existing_devices_mutex to safeguard against destruction of the returned instance. */
+MetalDevice *MetalDevice::get_device_by_ID(int ID, thread_scoped_lock &existing_devices_mutex_lock)
+{
+  auto it = active_device_ids.find(ID);
+  if (it != active_device_ids.end()) {
+    return it->second;
+  }
+  return nullptr;
+}
+
+bool MetalDevice::is_device_cancelled(int ID)
+{
+  thread_scoped_lock lock(existing_devices_mutex);
+  return get_device_by_ID(ID, lock) == nullptr;
+}
+
+BVHLayoutMask MetalDevice::get_bvh_layout_mask(uint /*kernel_features*/) const
 {
   return use_metalrt ? BVH_LAYOUT_METAL : BVH_LAYOUT_BVH2;
 }
@@ -29,17 +52,26 @@ void MetalDevice::set_error(const string &error)
 
   Device::set_error(error);
 
-  if (first_error) {
+  if (!has_error) {
     fprintf(stderr, "\nRefer to the Cycles GPU rendering documentation for possible solutions:\n");
     fprintf(stderr,
             "https://docs.blender.org/manual/en/latest/render/cycles/gpu_rendering.html\n\n");
-    first_error = false;
+    has_error = true;
   }
 }
 
 MetalDevice::MetalDevice(const DeviceInfo &info, Stats &stats, Profiler &profiler)
     : Device(info, stats, profiler), texture_info(this, "texture_info", MEM_GLOBAL)
 {
+  {
+    /* Assign an ID for this device which we can use to query whether async shader compilation
+     * requests are still relevant. */
+    thread_scoped_lock lock(existing_devices_mutex);
+    static int existing_devices_counter = 1;
+    device_id = existing_devices_counter++;
+    active_device_ids[device_id] = this;
+  }
+
   mtlDevId = info.num;
 
   /* select chosen device */
@@ -57,14 +89,8 @@ MetalDevice::MetalDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
   if (@available(macos 11.0, *)) {
     if ([mtlDevice hasUnifiedMemory]) {
       default_storage_mode = MTLResourceStorageModeShared;
-      init_host_memory();
     }
   }
-
-  texture_bindings_2d = [mtlDevice newBufferWithLength:4096 options:default_storage_mode];
-  texture_bindings_3d = [mtlDevice newBufferWithLength:4096 options:default_storage_mode];
-
-  stats.mem_alloc(texture_bindings_2d.allocatedSize + texture_bindings_3d.allocatedSize);
 
   switch (device_vendor) {
     default:
@@ -79,21 +105,33 @@ MetalDevice::MetalDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
     }
     case METAL_GPU_APPLE: {
       max_threads_per_threadgroup = 512;
-      use_metalrt = info.use_metalrt;
-
-      /* Specialize the intersection kernels on Apple GPUs by default as these can be built very
-       * quickly. */
-      kernel_specialization_level = PSO_SPECIALIZED_INTERSECT;
       break;
     }
   }
 
+  use_metalrt = info.use_hardware_raytracing;
   if (auto metalrt = getenv("CYCLES_METALRT")) {
     use_metalrt = (atoi(metalrt) != 0);
   }
 
   if (getenv("CYCLES_DEBUG_METAL_CAPTURE_KERNEL")) {
     capture_enabled = true;
+  }
+
+  if (device_vendor == METAL_GPU_APPLE) {
+    /* Set kernel_specialization_level based on user prefs. */
+    switch (info.kernel_optimization_level) {
+      case KERNEL_OPTIMIZATION_LEVEL_OFF:
+        kernel_specialization_level = PSO_GENERIC;
+        break;
+      default:
+      case KERNEL_OPTIMIZATION_LEVEL_INTERSECT:
+        kernel_specialization_level = PSO_SPECIALIZED_INTERSECT;
+        break;
+      case KERNEL_OPTIMIZATION_LEVEL_FULL:
+        kernel_specialization_level = PSO_SPECIALIZED_SHADE;
+        break;
+    }
   }
 
   if (auto envstr = getenv("CYCLES_METAL_SPECIALIZATION_LEVEL")) {
@@ -113,6 +151,16 @@ MetalDevice::MetalDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
   arg_desc_texture.dataType = MTLDataTypeTexture;
   arg_desc_texture.access = MTLArgumentAccessReadOnly;
   mtlTextureArgEncoder = [mtlDevice newArgumentEncoderWithArguments:@[ arg_desc_texture ]];
+  MTLArgumentDescriptor *arg_desc_buffer = [[MTLArgumentDescriptor alloc] init];
+  arg_desc_buffer.dataType = MTLDataTypePointer;
+  arg_desc_buffer.access = MTLArgumentAccessReadOnly;
+  mtlBufferArgEncoder = [mtlDevice newArgumentEncoderWithArguments:@[ arg_desc_buffer ]];
+
+  buffer_bindings_1d = [mtlDevice newBufferWithLength:8192 options:default_storage_mode];
+  texture_bindings_2d = [mtlDevice newBufferWithLength:8192 options:default_storage_mode];
+  texture_bindings_3d = [mtlDevice newBufferWithLength:8192 options:default_storage_mode];
+  stats.mem_alloc(buffer_bindings_1d.allocatedSize + texture_bindings_2d.allocatedSize +
+                  texture_bindings_3d.allocatedSize);
 
   /* command queue for non-tracing work on the GPU */
   mtlGeneralCommandQueue = [mtlDevice newCommandQueue];
@@ -138,6 +186,8 @@ MetalDevice::MetalDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
     arg_desc_tex.access = MTLArgumentAccessReadOnly;
 
     arg_desc_tex.index = index++;
+    [ancillary_desc addObject:[arg_desc_tex copy]]; /* metal_buf_1d */
+    arg_desc_tex.index = index++;
     [ancillary_desc addObject:[arg_desc_tex copy]]; /* metal_tex_2d */
     arg_desc_tex.index = index++;
     [ancillary_desc addObject:[arg_desc_tex copy]]; /* metal_tex_3d */
@@ -149,6 +199,10 @@ MetalDevice::MetalDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
         MTLArgumentDescriptor *arg_desc_as = [[MTLArgumentDescriptor alloc] init];
         arg_desc_as.dataType = MTLDataTypeInstanceAccelerationStructure;
         arg_desc_as.access = MTLArgumentAccessReadOnly;
+
+        MTLArgumentDescriptor *arg_desc_ptrs = [[MTLArgumentDescriptor alloc] init];
+        arg_desc_ptrs.dataType = MTLDataTypePointer;
+        arg_desc_ptrs.access = MTLArgumentAccessReadOnly;
 
         MTLArgumentDescriptor *arg_desc_ift = [[MTLArgumentDescriptor alloc] init];
         arg_desc_ift.dataType = MTLDataTypeIntersectionFunctionTable;
@@ -162,13 +216,31 @@ MetalDevice::MetalDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
         [ancillary_desc addObject:[arg_desc_ift copy]]; /* ift_shadow */
         arg_desc_ift.index = index++;
         [ancillary_desc addObject:[arg_desc_ift copy]]; /* ift_local */
+        arg_desc_ift.index = index++;
+        [ancillary_desc addObject:[arg_desc_ift copy]]; /* ift_local_prim */
+        arg_desc_ptrs.index = index++;
+        [ancillary_desc addObject:[arg_desc_ptrs copy]]; /* blas array */
+        arg_desc_ptrs.index = index++;
+        [ancillary_desc addObject:[arg_desc_ptrs copy]]; /* look up table for blas */
 
         [arg_desc_ift release];
         [arg_desc_as release];
+        [arg_desc_ptrs release];
       }
     }
 
     mtlAncillaryArgEncoder = [mtlDevice newArgumentEncoderWithArguments:ancillary_desc];
+
+    // preparing the blas arg encoder
+    if (@available(macos 11.0, *)) {
+      if (use_metalrt) {
+        MTLArgumentDescriptor *arg_desc_blas = [[MTLArgumentDescriptor alloc] init];
+        arg_desc_blas.dataType = MTLDataTypeInstanceAccelerationStructure;
+        arg_desc_blas.access = MTLArgumentAccessReadOnly;
+        mtlBlasArgEncoder = [mtlDevice newArgumentEncoderWithArguments:@[ arg_desc_blas ]];
+        [arg_desc_blas release];
+      }
+    }
 
     for (int i = 0; i < ancillary_desc.count; i++) {
       [ancillary_desc[i] release];
@@ -181,22 +253,33 @@ MetalDevice::MetalDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
 
 MetalDevice::~MetalDevice()
 {
-  for (auto &tex : texture_slot_map) {
-    if (tex) {
-      [tex release];
-      tex = nil;
+  /* Cancel any async shader compilations that are in flight. */
+  cancel();
+
+  /* This lock safeguards against destruction during use (see other uses of
+   * existing_devices_mutex). */
+  thread_scoped_lock lock(existing_devices_mutex);
+
+  int num_resources = texture_info.size();
+  for (int res = 0; res < num_resources; res++) {
+    if (is_texture(texture_info[res])) {
+      [texture_slot_map[res] release];
+      texture_slot_map[res] = nil;
     }
   }
+
   flush_delayed_free_list();
 
   if (texture_bindings_2d) {
-    stats.mem_free(texture_bindings_2d.allocatedSize + texture_bindings_3d.allocatedSize);
-
+    stats.mem_free(buffer_bindings_1d.allocatedSize + texture_bindings_2d.allocatedSize +
+                   texture_bindings_3d.allocatedSize);
+    [buffer_bindings_1d release];
     [texture_bindings_2d release];
     [texture_bindings_3d release];
   }
   [mtlTextureArgEncoder release];
   [mtlBufferKernelParamsEncoder release];
+  [mtlBufferArgEncoder release];
   [mtlASArgEncoder release];
   [mtlAncillaryArgEncoder release];
   [mtlGeneralCommandQueue release];
@@ -222,11 +305,22 @@ bool MetalDevice::use_adaptive_compilation()
   return DebugFlags().metal.adaptive_compile;
 }
 
-void MetalDevice::make_source(MetalPipelineType pso_type, const uint kernel_features)
+bool MetalDevice::use_local_atomic_sort() const
+{
+  return DebugFlags().metal.use_local_atomic_sort;
+}
+
+string MetalDevice::preprocess_source(MetalPipelineType pso_type,
+                                      const uint kernel_features,
+                                      string *source)
 {
   string global_defines;
   if (use_adaptive_compilation()) {
     global_defines += "#define __KERNEL_FEATURES__ " + to_string(kernel_features) + "\n";
+  }
+
+  if (use_local_atomic_sort()) {
+    global_defines += "#define __KERNEL_LOCAL_ATOMIC_SORT__\n";
   }
 
   if (use_metalrt) {
@@ -251,6 +345,11 @@ void MetalDevice::make_source(MetalPipelineType pso_type, const uint kernel_feat
       break;
     case METAL_GPU_APPLE:
       global_defines += "#define __KERNEL_METAL_APPLE__\n";
+#  ifdef WITH_NANOVDB
+      if (DebugFlags().metal.use_nanovdb) {
+        global_defines += "#define WITH_NANOVDB\n";
+      }
+#  endif
       break;
   }
 
@@ -258,6 +357,61 @@ void MetalDevice::make_source(MetalPipelineType pso_type, const uint kernel_feat
   NSOperatingSystemVersion macos_ver = [processInfo operatingSystemVersion];
   global_defines += "#define __KERNEL_METAL_MACOS__ " + to_string(macos_ver.majorVersion) + "\n";
 
+  /* Replace specific KernelData "dot" dereferences with a Metal function_constant identifier of
+   * the same character length. Build a string of all active constant values which is then hashed
+   * in order to identify the PSO.
+   */
+  if (pso_type != PSO_GENERIC) {
+    if (source) {
+      const double starttime = time_dt();
+
+#  define KERNEL_STRUCT_BEGIN(name, parent) \
+    string_replace_same_length(*source, "kernel_data." #parent ".", "kernel_data_" #parent "_");
+
+      bool next_member_is_specialized = true;
+
+#  define KERNEL_STRUCT_MEMBER_DONT_SPECIALIZE next_member_is_specialized = false;
+
+#  define KERNEL_STRUCT_MEMBER(parent, _type, name) \
+    if (!next_member_is_specialized) { \
+      string_replace( \
+          *source, "kernel_data_" #parent "_" #name, "kernel_data." #parent ".__unused_" #name); \
+      next_member_is_specialized = true; \
+    }
+
+#  include "kernel/data_template.h"
+
+#  undef KERNEL_STRUCT_MEMBER
+#  undef KERNEL_STRUCT_MEMBER_DONT_SPECIALIZE
+#  undef KERNEL_STRUCT_BEGIN
+
+      metal_printf("KernelData patching took %.1f ms\n", (time_dt() - starttime) * 1000.0);
+    }
+
+    /* Opt in to all of available specializations. This can be made more granular for the
+     * PSO_SPECIALIZED_INTERSECT case in order to minimize the number of specialization requests,
+     * but the overhead should be negligible as these are very quick to (re)build and aren't
+     * serialized to disk via MTLBinaryArchives.
+     */
+    global_defines += "#define __KERNEL_USE_DATA_CONSTANTS__\n";
+  }
+
+#  if 0
+  metal_printf("================\n%s================\n",
+               global_defines.c_str());
+#  endif
+
+  if (source) {
+    *source = global_defines + *source;
+  }
+
+  MD5Hash md5;
+  md5.append(global_defines);
+  return md5.get_hex();
+}
+
+void MetalDevice::make_source(MetalPipelineType pso_type, const uint kernel_features)
+{
   string &source = this->source[pso_type];
   source = "\n#include \"kernel/device/metal/kernel.metal\"\n";
   source = path_source_replace_includes(source, path_get("source"));
@@ -266,51 +420,7 @@ void MetalDevice::make_source(MetalPipelineType pso_type, const uint kernel_feat
    * With Metal function constants we can generate a single variant of the kernel source which can
    * be repeatedly respecialized.
    */
-  string baked_constants;
-
-  /* Replace specific KernelData "dot" dereferences with a Metal function_constant identifier of
-   * the same character length. Build a string of all active constant values which is then hashed
-   * in order to identify the PSO.
-   */
-  if (pso_type != PSO_GENERIC) {
-    const double starttime = time_dt();
-
-#  define KERNEL_STRUCT_BEGIN(name, parent) \
-    string_replace_same_length(source, "kernel_data." #parent ".", "kernel_data_" #parent "_");
-
-    /* Add constants to md5 so that 'get_best_pipeline' is able to return a suitable match. */
-#  define KERNEL_STRUCT_MEMBER(parent, _type, name) \
-    baked_constants += string(#parent "." #name "=") + \
-                       to_string(_type(launch_params.data.parent.name)) + "\n";
-
-#  include "kernel/data_template.h"
-
-    /* Opt in to all of available specializations. This can be made more granular for the
-     * PSO_SPECIALIZED_INTERSECT case in order to minimize the number of specialization requests,
-     * but the overhead should be negligible as these are very quick to (re)build and aren't
-     * serialized to disk via MTLBinaryArchives.
-     */
-    global_defines += "#define __KERNEL_USE_DATA_CONSTANTS__\n";
-
-    metal_printf("KernelData patching took %.1f ms\n", (time_dt() - starttime) * 1000.0);
-  }
-
-  source = global_defines + source;
-#  if 0
-  metal_printf("================\n%s================\n\%s================\n",
-               global_defines.c_str(),
-               baked_constants.c_str());
-#  endif
-
-  /* Generate an MD5 from the source and include any baked constants. This is used when caching
-   * PSOs. */
-  MD5Hash md5;
-  md5.append(baked_constants);
-  md5.append(source);
-  if (use_metalrt) {
-    md5.append(std::to_string(kernel_features & METALRT_FEATURE_MASK));
-  }
-  source_md5[pso_type] = md5.get_hex();
+  global_defines_md5[pso_type] = preprocess_source(pso_type, kernel_features, &source);
 }
 
 bool MetalDevice::load_kernels(const uint _kernel_features)
@@ -326,21 +436,106 @@ bool MetalDevice::load_kernels(const uint _kernel_features)
    * active, but may still need to be rendered without motion blur if that isn't active as well. */
   motion_blur = kernel_features & KERNEL_FEATURE_OBJECT_MOTION;
 
-  bool result = compile_and_load(PSO_GENERIC);
+  /* Only request generic kernels if they aren't cached in memory. */
+  if (make_source_and_check_if_compile_needed(PSO_GENERIC)) {
+    /* If needed, load them asynchronously in order to responsively message progress to the user.
+     */
+    int this_device_id = this->device_id;
+    auto compile_kernels_fn = ^() {
+      compile_and_load(this_device_id, PSO_GENERIC);
+    };
 
-  reserve_local_memory(kernel_features);
-  return result;
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
+                   compile_kernels_fn);
+  }
+
+  return true;
 }
 
-bool MetalDevice::compile_and_load(MetalPipelineType pso_type)
+bool MetalDevice::make_source_and_check_if_compile_needed(MetalPipelineType pso_type)
 {
-  make_source(pso_type, kernel_features);
+  string defines_md5 = preprocess_source(pso_type, kernel_features);
 
-  if (!MetalDeviceKernels::should_load_kernels(this, pso_type)) {
-    /* We already have a full set of matching pipelines which are cached or queued. */
-    metal_printf("%s kernels already requested\n", kernel_type_as_string(pso_type));
-    return true;
+  /* Rebuild the source string if the injected block of #defines has changed. */
+  if (global_defines_md5[pso_type] != defines_md5) {
+    make_source(pso_type, kernel_features);
   }
+
+  string constant_values;
+  if (pso_type != PSO_GENERIC) {
+    bool next_member_is_specialized = true;
+
+#  define KERNEL_STRUCT_MEMBER_DONT_SPECIALIZE next_member_is_specialized = false;
+
+    /* Add specialization constants to md5 so that 'get_best_pipeline' is able to return a suitable
+     * match. */
+#  define KERNEL_STRUCT_MEMBER(parent, _type, name) \
+    if (next_member_is_specialized) { \
+      constant_values += string(#parent "." #name "=") + \
+                         to_string(_type(launch_params.data.parent.name)) + "\n"; \
+    } \
+    else { \
+      next_member_is_specialized = true; \
+    }
+
+#  include "kernel/data_template.h"
+
+#  undef KERNEL_STRUCT_MEMBER
+#  undef KERNEL_STRUCT_MEMBER_DONT_SPECIALIZE
+
+#  if 0
+    metal_printf("================\n%s================\n",
+                constant_values.c_str());
+#  endif
+  }
+
+  MD5Hash md5;
+  md5.append(constant_values);
+  md5.append(source[pso_type]);
+  if (use_metalrt) {
+    md5.append(string_printf("metalrt_features=%d", kernel_features & METALRT_FEATURE_MASK));
+  }
+  kernels_md5[pso_type] = md5.get_hex();
+
+  return MetalDeviceKernels::should_load_kernels(this, pso_type);
+}
+
+void MetalDevice::compile_and_load(int device_id, MetalPipelineType pso_type)
+{
+  /* Thread-safe front-end compilation. Typically the MSL->AIR compilation can take a few seconds,
+   * so we avoid blocking device tear-down if the user cancels a render immediately. */
+
+  id<MTLDevice> mtlDevice;
+  string source;
+  MetalGPUVendor device_vendor;
+
+  /* Safely gather any state required for the MSL->AIR compilation. */
+  {
+    thread_scoped_lock lock(existing_devices_mutex);
+
+    /* Check whether the device still exists. */
+    MetalDevice *instance = get_device_by_ID(device_id, lock);
+    if (!instance) {
+      metal_printf("Ignoring %s compilation request - device no longer exists\n",
+                   kernel_type_as_string(pso_type));
+      return;
+    }
+
+    if (!instance->make_source_and_check_if_compile_needed(pso_type)) {
+      /* We already have a full set of matching pipelines which are cached or queued. Return early
+       * to avoid redundant MTLLibrary compilation. */
+      metal_printf("Ignoreing %s compilation request - kernels already requested\n",
+                   kernel_type_as_string(pso_type));
+      return;
+    }
+
+    mtlDevice = instance->mtlDevice;
+    device_vendor = instance->device_vendor;
+    source = instance->source[pso_type];
+  }
+
+  /* Perform the actual compilation using our cached context. The MetalDevice can safely destruct
+   * in this time. */
 
   MTLCompileOptions *options = [[MTLCompileOptions alloc] init];
 
@@ -359,20 +554,15 @@ bool MetalDevice::compile_and_load(MetalPipelineType pso_type)
 
   if (getenv("CYCLES_METAL_PROFILING") || getenv("CYCLES_METAL_DEBUG")) {
     path_write_text(path_cache_get(string_printf("%s.metal", kernel_type_as_string(pso_type))),
-                    source[pso_type]);
+                    source);
   }
 
-  const double starttime = time_dt();
+  double starttime = time_dt();
 
   NSError *error = NULL;
-  mtlLibrary[pso_type] = [mtlDevice newLibraryWithSource:@(source[pso_type].c_str())
-                                                 options:options
-                                                   error:&error];
-
-  if (!mtlLibrary[pso_type]) {
-    NSString *err = [error localizedDescription];
-    set_error(string_printf("Failed to compile library:\n%s", [err UTF8String]));
-  }
+  id<MTLLibrary> mtlLibrary = [mtlDevice newLibraryWithSource:@(source.c_str())
+                                                      options:options
+                                                        error:&error];
 
   metal_printf("Front-end compilation finished in %.1f seconds (%s)\n",
                time_dt() - starttime,
@@ -380,17 +570,48 @@ bool MetalDevice::compile_and_load(MetalPipelineType pso_type)
 
   [options release];
 
-  return MetalDeviceKernels::load(this, pso_type);
+  bool blocking_pso_build = (getenv("CYCLES_METAL_PROFILING") ||
+                             MetalDeviceKernels::is_benchmark_warmup());
+  if (blocking_pso_build) {
+    MetalDeviceKernels::wait_for_all();
+    starttime = 0.0;
+  }
+
+  /* Save the compiled MTLLibrary and trigger the AIR->PSO builds (if the MetalDevice still
+   * exists). */
+  {
+    thread_scoped_lock lock(existing_devices_mutex);
+    if (MetalDevice *instance = get_device_by_ID(device_id, lock)) {
+      if (mtlLibrary) {
+        if (error && [error localizedDescription]) {
+          VLOG_WARNING << "MSL compilation messages: "
+                       << [[error localizedDescription] UTF8String];
+        }
+
+        instance->mtlLibrary[pso_type] = mtlLibrary;
+
+        starttime = time_dt();
+        MetalDeviceKernels::load(instance, pso_type);
+      }
+      else {
+        NSString *err = [error localizedDescription];
+        instance->set_error(string_printf("Failed to compile library:\n%s", [err UTF8String]));
+      }
+    }
+  }
+
+  if (starttime && blocking_pso_build) {
+    MetalDeviceKernels::wait_for_all();
+
+    metal_printf("Back-end compilation finished in %.1f seconds (%s)\n",
+                 time_dt() - starttime,
+                 kernel_type_as_string(pso_type));
+  }
 }
 
-void MetalDevice::reserve_local_memory(const uint kernel_features)
+bool MetalDevice::is_texture(const TextureInfo &tex)
 {
-  /* METAL_WIP - implement this */
-}
-
-void MetalDevice::init_host_memory()
-{
-  /* METAL_WIP - implement this */
+  return (tex.depth > 0 || tex.height > 0);
 }
 
 void MetalDevice::load_texture_info()
@@ -404,20 +625,19 @@ void MetalDevice::load_texture_info()
 
     for (int tex = 0; tex < num_textures; tex++) {
       uint64_t offset = tex * sizeof(void *);
-
-      id<MTLTexture> metal_texture = texture_slot_map[tex];
-      if (!metal_texture) {
-        [mtlTextureArgEncoder setArgumentBuffer:texture_bindings_2d offset:offset];
-        [mtlTextureArgEncoder setTexture:nil atIndex:0];
-        [mtlTextureArgEncoder setArgumentBuffer:texture_bindings_3d offset:offset];
-        [mtlTextureArgEncoder setTexture:nil atIndex:0];
-      }
-      else {
+      if (is_texture(texture_info[tex]) && texture_slot_map[tex]) {
+        id<MTLTexture> metal_texture = texture_slot_map[tex];
         MTLTextureType type = metal_texture.textureType;
         [mtlTextureArgEncoder setArgumentBuffer:texture_bindings_2d offset:offset];
         [mtlTextureArgEncoder setTexture:type == MTLTextureType2D ? metal_texture : nil atIndex:0];
         [mtlTextureArgEncoder setArgumentBuffer:texture_bindings_3d offset:offset];
         [mtlTextureArgEncoder setTexture:type == MTLTextureType3D ? metal_texture : nil atIndex:0];
+      }
+      else {
+        [mtlTextureArgEncoder setArgumentBuffer:texture_bindings_2d offset:offset];
+        [mtlTextureArgEncoder setTexture:nil atIndex:0];
+        [mtlTextureArgEncoder setArgumentBuffer:texture_bindings_3d offset:offset];
+        [mtlTextureArgEncoder setTexture:nil atIndex:0];
       }
     }
     if (default_storage_mode == MTLResourceStorageModeManaged) {
@@ -437,13 +657,21 @@ void MetalDevice::erase_allocation(device_memory &mem)
   if (it != metal_mem_map.end()) {
     MetalMem *mmem = it->second.get();
 
-    /* blank out reference to MetalMem* in the launch params (fixes crash T94736) */
+    /* blank out reference to MetalMem* in the launch params (fixes crash #94736) */
     if (mmem->pointer_index >= 0) {
       device_ptr *pointers = (device_ptr *)&launch_params;
       pointers[mmem->pointer_index] = 0;
     }
     metal_mem_map.erase(it);
   }
+}
+
+bool MetalDevice::max_working_set_exceeded(size_t safety_margin) const
+{
+  /* We're allowed to allocate beyond the safe working set size, but then if all resources are made
+   * resident we will get command buffer failures at render time. */
+  size_t available = [mtlDevice recommendedMaxWorkingSetSize] - safety_margin;
+  return (stats.mem_used > available);
 }
 
 MetalDevice::MetalMem *MetalDevice::generic_alloc(device_memory &mem)
@@ -521,6 +749,11 @@ MetalDevice::MetalMem *MetalDevice::generic_alloc(device_memory &mem)
   }
   else {
     mmem->use_UMA = false;
+  }
+
+  if (max_working_set_exceeded()) {
+    set_error("System is out of GPU memory");
+    return nullptr;
   }
 
   return mmem;
@@ -687,55 +920,88 @@ device_ptr MetalDevice::mem_alloc_sub_ptr(device_memory &mem, size_t offset, siz
   return 0;
 }
 
+void MetalDevice::cancel()
+{
+  /* Remove this device's ID from the list of active devices. Any pending compilation requests
+   * originating from this session will be cancelled. */
+  thread_scoped_lock lock(existing_devices_mutex);
+  if (device_id) {
+    active_device_ids.erase(device_id);
+    device_id = 0;
+  }
+}
+
+bool MetalDevice::is_ready(string &status) const
+{
+  if (!error_msg.empty()) {
+    /* Avoid hanging if we had an error. */
+    return true;
+  }
+
+  int num_loaded = MetalDeviceKernels::get_loaded_kernel_count(this, PSO_GENERIC);
+  if (num_loaded < DEVICE_KERNEL_NUM) {
+    status = string_printf("%d / %d render kernels loaded (may take a few minutes the first time)",
+                           num_loaded,
+                           DEVICE_KERNEL_NUM);
+    return false;
+  }
+
+  if (int num_requests = MetalDeviceKernels::num_incomplete_specialization_requests()) {
+    status = string_printf("%d kernels to optimize", num_requests);
+  }
+  else if (kernel_specialization_level == PSO_SPECIALIZED_INTERSECT) {
+    status = "Using optimized intersection kernels";
+  }
+  else if (kernel_specialization_level == PSO_SPECIALIZED_SHADE) {
+    status = "Using optimized kernels";
+  }
+
+  metal_printf("MetalDevice::is_ready(...) --> true\n");
+  return true;
+}
+
 void MetalDevice::optimize_for_scene(Scene *scene)
 {
   MetalPipelineType specialization_level = kernel_specialization_level;
 
-  if (specialization_level < PSO_SPECIALIZED_INTERSECT) {
-    return;
-  }
-
-  /* PSO_SPECIALIZED_INTERSECT kernels are fast to specialize, so we always load them
-   * synchronously. */
-  compile_and_load(PSO_SPECIALIZED_INTERSECT);
-
-  if (specialization_level < PSO_SPECIALIZED_SHADE) {
-    return;
-  }
   if (!scene->params.background) {
-    /* Don't load PSO_SPECIALIZED_SHADE kernels during viewport rendering as they are slower to
-     * build. */
-    return;
+    /* In live viewport, don't specialize beyond intersection kernels for responsiveness. */
+    specialization_level = (MetalPipelineType)min(specialization_level, PSO_SPECIALIZED_INTERSECT);
   }
 
-  /* PSO_SPECIALIZED_SHADE kernels are slower to specialize, so we load them asynchronously, and
-   * only if there isn't an existing load in flight.
-   */
-  auto specialize_shade_fn = ^() {
-    compile_and_load(PSO_SPECIALIZED_SHADE);
-    async_compile_and_load = false;
+  /* For responsive rendering, specialize the kernels in the background, and only if there isn't an
+   * existing "optimize_for_scene" request in flight. */
+  int this_device_id = this->device_id;
+  auto specialize_kernels_fn = ^() {
+    for (int level = 1; level <= int(specialization_level); level++) {
+      compile_and_load(this_device_id, MetalPipelineType(level));
+    }
   };
 
-  bool async_specialize_shade = true;
+  /* In normal use, we always compile the specialized kernels in the background. */
+  bool specialize_in_background = true;
 
   /* Block if a per-kernel profiling is enabled (ensure steady rendering rate). */
   if (getenv("CYCLES_METAL_PROFILING") != nullptr) {
-    async_specialize_shade = false;
+    specialize_in_background = false;
   }
 
-  if (async_specialize_shade) {
-    if (!async_compile_and_load) {
-      async_compile_and_load = true;
+  /* Block during benchmark warm-up to ensure kernels are cached prior to the observed run. */
+  if (MetalDeviceKernels::is_benchmark_warmup()) {
+    specialize_in_background = false;
+  }
+
+  if (specialize_in_background) {
+    if (MetalDeviceKernels::num_incomplete_specialization_requests() == 0) {
       dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
-                     specialize_shade_fn);
+                     specialize_kernels_fn);
     }
     else {
-      metal_printf(
-          "Async PSO_SPECIALIZED_SHADE load request already in progress - dropping request\n");
+      metal_printf("\"optimize_for_scene\" request already in flight - dropping request\n");
     }
   }
   else {
-    specialize_shade_fn();
+    specialize_kernels_fn();
   }
 }
 
@@ -769,8 +1035,7 @@ void MetalDevice::const_copy_to(const char *name, void *host, size_t size)
         offsetof(KernelParamsMetal, integrator_state), host, size, pointer_block_size);
   }
 #  define KERNEL_DATA_ARRAY(data_type, tex_name) \
-    else if (strcmp(name, #tex_name) == 0) \
-    { \
+    else if (strcmp(name, #tex_name) == 0) { \
       update_launch_pointers(offsetof(KernelParamsMetal, tex_name), host, size, size); \
     }
 #  include "kernel/data_arrays.h"
@@ -796,7 +1061,7 @@ void MetalDevice::global_free(device_memory &mem)
 
 void MetalDevice::tex_alloc_as_buffer(device_texture &mem)
 {
-  generic_alloc(mem);
+  MetalDevice::MetalMem *mmem = generic_alloc(mem);
   generic_copy_to(mem);
 
   /* Resize once */
@@ -805,32 +1070,36 @@ void MetalDevice::tex_alloc_as_buffer(device_texture &mem)
     /* Allocate some slots in advance, to reduce amount
      * of re-allocations. */
     texture_info.resize(round_up(slot + 1, 128));
+    texture_slot_map.resize(round_up(slot + 1, 128));
   }
 
-  mem.info.data = (uint64_t)mem.device_pointer;
-
-  /* Set Mapping and tag that we need to (re-)upload to device */
   texture_info[slot] = mem.info;
+  uint64_t offset = slot * sizeof(void *);
+  [mtlBufferArgEncoder setArgumentBuffer:buffer_bindings_1d offset:offset];
+  [mtlBufferArgEncoder setBuffer:mmem->mtlBuffer offset:0 atIndex:0];
+  texture_info[slot].data = *(uint64_t *)((uint64_t)buffer_bindings_1d.contents + offset);
+  texture_slot_map[slot] = nil;
   need_texture_info = true;
 }
 
 void MetalDevice::tex_alloc(device_texture &mem)
 {
   /* Check that dimensions fit within maximum allowable size.
+   * If 1D texture is allocated, use 1D buffer.
    * See: https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf */
-  if (mem.data_width > 16384 || mem.data_height > 16384) {
-    set_error(string_printf(
-        "Texture exceeds maximum allowed size of 16384 x 16384 (requested: %zu x %zu)",
-        mem.data_width,
-        mem.data_height));
-    return;
+  if (mem.data_height > 0) {
+    if (mem.data_width > 16384 || mem.data_height > 16384) {
+      set_error(string_printf(
+          "Texture exceeds maximum allowed size of 16384 x 16384 (requested: %zu x %zu)",
+          mem.data_width,
+          mem.data_height));
+      return;
+    }
   }
-
   MTLStorageMode storage_mode = MTLStorageModeManaged;
   if (@available(macos 10.15, *)) {
-    if ([mtlDevice hasUnifiedMemory] &&
-        device_vendor !=
-            METAL_GPU_INTEL) { /* Intel GPUs don't support MTLStorageModeShared for MTLTextures */
+    /* Intel GPUs don't support MTLStorageModeShared for MTLTextures. */
+    if ([mtlDevice hasUnifiedMemory] && device_vendor != METAL_GPU_INTEL) {
       storage_mode = MTLStorageModeShared;
     }
   }
@@ -843,7 +1112,7 @@ void MetalDevice::tex_alloc(device_texture &mem)
   /* sampler_index maps into the GPU's constant 'metal_samplers' array */
   uint64_t sampler_index = mem.info.extension;
   if (mem.info.interpolation != INTERPOLATION_CLOSEST) {
-    sampler_index += 3;
+    sampler_index += 4;
   }
 
   /* Image Texture Storage */
@@ -921,9 +1190,8 @@ void MetalDevice::tex_alloc(device_texture &mem)
               << string_human_readable_size(mem.memory_size()) << ")";
 
     mtlTexture = [mtlDevice newTextureWithDescriptor:desc];
-    assert(mtlTexture);
-
     if (!mtlTexture) {
+      set_error("System is out of GPU memory");
       return;
     }
 
@@ -955,7 +1223,10 @@ void MetalDevice::tex_alloc(device_texture &mem)
               << string_human_readable_size(mem.memory_size()) << ")";
 
     mtlTexture = [mtlDevice newTextureWithDescriptor:desc];
-    assert(mtlTexture);
+    if (!mtlTexture) {
+      set_error("System is out of GPU memory");
+      return;
+    }
 
     [mtlTexture replaceRegion:MTLRegionMake2D(0, 0, mem.data_width, mem.data_height)
                   mipmapLevel:0
@@ -963,8 +1234,9 @@ void MetalDevice::tex_alloc(device_texture &mem)
                   bytesPerRow:src_pitch];
   }
   else {
-    assert(0);
     /* 1D texture, using linear memory. */
+    tex_alloc_as_buffer(mem);
+    return;
   }
 
   mem.device_pointer = (device_ptr)mtlTexture;
@@ -988,17 +1260,22 @@ void MetalDevice::tex_alloc(device_texture &mem)
     ssize_t min_buffer_length = sizeof(void *) * texture_info.size();
     if (!texture_bindings_2d || (texture_bindings_2d.length < min_buffer_length)) {
       if (texture_bindings_2d) {
+        delayed_free_list.push_back(buffer_bindings_1d);
         delayed_free_list.push_back(texture_bindings_2d);
         delayed_free_list.push_back(texture_bindings_3d);
 
-        stats.mem_free(texture_bindings_2d.allocatedSize + texture_bindings_3d.allocatedSize);
+        stats.mem_free(buffer_bindings_1d.allocatedSize + texture_bindings_2d.allocatedSize +
+                       texture_bindings_3d.allocatedSize);
       }
+      buffer_bindings_1d = [mtlDevice newBufferWithLength:min_buffer_length
+                                                  options:default_storage_mode];
       texture_bindings_2d = [mtlDevice newBufferWithLength:min_buffer_length
                                                    options:default_storage_mode];
       texture_bindings_3d = [mtlDevice newBufferWithLength:min_buffer_length
                                                    options:default_storage_mode];
 
-      stats.mem_alloc(texture_bindings_2d.allocatedSize + texture_bindings_3d.allocatedSize);
+      stats.mem_alloc(buffer_bindings_1d.allocatedSize + texture_bindings_2d.allocatedSize +
+                      texture_bindings_3d.allocatedSize);
     }
   }
 
@@ -1017,16 +1294,26 @@ void MetalDevice::tex_alloc(device_texture &mem)
   need_texture_info = true;
 
   texture_info[slot].data = uint64_t(slot) | (sampler_index << 32);
+
+  if (max_working_set_exceeded()) {
+    set_error("System is out of GPU memory");
+  }
 }
 
 void MetalDevice::tex_free(device_texture &mem)
 {
+  if (mem.data_depth == 0 && mem.data_height == 0) {
+    generic_free(mem);
+    return;
+  }
+
   if (metal_mem_map.count(&mem)) {
     std::lock_guard<std::recursive_mutex> lock(metal_mem_map_mutex);
     MetalMem &mmem = *metal_mem_map.at(&mem);
 
     assert(texture_slot_map[mem.slot] == mmem.mtlTexture);
-    texture_slot_map[mem.slot] = nil;
+    if (texture_slot_map[mem.slot] == mmem.mtlTexture)
+      texture_slot_map[mem.slot] = nil;
 
     if (mmem.mtlTexture) {
       /* Free bindless texture. */
@@ -1074,8 +1361,39 @@ void MetalDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
     if (@available(macos 11.0, *)) {
       if (bvh->params.top_level) {
         bvhMetalRT = bvh_metal;
+
+        // allocate required buffers for BLAS array
+        uint64_t count = bvhMetalRT->blas_array.size();
+        uint64_t bufferSize = mtlBlasArgEncoder.encodedLength * count;
+        blas_buffer = [mtlDevice newBufferWithLength:bufferSize options:default_storage_mode];
+        stats.mem_alloc(blas_buffer.allocatedSize);
+
+        for (uint64_t i = 0; i < count; ++i) {
+          [mtlBlasArgEncoder setArgumentBuffer:blas_buffer
+                                        offset:i * mtlBlasArgEncoder.encodedLength];
+          [mtlBlasArgEncoder setAccelerationStructure:bvhMetalRT->blas_array[i] atIndex:0];
+        }
+
+        count = bvhMetalRT->blas_lookup.size();
+        bufferSize = sizeof(uint32_t) * count;
+        blas_lookup_buffer = [mtlDevice newBufferWithLength:bufferSize
+                                                    options:default_storage_mode];
+        stats.mem_alloc(blas_lookup_buffer.allocatedSize);
+
+        memcpy([blas_lookup_buffer contents],
+               bvhMetalRT -> blas_lookup.data(),
+               blas_lookup_buffer.allocatedSize);
+
+        if (default_storage_mode == MTLResourceStorageModeManaged) {
+          [blas_buffer didModifyRange:NSMakeRange(0, blas_buffer.length)];
+          [blas_lookup_buffer didModifyRange:NSMakeRange(0, blas_lookup_buffer.length)];
+        }
       }
     }
+  }
+
+  if (max_working_set_exceeded()) {
+    set_error("System is out of GPU memory");
   }
 }
 

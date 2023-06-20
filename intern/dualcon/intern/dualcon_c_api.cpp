@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2011-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "ModelReader.h"
 #include "dualcon.h"
@@ -131,9 +133,7 @@ class DualConInputReader : public ModelReader {
   }
 
   /* stubs */
-  void printInfo()
-  {
-  }
+  void printInfo() {}
   int getMemory()
   {
     return sizeof(DualConInputReader);

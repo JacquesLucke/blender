@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2016 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw
@@ -55,8 +56,11 @@ typedef struct DRWShaderCompiler {
   ListBase queue; /* GPUMaterial */
   SpinLock list_lock;
 
-  void *gl_context;
-  GPUContext *gpu_context;
+  /** Optimization queue. */
+  ListBase optimize_queue; /* GPUMaterial */
+
+  void *system_gpu_context;
+  GPUContext *blender_gpu_context;
   bool own_context;
 } DRWShaderCompiler;
 
@@ -70,20 +74,20 @@ static void drw_deferred_shader_compilation_exec(
 {
   GPU_render_begin();
   DRWShaderCompiler *comp = (DRWShaderCompiler *)custom_data;
-  void *gl_context = comp->gl_context;
-  GPUContext *gpu_context = comp->gpu_context;
+  void *system_gpu_context = comp->system_gpu_context;
+  GPUContext *blender_gpu_context = comp->blender_gpu_context;
 
-  BLI_assert(gl_context != NULL);
-  BLI_assert(gpu_context != NULL);
+  BLI_assert(system_gpu_context != NULL);
+  BLI_assert(blender_gpu_context != NULL);
 
   const bool use_main_context_workaround = GPU_use_main_context_workaround();
   if (use_main_context_workaround) {
-    BLI_assert(gl_context == DST.gl_context);
+    BLI_assert(system_gpu_context == DST.system_gpu_context);
     GPU_context_main_lock();
   }
 
-  WM_opengl_context_activate(gl_context);
-  GPU_context_active_set(gpu_context);
+  WM_system_gpu_context_activate(system_gpu_context);
+  GPU_context_active_set(blender_gpu_context);
 
   while (true) {
     if (*stop != 0) {
@@ -110,8 +114,29 @@ static void drw_deferred_shader_compilation_exec(
       MEM_freeN(link);
     }
     else {
-      /* No more materials to optimize, or shaders to compile. */
-      break;
+      /* Check for Material Optimization job once there are no more
+       * shaders to compile. */
+      BLI_spin_lock(&comp->list_lock);
+      /* Pop tail because it will be less likely to lock the main thread
+       * if all GPUMaterials are to be freed (see DRW_deferred_shader_remove()). */
+      link = (LinkData *)BLI_poptail(&comp->optimize_queue);
+      GPUMaterial *optimize_mat = link ? (GPUMaterial *)link->data : NULL;
+      if (optimize_mat) {
+        /* Avoid another thread freeing the material during optimization. */
+        GPU_material_acquire(optimize_mat);
+      }
+      BLI_spin_unlock(&comp->list_lock);
+
+      if (optimize_mat) {
+        /* Compile optimized material shader. */
+        GPU_material_optimize(optimize_mat);
+        GPU_material_release(optimize_mat);
+        MEM_freeN(link);
+      }
+      else {
+        /* No more materials to optimize, or shaders to compile. */
+        break;
+      }
     }
 
     if (GPU_type_matches_ex(GPU_DEVICE_ANY, GPU_OS_ANY, GPU_DRIVER_ANY, GPU_BACKEND_OPENGL)) {
@@ -120,7 +145,7 @@ static void drw_deferred_shader_compilation_exec(
   }
 
   GPU_context_active_set(NULL);
-  WM_opengl_context_release(gl_context);
+  WM_system_gpu_context_release(system_gpu_context);
   if (use_main_context_workaround) {
     GPU_context_main_unlock();
   }
@@ -133,14 +158,15 @@ static void drw_deferred_shader_compilation_free(void *custom_data)
 
   BLI_spin_lock(&comp->list_lock);
   BLI_freelistN(&comp->queue);
+  BLI_freelistN(&comp->optimize_queue);
   BLI_spin_unlock(&comp->list_lock);
 
   if (comp->own_context) {
     /* Only destroy if the job owns the context. */
-    WM_opengl_context_activate(comp->gl_context);
-    GPU_context_active_set(comp->gpu_context);
-    GPU_context_discard(comp->gpu_context);
-    WM_opengl_context_dispose(comp->gl_context);
+    WM_system_gpu_context_activate(comp->system_gpu_context);
+    GPU_context_active_set(comp->blender_gpu_context);
+    GPU_context_discard(comp->blender_gpu_context);
+    WM_system_gpu_context_dispose(comp->system_gpu_context);
 
     wm_window_reset_drawable();
   }
@@ -148,11 +174,90 @@ static void drw_deferred_shader_compilation_free(void *custom_data)
   MEM_freeN(comp);
 }
 
+/**
+ * Append either shader compilation or optimization job to deferred queue and
+ * ensure shader compilation worker is active.
+ * We keep two separate queue's to ensure core compilations always complete before optimization.
+ */
+static void drw_deferred_queue_append(GPUMaterial *mat, bool is_optimization_job)
+{
+  const bool use_main_context = GPU_use_main_context_workaround();
+  const bool job_own_context = !use_main_context;
+
+  BLI_assert(DST.draw_ctx.evil_C);
+  wmWindowManager *wm = CTX_wm_manager(DST.draw_ctx.evil_C);
+  wmWindow *win = CTX_wm_window(DST.draw_ctx.evil_C);
+
+  /* Get the running job or a new one if none is running. Can only have one job per type & owner.
+   */
+  wmJob *wm_job = WM_jobs_get(
+      wm, win, wm, "Shaders Compilation", 0, WM_JOB_TYPE_SHADER_COMPILATION);
+
+  DRWShaderCompiler *old_comp = (DRWShaderCompiler *)WM_jobs_customdata_get(wm_job);
+
+  DRWShaderCompiler *comp = MEM_callocN(sizeof(DRWShaderCompiler), "DRWShaderCompiler");
+  BLI_spin_init(&comp->list_lock);
+
+  if (old_comp) {
+    BLI_spin_lock(&old_comp->list_lock);
+    BLI_movelisttolist(&comp->queue, &old_comp->queue);
+    BLI_movelisttolist(&comp->optimize_queue, &old_comp->optimize_queue);
+    BLI_spin_unlock(&old_comp->list_lock);
+    /* Do not recreate context, just pass ownership. */
+    if (old_comp->system_gpu_context) {
+      comp->system_gpu_context = old_comp->system_gpu_context;
+      comp->blender_gpu_context = old_comp->blender_gpu_context;
+      old_comp->own_context = false;
+      comp->own_context = job_own_context;
+    }
+  }
+
+  /* Add to either compilation or optimization queue. */
+  if (is_optimization_job) {
+    BLI_assert(GPU_material_optimization_status(mat) != GPU_MAT_OPTIMIZATION_QUEUED);
+    GPU_material_optimization_status_set(mat, GPU_MAT_OPTIMIZATION_QUEUED);
+    LinkData *node = BLI_genericNodeN(mat);
+    BLI_addtail(&comp->optimize_queue, node);
+  }
+  else {
+    GPU_material_status_set(mat, GPU_MAT_QUEUED);
+    LinkData *node = BLI_genericNodeN(mat);
+    BLI_addtail(&comp->queue, node);
+  }
+
+  /* Create only one context. */
+  if (comp->system_gpu_context == NULL) {
+    if (use_main_context) {
+      comp->system_gpu_context = DST.system_gpu_context;
+      comp->blender_gpu_context = DST.blender_gpu_context;
+    }
+    else {
+      comp->system_gpu_context = WM_system_gpu_context_create();
+      comp->blender_gpu_context = GPU_context_create(NULL, comp->system_gpu_context);
+      GPU_context_active_set(NULL);
+
+      WM_system_gpu_context_activate(DST.system_gpu_context);
+      GPU_context_active_set(DST.blender_gpu_context);
+    }
+    comp->own_context = job_own_context;
+  }
+
+  WM_jobs_customdata_set(wm_job, comp, drw_deferred_shader_compilation_free);
+  WM_jobs_timer(wm_job, 0.1, NC_MATERIAL | ND_SHADING_DRAW, 0);
+  WM_jobs_delay_start(wm_job, 0.1);
+  WM_jobs_callbacks(wm_job, drw_deferred_shader_compilation_exec, NULL, NULL, NULL);
+
+  G.is_break = false;
+
+  WM_jobs_start(wm, wm_job);
+}
+
 static void drw_deferred_shader_add(GPUMaterial *mat, bool deferred)
 {
   if (ELEM(GPU_material_status(mat), GPU_MAT_SUCCESS, GPU_MAT_FAILED)) {
     return;
   }
+
   /* Do not defer the compilation if we are rendering for image.
    * deferred rendering is only possible when `evil_C` is available */
   if (DST.draw_ctx.evil_C == NULL || DRW_state_is_image_render() || !USE_DEFERRED_COMPILATION) {
@@ -176,65 +281,8 @@ static void drw_deferred_shader_add(GPUMaterial *mat, bool deferred)
     return;
   }
 
-  const bool use_main_context = GPU_use_main_context_workaround();
-  const bool job_own_context = !use_main_context;
-
-  BLI_assert(DST.draw_ctx.evil_C);
-  wmWindowManager *wm = CTX_wm_manager(DST.draw_ctx.evil_C);
-  wmWindow *win = CTX_wm_window(DST.draw_ctx.evil_C);
-
-  /* Get the running job or a new one if none is running. Can only have one job per type & owner.
-   */
-  wmJob *wm_job = WM_jobs_get(
-      wm, win, wm, "Shaders Compilation", 0, WM_JOB_TYPE_SHADER_COMPILATION);
-
-  DRWShaderCompiler *old_comp = (DRWShaderCompiler *)WM_jobs_customdata_get(wm_job);
-
-  DRWShaderCompiler *comp = MEM_callocN(sizeof(DRWShaderCompiler), "DRWShaderCompiler");
-  BLI_spin_init(&comp->list_lock);
-
-  if (old_comp) {
-    BLI_spin_lock(&old_comp->list_lock);
-    BLI_movelisttolist(&comp->queue, &old_comp->queue);
-    BLI_spin_unlock(&old_comp->list_lock);
-    /* Do not recreate context, just pass ownership. */
-    if (old_comp->gl_context) {
-      comp->gl_context = old_comp->gl_context;
-      comp->gpu_context = old_comp->gpu_context;
-      old_comp->own_context = false;
-      comp->own_context = job_own_context;
-    }
-  }
-
-  GPU_material_status_set(mat, GPU_MAT_QUEUED);
-  LinkData *node = BLI_genericNodeN(mat);
-  BLI_addtail(&comp->queue, node);
-
-  /* Create only one context. */
-  if (comp->gl_context == NULL) {
-    if (use_main_context) {
-      comp->gl_context = DST.gl_context;
-      comp->gpu_context = DST.gpu_context;
-    }
-    else {
-      comp->gl_context = WM_opengl_context_create();
-      comp->gpu_context = GPU_context_create(NULL, comp->gl_context);
-      GPU_context_active_set(NULL);
-
-      WM_opengl_context_activate(DST.gl_context);
-      GPU_context_active_set(DST.gpu_context);
-    }
-    comp->own_context = job_own_context;
-  }
-
-  WM_jobs_customdata_set(wm_job, comp, drw_deferred_shader_compilation_free);
-  WM_jobs_timer(wm_job, 0.1, NC_MATERIAL | ND_SHADING_DRAW, 0);
-  WM_jobs_delay_start(wm_job, 0.1);
-  WM_jobs_callbacks(wm_job, drw_deferred_shader_compilation_exec, NULL, NULL, NULL);
-
-  G.is_break = false;
-
-  WM_jobs_start(wm, wm_job);
+  /* Add deferred shader compilation to queue. */
+  drw_deferred_queue_append(mat, false);
 }
 
 static void drw_register_shader_vlattrs(GPUMaterial *mat)
@@ -288,9 +336,42 @@ void DRW_deferred_shader_remove(GPUMaterial *mat)
           BLI_remlink(&comp->queue, link);
           GPU_material_status_set(link->data, GPU_MAT_CREATED);
         }
-        BLI_spin_unlock(&comp->list_lock);
 
         MEM_SAFE_FREE(link);
+
+        /* Search for optimization job in queue. */
+        LinkData *opti_link = (LinkData *)BLI_findptr(
+            &comp->optimize_queue, mat, offsetof(LinkData, data));
+        if (opti_link) {
+          BLI_remlink(&comp->optimize_queue, opti_link);
+          GPU_material_optimization_status_set(opti_link->data, GPU_MAT_OPTIMIZATION_READY);
+        }
+        BLI_spin_unlock(&comp->list_lock);
+
+        MEM_SAFE_FREE(opti_link);
+      }
+    }
+  }
+}
+
+void DRW_deferred_shader_optimize_remove(GPUMaterial *mat)
+{
+  LISTBASE_FOREACH (wmWindowManager *, wm, &G_MAIN->wm) {
+    LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
+      DRWShaderCompiler *comp = (DRWShaderCompiler *)WM_jobs_customdata_from_type(
+          wm, wm, WM_JOB_TYPE_SHADER_COMPILATION);
+      if (comp != NULL) {
+        BLI_spin_lock(&comp->list_lock);
+        /* Search for optimization job in queue. */
+        LinkData *opti_link = (LinkData *)BLI_findptr(
+            &comp->optimize_queue, mat, offsetof(LinkData, data));
+        if (opti_link) {
+          BLI_remlink(&comp->optimize_queue, opti_link);
+          GPU_material_optimization_status_set(opti_link->data, GPU_MAT_OPTIMIZATION_READY);
+        }
+        BLI_spin_unlock(&comp->list_lock);
+
+        MEM_SAFE_FREE(opti_link);
       }
     }
   }
@@ -301,6 +382,11 @@ void DRW_deferred_shader_remove(GPUMaterial *mat)
 /* -------------------------------------------------------------------- */
 
 /** \{ */
+
+GPUShader *DRW_shader_create_from_info_name(const char *info_name)
+{
+  return GPU_shader_create_from_info_name(info_name);
+}
 
 GPUShader *DRW_shader_create_ex(
     const char *vert, const char *geom, const char *frag, const char *defines, const char *name)
@@ -400,7 +486,7 @@ GPUShader *DRW_shader_create_fullscreen_with_shaderlib_ex(const char *frag,
 }
 
 GPUMaterial *DRW_shader_from_world(World *wo,
-                                   struct bNodeTree *ntree,
+                                   bNodeTree *ntree,
                                    const uint64_t shader_id,
                                    const bool is_volume_shader,
                                    bool deferred,
@@ -427,11 +513,12 @@ GPUMaterial *DRW_shader_from_world(World *wo,
   }
 
   drw_deferred_shader_add(mat, deferred);
+  DRW_shader_queue_optimize_material(mat);
   return mat;
 }
 
 GPUMaterial *DRW_shader_from_material(Material *ma,
-                                      struct bNodeTree *ntree,
+                                      bNodeTree *ntree,
                                       const uint64_t shader_id,
                                       const bool is_volume_shader,
                                       bool deferred,
@@ -458,7 +545,51 @@ GPUMaterial *DRW_shader_from_material(Material *ma,
   }
 
   drw_deferred_shader_add(mat, deferred);
+  DRW_shader_queue_optimize_material(mat);
   return mat;
+}
+
+void DRW_shader_queue_optimize_material(GPUMaterial *mat)
+{
+  /* Do not perform deferred optimization if performing render.
+   * De-queue any queued optimization jobs. */
+  if (DRW_state_is_image_render()) {
+    if (GPU_material_optimization_status(mat) == GPU_MAT_OPTIMIZATION_QUEUED) {
+      /* Remove from pending optimization job queue. */
+      DRW_deferred_shader_optimize_remove(mat);
+      /* If optimization job had already started, wait for it to complete. */
+      while (GPU_material_optimization_status(mat) == GPU_MAT_OPTIMIZATION_QUEUED) {
+        PIL_sleep_ms(20);
+      }
+    }
+    return;
+  }
+
+  /* We do not need to perform optimization on the material if it is already compiled or in the
+   * optimization queue. If optimization is not required, the status will be flagged as
+   * `GPU_MAT_OPTIMIZATION_SKIP`.
+   * We can also skip cases which have already been queued up. */
+  if (ELEM(GPU_material_optimization_status(mat),
+           GPU_MAT_OPTIMIZATION_SKIP,
+           GPU_MAT_OPTIMIZATION_SUCCESS,
+           GPU_MAT_OPTIMIZATION_QUEUED))
+  {
+    return;
+  }
+
+  /* Only queue optimization once the original shader has been successfully compiled. */
+  if (GPU_material_status(mat) != GPU_MAT_SUCCESS) {
+    return;
+  }
+
+  /* Defer optimization until sufficient time has passed beyond creation. This avoids excessive
+   * recompilation for shaders which are being actively modified. */
+  if (!GPU_material_optimization_ready(mat)) {
+    return;
+  }
+
+  /* Add deferred shader compilation to queue. */
+  drw_deferred_queue_append(mat, true);
 }
 
 void DRW_shader_free(GPUShader *shader)
@@ -564,7 +695,7 @@ void DRW_shader_library_add_file(DRWShaderLibrary *lib, const char *lib_code, co
 
   if (index > -1) {
     lib->libs[index] = lib_code;
-    BLI_strncpy(lib->libs_name[index], lib_name, MAX_LIB_NAME);
+    STRNCPY(lib->libs_name[index], lib_name);
     lib->libs_deps[index] = drw_shader_dependencies_get(
         lib, "BLENDER_REQUIRE(", lib_code, lib_name);
   }

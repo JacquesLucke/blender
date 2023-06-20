@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bli
@@ -36,9 +37,9 @@ uint BLI_ghashutil_ptrhash(const void *key)
 
   size_t y = (size_t)key;
   /* bottom 3 or 4 bits are likely to be 0; rotate y by 4 to avoid
-   * excessive hash collisions for dicts and sets */
+   * excessive hash collisions for dictionaries and sets */
 
-  /* NOTE: Unlike Python 'sizeof(uint)' is used instead of 'sizeof(void *)',
+  /* NOTE: Unlike Python `sizeof(uint)` is used instead of `sizeof(void *)`,
    * Otherwise casting to 'uint' ignores the upper bits on 64bit platforms. */
   return (uint)(y >> 4) | ((uint)y << (sizeof(uint[8]) - 4));
 }

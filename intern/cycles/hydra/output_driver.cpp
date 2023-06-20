@@ -1,6 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2022 NVIDIA Corporation
- * Copyright 2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2022 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "hydra/output_driver.h"
 #include "hydra/render_buffer.h"
@@ -44,7 +45,8 @@ bool HdCyclesOutputDriver::update_render_tile(const Tile &tile)
       // Avoid extra copy by mapping render buffer directly when dimensions/format match the tile
       if (tile.offset.x == 0 && tile.offset.y == 0 && tile.size.x == renderBuffer->GetWidth() &&
           tile.size.y == renderBuffer->GetHeight() &&
-          (format >= HdFormatFloat32 && format <= HdFormatFloat32Vec4)) {
+          (format >= HdFormatFloat32 && format <= HdFormatFloat32Vec4))
+      {
         float *const data = static_cast<float *>(renderBuffer->Map());
         TF_VERIFY(tile.get_pass_pixels(aovBinding.aovName.GetString(), channels, data));
         renderBuffer->Unmap();
@@ -55,12 +57,13 @@ bool HdCyclesOutputDriver::update_render_tile(const Tile &tile)
           const bool isId = aovBinding.aovName == HdAovTokens->primId ||
                             aovBinding.aovName == HdAovTokens->elementId ||
                             aovBinding.aovName == HdAovTokens->instanceId;
-
+          renderBuffer->Map();
           renderBuffer->WritePixels(pixels.data(),
                                     GfVec2i(tile.offset.x, tile.offset.y),
                                     GfVec2i(tile.size.x, tile.size.y),
                                     channels,
                                     isId);
+          renderBuffer->Unmap();
         }
         else {
           // Do not warn on missing elementId, which is a standard AOV but is not implememted

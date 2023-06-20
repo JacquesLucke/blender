@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -74,7 +76,7 @@ ImBuf *BKE_icon_geom_rasterize(const struct Icon_Geom *geom, const uint size_x, 
   const uchar(*pos)[2] = geom->coords;
   const uint *col = (void *)geom->colors;
 
-  /* TODO(@campbellbarton): Currently rasterizes to fixed size, then scales.
+  /* TODO(@ideasman42): Currently rasterizes to fixed size, then scales.
    * Should rasterize to double size for eg instead. */
   const int rect_size[2] = {max_ii(256, (int)size_x * 2), max_ii(256, (int)size_y * 2)};
 
@@ -85,7 +87,7 @@ ImBuf *BKE_icon_geom_rasterize(const struct Icon_Geom *geom, const uint size_x, 
   data.rect_size[0] = rect_size[0];
   data.rect_size[1] = rect_size[1];
 
-  data.rect = ibuf->rect;
+  data.rect = (uint *)ibuf->byte_buffer.data;
 
   float scale[2];
   const bool use_scale = (rect_size[0] != 256) || (rect_size[1] != 256);

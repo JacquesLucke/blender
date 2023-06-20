@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "device/device.h"
 
@@ -22,17 +23,11 @@ CCL_NAMESPACE_BEGIN
 
 /* Shader Manager */
 
-SVMShaderManager::SVMShaderManager()
-{
-}
+SVMShaderManager::SVMShaderManager() {}
 
-SVMShaderManager::~SVMShaderManager()
-{
-}
+SVMShaderManager::~SVMShaderManager() {}
 
-void SVMShaderManager::reset(Scene * /*scene*/)
-{
-}
+void SVMShaderManager::reset(Scene * /*scene*/) {}
 
 void SVMShaderManager::device_update_shader(Scene *scene,
                                             Shader *shader,
@@ -109,7 +104,7 @@ void SVMShaderManager::device_update_specific(Device *device,
     Shader *shader = scene->shaders[i];
 
     shader->clear_modified();
-    if (shader->get_use_mis() && shader->has_surface_emission) {
+    if (shader->emission_sampling != EMISSION_SAMPLING_NONE) {
       scene->light_manager->tag_update(scene, LightManager::SHADER_COMPILED);
     }
 
@@ -268,7 +263,8 @@ int SVMCompiler::stack_assign(ShaderInput *input)
         add_node(NODE_VALUE_F, node->get_int(input->socket_type), input->stack_offset);
       }
       else if (input->type() == SocketType::VECTOR || input->type() == SocketType::NORMAL ||
-               input->type() == SocketType::POINT || input->type() == SocketType::COLOR) {
+               input->type() == SocketType::POINT || input->type() == SocketType::COLOR)
+      {
 
         add_node(NODE_VALUE_V, input->stack_offset);
         add_node(NODE_VALUE_V, node->get_float3(input->socket_type));
@@ -419,7 +415,8 @@ void SVMCompiler::find_dependencies(ShaderNodeSet &dependencies,
 {
   ShaderNode *node = (input->link) ? input->link->parent : NULL;
   if (node != NULL && done.find(node) == done.end() && node != skip_node &&
-      dependencies.find(node) == dependencies.end()) {
+      dependencies.find(node) == dependencies.end())
+  {
     foreach (ShaderInput *in, node->inputs) {
       find_dependencies(dependencies, done, in, skip_node);
     }
@@ -516,8 +513,6 @@ void SVMCompiler::generate_closure_node(ShaderNode *node, CompilerState *state)
   mix_weight_offset = SVM_STACK_INVALID;
 
   if (current_type == SHADER_TYPE_SURFACE) {
-    if (node->has_surface_emission())
-      current_shader->has_surface_emission = true;
     if (node->has_surface_transparent())
       current_shader->has_surface_transparent = true;
     if (node->has_surface_bssrdf()) {
@@ -873,7 +868,6 @@ void SVMCompiler::compile(Shader *shader, array<int4> &svm_nodes, int index, Sum
   current_shader = shader;
 
   shader->has_surface = false;
-  shader->has_surface_emission = false;
   shader->has_surface_transparent = false;
   shader->has_surface_raytrace = false;
   shader->has_surface_bssrdf = false;
@@ -928,6 +922,9 @@ void SVMCompiler::compile(Shader *shader, array<int4> &svm_nodes, int index, Sum
     summary->peak_stack_usage = max_stack_use;
     summary->num_svm_nodes = svm_nodes.size() - start_num_svm_nodes;
   }
+
+  /* Estimate emission for MIS. */
+  shader->estimate_emission();
 }
 
 /* Compiler summary implementation. */

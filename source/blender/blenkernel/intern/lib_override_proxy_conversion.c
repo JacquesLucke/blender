@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2016 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2016 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -45,7 +46,7 @@ bool BKE_lib_override_library_proxy_convert(Main *bmain,
                                                 &ob_proxy->proxy->id;
   ID *id_instance_hint = is_override_instancing_object ? &ob_proxy_group->id : &ob_proxy->id;
 
-  /* In some cases the instance collection of a proxy object may be local (see e.g. T83875). Not
+  /* In some cases the instance collection of a proxy object may be local (see e.g. #83875). Not
    * sure this is a valid state, but for now just abort the overriding process. */
   if (!ID_IS_OVERRIDABLE_LIBRARY_HIERARCHY(id_root)) {
     if (ob_proxy->proxy != NULL) {
@@ -63,7 +64,7 @@ bool BKE_lib_override_library_proxy_convert(Main *bmain,
   ob_proxy->proxy->id.tag |= LIB_TAG_DOIT;
   ob_proxy->proxy->id.newid = &ob_proxy->id;
   BKE_lib_override_library_init(&ob_proxy->id, &ob_proxy->proxy->id);
-  ob_proxy->id.override_library->flag &= ~IDOVERRIDE_LIBRARY_FLAG_SYSTEM_DEFINED;
+  ob_proxy->id.override_library->flag &= ~LIBOVERRIDE_FLAG_SYSTEM_DEFINED;
 
   ob_proxy->proxy->proxy_from = NULL;
   ob_proxy->proxy = ob_proxy->proxy_group = NULL;
@@ -73,7 +74,7 @@ bool BKE_lib_override_library_proxy_convert(Main *bmain,
   /* In case of proxy conversion, remap all local ID usages to linked IDs to their newly created
    * overrides. Also do that for the IDs from the same lib as the proxy in case it is linked.
    * While this might not be 100% the desired behavior, it is likely to be the case most of the
-   * time. Ref: T91711. */
+   * time. Ref: #91711. */
   ID *id_iter;
   FOREACH_MAIN_ID_BEGIN (bmain, id_iter) {
     if (!ID_IS_LINKED(id_iter) || id_iter->lib == ob_proxy->id.lib) {
@@ -130,7 +131,8 @@ void BKE_lib_override_library_main_proxy_convert(Main *bmain, BlendFileReadRepor
     FOREACH_SCENE_OBJECT_END;
 
     for (LinkNode *proxy_object_iter = proxy_objects.list; proxy_object_iter != NULL;
-         proxy_object_iter = proxy_object_iter->next) {
+         proxy_object_iter = proxy_object_iter->next)
+    {
       Object *proxy_object = proxy_object_iter->link;
       lib_override_library_proxy_convert_do(bmain, scene, proxy_object, reports);
     }

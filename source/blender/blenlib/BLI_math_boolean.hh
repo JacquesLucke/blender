@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -7,11 +9,11 @@
  * \brief Math vector functions needed specifically for mesh intersect and boolean.
  */
 
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 
 #ifdef WITH_GMP
 #  include "BLI_math_mpq.hh"
-#  include "BLI_math_vec_mpq_types.hh"
+#  include "BLI_math_vector_mpq_types.hh"
 #endif
 
 namespace blender {

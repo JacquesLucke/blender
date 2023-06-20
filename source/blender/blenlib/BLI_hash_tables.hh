@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -310,7 +312,7 @@ class HashTableStats {
     std::cout << "  Removed Slots: " << removed_amount_ << " (" << removed_load_factor_ * 100.0f
               << " %)\n";
 
-    char memory_size_str[15];
+    char memory_size_str[BLI_STR_FORMAT_INT64_BYTE_UNIT_SIZE];
     BLI_str_format_byte_unit(memory_size_str, size_in_bytes_, true);
     std::cout << "  Size: ~" << memory_size_str << "\n";
     std::cout << "  Size per Slot: " << size_per_element_ << " bytes\n";
@@ -351,6 +353,24 @@ struct PointerComparison {
 template<typename T> struct DefaultEquality<std::unique_ptr<T>> : public PointerComparison {
 };
 template<typename T> struct DefaultEquality<std::shared_ptr<T>> : public PointerComparison {
+};
+
+struct SequenceComparison {
+  template<typename T1, typename T2> bool operator()(const T1 &a, const T2 &b) const
+  {
+    const auto a_begin = a.begin();
+    const auto a_end = a.end();
+    const auto b_begin = b.begin();
+    const auto b_end = b.end();
+    if (a_end - a_begin != b_end - b_begin) {
+      return false;
+    }
+    return std::equal(a_begin, a_end, b_begin);
+  }
+};
+
+template<typename T, int64_t InlineBufferCapacity, typename Allocator>
+struct DefaultEquality<Vector<T, InlineBufferCapacity, Allocator>> : public SequenceComparison {
 };
 
 }  // namespace blender

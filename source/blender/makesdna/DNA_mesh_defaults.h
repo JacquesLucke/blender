@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -15,9 +17,9 @@
 
 #define _DNA_DEFAULT_Mesh \
   { \
-    .size = {1.0f, 1.0f, 1.0f}, \
+    .texspace_size = {1.0f, 1.0f, 1.0f}, \
     .smoothresh = DEG2RADF(30), \
-    .texflag = ME_AUTOSPACE, \
+    .texspace_flag = ME_TEXSPACE_FLAG_AUTO, \
     .remesh_voxel_size = 0.1f, \
     .remesh_voxel_adaptivity = 0.0f, \
     .face_sets_color_seed = 0, \

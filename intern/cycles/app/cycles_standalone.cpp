@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include <stdio.h>
 
@@ -511,7 +512,8 @@ static void options_parse(int argc, const char **argv)
     exit(EXIT_FAILURE);
   }
   else if (options.scene_params.shadingsystem == SHADINGSYSTEM_OSL &&
-           options.session_params.device.type != DEVICE_CPU) {
+           options.session_params.device.type != DEVICE_CPU)
+  {
     fprintf(stderr, "OSL shading system only works with CPU device\n");
     exit(EXIT_FAILURE);
   }

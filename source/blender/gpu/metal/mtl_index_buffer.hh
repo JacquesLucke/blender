@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -18,11 +20,15 @@ namespace blender::gpu {
 class MTLIndexBuf : public IndexBuf {
   friend class MTLBatch;
   friend class MTLDrawList;
+  friend class MTLStorageBuf; /* For bind as SSBO resource access. */
 
  private:
   /* Metal buffer resource. */
   gpu::MTLBuffer *ibo_ = nullptr;
   uint64_t alloc_size_ = 0;
+
+  /* SSBO wrapper for bind_as_ssbo support. */
+  MTLStorageBuf *ssbo_wrapper_ = nullptr;
 
 #ifndef NDEBUG
   /* Flags whether point index buffer has been compacted
@@ -48,7 +54,7 @@ class MTLIndexBuf : public IndexBuf {
   ~MTLIndexBuf();
 
   void bind_as_ssbo(uint32_t binding) override;
-  const uint32_t *read() const override;
+  void read(uint32_t *data) const override;
 
   void upload_data() override;
   void update_sub(uint32_t start, uint32_t len, const void *data) override;

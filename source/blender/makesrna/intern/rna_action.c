@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -179,7 +181,7 @@ static TimeMarker *rna_Action_pose_markers_new(bAction *act, const char name[])
   TimeMarker *marker = MEM_callocN(sizeof(TimeMarker), "TimeMarker");
   marker->flag = SELECT;
   marker->frame = 1;
-  BLI_strncpy_utf8(marker->name, name, sizeof(marker->name));
+  STRNCPY_UTF8(marker->name, name);
   BLI_addtail(&act->markers, marker);
   return marker;
 }
@@ -876,7 +878,7 @@ static void rna_def_action(BlenderRNA *brna)
   RNA_def_property_collection_sdna(prop, NULL, "markers", NULL);
   RNA_def_property_struct_type(prop, "TimelineMarker");
   /* Use lib exception so the list isn't grayed out;
-   * adding/removing is still banned though, see T45689. */
+   * adding/removing is still banned though, see #45689. */
   RNA_def_property_flag(prop, PROP_LIB_EXCEPTION);
   RNA_def_property_ui_text(
       prop, "Pose Markers", "Markers specific to this action, for labeling poses");

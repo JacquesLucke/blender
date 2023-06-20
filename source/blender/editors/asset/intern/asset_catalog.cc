@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edasset
@@ -18,6 +20,13 @@
 
 using namespace blender;
 using namespace blender::asset_system;
+
+bool ED_asset_catalogs_read_only(const ::AssetLibrary &library)
+{
+  asset_system::AssetCatalogService *catalog_service = AS_asset_library_get_catalog_service(
+      &library);
+  return catalog_service->is_read_only();
+}
 
 struct CatalogUniqueNameFnData {
   const AssetCatalogService &catalog_service;
@@ -53,6 +62,9 @@ asset_system::AssetCatalog *ED_asset_catalog_add(::AssetLibrary *library,
   if (!catalog_service) {
     return nullptr;
   }
+  if (ED_asset_catalogs_read_only(*library)) {
+    return nullptr;
+  }
 
   std::string unique_name = catalog_name_ensure_unique(*catalog_service, name, parent_path);
   AssetCatalogPath fullpath = AssetCatalogPath(parent_path) / unique_name;
@@ -76,6 +88,9 @@ void ED_asset_catalog_remove(::AssetLibrary *library, const CatalogID &catalog_i
     BLI_assert_unreachable();
     return;
   }
+  if (ED_asset_catalogs_read_only(*library)) {
+    return;
+  }
 
   catalog_service->undo_push();
   catalog_service->tag_has_unsaved_changes(nullptr);
@@ -91,6 +106,9 @@ void ED_asset_catalog_rename(::AssetLibrary *library,
       library);
   if (!catalog_service) {
     BLI_assert_unreachable();
+    return;
+  }
+  if (ED_asset_catalogs_read_only(*library)) {
     return;
   }
 
@@ -118,6 +136,9 @@ void ED_asset_catalog_move(::AssetLibrary *library,
       library);
   if (!catalog_service) {
     BLI_assert_unreachable();
+    return;
+  }
+  if (ED_asset_catalogs_read_only(*library)) {
     return;
   }
 
@@ -159,6 +180,9 @@ void ED_asset_catalogs_save_from_main_path(::AssetLibrary *library, const Main *
       library);
   if (!catalog_service) {
     BLI_assert_unreachable();
+    return;
+  }
+  if (ED_asset_catalogs_read_only(*library)) {
     return;
   }
 

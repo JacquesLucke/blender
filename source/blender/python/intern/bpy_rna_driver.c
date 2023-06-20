@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup pythonintern
@@ -20,14 +22,17 @@
 
 #include "bpy_rna_driver.h" /* own include */
 
-PyObject *pyrna_driver_get_variable_value(struct ChannelDriver *driver, struct DriverTarget *dtar)
+PyObject *pyrna_driver_get_variable_value(const struct AnimationEvalContext *anim_eval_context,
+                                          struct ChannelDriver *driver,
+                                          struct DriverVar *dvar,
+                                          struct DriverTarget *dtar)
 {
   PyObject *driver_arg = NULL;
   PointerRNA ptr;
   PropertyRNA *prop = NULL;
   int index;
 
-  if (driver_get_variable_property(driver, dtar, &ptr, &prop, &index)) {
+  if (driver_get_variable_property(anim_eval_context, driver, dvar, dtar, &ptr, &prop, &index)) {
     if (prop) {
       if (index != -1) {
         if (index < RNA_property_array_length(&ptr, prop) && index >= 0) {
@@ -43,7 +48,7 @@ PyObject *pyrna_driver_get_variable_value(struct ChannelDriver *driver, struct D
         const PropertyType type = RNA_property_type(prop);
         if (type == PROP_ENUM) {
           /* Note that enum's are converted to strings by default,
-           * we want to avoid that, see: T52213 */
+           * we want to avoid that, see: #52213 */
           driver_arg = PyLong_FromLong(RNA_property_enum_get(&ptr, prop));
         }
         else {
@@ -75,7 +80,8 @@ bool pyrna_driver_is_equal_anim_rna(const PathResolvedRNA *anim_rna, const PyObj
     const PointerRNA *ptr_b = &(((const BPy_StructRNA *)py_anim_rna)->ptr);
 
     if ((ptr_a->owner_id == ptr_b->owner_id) && (ptr_a->type == ptr_b->type) &&
-        (ptr_a->data == ptr_b->data)) {
+        (ptr_a->data == ptr_b->data))
+    {
       return true;
     }
   }

@@ -1,14 +1,14 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "testing/testing.h"
 
 #include "MEM_guardedalloc.h"
 
-extern "C" {
 #include "BLI_math.h"
 #include "BLI_rand.h"
 #include "PIL_time.h"
-}
 
 #include <fstream>
 #include <iostream>
@@ -23,7 +23,7 @@ extern "C" {
 #include "BLI_array.hh"
 #include "BLI_math_boolean.hh"
 #include "BLI_math_mpq.hh"
-#include "BLI_math_vec_mpq_types.hh"
+#include "BLI_math_vector_mpq_types.hh"
 #include "BLI_vector.hh"
 
 #include "BLI_delaunay_2d.h"
@@ -165,7 +165,8 @@ int get_output_edge_index(const CDT_result<T> &out, int out_index_1, int out_ind
   int ne = int(out.edge.size());
   for (int i = 0; i < ne; ++i) {
     if ((out.edge[i].first == out_index_1 && out.edge[i].second == out_index_2) ||
-        (out.edge[i].first == out_index_2 && out.edge[i].second == out_index_1)) {
+        (out.edge[i].first == out_index_2 && out.edge[i].second == out_index_1))
+    {
       return i;
     }
   }

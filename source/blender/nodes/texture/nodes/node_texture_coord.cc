@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup texnodes
@@ -14,13 +15,13 @@ static bNodeSocketTemplate outputs[] = {
 };
 
 static void vectorfn(
-    float *out, TexParams *p, bNode *UNUSED(node), bNodeStack **UNUSED(in), short UNUSED(thread))
+    float *out, TexParams *p, bNode * /*node*/, bNodeStack ** /*in*/, short /*thread*/)
 {
   copy_v3_v3(out, p->co);
 }
 
 static void exec(void *data,
-                 int UNUSED(thread),
+                 int /*thread*/,
                  bNode *node,
                  bNodeExecData *execdata,
                  bNodeStack **in,
@@ -29,12 +30,12 @@ static void exec(void *data,
   tex_output(node, execdata, in, out[0], &vectorfn, static_cast<TexCallData *>(data));
 }
 
-void register_node_type_tex_coord(void)
+void register_node_type_tex_coord()
 {
   static bNodeType ntype;
 
   tex_node_type_base(&ntype, TEX_NODE_COORD, "Coordinates", NODE_CLASS_INPUT);
-  node_type_socket_templates(&ntype, nullptr, outputs);
+  blender::bke::node_type_socket_templates(&ntype, nullptr, outputs);
   ntype.exec_fn = exec;
 
   nodeRegisterType(&ntype);

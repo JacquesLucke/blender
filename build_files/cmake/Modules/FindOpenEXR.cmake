@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2011 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2011 Blender Foundation.
 
 # - Find OpenEXR library
 # Find the native OpenEXR includes and library
@@ -120,9 +121,8 @@ UNSET(_openexr_libs_ver)
 
 IF(OPENEXR_VERSION VERSION_GREATER_EQUAL "3.0.0")
   # For OpenEXR 3.x, we also need to find the now separate Imath library.
-  # For simplicity we add it to the OpenEXR includes and libraries, as we
-  # have no direct dependency on Imath and it's simpler to support both
-  # 2.x and 3.x this way.
+  # For simplicity we also add it to the OpenEXR includes and libraries,
+  # as it's simpler to support both 2.x and 3.x this way.
 
   # Find include directory
   FIND_PATH(IMATH_INCLUDE_DIR
@@ -169,10 +169,16 @@ IF(OPENEXR_VERSION VERSION_GREATER_EQUAL "3.0.0")
   UNSET(_imath_build_specification)
 ENDIF()
 
+IF(OPENEXR_VERSION VERSION_GREATER_EQUAL "3.0.0")
+	SET(IMATH_LIBRARIES ${IMATH_LIBRARY})
+ELSE()
+	SET(IMATH_LIBRARIES ${OPENEXR_IMATH_LIBRARY})
+ENDIF()
+
 # handle the QUIETLY and REQUIRED arguments and set OPENEXR_FOUND to TRUE if
 # all listed variables are TRUE
 INCLUDE(FindPackageHandleStandardArgs)
-FIND_PACKAGE_HANDLE_STANDARD_ARGS(OpenEXR  DEFAULT_MSG
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(OpenEXR DEFAULT_MSG
     _openexr_LIBRARIES OPENEXR_INCLUDE_DIR)
 
 IF(OPENEXR_FOUND)
@@ -196,6 +202,7 @@ MARK_AS_ADVANCED(
   OPENEXR_VERSION
   IMATH_INCLUDE_DIR
   IMATH_LIBRARY
+  IMATH_LIBRARIES
 )
 FOREACH(COMPONENT ${_openexr_FIND_COMPONENTS})
   STRING(TOUPPER ${COMPONENT} UPPERCOMPONENT)

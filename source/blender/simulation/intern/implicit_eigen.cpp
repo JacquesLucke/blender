@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2015-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup sim
@@ -76,9 +77,7 @@ class fVector : public Eigen::Vector3f {
  public:
   typedef float *ctype;
 
-  fVector()
-  {
-  }
+  fVector() {}
 
   fVector(const ctype &v)
   {
@@ -108,9 +107,7 @@ class fMatrix : public Eigen::Matrix3f {
  public:
   typedef float (*ctype)[3];
 
-  fMatrix()
-  {
-  }
+  fMatrix() {}
 
   fMatrix(const ctype &v)
   {
@@ -144,9 +141,7 @@ class lVector : public Eigen::VectorXf {
  public:
   typedef Eigen::VectorXf base_t;
 
-  lVector()
-  {
-  }
+  lVector() {}
 
   template<typename T> lVector &operator=(T rhs)
   {
@@ -177,9 +172,7 @@ typedef Eigen::SparseMatrix<Scalar> lMatrix;
  * matrix can be filled using construct().
  */
 struct lMatrixCtor {
-  lMatrixCtor()
-  {
-  }
+  lMatrixCtor() {}
 
   void reset()
   {

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "device/denoise.h"
 
@@ -70,8 +71,6 @@ NODE_DEFINE(DenoiseParams)
   return type;
 }
 
-DenoiseParams::DenoiseParams() : Node(get_node_type())
-{
-}
+DenoiseParams::DenoiseParams() : Node(get_node_type()) {}
 
 CCL_NAMESPACE_END

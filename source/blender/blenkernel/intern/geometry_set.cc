@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_bounds.hh"
 #include "BLI_map.hh"
@@ -9,9 +11,10 @@
 #include "BKE_attribute.h"
 #include "BKE_curves.hh"
 #include "BKE_geometry_set.hh"
+#include "BKE_geometry_set_instances.hh"
 #include "BKE_instances.hh"
 #include "BKE_lib_id.h"
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 #include "BKE_mesh_wrapper.h"
 #include "BKE_modifier.h"
 #include "BKE_pointcloud.h"
@@ -25,42 +28,32 @@
 
 #include "MEM_guardedalloc.h"
 
-using blender::float3;
-using blender::float4x4;
-using blender::Map;
-using blender::MutableSpan;
-using blender::Span;
-using blender::StringRef;
-using blender::Vector;
-using blender::bke::InstanceReference;
-using blender::bke::Instances;
-
 /* -------------------------------------------------------------------- */
 /** \name Geometry Component
  * \{ */
 
-GeometryComponent::GeometryComponent(GeometryComponentType type) : type_(type)
-{
-}
+namespace blender::bke {
 
-GeometryComponent *GeometryComponent::create(GeometryComponentType component_type)
+GeometryComponent::GeometryComponent(Type type) : type_(type) {}
+
+GeometryComponentPtr GeometryComponent::create(Type component_type)
 {
   switch (component_type) {
-    case GEO_COMPONENT_TYPE_MESH:
+    case Type::Mesh:
       return new MeshComponent();
-    case GEO_COMPONENT_TYPE_POINT_CLOUD:
+    case Type::PointCloud:
       return new PointCloudComponent();
-    case GEO_COMPONENT_TYPE_INSTANCES:
+    case Type::Instance:
       return new InstancesComponent();
-    case GEO_COMPONENT_TYPE_VOLUME:
+    case Type::Volume:
       return new VolumeComponent();
-    case GEO_COMPONENT_TYPE_CURVE:
+    case Type::Curve:
       return new CurveComponent();
-    case GEO_COMPONENT_TYPE_EDIT:
+    case Type::Edit:
       return new GeometryComponentEditData();
   }
   BLI_assert_unreachable();
-  return nullptr;
+  return {};
 }
 
 int GeometryComponent::attribute_domain_size(const eAttrDomain domain) const
@@ -68,43 +61,23 @@ int GeometryComponent::attribute_domain_size(const eAttrDomain domain) const
   if (this->is_empty()) {
     return 0;
   }
-  const std::optional<blender::bke::AttributeAccessor> attributes = this->attributes();
+  const std::optional<AttributeAccessor> attributes = this->attributes();
   if (attributes.has_value()) {
     return attributes->domain_size(domain);
   }
   return 0;
 }
 
-std::optional<blender::bke::AttributeAccessor> GeometryComponent::attributes() const
+std::optional<AttributeAccessor> GeometryComponent::attributes() const
 {
   return std::nullopt;
 };
-std::optional<blender::bke::MutableAttributeAccessor> GeometryComponent::attributes_for_write()
+std::optional<MutableAttributeAccessor> GeometryComponent::attributes_for_write()
 {
   return std::nullopt;
 }
 
-void GeometryComponent::user_add() const
-{
-  users_.fetch_add(1);
-}
-
-void GeometryComponent::user_remove() const
-{
-  const int new_users = users_.fetch_sub(1) - 1;
-  if (new_users == 0) {
-    delete this;
-  }
-}
-
-bool GeometryComponent::is_mutable() const
-{
-  /* If the item is shared, it is read-only. */
-  /* The user count can be 0, when this is called from the destructor. */
-  return users_ <= 1;
-}
-
-GeometryComponentType GeometryComponent::type() const
+GeometryComponent::Type GeometryComponent::type() const
 {
   return type_;
 }
@@ -112,6 +85,16 @@ GeometryComponentType GeometryComponent::type() const
 bool GeometryComponent::is_empty() const
 {
   return false;
+}
+
+void GeometryComponent::delete_self()
+{
+  delete this;
+}
+
+void GeometryComponent::delete_data_only()
+{
+  this->clear();
 }
 
 /** \} */
@@ -127,9 +110,9 @@ GeometrySet::~GeometrySet() = default;
 GeometrySet &GeometrySet::operator=(const GeometrySet &other) = default;
 GeometrySet &GeometrySet::operator=(GeometrySet &&other) = default;
 
-GeometryComponent &GeometrySet::get_component_for_write(GeometryComponentType component_type)
+GeometryComponent &GeometrySet::get_component_for_write(GeometryComponent::Type component_type)
 {
-  GeometryComponentPtr &component_ptr = components_[component_type];
+  GeometryComponentPtr &component_ptr = components_[size_t(component_type)];
   if (!component_ptr) {
     /* If the component did not exist before, create a new one. */
     component_ptr = GeometryComponent::create(component_type);
@@ -137,6 +120,7 @@ GeometryComponent &GeometrySet::get_component_for_write(GeometryComponentType co
   }
   if (component_ptr->is_mutable()) {
     /* If the referenced component is already mutable, return it directly. */
+    component_ptr->tag_ensured_mutable();
     return *component_ptr;
   }
   /* If the referenced component is shared, make a copy. The copy is not shared and is
@@ -145,7 +129,7 @@ GeometryComponent &GeometrySet::get_component_for_write(GeometryComponentType co
   return *component_ptr;
 }
 
-GeometryComponent *GeometrySet::get_component_ptr(GeometryComponentType type)
+GeometryComponent *GeometrySet::get_component_ptr(GeometryComponent::Type type)
 {
   if (this->has(type)) {
     return &this->get_component_for_write(type);
@@ -154,22 +138,23 @@ GeometryComponent *GeometrySet::get_component_ptr(GeometryComponentType type)
 }
 
 const GeometryComponent *GeometrySet::get_component_for_read(
-    GeometryComponentType component_type) const
+    GeometryComponent::Type component_type) const
 {
-  return components_[component_type].get();
+  return components_[size_t(component_type)].get();
 }
 
-bool GeometrySet::has(const GeometryComponentType component_type) const
+bool GeometrySet::has(const GeometryComponent::Type component_type) const
 {
-  return components_[component_type].has_value();
+  const GeometryComponentPtr &component = components_[size_t(component_type)];
+  return component.has_value() && !component->is_empty();
 }
 
-void GeometrySet::remove(const GeometryComponentType component_type)
+void GeometrySet::remove(const GeometryComponent::Type component_type)
 {
-  components_[component_type].reset();
+  components_[size_t(component_type)].reset();
 }
 
-void GeometrySet::keep_only(const blender::Span<GeometryComponentType> component_types)
+void GeometrySet::keep_only(const Span<GeometryComponent::Type> component_types)
 {
   for (GeometryComponentPtr &component_ptr : components_) {
     if (component_ptr) {
@@ -180,12 +165,11 @@ void GeometrySet::keep_only(const blender::Span<GeometryComponentType> component
   }
 }
 
-void GeometrySet::keep_only_during_modify(
-    const blender::Span<GeometryComponentType> component_types)
+void GeometrySet::keep_only_during_modify(const Span<GeometryComponent::Type> component_types)
 {
-  Vector<GeometryComponentType> extended_types = component_types;
-  extended_types.append_non_duplicates(GEO_COMPONENT_TYPE_INSTANCES);
-  extended_types.append_non_duplicates(GEO_COMPONENT_TYPE_EDIT);
+  Vector<GeometryComponent::Type> extended_types = component_types;
+  extended_types.append_non_duplicates(GeometryComponent::Type::Instance);
+  extended_types.append_non_duplicates(GeometryComponent::Type::Edit);
   this->keep_only(extended_types);
 }
 
@@ -196,9 +180,9 @@ void GeometrySet::remove_geometry_during_modify()
 
 void GeometrySet::add(const GeometryComponent &component)
 {
-  BLI_assert(!components_[component.type()]);
-  component.user_add();
-  components_[component.type()] = const_cast<GeometryComponent *>(&component);
+  BLI_assert(!components_[size_t(component.type())]);
+  component.add_user();
+  components_[size_t(component.type())] = const_cast<GeometryComponent *>(&component);
 }
 
 Vector<const GeometryComponent *> GeometrySet::get_components_for_read() const
@@ -212,24 +196,30 @@ Vector<const GeometryComponent *> GeometrySet::get_components_for_read() const
   return components;
 }
 
-bool GeometrySet::compute_boundbox_without_instances(float3 *r_min, float3 *r_max) const
+std::optional<Bounds<float3>> GeometrySet::compute_boundbox_without_instances() const
 {
-  using namespace blender;
-  bool have_minmax = false;
+  std::optional<Bounds<float3>> bounds;
   if (const PointCloud *pointcloud = this->get_pointcloud_for_read()) {
-    have_minmax |= pointcloud->bounds_min_max(*r_min, *r_max);
+    bounds = bounds::merge(bounds, pointcloud->bounds_min_max());
   }
   if (const Mesh *mesh = this->get_mesh_for_read()) {
-    have_minmax |= BKE_mesh_wrapper_minmax(mesh, *r_min, *r_max);
+    Bounds<float3> mesh_bounds{float3(std::numeric_limits<float>::max()),
+                               float3(std::numeric_limits<float>::min())};
+    if (BKE_mesh_wrapper_minmax(mesh, mesh_bounds.min, mesh_bounds.max)) {
+      bounds = bounds::merge(bounds, {mesh_bounds});
+    }
   }
   if (const Volume *volume = this->get_volume_for_read()) {
-    have_minmax |= BKE_volume_min_max(volume, *r_min, *r_max);
+    Bounds<float3> volume_bounds{float3(std::numeric_limits<float>::max()),
+                                 float3(std::numeric_limits<float>::min())};
+    if (BKE_volume_min_max(volume, volume_bounds.min, volume_bounds.max)) {
+      bounds = bounds::merge(bounds, {volume_bounds});
+    }
   }
   if (const Curves *curves_id = this->get_curves_for_read()) {
-    const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id->geometry);
-    have_minmax |= curves.bounds_min_max(*r_min, *r_max);
+    bounds = bounds::merge(bounds, curves_id->geometry.wrap().bounds_min_max());
   }
-  return have_minmax;
+  return bounds;
 }
 
 std::ostream &operator<<(std::ostream &stream, const GeometrySet &geometry_set)
@@ -291,6 +281,14 @@ void GeometrySet::ensure_owns_direct_data()
   }
 }
 
+void GeometrySet::ensure_owns_all_data()
+{
+  if (Instances *instances = this->get_instances_for_write()) {
+    instances->ensure_geometry_instances();
+  }
+  this->ensure_owns_direct_data();
+}
+
 bool GeometrySet::owns_direct_data() const
 {
   for (const GeometryComponentPtr &component_ptr : components_) {
@@ -339,7 +337,7 @@ const Instances *GeometrySet::get_instances_for_read() const
   return (component == nullptr) ? nullptr : component->get_for_read();
 }
 
-const blender::bke::CurvesEditHints *GeometrySet::get_curve_edit_hints_for_read() const
+const CurvesEditHints *GeometrySet::get_curve_edit_hints_for_read() const
 {
   const GeometryComponentEditData *component =
       this->get_component_for_read<GeometryComponentEditData>();
@@ -375,7 +373,7 @@ bool GeometrySet::has_realized_data() const
 {
   for (const GeometryComponentPtr &component_ptr : components_) {
     if (component_ptr) {
-      if (component_ptr->type() != GEO_COMPONENT_TYPE_INSTANCES) {
+      if (component_ptr->type() != GeometryComponent::Type::Instance) {
         return true;
       }
     }
@@ -538,7 +536,7 @@ Instances *GeometrySet::get_instances_for_write()
   return component == nullptr ? nullptr : component->get_for_write();
 }
 
-blender::bke::CurvesEditHints *GeometrySet::get_curve_edit_hints_for_write()
+CurvesEditHints *GeometrySet::get_curve_edit_hints_for_write()
 {
   if (!this->has<GeometryComponentEditData>()) {
     return nullptr;
@@ -548,13 +546,11 @@ blender::bke::CurvesEditHints *GeometrySet::get_curve_edit_hints_for_write()
   return component.curves_edit_hints_.get();
 }
 
-void GeometrySet::attribute_foreach(const Span<GeometryComponentType> component_types,
+void GeometrySet::attribute_foreach(const Span<GeometryComponent::Type> component_types,
                                     const bool include_instances,
                                     const AttributeForeachCallback callback) const
 {
-  using namespace blender;
-  using namespace blender::bke;
-  for (const GeometryComponentType component_type : component_types) {
+  for (const GeometryComponent::Type component_type : component_types) {
     if (!this->has(component_type)) {
       continue;
     }
@@ -577,16 +573,15 @@ void GeometrySet::attribute_foreach(const Span<GeometryComponentType> component_
 }
 
 void GeometrySet::gather_attributes_for_propagation(
-    const Span<GeometryComponentType> component_types,
-    const GeometryComponentType dst_component_type,
+    const Span<GeometryComponent::Type> component_types,
+    const GeometryComponent::Type dst_component_type,
     bool include_instances,
-    blender::Map<blender::bke::AttributeIDRef, blender::bke::AttributeKind> &r_attributes) const
+    const AnonymousAttributePropagationInfo &propagation_info,
+    Map<AttributeIDRef, AttributeKind> &r_attributes) const
 {
-  using namespace blender;
-  using namespace blender::bke;
   /* Only needed right now to check if an attribute is built-in on this component type.
    * TODO: Get rid of the dummy component. */
-  const GeometryComponent *dummy_component = GeometryComponent::create(dst_component_type);
+  const GeometryComponentPtr dummy_component = GeometryComponent::create(dst_component_type);
   this->attribute_foreach(
       component_types,
       include_instances,
@@ -604,12 +599,14 @@ void GeometrySet::gather_attributes_for_propagation(
           /* Propagating string attributes is not supported yet. */
           return;
         }
-        if (!attribute_id.should_be_kept()) {
+        if (attribute_id.is_anonymous() &&
+            !propagation_info.propagate(attribute_id.anonymous_id())) {
           return;
         }
 
         eAttrDomain domain = meta_data.domain;
-        if (dst_component_type != GEO_COMPONENT_TYPE_INSTANCES && domain == ATTR_DOMAIN_INSTANCE) {
+        if (dst_component_type != GeometryComponent::Type::Instance &&
+            domain == ATTR_DOMAIN_INSTANCE) {
           domain = ATTR_DOMAIN_POINT;
         }
 
@@ -625,13 +622,12 @@ void GeometrySet::gather_attributes_for_propagation(
         };
         r_attributes.add_or_modify(attribute_id, add_info, modify_info);
       });
-  delete dummy_component;
 }
 
 static void gather_component_types_recursive(const GeometrySet &geometry_set,
                                              const bool include_instances,
                                              const bool ignore_empty,
-                                             Vector<GeometryComponentType> &r_types)
+                                             Vector<GeometryComponent::Type> &r_types)
 {
   for (const GeometryComponent *component : geometry_set.get_components_for_read()) {
     if (ignore_empty) {
@@ -644,7 +640,7 @@ static void gather_component_types_recursive(const GeometrySet &geometry_set,
   if (!include_instances) {
     return;
   }
-  const blender::bke::Instances *instances = geometry_set.get_instances_for_read();
+  const Instances *instances = geometry_set.get_instances_for_read();
   if (instances == nullptr) {
     return;
   }
@@ -654,10 +650,10 @@ static void gather_component_types_recursive(const GeometrySet &geometry_set,
   });
 }
 
-blender::Vector<GeometryComponentType> GeometrySet::gather_component_types(
-    const bool include_instances, bool ignore_empty) const
+Vector<GeometryComponent::Type> GeometrySet::gather_component_types(const bool include_instances,
+                                                                    bool ignore_empty) const
 {
-  Vector<GeometryComponentType> types;
+  Vector<GeometryComponent::Type> types;
   gather_component_types_recursive(*this, include_instances, ignore_empty, types);
   return types;
 }
@@ -690,25 +686,14 @@ void GeometrySet::modify_geometry_sets(ForeachSubGeometryCallback callback)
     callback(*geometry_sets.first());
   }
   else {
-    blender::threading::parallel_for_each(
-        geometry_sets, [&](GeometrySet *geometry_set) { callback(*geometry_set); });
+    threading::parallel_for_each(geometry_sets,
+                                 [&](GeometrySet *geometry_set) { callback(*geometry_set); });
   }
 }
 
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name C API
- * \{ */
-
-void BKE_geometry_set_free(GeometrySet *geometry_set)
+bool object_has_geometry_set_instances(const Object &object)
 {
-  delete geometry_set;
-}
-
-bool BKE_object_has_geometry_set_instances(const Object *ob)
-{
-  const GeometrySet *geometry_set = ob->runtime.geometry_set_eval;
+  const GeometrySet *geometry_set = object.runtime.geometry_set_eval;
   if (geometry_set == nullptr) {
     return false;
   }
@@ -716,25 +701,25 @@ bool BKE_object_has_geometry_set_instances(const Object *ob)
     if (component->is_empty()) {
       continue;
     }
-    const GeometryComponentType type = component->type();
+    const GeometryComponent::Type type = component->type();
     bool is_instance = false;
     switch (type) {
-      case GEO_COMPONENT_TYPE_MESH:
-        is_instance = ob->type != OB_MESH;
+      case GeometryComponent::Type::Mesh:
+        is_instance = object.type != OB_MESH;
         break;
-      case GEO_COMPONENT_TYPE_POINT_CLOUD:
-        is_instance = ob->type != OB_POINTCLOUD;
+      case GeometryComponent::Type::PointCloud:
+        is_instance = object.type != OB_POINTCLOUD;
         break;
-      case GEO_COMPONENT_TYPE_INSTANCES:
+      case GeometryComponent::Type::Instance:
         is_instance = true;
         break;
-      case GEO_COMPONENT_TYPE_VOLUME:
-        is_instance = ob->type != OB_VOLUME;
+      case GeometryComponent::Type::Volume:
+        is_instance = object.type != OB_VOLUME;
         break;
-      case GEO_COMPONENT_TYPE_CURVE:
-        is_instance = !ELEM(ob->type, OB_CURVES_LEGACY, OB_FONT);
+      case GeometryComponent::Type::Curve:
+        is_instance = !ELEM(object.type, OB_CURVES_LEGACY, OB_FONT);
         break;
-      case GEO_COMPONENT_TYPE_EDIT:
+      case GeometryComponent::Type::Edit:
         break;
     }
     if (is_instance) {
@@ -743,5 +728,7 @@ bool BKE_object_has_geometry_set_instances(const Object *ob)
   }
   return false;
 }
+
+}  // namespace blender::bke
 
 /** \} */

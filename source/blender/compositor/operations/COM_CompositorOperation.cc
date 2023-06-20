@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "COM_CompositorOperation.h"
 
@@ -67,14 +68,9 @@ void CompositorOperation::deinit_execution()
     if (rr) {
       RenderView *rv = RE_RenderViewGetByName(rr, view_name_);
 
-      if (rv->rectf != nullptr) {
-        MEM_freeN(rv->rectf);
-      }
-      rv->rectf = output_buffer_;
-      if (rv->rectz != nullptr) {
-        MEM_freeN(rv->rectz);
-      }
-      rv->rectz = depth_buffer_;
+      RE_RenderBuffer_assign_data(&rv->combined_buffer, output_buffer_);
+      RE_RenderBuffer_assign_data(&rv->z_buffer, depth_buffer_);
+
       rr->have_combined = true;
     }
     else {
@@ -219,7 +215,7 @@ void CompositorOperation::determine_canvas(const rcti & /*preferred_area*/, rcti
   BKE_render_resolution(rd_, false, &width, &height);
 
   /* Check actual render resolution with cropping it may differ with cropped border.rendering
-   * Fix for T31777 Border Crop gives black (easy). */
+   * Fix for #31777 Border Crop gives black (easy). */
   Render *re = RE_GetSceneRender(scene_);
   if (re) {
     RenderResult *rr = RE_AcquireResultRead(re);

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2007 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2007 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -22,8 +23,8 @@ extern "C" {
 struct wmWindow;
 struct wmWindowManager;
 
+struct wmEvent_ConsecutiveData;
 struct wmEvent;
-struct wmGesture;
 struct wmKeyConfig;
 struct wmKeyMap;
 struct wmMsgBus;
@@ -139,7 +140,8 @@ typedef struct wmWindowManager {
   ListBase windows;
 
   /** Set on file read. */
-  short initialized;
+  uint8_t init_flag;
+  char _pad0[1];
   /** Indicator whether data was saved. */
   short file_saved;
   /** Operator stack depth to avoid nested undo pushes. */
@@ -204,10 +206,10 @@ typedef struct wmWindowManager {
   //#endif
 } wmWindowManager;
 
-/** #wmWindowManager.initialized */
+/** #wmWindowManager.init_flag */
 enum {
-  WM_WINDOW_IS_INIT = (1 << 0),
-  WM_KEYCONFIG_IS_INIT = (1 << 1),
+  WM_INIT_FLAG_WINDOW = (1 << 0),
+  WM_INIT_FLAG_KEYCONFIG = (1 << 1),
 };
 
 /** #wmWindowManager.outliner_sync_select_dirty */
@@ -263,11 +265,22 @@ typedef struct wmWindow {
 
   struct bScreen *screen DNA_DEPRECATED;
 
-  /** Winid also in screens, is for retrieving this window after read. */
+  /** Window-ID also in screens, is for retrieving this window after read. */
   int winid;
-  /** Window coords. */
-  short posx, posy, sizex, sizey;
-  /** Borderless, full. */
+  /** Window coords (in pixels). */
+  short posx, posy;
+  /**
+   * Window size (in pixels).
+   *
+   * \note Loading a window typically uses the size & position saved in the blend-file,
+   * there is an exception for startup files which works as follows:
+   * Setting the window size to zero before `ghostwin` has been set has a special meaning,
+   * it causes the window size to be initialized to `wm_init_state.size_x` (& `size_y`).
+   * These default to the main screen size but can be overridden by the `--window-geometry`
+   * command line argument.
+   */
+  short sizex, sizey;
+  /** Normal, maximized, full-screen, #GHOST_TWindowState. */
   char windowstate;
   /** Set to 1 if an active window, for quick rejects. */
   char active;
@@ -277,10 +290,19 @@ typedef struct wmWindow {
   short lastcursor;
   /** The current modal cursor. */
   short modalcursor;
-  /** Cursor grab mode. */
+  /** Cursor grab mode #GHOST_TGrabCursorMode (run-time only) */
   short grabcursor;
   /** Internal: tag this for extra mouse-move event,
    * makes cursors/buttons active on UI switching. */
+
+  /** Internal, lock pie creation from this event until released. */
+  short pie_event_type_lock;
+  /**
+   * Exception to the above rule for nested pies, store last pie event for operators
+   * that spawn a new pie right after destruction of last pie.
+   */
+  short pie_event_type_last;
+
   char addmousemove;
   char tag_cursor_refresh;
 
@@ -293,19 +315,16 @@ typedef struct wmWindow {
   /**
    * Enable when the drag was handled,
    * to avoid mouse-motion continually triggering drag events which are not handled
-   * but add overhead to gizmo handling (for example), see T87511.
+   * but add overhead to gizmo handling (for example), see #87511.
    */
   char event_queue_check_drag_handled;
 
-  char _pad0[1];
-
-  /** Internal, lock pie creation from this event until released. */
-  short pie_event_type_lock;
-  /**
-   * Exception to the above rule for nested pies, store last pie event for operators
-   * that spawn a new pie right after destruction of last pie.
-   */
-  short pie_event_type_last;
+  /** The last event type (that passed #WM_event_consecutive_gesture_test check). */
+  char event_queue_consecutive_gesture_type;
+  /** The cursor location when `event_queue_consecutive_gesture_type` was set. */
+  int event_queue_consecutive_gesture_xy[2];
+  /** See #WM_event_consecutive_data_get and related API. Freed when consecutive events end. */
+  struct wmEvent_ConsecutiveData *event_queue_consecutive_gesture_data;
 
   /**
    * Storage for event system.
@@ -324,11 +343,18 @@ typedef struct wmWindow {
    *   left/right modifiers then release one. See note in #wm_event_add_ghostevent for details.
    */
   struct wmEvent *eventstate;
-  /** Keep the last handled event in `event_queue` here (owned and must be freed). */
+  /**
+   * Keep the last handled event in `event_queue` here (owned and must be freed).
+   *
+   * \warning This must only to be used for event queue logic.
+   * User interactions should use `eventstate` instead (if the event isn't passed to the function).
+   */
   struct wmEvent *event_last_handled;
 
-  /* Input Method Editor data - complex character input (especially for Asian character input)
-   * Currently WIN32 and APPLE, runtime-only data. */
+  /**
+   * Input Method Editor data - complex character input (especially for Asian character input)
+   * Currently WIN32 and APPLE, runtime-only data.
+   */
   struct wmIMEData *ime_data;
 
   /** All events #wmEvent (ghost level events were handled). */
@@ -344,10 +370,10 @@ typedef struct wmWindow {
   /** Properties for stereoscopic displays. */
   struct Stereo3dFormat *stereo3d_format;
 
-  /* custom drawing callbacks */
+  /** Custom drawing callbacks. */
   ListBase drawcalls;
 
-  /* Private runtime info to show text in the status bar. */
+  /** Private runtime info to show text in the status bar. */
   void *cursor_keymap_status;
 } wmWindow;
 
@@ -390,11 +416,14 @@ typedef struct wmKeyMapItem {
   short propvalue;
 
   /* event */
-  /** Event code itself. */
+  /** Event code itself (#EVT_LEFTCTRLKEY, #LEFTMOUSE etc). */
   short type;
-  /** KM_ANY, KM_PRESS, KM_NOTHING etc. */
+  /** Button state (#KM_ANY, #KM_PRESS, #KM_DBL_CLICK, #KM_CLICK_DRAG, #KM_NOTHING etc). */
   int8_t val;
-  /** Use when `val == KM_CLICK_DRAG`. */
+  /**
+   * The 2D direction of the event to use when `val == KM_CLICK_DRAG`.
+   * Set to #KM_DIRECTION_N, #KM_DIRECTION_S & related values, #KM_NOTHING for any direction.
+   */
   int8_t direction;
   /** `oskey` also known as apple, windows-key or super. */
   short shift, ctrl, alt, oskey;
@@ -510,7 +539,7 @@ enum {
 
 /**
  * This is similar to addon-preferences,
- * however unlike add-ons key-config's aren't saved to disk.
+ * however unlike add-ons key-configurations aren't saved to disk.
  *
  * #wmKeyConfigPref is written to DNA,
  * #wmKeyConfigPrefType_Runtime has the RNA type.
@@ -618,7 +647,7 @@ enum {
    * This difference can be important because previous settings may be used,
    * even with #PROP_SKIP_SAVE the repeat last operator will use the previous settings.
    * Unlike #OP_IS_REPEAT the selection (and context generally) may be different each time.
-   * See T60777 for an example of when this is needed.
+   * See #60777 for an example of when this is needed.
    */
   OP_IS_REPEAT_LAST = (1 << 1),
 

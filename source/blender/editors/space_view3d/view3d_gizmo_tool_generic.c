@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spview3d
@@ -50,7 +52,7 @@ static bool WIDGETGROUP_tool_generic_poll(const bContext *C, wmGizmoGroupType *g
     return false;
   }
 
-  /* Without this, refreshing the gizmo jitters in some cases with edit-mesh smooth. See T72948. */
+  /* Without this, refreshing the gizmo jitters in some cases with edit-mesh smooth. See #72948. */
   if (G.moving & G_TRANSFORM_EDIT) {
     return false;
   }
@@ -104,7 +106,7 @@ static wmGizmo *tool_generic_create_gizmo(const bContext *C, wmGizmoGroup *gzgro
   }
 
   wmWindowManager *wm = CTX_wm_manager(C);
-  struct wmKeyConfig *kc = wm->defaultconf;
+  wmKeyConfig *kc = wm->defaultconf;
 
   gz->keymap = WM_keymap_ensure(kc, tref->runtime->keymap, tref->space_type, RGN_TYPE_WINDOW);
   return gz;
@@ -138,13 +140,15 @@ static void WIDGETGROUP_tool_generic_refresh(const bContext *C, wmGizmoGroup *gz
       orientation = V3D_ORIENT_GLOBAL; /* dummy, use view. */
     }
 
+    RegionView3D *rv3d = CTX_wm_region_data(C);
     struct TransformBounds tbounds;
     const bool hide = ED_transform_calc_gizmo_stats(C,
                                                     &(struct TransformCalcParams){
                                                         .use_only_center = true,
                                                         .orientation_index = orientation + 1,
                                                     },
-                                                    &tbounds) == 0;
+                                                    &tbounds,
+                                                    rv3d) == 0;
 
     WM_gizmo_set_flag(gz, WM_GIZMO_HIDDEN, hide);
     if (hide) {

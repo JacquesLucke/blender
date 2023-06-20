@@ -12,40 +12,15 @@
 #pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
 #pragma BLENDER_REQUIRE(effect_dof_lib.glsl)
 
-/* Mipmapped input buffers, halfres but with padding to ensure mipmap alignment. */
-uniform sampler2D colorBuffer;
-uniform sampler2D cocBuffer;
-
-/* Same input buffer but with a bilinear sampler object. */
-uniform sampler2D colorBufferBilinear;
-
-/* CoC Min&Max tile buffer at 1/16th of fullres. */
-uniform sampler2D cocTilesFgBuffer;
-uniform sampler2D cocTilesBgBuffer;
-
-uniform sampler2D bokehLut;
-
-/* Used to correct the padding in the color and CoC buffers. */
-uniform vec2 gatherInputUvCorrection;
-
-uniform vec2 gatherOutputTexelSize;
-
-uniform vec2 bokehAnisotropy;
-
-layout(location = 0) out vec4 outColor;
-layout(location = 1) out float outWeight;
-#ifndef DOF_HOLEFILL_PASS
-layout(location = 2) out vec2 outOcclusion;
-#else
-
+#ifdef DOF_HOLEFILL_PASS
 /* Dirty global variable that isn't used. So it should get optimized out. */
 vec2 outOcclusion;
 #endif
 
 #ifdef DOF_FOREGROUND_PASS
-const bool is_foreground = true;
+#  define is_foreground true
 #else /* DOF_BACKGROUND_PASS */
-const bool is_foreground = false;
+#  define is_foreground false
 #endif
 
 const float unit_ring_radius = 1.0 / float(gather_ring_count);
@@ -185,7 +160,8 @@ void dof_gather_accumulator(float base_radius,
     first_ring = false;
 
     if (do_density_change && (ring == change_density_at_ring) &&
-        (density_change < gather_max_density_change)) {
+        (density_change < gather_max_density_change))
+    {
       if (dof_do_density_change(base_radius, min_intersectable_radius)) {
         base_radius *= radius_downscale_factor;
         ring += gather_density_change_ring;

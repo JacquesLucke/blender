@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -17,8 +19,8 @@
 #  include "BLI_index_range.hh"
 #  include "BLI_map.hh"
 #  include "BLI_math_mpq.hh"
-#  include "BLI_math_vec_mpq_types.hh"
-#  include "BLI_math_vec_types.hh"
+#  include "BLI_math_vector_mpq_types.hh"
+#  include "BLI_math_vector_types.hh"
 #  include "BLI_span.hh"
 #  include "BLI_utility_mixins.hh"
 #  include "BLI_vector.hh"
@@ -246,9 +248,7 @@ class IMesh {
 
  public:
   IMesh() = default;
-  IMesh(Span<Face *> faces) : face_(faces)
-  {
-  }
+  IMesh(Span<Face *> faces) : face_(faces) {}
 
   void set_faces(Span<Face *> faces);
   Face *face(int index) const
@@ -338,9 +338,7 @@ struct BoundingBox {
   float3 max{-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
   BoundingBox() = default;
-  BoundingBox(const float3 &min, const float3 &max) : min(min), max(max)
-  {
-  }
+  BoundingBox(const float3 &min, const float3 &max) : min(min), max(max) {}
 
   void combine(const float3 &p)
   {

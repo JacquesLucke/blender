@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup pythonintern
@@ -166,9 +168,9 @@ finally:
 bool python_script_error_jump(
     const char *filepath, int *r_lineno, int *r_offset, int *r_lineno_end, int *r_offset_end)
 {
-  /* WARNING(@campbellbarton): The normalized exception is restored (losing line number info).
+  /* WARNING(@ideasman42): The normalized exception is restored (losing line number info).
    * Ideally this would leave the exception state as it found it, but that needs to be done
-   * carefully with regards to reference counting, see: T97731. */
+   * carefully with regards to reference counting, see: #97731. */
 
   bool success = false;
   PyObject *exception, *value;
@@ -201,11 +203,13 @@ bool python_script_error_jump(
                              r_offset,
                              r_lineno_end,
                              r_offset_end,
-                             &text_py)) {
+                             &text_py))
+      {
         const char *filepath_exc = PyUnicode_AsUTF8(filepath_exc_py);
         /* python adds a '/', prefix, so check for both */
         if ((BLI_path_cmp(filepath_exc, filepath) == 0) ||
-            (ELEM(filepath_exc[0], '\\', '/') && BLI_path_cmp(filepath_exc + 1, filepath) == 0)) {
+            (ELEM(filepath_exc[0], '\\', '/') && BLI_path_cmp(filepath_exc + 1, filepath) == 0))
+        {
           success = true;
         }
       }
@@ -216,7 +220,8 @@ bool python_script_error_jump(
 
     for (tb = (PyTracebackObject *)PySys_GetObject("last_traceback");
          tb && (PyObject *)tb != Py_None;
-         tb = tb->tb_next) {
+         tb = tb->tb_next)
+    {
       PyObject *coerce;
       const char *tb_filepath = traceback_filepath(tb, &coerce);
       const int match = ((BLI_path_cmp(tb_filepath, filepath) == 0) ||

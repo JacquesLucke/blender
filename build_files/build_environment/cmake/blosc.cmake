@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2012-2022 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(BLOSC_EXTRA_ARGS
@@ -37,20 +39,4 @@ if(WIN32)
     external_blosc
     external_pthreads
   )
-endif()
-
-if(WIN32)
-  if(BUILD_MODE STREQUAL Release)
-    ExternalProject_Add_Step(external_blosc after_install
-      COMMAND ${CMAKE_COMMAND} -E copy ${LIBDIR}/blosc/lib/libblosc.lib ${HARVEST_TARGET}/blosc/lib/libblosc.lib
-      COMMAND ${CMAKE_COMMAND} -E copy_directory ${LIBDIR}/blosc/include/ ${HARVEST_TARGET}/blosc/include/
-      DEPENDEES install
-    )
-  endif()
-  if(BUILD_MODE STREQUAL Debug)
-    ExternalProject_Add_Step(external_blosc after_install
-      COMMAND ${CMAKE_COMMAND} -E copy ${LIBDIR}/blosc/lib/libblosc_d.lib ${HARVEST_TARGET}/blosc/lib/libblosc_d.lib
-      DEPENDEES install
-    )
-  endif()
 endif()

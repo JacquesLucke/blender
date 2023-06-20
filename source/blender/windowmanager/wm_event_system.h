@@ -1,17 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2007 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2007 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup wm
  */
 
 #pragma once
-
-/* return value of handler-operator call */
-#define WM_HANDLER_CONTINUE 0
-#define WM_HANDLER_BREAK 1
-#define WM_HANDLER_HANDLED 2
-#define WM_HANDLER_MODAL 4 /* MODAL|BREAK means unhandled */
 
 struct ARegion;
 struct GHOST_TabletData;

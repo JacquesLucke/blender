@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2019-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 """
@@ -13,10 +15,10 @@ import sys
 import make_utils
 from make_utils import call
 
-# Parse arguments
+# Parse arguments.
 
 
-def parse_arguments():
+def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--ctest-command", default="ctest")
     parser.add_argument("--cmake-command", default="cmake")

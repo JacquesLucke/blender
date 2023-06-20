@@ -1,6 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2022 NVIDIA Corporation
- * Copyright 2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2022 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "hydra/plugin.h"
 #include "hydra/render_delegate.h"
@@ -35,14 +36,19 @@ HdCyclesPlugin::HdCyclesPlugin()
 #endif
 }
 
-HdCyclesPlugin::~HdCyclesPlugin()
-{
-}
+HdCyclesPlugin::~HdCyclesPlugin() {}
 
+#if PXR_VERSION < 2302
 bool HdCyclesPlugin::IsSupported() const
 {
   return true;
 }
+#else
+bool HdCyclesPlugin::IsSupported(bool gpuEnabled) const
+{
+  return true;
+}
+#endif
 
 HdRenderDelegate *HdCyclesPlugin::CreateRenderDelegate()
 {

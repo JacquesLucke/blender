@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2008 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2008 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edanimation
@@ -11,7 +12,7 @@
 
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
-#include "DNA_gpencil_types.h"
+#include "DNA_gpencil_legacy_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
@@ -25,7 +26,7 @@
 #include "BKE_anim_data.h"
 #include "BKE_context.h"
 #include "BKE_fcurve.h"
-#include "BKE_gpencil.h"
+#include "BKE_gpencil_legacy.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
 
@@ -62,11 +63,8 @@ void ANIM_list_elem_update(Main *bmain, Scene *scene, bAnimListElem *ale)
   }
 
   /* Tag copy on the main object if updating anything directly inside AnimData */
-  if (ELEM(ale->type,
-           ANIMTYPE_ANIMDATA,
-           ANIMTYPE_NLAACTION,
-           ANIMTYPE_NLATRACK,
-           ANIMTYPE_NLACURVE)) {
+  if (ELEM(ale->type, ANIMTYPE_ANIMDATA, ANIMTYPE_NLAACTION, ANIMTYPE_NLATRACK, ANIMTYPE_NLACURVE))
+  {
     DEG_id_tag_update(id, ID_RECALC_ANIMATION);
     return;
   }
@@ -241,7 +239,7 @@ static void animchan_sync_gplayer(bAnimListElem *ale)
    * The selection flags are used in the Dopesheet only, whereas
    * the active flag is used everywhere else. Hence, we try to
    * sync these here so that it all seems to be have as the user
-   * expects - T50184
+   * expects - #50184
    *
    * Assume that we only really do this when the active status changes.
    * (NOTE: This may prove annoying if it means selection is always lost)
@@ -370,7 +368,8 @@ void ANIM_animdata_update(bAnimContext *ac, ListBase *anim_data)
                   ANIMTYPE_ANIMDATA,
                   ANIMTYPE_NLAACTION,
                   ANIMTYPE_NLATRACK,
-                  ANIMTYPE_NLACURVE)) {
+                  ANIMTYPE_NLACURVE))
+    {
       if (ale->update & ANIM_UPDATE_DEPS) {
         ale->update &= ~ANIM_UPDATE_DEPS;
         ANIM_list_elem_update(ac->bmain, ac->scene, ale);

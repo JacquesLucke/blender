@@ -1,9 +1,11 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2010-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #define DEBUG_NDOF_DRIVER false
 
-#include "GHOST_NDOFManagerCocoa.h"
-#include "GHOST_SystemCocoa.h"
+#include "GHOST_NDOFManagerCocoa.hh"
+#include "GHOST_SystemCocoa.hh"
 
 #include <dlfcn.h>
 #include <stdint.h>

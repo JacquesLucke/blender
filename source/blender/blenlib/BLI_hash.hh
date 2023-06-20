@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -33,14 +35,14 @@
  *
  * There are three main ways to provide a hash table implementation with a custom hash function.
  *
- * - When you want to provide a default hash function for your own custom type: Add a `hash`
+ * - When you want to provide a default hash function for your own custom type: Add a `hash()`
  *   member function to it. The function should return `uint64_t` and take no arguments. This
  *   method will be called by the default implementation of #DefaultHash. It will automatically be
  *   used by hash table implementations.
  *
  * - When you want to provide a default hash function for a type that you cannot modify: Add a new
  *   specialization to the #DefaultHash struct. This can be done by writing code like below in
- *   either global or BLI namespace.
+ *   either global or `blender` namespace.
  *
  *     template<> struct blender::DefaultHash<TheType> {
  *       uint64_t operator()(const TheType &value) const {
@@ -217,7 +219,7 @@ template<typename T> struct DefaultHash<T *> {
 
 template<typename T> uint64_t get_default_hash(const T &v)
 {
-  return DefaultHash<T>{}(v);
+  return DefaultHash<std::decay_t<T>>{}(v);
 }
 
 template<typename T1, typename T2> uint64_t get_default_hash_2(const T1 &v1, const T2 &v2)

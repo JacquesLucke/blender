@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -14,7 +15,7 @@
 #include "BLI_sys_types.h" /* for bool */
 
 #include "GPU_shader.h"  /* for GPUShaderCreateInfo */
-#include "GPU_texture.h" /* for eGPUSamplerState */
+#include "GPU_texture.h" /* for GPUSamplerState */
 
 #ifdef __cplusplus
 extern "C" {
@@ -166,18 +167,19 @@ GPUNodeLink *GPU_layer_attribute(GPUMaterial *mat, const char *name);
 GPUNodeLink *GPU_image(GPUMaterial *mat,
                        struct Image *ima,
                        struct ImageUser *iuser,
-                       eGPUSamplerState sampler_state);
-GPUNodeLink *GPU_image_tiled(GPUMaterial *mat,
-                             struct Image *ima,
-                             struct ImageUser *iuser,
-                             eGPUSamplerState sampler_state);
-GPUNodeLink *GPU_image_tiled_mapping(GPUMaterial *mat, struct Image *ima, struct ImageUser *iuser);
+                       GPUSamplerState sampler_state);
+void GPU_image_tiled(GPUMaterial *mat,
+                     struct Image *ima,
+                     struct ImageUser *iuser,
+                     GPUSamplerState sampler_state,
+                     GPUNodeLink **r_image_tiled_link,
+                     GPUNodeLink **r_image_tiled_mapping_link);
 GPUNodeLink *GPU_image_sky(GPUMaterial *mat,
                            int width,
                            int height,
                            const float *pixels,
                            float *layer,
-                           eGPUSamplerState sampler_state);
+                           GPUSamplerState sampler_state);
 GPUNodeLink *GPU_color_band(GPUMaterial *mat, int size, float *pixels, float *row);
 
 /**
@@ -254,8 +256,19 @@ void GPU_materials_free(struct Main *bmain);
 
 struct Scene *GPU_material_scene(GPUMaterial *material);
 struct GPUPass *GPU_material_get_pass(GPUMaterial *material);
+/** Return the most optimal shader configuration for the given material. */
 struct GPUShader *GPU_material_get_shader(GPUMaterial *material);
+/** Return the base un-optimized shader. */
+struct GPUShader *GPU_material_get_shader_base(GPUMaterial *material);
 const char *GPU_material_get_name(GPUMaterial *material);
+
+/**
+ * Material Optimization.
+ * \note Compiles optimal version of shader graph, populating mat->optimized_pass.
+ * This operation should always be deferred until existing compilations have completed.
+ * Default un-optimized materials will still exist for interactive material editing performance.
+ */
+void GPU_material_optimize(GPUMaterial *mat);
 
 /**
  * Return can be NULL if it's a world material.
@@ -273,6 +286,24 @@ void GPU_material_status_set(GPUMaterial *mat, eGPUMaterialStatus status);
 eGPUMaterialOptimizationStatus GPU_material_optimization_status(GPUMaterial *mat);
 void GPU_material_optimization_status_set(GPUMaterial *mat, eGPUMaterialOptimizationStatus status);
 bool GPU_material_optimization_ready(GPUMaterial *mat);
+
+/**
+ * Store reference to a similar default material for async PSO cache warming.
+ *
+ * This function expects `material` to have not yet been compiled and for `default_material` to be
+ * ready. When compiling `material` as part of an async shader compilation job, use existing PSO
+ * descriptors from `default_material`'s shader to also compile PSOs for this new material
+ * asynchronously, rather than at runtime.
+ *
+ * The default_material `options` should match this new materials options in order
+ * for PSO descriptors to match those needed by the new `material`.
+ *
+ * NOTE: `default_material` must exist when `GPU_material_compile(..)` is called for
+ * `material`.
+ *
+ * See `GPU_shader_warm_cache(..)` for more information.
+ */
+void GPU_material_set_default(GPUMaterial *material, GPUMaterial *default_material);
 
 struct GPUUniformBuf *GPU_material_uniform_buffer_get(GPUMaterial *material);
 /**
@@ -301,7 +332,7 @@ void GPU_pass_cache_free(void);
 typedef struct GPUMaterialAttribute {
   struct GPUMaterialAttribute *next, *prev;
   int type;                /* eCustomDataType */
-  char name[64];           /* MAX_CUSTOMDATA_LAYER_NAME */
+  char name[68];           /* MAX_CUSTOMDATA_LAYER_NAME */
   char input_name[12 + 1]; /* GPU_MAX_SAFE_ATTR_NAME + 1 */
   eGPUType gputype;
   eGPUDefaultValue default_value; /* Only for volumes attributes. */
@@ -325,7 +356,7 @@ typedef struct GPUMaterialTexture {
   char sampler_name[32];       /* Name of sampler in GLSL. */
   char tiled_mapping_name[32]; /* Name of tile mapping sampler in GLSL. */
   int users;
-  int sampler_state; /* eGPUSamplerState */
+  GPUSamplerState sampler_state;
 } GPUMaterialTexture;
 
 ListBase GPU_material_attributes(GPUMaterial *material);
@@ -335,8 +366,8 @@ typedef struct GPUUniformAttr {
   struct GPUUniformAttr *next, *prev;
 
   /* Meaningful part of the attribute set key. */
-  char name[64]; /* MAX_CUSTOMDATA_LAYER_NAME */
-  /** Hash of name[64] + use_dupli. */
+  char name[68]; /* MAX_CUSTOMDATA_LAYER_NAME */
+  /** Hash of name[68] + use_dupli. */
   uint32_t hash_code;
   bool use_dupli;
 
@@ -362,8 +393,8 @@ typedef struct GPULayerAttr {
   struct GPULayerAttr *next, *prev;
 
   /* Meaningful part of the attribute set key. */
-  char name[64]; /* MAX_CUSTOMDATA_LAYER_NAME */
-  /** Hash of name[64]. */
+  char name[68]; /* MAX_CUSTOMDATA_LAYER_NAME */
+  /** Hash of name[68]. */
   uint32_t hash_code;
 
   /* Helper fields used by code generation. */

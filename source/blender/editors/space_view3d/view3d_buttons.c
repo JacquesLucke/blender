@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spview3d
@@ -111,13 +112,14 @@ static TransformProperties *v3d_transform_props_ensure(View3D *v3d);
 /** \name Edit Mesh Partial Updates
  * \{ */
 
-static void *editmesh_partial_update_begin_fn(struct bContext *UNUSED(C),
+static void *editmesh_partial_update_begin_fn(bContext *UNUSED(C),
                                               const struct uiBlockInteraction_Params *params,
                                               void *arg1)
 {
   const int retval_test = B_TRANSFORM_PANEL_MEDIAN;
   if (BLI_array_findindex(
-          params->unique_retval_ids, params->unique_retval_ids_len, &retval_test) == -1) {
+          params->unique_retval_ids, params->unique_retval_ids_len, &retval_test) == -1)
+  {
     return NULL;
   }
 
@@ -151,7 +153,7 @@ static void *editmesh_partial_update_begin_fn(struct bContext *UNUSED(C),
   return bmpinfo;
 }
 
-static void editmesh_partial_update_end_fn(struct bContext *UNUSED(C),
+static void editmesh_partial_update_end_fn(bContext *UNUSED(C),
                                            const struct uiBlockInteraction_Params *UNUSED(params),
                                            void *UNUSED(arg1),
                                            void *user_data)
@@ -164,7 +166,7 @@ static void editmesh_partial_update_end_fn(struct bContext *UNUSED(C),
 }
 
 static void editmesh_partial_update_update_fn(
-    struct bContext *C,
+    bContext *C,
     const struct uiBlockInteraction_Params *UNUSED(params),
     void *arg1,
     void *user_data)
@@ -223,7 +225,7 @@ static float compute_scale_factor(const float ve_median, const float median)
  * Apply helpers.
  * \note In case we only have one element,
  * copy directly the value instead of applying the diff or scale factor.
- * Avoids some glitches when going e.g. from 3 to 0.0001 (see T37327).
+ * Avoids some glitches when going e.g. from 3 to 0.0001 (see #37327).
  */
 static void apply_raw_diff(float *val, const int tot, const float ve_median, const float median)
 {
@@ -304,11 +306,15 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
     BMEdge *eed;
     BMIter iter;
 
-    const int cd_vert_bweight_offset = CustomData_get_offset(&bm->vdata, CD_BWEIGHT);
-    const int cd_vert_crease_offset = CustomData_get_offset(&bm->vdata, CD_CREASE);
+    const int cd_vert_bweight_offset = CustomData_get_offset_named(
+        &bm->vdata, CD_PROP_FLOAT, "bevel_weight_vert");
+    const int cd_vert_crease_offset = CustomData_get_offset_named(
+        &bm->vdata, CD_PROP_FLOAT, "crease_vert");
     const int cd_vert_skin_offset = CustomData_get_offset(&bm->vdata, CD_MVERT_SKIN);
-    const int cd_edge_bweight_offset = CustomData_get_offset(&bm->edata, CD_BWEIGHT);
-    const int cd_edge_crease_offset = CustomData_get_offset(&bm->edata, CD_CREASE);
+    const int cd_edge_bweight_offset = CustomData_get_offset_named(
+        &bm->edata, CD_PROP_FLOAT, "bevel_weight_edge");
+    const int cd_edge_crease_offset = CustomData_get_offset_named(
+        &bm->edata, CD_PROP_FLOAT, "crease_edge");
 
     has_skinradius = (cd_vert_skin_offset != -1);
 
@@ -511,7 +517,7 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
     int yi = 200;
     const float tilt_limit = DEG2RADF(21600.0f);
     const int butw = 200;
-    const int buth = 20 * UI_DPI_FAC;
+    const int buth = 20 * UI_SCALE_FAC;
     const int but_margin = 2;
     const char *c;
 
@@ -969,7 +975,8 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
     if ((ob->type == OB_MESH) &&
         (apply_vcos || median_basis.mesh.bv_weight || median_basis.mesh.v_crease ||
          median_basis.mesh.skin[0] || median_basis.mesh.skin[1] || median_basis.mesh.be_weight ||
-         median_basis.mesh.e_crease)) {
+         median_basis.mesh.e_crease))
+    {
       const TransformMedian_Mesh *median = &median_basis.mesh, *ve_median = &ve_median_basis.mesh;
       Mesh *me = ob->data;
       BMEditMesh *em = me->edit_mesh;
@@ -995,20 +1002,22 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
       if (apply_vcos || median->bv_weight || median->v_crease || median->skin[0] ||
           median->skin[1]) {
         if (median->bv_weight) {
-          if (!CustomData_has_layer(&bm->vdata, CD_BWEIGHT)) {
-            BM_data_layer_add(bm, &bm->vdata, CD_BWEIGHT);
+          if (!CustomData_has_layer_named(&bm->vdata, CD_PROP_FLOAT, "bevel_weight_vert")) {
+            BM_data_layer_add_named(bm, &bm->vdata, CD_PROP_FLOAT, "bevel_weight_vert");
           }
-          cd_vert_bweight_offset = CustomData_get_offset(&bm->vdata, CD_BWEIGHT);
+          cd_vert_bweight_offset = CustomData_get_offset_named(
+              &bm->vdata, CD_PROP_FLOAT, "bevel_weight_vert");
           BLI_assert(cd_vert_bweight_offset != -1);
 
           scale_bv_weight = compute_scale_factor(ve_median->bv_weight, median->bv_weight);
         }
 
         if (median->v_crease) {
-          if (!CustomData_has_layer(&bm->vdata, CD_CREASE)) {
-            BM_data_layer_add(bm, &bm->vdata, CD_CREASE);
+          if (!CustomData_has_layer_named(&bm->vdata, CD_PROP_FLOAT, "crease_vert")) {
+            BM_data_layer_add_named(bm, &bm->vdata, CD_PROP_FLOAT, "crease_vert");
           }
-          cd_vert_crease_offset = CustomData_get_offset(&bm->vdata, CD_CREASE);
+          cd_vert_crease_offset = CustomData_get_offset_named(
+              &bm->vdata, CD_PROP_FLOAT, "crease_vert");
           BLI_assert(cd_vert_crease_offset != -1);
 
           scale_v_crease = compute_scale_factor(ve_median->v_crease, median->v_crease);
@@ -1065,20 +1074,22 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
 
       if (median->be_weight || median->e_crease) {
         if (median->be_weight) {
-          if (!CustomData_has_layer(&bm->edata, CD_BWEIGHT)) {
-            BM_data_layer_add(bm, &bm->edata, CD_BWEIGHT);
+          if (!CustomData_has_layer_named(&bm->edata, CD_PROP_FLOAT, "bevel_weight_edge")) {
+            BM_data_layer_add_named(bm, &bm->edata, CD_PROP_FLOAT, "bevel_weight_edge");
           }
-          cd_edge_bweight_offset = CustomData_get_offset(&bm->edata, CD_BWEIGHT);
+          cd_edge_bweight_offset = CustomData_get_offset_named(
+              &bm->edata, CD_PROP_FLOAT, "bevel_weight_edge");
           BLI_assert(cd_edge_bweight_offset != -1);
 
           scale_be_weight = compute_scale_factor(ve_median->be_weight, median->be_weight);
         }
 
         if (median->e_crease) {
-          if (!CustomData_has_layer(&bm->edata, CD_CREASE)) {
-            BM_data_layer_add(bm, &bm->edata, CD_CREASE);
+          if (!CustomData_has_layer_named(&bm->edata, CD_PROP_FLOAT, "crease_edge")) {
+            BM_data_layer_add_named(bm, &bm->edata, CD_PROP_FLOAT, "crease_edge");
           }
-          cd_edge_crease_offset = CustomData_get_offset(&bm->edata, CD_CREASE);
+          cd_edge_crease_offset = CustomData_get_offset_named(
+              &bm->edata, CD_PROP_FLOAT, "crease_edge");
           BLI_assert(cd_edge_crease_offset != -1);
 
           scale_e_crease = compute_scale_factor(ve_median->e_crease, median->e_crease);
@@ -1101,7 +1112,8 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
     }
     else if (ELEM(ob->type, OB_CURVES_LEGACY, OB_SURF) &&
              (apply_vcos || median_basis.curve.b_weight || median_basis.curve.weight ||
-              median_basis.curve.radius || median_basis.curve.tilt)) {
+              median_basis.curve.radius || median_basis.curve.tilt))
+    {
       const TransformMedian_Curve *median = &median_basis.curve,
                                   *ve_median = &ve_median_basis.curve;
       Curve *cu = ob->data;
@@ -1117,7 +1129,7 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
             if (bezt->f2 & SELECT) {
               if (apply_vcos) {
                 /* Here we always have to use the diff... :/
-                 * Cannot avoid some glitches when going e.g. from 3 to 0.0001 (see T37327),
+                 * Cannot avoid some glitches when going e.g. from 3 to 0.0001 (see #37327),
                  * unless we use doubles.
                  */
                 add_v3_v3(bezt->vec[0], median->location);
@@ -1210,7 +1222,7 @@ static void v3d_object_dimension_buts(bContext *C, uiLayout *layout, View3D *v3d
     BLI_assert(C == NULL);
     int yi = 200;
     const int butw = 200;
-    const int buth = 20 * UI_DPI_FAC;
+    const int buth = 20 * UI_SCALE_FAC;
 
     BKE_object_dimensions_get(ob, tfp->ob_dims);
     copy_v3_v3(tfp->ob_dims_orig, tfp->ob_dims);
@@ -1769,8 +1781,8 @@ static void view3d_panel_transform(const bContext *C, Panel *panel)
     v3d_transform_butsR(col, &obptr);
 
     /* Dimensions and editmode are mostly the same check. */
-    if (OB_TYPE_SUPPORT_EDITMODE(ob->type) ||
-        ELEM(ob->type, OB_VOLUME, OB_CURVES, OB_POINTCLOUD)) {
+    if (OB_TYPE_SUPPORT_EDITMODE(ob->type) || ELEM(ob->type, OB_VOLUME, OB_CURVES, OB_POINTCLOUD))
+    {
       View3D *v3d = CTX_wm_view3d(C);
       v3d_object_dimension_buts(NULL, col, v3d, ob);
     }
@@ -1787,19 +1799,19 @@ void view3d_buttons_register(ARegionType *art)
   PanelType *pt;
 
   pt = MEM_callocN(sizeof(PanelType), "spacetype view3d panel object");
-  strcpy(pt->idname, "VIEW3D_PT_transform");
-  strcpy(pt->label, N_("Transform")); /* XXX C panels unavailable through RNA bpy.types! */
-  strcpy(pt->category, "Item");
-  strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(pt->idname, "VIEW3D_PT_transform");
+  STRNCPY(pt->label, N_("Transform")); /* XXX C panels unavailable through RNA bpy.types! */
+  STRNCPY(pt->category, "Item");
+  STRNCPY(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   pt->draw = view3d_panel_transform;
   pt->poll = view3d_panel_transform_poll;
   BLI_addtail(&art->paneltypes, pt);
 
   pt = MEM_callocN(sizeof(PanelType), "spacetype view3d panel vgroup");
-  strcpy(pt->idname, "VIEW3D_PT_vgroup");
-  strcpy(pt->label, N_("Vertex Weights")); /* XXX C panels unavailable through RNA bpy.types! */
-  strcpy(pt->category, "Item");
-  strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(pt->idname, "VIEW3D_PT_vgroup");
+  STRNCPY(pt->label, N_("Vertex Weights")); /* XXX C panels unavailable through RNA bpy.types! */
+  STRNCPY(pt->category, "Item");
+  STRNCPY(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   pt->draw = view3d_panel_vgroup;
   pt->poll = view3d_panel_vgroup_poll;
   BLI_addtail(&art->paneltypes, pt);
@@ -1807,9 +1819,9 @@ void view3d_buttons_register(ARegionType *art)
   MenuType *mt;
 
   mt = MEM_callocN(sizeof(MenuType), "spacetype view3d menu collections");
-  strcpy(mt->idname, "VIEW3D_MT_collection");
-  strcpy(mt->label, N_("Collection"));
-  strcpy(mt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(mt->idname, "VIEW3D_MT_collection");
+  STRNCPY(mt->label, N_("Collection"));
+  STRNCPY(mt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   mt->draw = hide_collections_menu_draw;
   WM_menutype_add(mt);
 }

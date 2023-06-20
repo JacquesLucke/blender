@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup editors
@@ -81,7 +82,7 @@ bool ED_curve_select_all(struct EditNurb *editnurb);
 bool ED_curve_select_swap(struct EditNurb *editnurb, bool hide_handles);
 int ED_curve_select_count(const struct View3D *v3d, const struct EditNurb *editnurb);
 
-/* editcurve_undo.c */
+/* editcurve_undo.cc */
 
 /** Export for ED_undo_sys */
 void ED_curve_undosys_type(struct UndoType *ut);

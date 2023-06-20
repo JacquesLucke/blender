@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2022 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw
@@ -48,6 +49,7 @@ struct GlobalsUboStorage {
   float4 color_edge_freestyle;
   float4 color_face;
   float4 color_face_select;
+  float4 color_face_retopology;
   float4 color_face_freestyle;
   float4 color_gpencil_vertex;
   float4 color_gpencil_vertex_select;
@@ -164,6 +166,7 @@ BLI_STATIC_ASSERT_ALIGN(GlobalsUboStorage, 16)
 #  define colorEdgeFreestyle globalsBlock.color_edge_freestyle
 #  define colorFace globalsBlock.color_face
 #  define colorFaceSelect globalsBlock.color_face_select
+#  define colorFaceRetopology globalsBlock.color_face_retopology
 #  define colorFaceFreestyle globalsBlock.color_face_freestyle
 #  define colorGpencilVertex globalsBlock.color_gpencil_vertex
 #  define colorGpencilVertexSelect globalsBlock.color_gpencil_vertex_select
@@ -244,24 +247,24 @@ BLI_STATIC_ASSERT_ALIGN(GlobalsUboStorage, 16)
 #endif
 
 /* See: 'draw_cache_impl.h' for matching includes. */
-#define VERT_GPENCIL_BEZT_HANDLE (1 << 30)
+#define VERT_GPENCIL_BEZT_HANDLE (1u << 30)
 /* data[0] (1st byte flags) */
-#define FACE_ACTIVE (1 << 0)
-#define FACE_SELECTED (1 << 1)
-#define FACE_FREESTYLE (1 << 2)
-#define VERT_UV_SELECT (1 << 3)
-#define VERT_UV_PINNED (1 << 4)
-#define EDGE_UV_SELECT (1 << 5)
-#define FACE_UV_ACTIVE (1 << 6)
-#define FACE_UV_SELECT (1 << 7)
+#define FACE_ACTIVE (1u << 0)
+#define FACE_SELECTED (1u << 1)
+#define FACE_FREESTYLE (1u << 2)
+#define VERT_UV_SELECT (1u << 3)
+#define VERT_UV_PINNED (1u << 4)
+#define EDGE_UV_SELECT (1u << 5)
+#define FACE_UV_ACTIVE (1u << 6)
+#define FACE_UV_SELECT (1u << 7)
 /* data[1] (2st byte flags) */
-#define VERT_ACTIVE (1 << 0)
-#define VERT_SELECTED (1 << 1)
-#define VERT_SELECTED_BEZT_HANDLE (1 << 2)
-#define EDGE_ACTIVE (1 << 3)
-#define EDGE_SELECTED (1 << 4)
-#define EDGE_SEAM (1 << 5)
-#define EDGE_SHARP (1 << 6)
-#define EDGE_FREESTYLE (1 << 7)
+#define VERT_ACTIVE (1u << 0)
+#define VERT_SELECTED (1u << 1)
+#define VERT_SELECTED_BEZT_HANDLE (1u << 2)
+#define EDGE_ACTIVE (1u << 3)
+#define EDGE_SELECTED (1u << 4)
+#define EDGE_SEAM (1u << 5)
+#define EDGE_SHARP (1u << 6)
+#define EDGE_FREESTYLE (1u << 7)
 
 #define COMMON_GLOBALS_LIB

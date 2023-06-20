@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bli
@@ -27,14 +29,14 @@ struct HeapNode_Chunk {
   struct HeapNode_Chunk *prev;
   uint size;
   uint bufsize;
-  struct HeapNode buf[0];
+  HeapNode buf[0];
 };
 
 /**
  * Number of nodes to include per #HeapNode_Chunk when no reserved size is passed,
  * or we allocate past the reserved number.
  *
- * \note Optimize number for 64kb allocs.
+ * \note Optimize number for 64kb allocations.
  * \note keep type in sync with nodes_num in heap_node_alloc_chunk.
  */
 #define HEAP_CHUNK_DEFAULT_NUM \
@@ -148,7 +150,7 @@ static struct HeapNode_Chunk *heap_node_alloc_chunk(uint nodes_num,
   return chunk;
 }
 
-static struct HeapNode *heap_node_alloc(Heap *heap)
+static HeapNode *heap_node_alloc(Heap *heap)
 {
   HeapNode *node;
 

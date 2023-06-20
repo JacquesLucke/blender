@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -28,18 +30,17 @@ typedef union IDPropertyTemplate {
   double d;
   struct {
     const char *str;
+    /** String length (including the null byte): `strlen(str) + 1`. */
     int len;
+    /** #eIDPropertySubType */
     char subtype;
   } string;
   struct ID *id;
   struct {
     int len;
+    /** #eIDPropertyType */
     char type;
   } array;
-  struct {
-    int matvec_size;
-    const float *example;
-  } matrix_or_vector;
 } IDPropertyTemplate;
 
 /* ----------- Property Array Type ---------- */
@@ -73,17 +74,20 @@ void IDP_FreeArray(struct IDProperty *prop);
 /**
  * \param st: The string to assign.
  * \param name: The property name.
- * \param maxlen: The size of the new string (including the \0 terminator).
+ * \param maxncpy: The maximum size of the string (including the `\0` terminator).
  * \return The new string property.
  */
-struct IDProperty *IDP_NewString(const char *st,
-                                 const char *name,
-                                 int maxlen) ATTR_WARN_UNUSED_RESULT
-    ATTR_NONNULL(2 /* 'name 'arg */); /* maxlen excludes '\0' */
-void IDP_AssignString(struct IDProperty *prop, const char *st, int maxlen)
-    ATTR_NONNULL(); /* maxlen excludes '\0' */
-void IDP_ConcatStringC(struct IDProperty *prop, const char *st) ATTR_NONNULL();
-void IDP_ConcatString(struct IDProperty *str1, struct IDProperty *append) ATTR_NONNULL();
+struct IDProperty *IDP_NewStringMaxSize(const char *st,
+                                        const char *name,
+                                        int maxncpy) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(2);
+struct IDProperty *IDP_NewString(const char *st, const char *name) ATTR_WARN_UNUSED_RESULT
+    ATTR_NONNULL(2);
+/**
+ * \param st: The string to assign.
+ * \param maxncpy: The maximum size of the string (including the `\0` terminator).
+ */
+void IDP_AssignStringMaxSize(struct IDProperty *prop, const char *st, int maxncpy) ATTR_NONNULL();
+void IDP_AssignString(struct IDProperty *prop, const char *st) ATTR_NONNULL();
 void IDP_FreeString(struct IDProperty *prop) ATTR_NONNULL();
 
 /*-------- ID Type -------*/
@@ -186,17 +190,17 @@ struct IDProperty *IDP_CopyProperty_ex(const struct IDProperty *prop,
  * Copy content from source #IDProperty into destination one,
  * freeing destination property's content first.
  */
-void IDP_CopyPropertyContent(struct IDProperty *dst, struct IDProperty *src) ATTR_NONNULL();
+void IDP_CopyPropertyContent(struct IDProperty *dst, const struct IDProperty *src) ATTR_NONNULL();
 
 /**
  * \param is_strict: When false treat missing items as a match.
  */
-bool IDP_EqualsProperties_ex(struct IDProperty *prop1,
-                             struct IDProperty *prop2,
+bool IDP_EqualsProperties_ex(const struct IDProperty *prop1,
+                             const struct IDProperty *prop2,
                              bool is_strict) ATTR_WARN_UNUSED_RESULT;
 
-bool IDP_EqualsProperties(struct IDProperty *prop1,
-                          struct IDProperty *prop2) ATTR_WARN_UNUSED_RESULT;
+bool IDP_EqualsProperties(const struct IDProperty *prop1,
+                          const struct IDProperty *prop2) ATTR_WARN_UNUSED_RESULT;
 
 /**
  * Allocate a new ID.
@@ -243,29 +247,20 @@ void IDP_ClearProperty(struct IDProperty *prop);
 void IDP_Reset(struct IDProperty *prop, const struct IDProperty *reference);
 
 #define IDP_Int(prop) ((prop)->data.val)
+#define IDP_Bool(prop) ((prop)->data.val)
 #define IDP_Array(prop) ((prop)->data.pointer)
 /* C11 const correctness for casts */
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
 #  define IDP_Float(prop) \
-    _Generic((prop), \
-  struct IDProperty *:             (*(float *)&(prop)->data.val), \
-  const struct IDProperty *: (*(const float *)&(prop)->data.val))
+    _Generic((prop), struct IDProperty * : (*(float *)&(prop)->data.val), const struct IDProperty * : (*(const float *)&(prop)->data.val))
 #  define IDP_Double(prop) \
-    _Generic((prop), \
-  struct IDProperty *:             (*(double *)&(prop)->data.val), \
-  const struct IDProperty *: (*(const double *)&(prop)->data.val))
+    _Generic((prop), struct IDProperty * : (*(double *)&(prop)->data.val), const struct IDProperty * : (*(const double *)&(prop)->data.val))
 #  define IDP_String(prop) \
-    _Generic((prop), \
-  struct IDProperty *:             ((char *) (prop)->data.pointer), \
-  const struct IDProperty *: ((const char *) (prop)->data.pointer))
+    _Generic((prop), struct IDProperty * : ((char *)(prop)->data.pointer), const struct IDProperty * : ((const char *)(prop)->data.pointer))
 #  define IDP_IDPArray(prop) \
-    _Generic((prop), \
-  struct IDProperty *:             ((struct IDProperty *) (prop)->data.pointer), \
-  const struct IDProperty *: ((const struct IDProperty *) (prop)->data.pointer))
+    _Generic((prop), struct IDProperty * : ((struct IDProperty *)(prop)->data.pointer), const struct IDProperty * : ((const struct IDProperty *)(prop)->data.pointer))
 #  define IDP_Id(prop) \
-    _Generic((prop), \
-  struct IDProperty *:             ((ID *) (prop)->data.pointer), \
-  const struct IDProperty *: ((const ID *) (prop)->data.pointer))
+    _Generic((prop), struct IDProperty * : ((ID *)(prop)->data.pointer), const struct IDProperty * : ((const ID *)(prop)->data.pointer))
 #else
 #  define IDP_Float(prop) (*(float *)&(prop)->data.val)
 #  define IDP_Double(prop) (*(double *)&(prop)->data.val)
@@ -320,7 +315,7 @@ void IDP_BlendReadData_impl(struct BlendDataReader *reader,
                             struct IDProperty **prop,
                             const char *caller_func_id);
 #define IDP_BlendDataRead(reader, prop) IDP_BlendReadData_impl(reader, prop, __func__)
-void IDP_BlendReadLib(struct BlendLibReader *reader, struct Library *lib, struct IDProperty *prop);
+void IDP_BlendReadLib(struct BlendLibReader *reader, struct ID *self_id, struct IDProperty *prop);
 void IDP_BlendReadExpand(struct BlendExpander *expander, struct IDProperty *prop);
 
 typedef enum eIDPropertyUIDataType {
@@ -334,6 +329,8 @@ typedef enum eIDPropertyUIDataType {
   IDP_UI_DATA_TYPE_STRING = 2,
   /** IDP_ID. */
   IDP_UI_DATA_TYPE_ID = 3,
+  /** IDP_BOOLEAN or IDP_ARRAY with subtype IDP_BOOLEAN. */
+  IDP_UI_DATA_TYPE_BOOLEAN = 4,
 } eIDPropertyUIDataType;
 
 bool IDP_ui_data_supported(const struct IDProperty *prop);

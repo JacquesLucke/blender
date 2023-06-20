@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup modifiers
@@ -28,10 +29,6 @@
 #include "DNA_modifier_types.h"
 #include "DNA_screen_types.h"
 
-#ifdef USE_BVHTREEKDOP
-#  include "BKE_bvhutils.h"
-#endif
-
 #include "BKE_context.h"
 #include "BKE_deform.h"
 #include "BKE_modifier.h"
@@ -45,13 +42,14 @@
 
 #include "DEG_depsgraph.h"
 
-#include "MOD_modifiertypes.h"
-#include "MOD_ui_common.h"
+#include "MOD_modifiertypes.hh"
+#include "MOD_ui_common.hh"
 
 #include "GEO_mesh_merge_by_distance.hh"
 
 using blender::Array;
 using blender::IndexMask;
+using blender::IndexMaskMemory;
 using blender::Span;
 using blender::Vector;
 
@@ -68,18 +66,15 @@ static Span<MDeformVert> get_vertex_group(const Mesh &mesh, const int defgrp_ind
   return {vertex_group, mesh.totvert};
 }
 
-static Vector<int64_t> selected_indices_from_vertex_group(Span<MDeformVert> vertex_group,
-                                                          const int index,
-                                                          const bool invert)
+static IndexMask selected_indices_from_vertex_group(Span<MDeformVert> vertex_group,
+                                                    const int index,
+                                                    const bool invert,
+                                                    IndexMaskMemory &memory)
 {
-  Vector<int64_t> selected_indices;
-  for (const int i : vertex_group.index_range()) {
-    const bool found = BKE_defvert_find_weight(&vertex_group[i], index) > 0.0f;
-    if (found != invert) {
-      selected_indices.append(i);
-    }
-  }
-  return selected_indices;
+  return IndexMask::from_predicate(
+      vertex_group.index_range(), blender::GrainSize(512), memory, [&](const int i) {
+        return (BKE_defvert_find_weight(&vertex_group[i], index) > 0.0f) != invert;
+      });
 }
 
 static Array<bool> selection_array_from_vertex_group(Span<MDeformVert> vertex_group,
@@ -102,8 +97,9 @@ static std::optional<Mesh *> calculate_weld(const Mesh &mesh, const WeldModifier
 
   if (wmd.mode == MOD_WELD_MODE_ALL) {
     if (!vertex_group.is_empty()) {
-      Vector<int64_t> selected_indices = selected_indices_from_vertex_group(
-          vertex_group, defgrp_index, invert);
+      IndexMaskMemory memory;
+      const IndexMask selected_indices = selected_indices_from_vertex_group(
+          vertex_group, defgrp_index, invert, memory);
       return blender::geometry::mesh_merge_by_distance_all(
           mesh, IndexMask(selected_indices), wmd.merge_dist);
     }
@@ -151,7 +147,7 @@ static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_ma
 {
   WeldModifierData *wmd = (WeldModifierData *)md;
 
-  /* Ask for vertexgroups if we need them. */
+  /* Ask for vertex-groups if we need them. */
   if (wmd->defgrp_name[0] != '\0') {
     r_cddata_masks->vmask |= CD_MASK_MDEFORMVERT;
   }
@@ -183,37 +179,37 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Weld = {
-    /* name */ N_("Weld"),
-    /* structName */ "WeldModifierData",
-    /* structSize */ sizeof(WeldModifierData),
-    /* srna */ &RNA_WeldModifier,
-    /* type */ eModifierTypeType_Constructive,
-    /* flags */
+    /*name*/ N_("Weld"),
+    /*structName*/ "WeldModifierData",
+    /*structSize*/ sizeof(WeldModifierData),
+    /*srna*/ &RNA_WeldModifier,
+    /*type*/ eModifierTypeType_Constructive,
+    /*flags*/
     (ModifierTypeFlag)(eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_SupportsMapping |
                        eModifierTypeFlag_SupportsEditmode | eModifierTypeFlag_EnableInEditmode |
                        eModifierTypeFlag_AcceptsCVs),
-    /* icon */ ICON_AUTOMERGE_OFF, /* TODO: Use correct icon. */
+    /*icon*/ ICON_AUTOMERGE_OFF, /* TODO: Use correct icon. */
 
-    /* copyData */ BKE_modifier_copydata_generic,
+    /*copyData*/ BKE_modifier_copydata_generic,
 
-    /* deformVerts */ nullptr,
-    /* deformMatrices */ nullptr,
-    /* deformVertsEM */ nullptr,
-    /* deformMatricesEM */ nullptr,
-    /* modifyMesh */ modifyMesh,
-    /* modifyGeometrySet */ nullptr,
+    /*deformVerts*/ nullptr,
+    /*deformMatrices*/ nullptr,
+    /*deformVertsEM*/ nullptr,
+    /*deformMatricesEM*/ nullptr,
+    /*modifyMesh*/ modifyMesh,
+    /*modifyGeometrySet*/ nullptr,
 
-    /* initData */ initData,
-    /* requiredDataMask */ requiredDataMask,
-    /* freeData */ nullptr,
-    /* isDisabled */ nullptr,
-    /* updateDepsgraph */ nullptr,
-    /* dependsOnTime */ nullptr,
-    /* dependsOnNormals */ nullptr,
-    /* foreachIDLink */ nullptr,
-    /* foreachTexLink */ nullptr,
-    /* freeRuntimeData */ nullptr,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ nullptr,
-    /* blendRead */ nullptr,
+    /*initData*/ initData,
+    /*requiredDataMask*/ requiredDataMask,
+    /*freeData*/ nullptr,
+    /*isDisabled*/ nullptr,
+    /*updateDepsgraph*/ nullptr,
+    /*dependsOnTime*/ nullptr,
+    /*dependsOnNormals*/ nullptr,
+    /*foreachIDLink*/ nullptr,
+    /*foreachTexLink*/ nullptr,
+    /*freeRuntimeData*/ nullptr,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ nullptr,
+    /*blendRead*/ nullptr,
 };

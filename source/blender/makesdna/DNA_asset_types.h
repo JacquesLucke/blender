@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -9,6 +11,16 @@
 #include "DNA_defs.h"
 #include "DNA_listBase.h"
 #include "DNA_uuid_types.h"
+
+#ifdef __cplusplus
+#  include <memory>
+
+namespace blender::asset_system {
+class AssetLibrary;
+class AssetIdentifier;
+}  // namespace blender::asset_system
+
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +55,7 @@ typedef struct AssetFilterSettings {
  */
 typedef struct AssetMetaData {
 #ifdef __cplusplus
+  /** Enables use with `std::unique_ptr<AssetMetaData>`. */
   ~AssetMetaData();
 #endif
 
@@ -71,6 +84,12 @@ typedef struct AssetMetaData {
   /** Optional description of this asset for display in the UI. Dynamic length. */
   char *description;
 
+  /** Optional copyright of this asset for display in the UI. Dynamic length. */
+  char *copyright;
+
+  /** Optional license of this asset for display in the UI. Dynamic length. */
+  char *license;
+
   /** User defined tags for this asset. The asset manager uses these for filtering, but how they
    * function exactly (e.g. how they are registered to provide a list of searchable available tags)
    * is up to the asset-engine. */
@@ -84,12 +103,11 @@ typedef struct AssetMetaData {
 } AssetMetaData;
 
 typedef enum eAssetLibraryType {
-  /* For the future. Display assets bundled with Blender by default. */
-  // ASSET_LIBRARY_BUNDLED = 0,
   /** Display assets from the current session (current "Main"). */
   ASSET_LIBRARY_LOCAL = 1,
-  /* For the future. Display assets for the current project. */
-  // ASSET_LIBRARY_PROJECT = 2,
+  ASSET_LIBRARY_ALL = 2,
+  /** Display assets bundled with Blender by default. */
+  ASSET_LIBRARY_ESSENTIALS = 3,
 
   /** Display assets from custom asset libraries, as defined in the preferences
    * (#bUserAssetLibrary). The name will be taken from #FileSelectParams.asset_library_ref.idname
@@ -98,6 +116,21 @@ typedef enum eAssetLibraryType {
    * this last! */
   ASSET_LIBRARY_CUSTOM = 100,
 } eAssetLibraryType;
+
+typedef enum eAssetImportMethod {
+  /** Regular data-block linking. */
+  ASSET_IMPORT_LINK = 0,
+  /** Regular data-block appending (basically linking + "Make Local"). */
+  ASSET_IMPORT_APPEND = 1,
+  /** Append data-block with the #BLO_LIBLINK_APPEND_LOCAL_ID_REUSE flag enabled. Some typically
+   * heavy data dependencies (e.g. the image data-blocks of a material, the mesh of an object) may
+   * be reused from an earlier append. */
+  ASSET_IMPORT_APPEND_REUSE = 2,
+} eAssetImportMethod;
+
+typedef enum eAssetLibrary_Flag {
+  ASSET_LIBRARY_RELATIVE_PATH = (1 << 0),
+} eAssetLibrary_Flag;
 
 /**
  * Information to identify an asset library. May be either one of the predefined types (current
@@ -118,11 +151,57 @@ typedef struct AssetLibraryReference {
 } AssetLibraryReference;
 
 /**
+ * Information to refer to an asset (may be stored in files) on a "best effort" basis. It should
+ * work well enough for many common cases, but can break. For example when the location of the
+ * asset changes, the available asset libraries in the Preferences change, an asset library is
+ * renamed, or when a file storing this is opened on a different system (with different
+ * Preferences).
+ *
+ * #AssetWeakReference is similar to #AssetIdentifier, but is designed for file storage, not for
+ * runtime references.
+ *
+ * It has two main components:
+ * - A reference to the asset library: The #eAssetLibraryType and if that is not enough to identify
+ *   the library, a library name (typically given by the user, but may change).
+ * - An identifier for the asset within the library: A relative path currently, which can break if
+ *   the asset is moved. Could also be a unique key for a database for example.
+ *
+ * \note Needs freeing through the destructor, so either use a smart pointer or #MEM_delete() for
+ *       explicit freeing.
+ */
+typedef struct AssetWeakReference {
+  char _pad[6];
+
+  short asset_library_type; /* #eAssetLibraryType */
+  /** If #asset_library_type is not enough to identify the asset library, this string can provide
+   * further location info (allocated string). Null otherwise. */
+  const char *asset_library_identifier;
+
+  const char *relative_asset_identifier;
+
+#ifdef __cplusplus
+  AssetWeakReference();
+  AssetWeakReference(AssetWeakReference &&);
+  AssetWeakReference(const AssetWeakReference &) = delete;
+  /** Enables use with `std::unique_ptr<AssetWeakReference>`. */
+  ~AssetWeakReference();
+
+  static std::unique_ptr<AssetWeakReference> make_reference(
+      const blender::asset_system::AssetLibrary &library,
+      const blender::asset_system::AssetIdentifier &asset_identifier);
+#endif
+} AssetWeakReference;
+
+/**
  * To be replaced by #AssetRepresentation!
  *
  * Not part of the core design, we should try to get rid of it. Only needed to wrap FileDirEntry
  * into a type with PropertyGroup as base, so we can have an RNA collection of #AssetHandle's to
  * pass to the UI.
+ *
+ * \warning Never store this! When using #ED_assetlist_iterate(), only access it within the
+ *          iterator function. The contained file data can be freed since the file cache has a
+ *          maximum number of items.
  */
 #
 #

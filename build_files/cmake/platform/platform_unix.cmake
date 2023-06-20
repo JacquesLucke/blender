@@ -1,42 +1,56 @@
+# SPDX-FileCopyrightText: 2016 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2016 Blender Foundation. All rights reserved.
 
 # Libraries configuration for any *nix system including Linux and Unix (excluding APPLE).
 
 # Detect precompiled library directory
-if(NOT DEFINED LIBDIR)
-  # Path to a locally compiled libraries.
-  set(LIBDIR_NAME ${CMAKE_SYSTEM_NAME}_${CMAKE_SYSTEM_PROCESSOR})
-  string(TOLOWER ${LIBDIR_NAME} LIBDIR_NAME)
-  set(LIBDIR_NATIVE_ABI ${CMAKE_SOURCE_DIR}/../lib/${LIBDIR_NAME})
 
-  # Path to precompiled libraries with known CentOS 7 ABI.
-  set(LIBDIR_CENTOS7_ABI ${CMAKE_SOURCE_DIR}/../lib/linux_centos7_x86_64)
+if(NOT WITH_LIBS_PRECOMPILED)
+  unset(LIBDIR)
+else()
+  if(NOT DEFINED LIBDIR)
+    # Path to a locally compiled libraries.
+    set(LIBDIR_NAME ${CMAKE_SYSTEM_NAME}_${CMAKE_SYSTEM_PROCESSOR})
+    string(TOLOWER ${LIBDIR_NAME} LIBDIR_NAME)
+    set(LIBDIR_NATIVE_ABI ${CMAKE_SOURCE_DIR}/../lib/${LIBDIR_NAME})
 
-  # Choose the best suitable libraries.
-  if(EXISTS ${LIBDIR_NATIVE_ABI})
-    set(LIBDIR ${LIBDIR_NATIVE_ABI})
-    set(WITH_LIBC_MALLOC_HOOK_WORKAROUND True)
-  elseif(EXISTS ${LIBDIR_CENTOS7_ABI})
-    set(LIBDIR ${LIBDIR_CENTOS7_ABI})
-    set(WITH_CXX11_ABI OFF)
-    if(WITH_MEM_JEMALLOC)
-      # jemalloc provides malloc hooks.
-      set(WITH_LIBC_MALLOC_HOOK_WORKAROUND False)
-    else()
-      set(WITH_LIBC_MALLOC_HOOK_WORKAROUND True)
+    # Path to precompiled libraries with known glibc 2.28 ABI.
+    set(LIBDIR_GLIBC228_ABI ${CMAKE_SOURCE_DIR}/../lib/linux_x86_64_glibc_228)
+
+    # Choose the best suitable libraries.
+    if(EXISTS ${LIBDIR_NATIVE_ABI})
+      set(LIBDIR ${LIBDIR_NATIVE_ABI})
+      set(WITH_LIBC_MALLOC_HOOK_WORKAROUND TRUE)
+    elseif(EXISTS ${LIBDIR_GLIBC228_ABI})
+      set(LIBDIR ${LIBDIR_GLIBC228_ABI})
+      if(WITH_MEM_JEMALLOC)
+        # jemalloc provides malloc hooks.
+        set(WITH_LIBC_MALLOC_HOOK_WORKAROUND FALSE)
+      else()
+        set(WITH_LIBC_MALLOC_HOOK_WORKAROUND TRUE)
+      endif()
     endif()
+
+    # Avoid namespace pollustion.
+    unset(LIBDIR_NATIVE_ABI)
+    unset(LIBDIR_GLIBC228_ABI)
   endif()
 
-  # Avoid namespace pollustion.
-  unset(LIBDIR_NATIVE_ABI)
-  unset(LIBDIR_CENTOS7_ABI)
+  if(NOT (EXISTS ${LIBDIR}))
+    message(STATUS
+      "Unable to find LIBDIR: ${LIBDIR}, system libraries may be used "
+      "(disable WITH_LIBS_PRECOMPILED to suppress this message)."
+    )
+    unset(LIBDIR)
+  endif()
 endif()
+
 
 # Support restoring this value once pre-compiled libraries have been handled.
 set(WITH_STATIC_LIBS_INIT ${WITH_STATIC_LIBS})
 
-if(EXISTS ${LIBDIR})
+if(DEFINED LIBDIR)
   message(STATUS "Using pre-compiled LIBDIR: ${LIBDIR}")
 
   file(GLOB LIB_SUBDIRS ${LIBDIR}/*)
@@ -68,10 +82,7 @@ if(EXISTS ${LIBDIR})
   set(Boost_NO_SYSTEM_PATHS ON)
   set(OPENEXR_ROOT_DIR ${LIBDIR}/openexr)
   set(CLANG_ROOT_DIR ${LIBDIR}/llvm)
-endif()
-
-if(WITH_STATIC_LIBS)
-  string(APPEND CMAKE_EXE_LINKER_FLAGS " -static-libstdc++")
+  set(MaterialX_DIR ${LIBDIR}/materialx/lib/cmake/MaterialX)
 endif()
 
 # Wrapper to prefer static libraries
@@ -83,22 +94,13 @@ macro(find_package_wrapper)
   endif()
 endmacro()
 
-# Utility to install precompiled shared libraries.
-macro(add_bundled_libraries library)
-  if(EXISTS ${LIBDIR})
-    file(GLOB _all_library_versions ${LIBDIR}/${library}/lib/*\.so*)
-    list(APPEND PLATFORM_BUNDLED_LIBRARIES ${_all_library_versions})
-    unset(_all_library_versions)
-  endif()
-endmacro()
-
 # ----------------------------------------------------------------------------
 # Precompiled Libraries
 #
 # These are libraries that may be precompiled. For this we disable searching in
 # the system directories so that we don't accidentally use them instead.
 
-if(EXISTS ${LIBDIR})
+if(DEFINED LIBDIR)
   without_system_libs_begin()
 endif()
 
@@ -108,8 +110,13 @@ find_package_wrapper(ZLIB REQUIRED)
 find_package_wrapper(Zstd REQUIRED)
 find_package_wrapper(Epoxy REQUIRED)
 
+# XXX Linking errors with debian static tiff :/
+# find_package_wrapper(TIFF REQUIRED)
+find_package(TIFF)
+
 if(WITH_VULKAN_BACKEND)
   find_package_wrapper(Vulkan REQUIRED)
+  find_package_wrapper(ShaderC REQUIRED)
 endif()
 
 function(check_freetype_for_brotli)
@@ -127,7 +134,7 @@ endfunction()
 if(NOT WITH_SYSTEM_FREETYPE)
   # FreeType compiled with Brotli compression for woff2.
   find_package_wrapper(Freetype REQUIRED)
-  if(EXISTS ${LIBDIR})
+  if(DEFINED LIBDIR)
     find_package_wrapper(Brotli REQUIRED)
 
     # NOTE: This is done on WIN32 & APPLE but fails on some Linux systems.
@@ -154,7 +161,7 @@ if(WITH_PYTHON)
   if(WITH_PYTHON_MODULE AND NOT WITH_INSTALL_PORTABLE)
     # Installing into `site-packages`, warn when installing into `./../lib/`
     # which script authors almost certainly don't want.
-    if(EXISTS ${LIBDIR})
+    if(DEFINED LIBDIR)
       path_is_prefix(LIBDIR PYTHON_SITE_PACKAGES _is_prefix)
       if(_is_prefix)
         message(WARNING "
@@ -180,17 +187,12 @@ if(WITH_IMAGE_OPENEXR)
   find_package_wrapper(OpenEXR)  # our own module
   set_and_warn_library_found("OpenEXR" OPENEXR_FOUND WITH_IMAGE_OPENEXR)
 endif()
+add_bundled_libraries(openexr/lib)
+add_bundled_libraries(imath/lib)
 
 if(WITH_IMAGE_OPENJPEG)
   find_package_wrapper(OpenJPEG)
   set_and_warn_library_found("OpenJPEG" OPENJPEG_FOUND WITH_IMAGE_OPENJPEG)
-endif()
-
-if(WITH_IMAGE_TIFF)
-  # XXX Linking errors with debian static tiff :/
-#       find_package_wrapper(TIFF)
-  find_package(TIFF)
-  set_and_warn_library_found("TIFF" TIFF_FOUND WITH_IMAGE_TIFF)
 endif()
 
 if(WITH_OPENAL)
@@ -228,7 +230,7 @@ if(WITH_CODEC_SNDFILE)
 endif()
 
 if(WITH_CODEC_FFMPEG)
-  if(EXISTS ${LIBDIR})
+  if(DEFINED LIBDIR)
     set(FFMPEG_ROOT_DIR ${LIBDIR}/ffmpeg)
     # Override FFMPEG components to also include static library dependencies
     # included with precompiled libraries, and to ensure correct link order.
@@ -241,10 +243,14 @@ if(WITH_CODEC_FFMPEG)
       theora theoradec theoraenc
       vorbis vorbisenc vorbisfile ogg
       vpx
-      x264
-      xvidcore)
-    if(EXISTS ${LIBDIR}/ffmpeg/lib/libaom.a)
-      list(APPEND FFMPEG_FIND_COMPONENTS aom)
+      x264)
+    if(DEFINED LIBDIR)
+      if(EXISTS ${LIBDIR}/ffmpeg/lib/libaom.a)
+        list(APPEND FFMPEG_FIND_COMPONENTS aom)
+      endif()
+      if(EXISTS ${LIBDIR}/ffmpeg/lib/libxvidcore.a)
+        list(APPEND FFMPEG_FIND_COMPONENTS xvidcore)
+      endif()
     endif()
   elseif(FFMPEG)
     # Old cache variable used for root dir, convert to new standard.
@@ -323,25 +329,29 @@ if(WITH_CYCLES AND WITH_CYCLES_DEVICE_ONEAPI)
   if(EXISTS ${CYCLES_SYCL} AND NOT SYCL_ROOT_DIR)
     set(SYCL_ROOT_DIR ${CYCLES_SYCL})
   endif()
+endif()
+
+# add_bundled_libraries for SYCL, but custom since we need to filter the files.
+if(DEFINED LIBDIR)
+  if(NOT DEFINED SYCL_ROOT_DIR)
+    set(SYCL_ROOT_DIR ${LIBDIR}/dpcpp)
+  endif()
   file(GLOB _sycl_runtime_libraries
     ${SYCL_ROOT_DIR}/lib/libsycl.so
     ${SYCL_ROOT_DIR}/lib/libsycl.so.*
-    ${SYCL_ROOT_DIR}/lib/libpi_level_zero.so
+    ${SYCL_ROOT_DIR}/lib/libpi_*.so
   )
   list(FILTER _sycl_runtime_libraries EXCLUDE REGEX ".*\.py")
+  list(REMOVE_ITEM _sycl_runtime_libraries "${SYCL_ROOT_DIR}/lib/libpi_opencl.so")
   list(APPEND PLATFORM_BUNDLED_LIBRARIES ${_sycl_runtime_libraries})
   unset(_sycl_runtime_libraries)
 endif()
 
 if(WITH_OPENVDB)
-  find_package_wrapper(OpenVDB)
+  find_package(OpenVDB)
   set_and_warn_library_found("OpenVDB" OPENVDB_FOUND WITH_OPENVDB)
-
-  if(OPENVDB_FOUND)
-    find_package_wrapper(Blosc)
-    set_and_warn_library_found("Blosc" BLOSC_FOUND WITH_OPENVDB_BLOSC)
-  endif()
 endif()
+add_bundled_libraries(openvdb/lib)
 
 if(WITH_NANOVDB)
   find_package_wrapper(NanoVDB)
@@ -361,12 +371,19 @@ if(WITH_USD)
   find_package_wrapper(USD)
   set_and_warn_library_found("USD" USD_FOUND WITH_USD)
 endif()
+add_bundled_libraries(usd/lib)
+
+if(WITH_MATERIALX)
+  find_package_wrapper(MaterialX)
+  set_and_warn_library_found("MaterialX" MaterialX_FOUND WITH_MATERIALX)
+endif()
+add_bundled_libraries(materialx/lib)
 
 if(WITH_BOOST)
   # uses in build instructions to override include and library variables
   if(NOT BOOST_CUSTOM)
     if(WITH_STATIC_LIBS)
-      set(Boost_USE_STATIC_LIBS ON)
+      set(Boost_USE_STATIC_LIBS OFF)
     endif()
     set(Boost_USE_MULTITHREADED ON)
     set(__boost_packages filesystem regex thread date_time)
@@ -382,7 +399,11 @@ if(WITH_BOOST)
     if(WITH_OPENVDB)
       list(APPEND __boost_packages iostreams)
     endif()
+    if(WITH_USD AND USD_PYTHON_SUPPORT)
+      list(APPEND __boost_packages python${PYTHON_VERSION_NO_DOTS})
+    endif()
     list(APPEND __boost_packages system)
+    set(Boost_NO_WARN_NEW_VERSIONS ON)
     find_package(Boost 1.48 COMPONENTS ${__boost_packages})
     if(NOT Boost_FOUND)
       # try to find non-multithreaded if -mt not found, this flag
@@ -399,8 +420,13 @@ if(WITH_BOOST)
     mark_as_advanced(Boost_INCLUDE_DIR)  # why doesn't boost do this?
   endif()
 
-  set(BOOST_INCLUDE_DIR ${Boost_INCLUDE_DIRS})
+  # Boost Python is separate to avoid linking Python into tests that don't need it.
   set(BOOST_LIBRARIES ${Boost_LIBRARIES})
+  if(WITH_USD AND USD_PYTHON_SUPPORT)
+    set(BOOST_PYTHON_LIBRARIES ${Boost_PYTHON${PYTHON_VERSION_NO_DOTS}_LIBRARY})
+    list(REMOVE_ITEM BOOST_LIBRARIES ${BOOST_PYTHON_LIBRARIES})
+  endif()
+  set(BOOST_INCLUDE_DIR ${Boost_INCLUDE_DIRS})
   set(BOOST_LIBPATH ${Boost_LIBRARY_DIRS})
   set(BOOST_DEFINITIONS "-DBOOST_ALL_NO_LIB")
 
@@ -409,6 +435,7 @@ if(WITH_BOOST)
     list(APPEND BOOST_LIBRARIES ${ICU_LIBRARIES})
   endif()
 endif()
+add_bundled_libraries(boost/lib)
 
 if(WITH_PUGIXML)
   find_package_wrapper(PugiXML)
@@ -421,44 +448,21 @@ if(WITH_IMAGE_WEBP)
   set_and_warn_library_found("WebP" WEBP_FOUND WITH_IMAGE_WEBP)
 endif()
 
-if(WITH_OPENIMAGEIO)
-  find_package_wrapper(OpenImageIO)
-  set(OPENIMAGEIO_LIBRARIES
-    ${OPENIMAGEIO_LIBRARIES}
-    ${PNG_LIBRARIES}
-    ${JPEG_LIBRARIES}
-    ${ZLIB_LIBRARIES}
-    ${BOOST_LIBRARIES}
-  )
-  set(OPENIMAGEIO_LIBPATH)  # TODO, remove and reference the absolute path everywhere
-  set(OPENIMAGEIO_DEFINITIONS "")
-
-  if(WITH_IMAGE_TIFF)
-    list(APPEND OPENIMAGEIO_LIBRARIES "${TIFF_LIBRARY}")
-  endif()
-  if(WITH_IMAGE_OPENEXR)
-    list(APPEND OPENIMAGEIO_LIBRARIES "${OPENEXR_LIBRARIES}")
-  endif()
-  if(WITH_IMAGE_WEBP)
-    list(APPEND OPENIMAGEIO_LIBRARIES "${WEBP_LIBRARIES}")
-  endif()
-
-  set_and_warn_library_found("OPENIMAGEIO" OPENIMAGEIO_FOUND WITH_OPENIMAGEIO)
-endif()
+find_package_wrapper(OpenImageIO REQUIRED)
+add_bundled_libraries(openimageio/lib)
 
 if(WITH_OPENCOLORIO)
   find_package_wrapper(OpenColorIO 2.0.0)
 
-  set(OPENCOLORIO_LIBRARIES ${OPENCOLORIO_LIBRARIES})
-  set(OPENCOLORIO_LIBPATH)  # TODO, remove and reference the absolute path everywhere
-  set(OPENCOLORIO_DEFINITIONS)
-
+  set(OPENCOLORIO_DEFINITIONS "")
   set_and_warn_library_found("OpenColorIO" OPENCOLORIO_FOUND WITH_OPENCOLORIO)
 endif()
+add_bundled_libraries(opencolorio/lib)
 
 if(WITH_CYCLES AND WITH_CYCLES_EMBREE)
   find_package(Embree 3.8.0 REQUIRED)
 endif()
+add_bundled_libraries(embree/lib)
 
 if(WITH_OPENIMAGEDENOISE)
   find_package_wrapper(OpenImageDenoise)
@@ -466,7 +470,7 @@ if(WITH_OPENIMAGEDENOISE)
 endif()
 
 if(WITH_LLVM)
-  if(EXISTS ${LIBDIR})
+  if(DEFINED LIBDIR)
     set(LLVM_STATIC ON)
   endif()
 
@@ -480,7 +484,7 @@ if(WITH_LLVM)
     endif()
 
     # Symbol conflicts with same UTF library used by OpenCollada
-    if(EXISTS ${LIBDIR})
+    if(DEFINED LIBDIR)
       if(WITH_OPENCOLLADA AND (${LLVM_VERSION} VERSION_LESS "4.0.0"))
         list(REMOVE_ITEM OPENCOLLADA_LIBRARIES ${OPENCOLLADA_UTF_LIBRARY})
       endif()
@@ -489,18 +493,20 @@ if(WITH_LLVM)
 endif()
 
 if(WITH_OPENSUBDIV)
-  find_package_wrapper(OpenSubdiv)
+  find_package(OpenSubdiv)
 
   set(OPENSUBDIV_LIBRARIES ${OPENSUBDIV_LIBRARIES})
   set(OPENSUBDIV_LIBPATH)  # TODO, remove and reference the absolute path everywhere
 
   set_and_warn_library_found("OpenSubdiv" OPENSUBDIV_FOUND WITH_OPENSUBDIV)
 endif()
+add_bundled_libraries(opensubdiv/lib)
 
 if(WITH_TBB)
   find_package_wrapper(TBB)
   set_and_warn_library_found("TBB" TBB_FOUND WITH_TBB)
 endif()
+add_bundled_libraries(tbb/lib)
 
 if(WITH_XR_OPENXR)
   find_package(XR_OpenXR_SDK)
@@ -534,7 +540,7 @@ if(WITH_CYCLES AND WITH_CYCLES_PATH_GUIDING)
   endif()
 endif()
 
-if(EXISTS ${LIBDIR})
+if(DEFINED LIBDIR)
   without_system_libs_end()
 endif()
 
@@ -549,9 +555,14 @@ else()
 endif()
 
 find_package(Threads REQUIRED)
-list(APPEND PLATFORM_LINKLIBS ${CMAKE_THREAD_LIBS_INIT})
-# used by other platforms
-set(PTHREADS_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
+# `FindThreads` documentation notes that this may be empty
+# with the system libraries provide threading functionality.
+if(CMAKE_THREAD_LIBS_INIT)
+  list(APPEND PLATFORM_LINKLIBS ${CMAKE_THREAD_LIBS_INIT})
+  # used by other platforms
+  set(PTHREADS_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
+endif()
+
 
 if(CMAKE_DL_LIBS)
   list(APPEND PLATFORM_LINKLIBS ${CMAKE_DL_LIBS})
@@ -573,7 +584,7 @@ add_definitions(-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
 #
 # Keep last, so indirectly linked libraries don't override our own pre-compiled libs.
 
-if(EXISTS ${LIBDIR})
+if(DEFINED LIBDIR)
   # Clear the prefix path as it causes the `LIBDIR` to override system locations.
   unset(CMAKE_PREFIX_PATH)
 
@@ -629,7 +640,7 @@ if(WITH_GHOST_WAYLAND)
   # When dynamically linked WAYLAND is used and `${LIBDIR}/wayland` is present,
   # there is no need to search for the libraries as they are not needed for building.
   # Only the headers are needed which can reference the known paths.
-  if(EXISTS "${LIBDIR}/wayland" AND WITH_GHOST_WAYLAND_DYNLOAD)
+  if((DEFINED LIBDIR) AND (EXISTS "${LIBDIR}/wayland" AND WITH_GHOST_WAYLAND_DYNLOAD))
     set(_use_system_wayland OFF)
   else()
     set(_use_system_wayland ON)
@@ -640,16 +651,29 @@ if(WITH_GHOST_WAYLAND)
     pkg_check_modules(wayland-egl wayland-egl)
     pkg_check_modules(wayland-scanner wayland-scanner)
     pkg_check_modules(wayland-cursor wayland-cursor)
-    pkg_check_modules(wayland-protocols wayland-protocols>=1.15)
+    pkg_check_modules(wayland-protocols wayland-protocols>=1.31)
     pkg_get_variable(WAYLAND_PROTOCOLS_DIR wayland-protocols pkgdatadir)
   else()
-    # CentOS 7 packages have too old a version, a newer version exist in the
-    # precompiled libraries.
+    # NOTE: this file must always refer to the newest API which is used, so older
+    # `wayland-protocols` are never found and used which then fail to locate required protocols.
+    set(_wayland_protocols_reference_file "staging/fractional-scale/fractional-scale-v1.xml")
+
+    # Reset the protocols directory the reference file from `wayland-protocols` is not found.
+    # This avoids developers having build failures when a cached directory is used that no
+    # longer contains the required file.
+    if(DEFINED WAYLAND_PROTOCOLS_DIR)
+      if(NOT EXISTS "${WAYLAND_PROTOCOLS_DIR}/${_wayland_protocols_reference_file}")
+        unset(WAYLAND_PROTOCOLS_DIR CACHE)
+      endif()
+    endif()
+
+    # Rocky8 packages have too old a version, a newer version exist in the pre-compiled libraries.
     find_path(WAYLAND_PROTOCOLS_DIR
-      NAMES unstable/xdg-decoration/xdg-decoration-unstable-v1.xml
+      NAMES ${_wayland_protocols_reference_file}
       PATH_SUFFIXES share/wayland-protocols
       PATHS ${LIBDIR}/wayland-protocols
     )
+    unset(_wayland_protocols_reference_file)
 
     if(EXISTS ${WAYLAND_PROTOCOLS_DIR})
       set(wayland-protocols_FOUND ON)
@@ -680,10 +704,12 @@ if(WITH_GHOST_WAYLAND)
 
     if(WITH_GHOST_WAYLAND_LIBDECOR)
       if(_use_system_wayland)
-        pkg_check_modules(libdecor REQUIRED libdecor-0>=0.1)
+        pkg_check_modules(libdecor libdecor-0>=0.1)
       else()
         set(libdecor_INCLUDE_DIRS "${LIBDIR}/wayland_libdecor/include/libdecor-0")
+        set(libdecor_FOUND ON)
       endif()
+      set_and_warn_library_found("libdecor" libdecor_FOUND WITH_GHOST_WAYLAND_LIBDECOR)
     endif()
 
     if(WITH_GHOST_WAYLAND_DBUS)
@@ -694,7 +720,7 @@ if(WITH_GHOST_WAYLAND)
       add_definitions(-DWITH_GHOST_WAYLAND_LIBDECOR)
     endif()
 
-    if(EXISTS "${LIBDIR}/wayland/bin/wayland-scanner")
+    if((DEFINED LIBDIR) AND (EXISTS "${LIBDIR}/wayland/bin/wayland-scanner"))
       set(WAYLAND_SCANNER "${LIBDIR}/wayland/bin/wayland-scanner")
     else()
       pkg_get_variable(WAYLAND_SCANNER wayland-scanner wayland_scanner)
@@ -769,7 +795,7 @@ if(WITH_GHOST_X11)
   endif()
 
   if(WITH_X11_ALPHA)
-    find_library(X11_Xrender_LIB Xrender  ${X11_LIB_SEARCH_PATH})
+    find_library(X11_Xrender_LIB Xrender ${X11_LIB_SEARCH_PATH})
     mark_as_advanced(X11_Xrender_LIB)
     if(NOT X11_Xrender_LIB)
       message(FATAL_ERROR "libXrender not found. Disable WITH_X11_ALPHA if you
@@ -791,8 +817,7 @@ if(CMAKE_COMPILER_IS_GNUCC)
   # Automatically turned on when building with "-march=native". This is
   # explicitly turned off here as it will make floating point math give a bit
   # different results. This will lead to automated test failures. So disable
-  # this until we support it. Seems to default to off in clang and the intel
-  # compiler.
+  # this until we support it.
   set(PLATFORM_CFLAGS "-pipe -fPIC -funsigned-char -fno-strict-aliasing -ffp-contract=off")
 
   # `maybe-uninitialized` is unreliable in release builds, but fine in debug builds.
@@ -803,64 +828,49 @@ if(CMAKE_COMPILER_IS_GNUCC)
   string(PREPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO "${GCC_EXTRA_FLAGS_RELEASE} ")
   unset(GCC_EXTRA_FLAGS_RELEASE)
 
-  # NOTE(@campbellbarton): Eventually mold will be able to use `-fuse-ld=mold`,
-  # however at the moment this only works for GCC 12.1+ (unreleased at time of writing).
-  # So a workaround is used here "-B" which points to another path to find system commands
-  # such as `ld`.
   if(WITH_LINKER_MOLD AND _IS_LINKER_DEFAULT)
     find_program(MOLD_BIN "mold")
     mark_as_advanced(MOLD_BIN)
+
     if(NOT MOLD_BIN)
       message(STATUS "The \"mold\" binary could not be found, using system linker.")
       set(WITH_LINKER_MOLD OFF)
+    elseif(CMAKE_C_COMPILER_VERSION VERSION_LESS 12.1)
+      message(STATUS "GCC 12.1 or newer is required for th MOLD linker.")
+      set(WITH_LINKER_MOLD OFF)
     else()
-      # By default mold installs the binary to:
-      # - `{PREFIX}/bin/mold` as well as a symbolic-link in...
-      # - `{PREFIX}/lib/mold/ld`.
-      # (where `PREFIX` is typically `/usr/`).
-      #
-      # This block of code finds `{PREFIX}/lib/mold` from the `mold` binary.
-      # Other methods of searching for the path could also be made to work,
-      # we could even make our own directory and symbolic-link, however it's more
-      # convenient to use the one provided by mold.
-      #
-      # Use the binary path to "mold", to find the common prefix which contains "lib/mold".
-      # The parent directory: e.g. `/usr/bin/mold` -> `/usr/bin/`.
-      get_filename_component(MOLD_PREFIX "${MOLD_BIN}" DIRECTORY)
-      # The common prefix path: e.g. `/usr/bin/` -> `/usr/` to use as a hint.
-      get_filename_component(MOLD_PREFIX "${MOLD_PREFIX}" DIRECTORY)
-      # Find `{PREFIX}/lib/mold/ld`, store the directory component (without the `ld`).
-      # Then pass `-B {PREFIX}/lib/mold` to GCC so the `ld` located there overrides the default.
-      find_path(
-        MOLD_BIN_DIR "ld"
-        HINTS "${MOLD_PREFIX}"
-        # The default path is `libexec`, Arch Linux for e.g.
-        # replaces this with `lib` so check both.
-        PATH_SUFFIXES "libexec/mold" "lib/mold" "lib64/mold"
-        NO_DEFAULT_PATH
-        NO_CACHE
+      get_filename_component(MOLD_BIN_DIR "${MOLD_BIN}" DIRECTORY)
+      # Check if the `-B` argument is required.
+      # This will happen when `MOLD_BIN` points to a non-standard location.
+      # Keep this option as mold is not yet a standard system component and
+      # users may have it installed in some unexpected place.
+      set(_mold_args "-fuse-ld=mold")
+      execute_process(
+        COMMAND ${CMAKE_C_COMPILER} -B ${MOLD_BIN_DIR} ${_mold_args} -Wl,--version
+        ERROR_QUIET OUTPUT_VARIABLE LD_VERSION_WITH_DIR
       )
-      if(NOT MOLD_BIN_DIR)
-        message(STATUS
-          "The mold linker could not find the directory containing the linker command "
-          "(typically "
-          "\"${MOLD_PREFIX}/libexec/mold/ld\") or "
-          "\"${MOLD_PREFIX}/lib/mold/ld\") using system linker."
-        )
-        set(WITH_LINKER_MOLD OFF)
+      execute_process(
+        COMMAND ${CMAKE_C_COMPILER} ${_mold_args} -Wl,--version
+        ERROR_QUIET OUTPUT_VARIABLE LD_VERSION
+      )
+      if(NOT (LD_VERSION STREQUAL LD_VERSION_WITH_DIR))
+        string(PREPEND _mold_args "-B \"${MOLD_BIN_DIR}\" ")
+        set(LD_VERSION "${LD_VERSION_WITH_DIR}")
       endif()
-      unset(MOLD_PREFIX)
-    endif()
 
-    if(WITH_LINKER_MOLD)
-      # GCC will search for `ld` in this directory first.
-      string(APPEND CMAKE_EXE_LINKER_FLAGS    " -B \"${MOLD_BIN_DIR}\"")
-      string(APPEND CMAKE_SHARED_LINKER_FLAGS " -B \"${MOLD_BIN_DIR}\"")
-      string(APPEND CMAKE_MODULE_LINKER_FLAGS " -B \"${MOLD_BIN_DIR}\"")
-      set(_IS_LINKER_DEFAULT OFF)
+      if("${LD_VERSION}" MATCHES "mold ")
+        string(APPEND CMAKE_EXE_LINKER_FLAGS    " ${_mold_args}")
+        string(APPEND CMAKE_SHARED_LINKER_FLAGS " ${_mold_args}")
+        string(APPEND CMAKE_MODULE_LINKER_FLAGS " ${_mold_args}")
+        set(_IS_LINKER_DEFAULT OFF)
+      else()
+        message(STATUS "GNU mold linker isn't available, using the default system linker.")
+      endif()
+      unset(_mold_args)
+      unset(MOLD_BIN_DIR)
+      unset(LD_VERSION)
     endif()
     unset(MOLD_BIN)
-    unset(MOLD_BIN_DIR)
   endif()
 
   if(WITH_LINKER_GOLD AND _IS_LINKER_DEFAULT)
@@ -895,7 +905,7 @@ if(CMAKE_COMPILER_IS_GNUCC)
 
 # CLang is the same as GCC for now.
 elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
-  set(PLATFORM_CFLAGS "-pipe -fPIC -funsigned-char -fno-strict-aliasing")
+  set(PLATFORM_CFLAGS "-pipe -fPIC -funsigned-char -fno-strict-aliasing -ffp-contract=off")
 
   if(WITH_LINKER_MOLD AND _IS_LINKER_DEFAULT)
     find_program(MOLD_BIN "mold")
@@ -916,6 +926,27 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
       set(_IS_LINKER_DEFAULT OFF)
     endif()
     unset(MOLD_BIN)
+  endif()
+
+  if(WITH_LINKER_LLD AND _IS_LINKER_DEFAULT)
+    find_program(LLD_BIN "ld.lld")
+    mark_as_advanced(LLD_BIN)
+    if(NOT LLD_BIN)
+      message(STATUS "The \"ld.lld\" binary could not be found, using system linker.")
+      set(WITH_LINKER_LLD OFF)
+    else()
+      if(CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 12.0)
+        string(APPEND CMAKE_EXE_LINKER_FLAGS    " --ld-path=\"${LLD_BIN}\"")
+        string(APPEND CMAKE_SHARED_LINKER_FLAGS " --ld-path=\"${LLD_BIN}\"")
+        string(APPEND CMAKE_MODULE_LINKER_FLAGS " --ld-path=\"${LLD_BIN}\"")
+      else()
+        string(APPEND CMAKE_EXE_LINKER_FLAGS    " -fuse-ld=\"${LLD_BIN}\"")
+        string(APPEND CMAKE_SHARED_LINKER_FLAGS " -fuse-ld=\"${LLD_BIN}\"")
+        string(APPEND CMAKE_MODULE_LINKER_FLAGS " -fuse-ld=\"${LLD_BIN}\"")
+      endif()
+      set(_IS_LINKER_DEFAULT OFF)
+    endif()
+    unset(LLD_BIN)
   endif()
 
 # Intel C++ Compiler
@@ -969,16 +1000,9 @@ if(WITH_COMPILER_CCACHE)
   endif()
 endif()
 
-# On some platforms certain atomic operations are not possible with assembly and/or intrinsics and
-# they are emulated in software with locks. For example, on armel there is no intrinsics to grant
-# 64 bit atomic operations and STL library uses libatomic to offload software emulation of atomics
-# to.
-# This function will check whether libatomic is required and if so will configure linker flags.
-# If atomic operations are possible without libatomic then linker flags are left as-is.
-function(CONFIGURE_ATOMIC_LIB_IF_NEEDED)
-  # Source which is used to enforce situation when software emulation of atomics is required.
-  # Assume that using 64bit integer gives a definitive answer (as in, if 64bit atomic operations
-  # are possible using assembly/intrinsics 8, 16, and 32 bit operations will also be possible.
+# Always link with libatomic if available, as it is required for data types
+# which don't have intrinsics.
+function(configure_atomic_lib_if_needed)
   set(_source
       "#include <atomic>
       #include <cstdint>
@@ -989,25 +1013,12 @@ function(CONFIGURE_ATOMIC_LIB_IF_NEEDED)
   )
 
   include(CheckCXXSourceCompiles)
-  check_cxx_source_compiles("${_source}" ATOMIC_OPS_WITHOUT_LIBATOMIC)
+  set(CMAKE_REQUIRED_LIBRARIES atomic)
+  check_cxx_source_compiles("${_source}" ATOMIC_OPS_WITH_LIBATOMIC)
+  unset(CMAKE_REQUIRED_LIBRARIES)
 
-  if(NOT ATOMIC_OPS_WITHOUT_LIBATOMIC)
-    # Compilation of the test program has failed.
-    # Try it again with -latomic to see if this is what is needed, or whether something else is
-    # going on.
-
-    set(CMAKE_REQUIRED_LIBRARIES atomic)
-    check_cxx_source_compiles("${_source}" ATOMIC_OPS_WITH_LIBATOMIC)
-    unset(CMAKE_REQUIRED_LIBRARIES)
-
-    if(ATOMIC_OPS_WITH_LIBATOMIC)
-      set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} -latomic" PARENT_SCOPE)
-    else()
-      # Atomic operations are required part of Blender and it is not possible to process forward.
-      # We expect that either standard library or libatomic will make atomics to work. If both
-      # cases has failed something fishy o na bigger scope is going on.
-      message(FATAL_ERROR "Failed to detect required configuration for atomic operations")
-    endif()
+  if(ATOMIC_OPS_WITH_LIBATOMIC)
+    set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} -latomic" PARENT_SCOPE)
   endif()
 endfunction()
 
@@ -1024,4 +1035,10 @@ if(PLATFORM_BUNDLED_LIBRARIES)
   # and because the build and install folder may be different.
   set(CMAKE_SKIP_BUILD_RPATH FALSE)
   list(APPEND CMAKE_BUILD_RPATH $ORIGIN/lib ${CMAKE_INSTALL_PREFIX_WITH_CONFIG}/lib)
+
+  # Environment variables to run precompiled executables that needed libraries.
+  list(JOIN PLATFORM_BUNDLED_LIBRARY_DIRS ":" _library_paths)
+  set(PLATFORM_ENV_BUILD "LD_LIBRARY_PATH=\"${_library_paths}:${LD_LIBRARY_PATH}\"")
+  set(PLATFORM_ENV_INSTALL "LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX_WITH_CONFIG}/lib/;$LD_LIBRARY_PATH")
+  unset(_library_paths)
 endif()

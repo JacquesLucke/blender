@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
@@ -19,6 +21,9 @@ set(INC
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
+set(INC_SYS
+)
+
 set(SRC
   armature_add.c
   armature_edit.c
@@ -28,12 +33,10 @@ set(SRC
   armature_select.c
   armature_skinning.c
   armature_utils.c
-  editarmature_undo.c
-  meshlaplacian.c
-  pose_backup.cc
+  editarmature_undo.cc
+  meshlaplacian.cc
   pose_edit.c
   pose_group.c
-  pose_lib.c
   pose_lib_2.c
   pose_select.c
   pose_slide.c

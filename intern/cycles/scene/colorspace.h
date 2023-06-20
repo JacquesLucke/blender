@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __COLORSPACE_H__
 #define __COLORSPACE_H__
@@ -21,6 +22,7 @@ class ColorSpaceManager {
    * convert to and from. If the colorspace is u_colorspace_auto, we auto
    * detect a colospace. */
   static ustring detect_known_colorspace(ustring colorspace,
+                                         const char *file_colorspace,
                                          const char *file_format,
                                          bool is_float);
 
@@ -41,6 +43,12 @@ class ColorSpaceManager {
 
   /* Clear memory when the application exits. Invalidates all processors. */
   static void free_memory();
+
+  /* Create a fallback color space configuration.
+   *
+   * This may be useful to allow regression test to create a configuration which is considered
+   * valid without knowing the actual configuration used by the final application. */
+  static void init_fallback_config();
 
  private:
   static void is_builtin_colorspace(ustring colorspace, bool &is_no_op, bool &is_srgb);

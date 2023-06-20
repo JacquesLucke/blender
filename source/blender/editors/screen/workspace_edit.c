@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edscr
@@ -220,7 +222,7 @@ WorkSpace *ED_workspace_duplicate(WorkSpace *workspace_old, Main *bmain, wmWindo
   workspace_new->order = workspace_old->order;
   BLI_duplicatelist(&workspace_new->owner_ids, &workspace_old->owner_ids);
 
-  /* TODO(@campbellbarton): tools */
+  /* TODO(@ideasman42): tools */
 
   LISTBASE_FOREACH (WorkSpaceLayout *, layout_old, &workspace_old->layouts) {
     WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(
@@ -342,7 +344,8 @@ static int workspace_append_activate_exec(bContext *C, wmOperator *op)
   char idname[MAX_ID_NAME - 2], filepath[FILE_MAX];
 
   if (!RNA_struct_property_is_set(op->ptr, "idname") ||
-      !RNA_struct_property_is_set(op->ptr, "filepath")) {
+      !RNA_struct_property_is_set(op->ptr, "filepath"))
+  {
     return OPERATOR_CANCELLED;
   }
   RNA_string_get(op->ptr, "idname", idname);
@@ -480,7 +483,8 @@ static void workspace_add_menu(bContext *UNUSED(C), uiLayout *layout, void *temp
 
     LISTBASE_FOREACH (WorkSpace *, workspace, &builtin_config->workspaces) {
       if (startup_config &&
-          BLI_findstring(&startup_config->workspaces, workspace->id.name, offsetof(ID, name))) {
+          BLI_findstring(&startup_config->workspaces, workspace->id.name, offsetof(ID, name)))
+      {
         continue;
       }
 

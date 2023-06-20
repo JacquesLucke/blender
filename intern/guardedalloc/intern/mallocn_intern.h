@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2013 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2013 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup intern_mem
@@ -10,6 +11,9 @@
 
 #ifdef __GNUC__
 #  define UNUSED(x) UNUSED_##x __attribute__((__unused__))
+#elif defined(_MSC_VER)
+/* NOTE: This suppresses the warning for the line, not the attribute. */
+#  define UNUSED(x) UNUSED_##x __pragma(warning(suppress : 4100))
 #else
 #  define UNUSED(x) UNUSED_##x
 #endif
@@ -22,6 +26,8 @@
 #  define HAVE_MALLOC_STATS
 #elif defined(__FreeBSD__)
 #  include <malloc_np.h>
+#elif defined(__NetBSD__) || defined(__OpenBSD__)
+#  undef USE_MALLOC_USABLE_SIZE
 #elif defined(__APPLE__)
 #  include <malloc/malloc.h>
 #  define malloc_usable_size malloc_size
@@ -49,7 +55,7 @@ size_t malloc_usable_size(void *ptr);
 #  define UNLIKELY(x) (x)
 #endif
 
-#if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__NetBSD__)
+#if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__NetBSD__) && !defined(__OpenBSD__)
 // Needed for memalign on Linux and _aligned_alloc on Windows.
 
 #  include <malloc.h>
@@ -88,6 +94,14 @@ void aligned_free(void *ptr);
 
 extern bool leak_detector_has_run;
 extern char free_after_leak_detection_message[];
+
+void memory_usage_init(void);
+void memory_usage_block_alloc(size_t size);
+void memory_usage_block_free(size_t size);
+size_t memory_usage_block_num(void);
+size_t memory_usage_current(void);
+size_t memory_usage_peak(void);
+void memory_usage_peak_reset(void);
 
 /* Prototypes for counted allocator functions */
 size_t MEM_lockfree_allocN_len(const void *vmemh) ATTR_WARN_UNUSED_RESULT;

@@ -1,15 +1,22 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "GHOST_WindowCocoa.h"
-#include "GHOST_ContextNone.h"
-#include "GHOST_Debug.h"
-#include "GHOST_SystemCocoa.h"
+#include "GHOST_WindowCocoa.hh"
+#include "GHOST_ContextNone.hh"
+#include "GHOST_Debug.hh"
+#include "GHOST_SystemCocoa.hh"
 
-#include "GHOST_ContextCGL.h"
+/* Don't generate OpenGL deprecation warning. This is a known thing, and is not something easily
+ * solvable in a short term. */
+#ifdef __clang__
+#  pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
+#include "GHOST_ContextCGL.hh"
 
 #ifdef WITH_VULKAN_BACKEND
-#  include "GHOST_ContextVK.h"
+#  include "GHOST_ContextVK.hh"
 #endif
 
 #include <Cocoa/Cocoa.h>
@@ -166,11 +173,11 @@
   NSPoint mouseLocation = [sender draggingLocation];
   NSPasteboard *draggingPBoard = [sender draggingPasteboard];
 
-  if ([[draggingPBoard types] containsObject:NSTIFFPboardType])
+  if ([[draggingPBoard types] containsObject:NSPasteboardTypeTIFF])
     m_draggedObjectType = GHOST_kDragnDropTypeBitmap;
   else if ([[draggingPBoard types] containsObject:NSFilenamesPboardType])
     m_draggedObjectType = GHOST_kDragnDropTypeFilenames;
-  else if ([[draggingPBoard types] containsObject:NSStringPboardType])
+  else if ([[draggingPBoard types] containsObject:NSPasteboardTypeString])
     m_draggedObjectType = GHOST_kDragnDropTypeString;
   else
     return NSDragOperationNone;
@@ -229,7 +236,7 @@
     case GHOST_kDragnDropTypeBitmap:
       if ([NSImage canInitWithPasteboard:draggingPBoard]) {
         droppedImg = [[NSImage alloc] initWithPasteboard:draggingPBoard];
-        data = droppedImg;  //[draggingPBoard dataForType:NSTIFFPboardType];
+        data = droppedImg;  //[draggingPBoard dataForType:NSPasteboardTypeTIFF];
       }
       else
         return NO;
@@ -238,7 +245,7 @@
       data = [draggingPBoard propertyListForType:NSFilenamesPboardType];
       break;
     case GHOST_kDragnDropTypeString:
-      data = [draggingPBoard stringForType:NSStringPboardType];
+      data = [draggingPBoard stringForType:NSPasteboardTypeString];
       break;
     default:
       return NO;
@@ -258,13 +265,13 @@
 /* NSView for handling input and drawing. */
 #define COCOA_VIEW_CLASS CocoaOpenGLView
 #define COCOA_VIEW_BASE_CLASS NSOpenGLView
-#include "GHOST_WindowViewCocoa.h"
+#include "GHOST_WindowViewCocoa.hh"
 #undef COCOA_VIEW_CLASS
 #undef COCOA_VIEW_BASE_CLASS
 
 #define COCOA_VIEW_CLASS CocoaMetalView
 #define COCOA_VIEW_BASE_CLASS NSView
-#include "GHOST_WindowViewCocoa.h"
+#include "GHOST_WindowViewCocoa.hh"
 #undef COCOA_VIEW_CLASS
 #undef COCOA_VIEW_BASE_CLASS
 
@@ -382,8 +389,8 @@ GHOST_WindowCocoa::GHOST_WindowCocoa(GHOST_SystemCocoa *systemCocoa,
   [contentview setAllowedTouchTypes:(NSTouchTypeMaskDirect | NSTouchTypeMaskIndirect)];
 
   [m_window registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType,
-                                                              NSStringPboardType,
-                                                              NSTIFFPboardType,
+                                                              NSPasteboardTypeString,
+                                                              NSPasteboardTypeTIFF,
                                                               nil]];
 
   if (is_dialog && parentWindow) {
@@ -478,10 +485,12 @@ void GHOST_WindowCocoa::setTitle(const char *title)
       associatedFileName = [windowTitle substringWithRange:fileStrRange];
       [m_window setTitle:[associatedFileName lastPathComponent]];
 
-      @try {
+      @try
+      {
         [m_window setRepresentedFilename:associatedFileName];
       }
-      @catch (NSException *e) {
+      @catch (NSException *e)
+      {
         printf("\nInvalid file path given in window title");
       }
     }
@@ -809,7 +818,7 @@ GHOST_Context *GHOST_WindowCocoa::newDrawingContext(GHOST_TDrawingContextType ty
 {
 #ifdef WITH_VULKAN_BACKEND
   if (type == GHOST_kDrawingContextTypeVulkan) {
-    GHOST_Context *context = new GHOST_ContextVK(m_wantStereoVisual, m_metalLayer, 1, 0, true);
+    GHOST_Context *context = new GHOST_ContextVK(m_wantStereoVisual, m_metalLayer, 1, 2, true);
 
     if (!context->initializeDrawingContext()) {
       delete context;
@@ -889,22 +898,13 @@ GHOST_TSuccess GHOST_WindowCocoa::setProgressBar(float progress)
   return GHOST_kSuccess;
 }
 
-static void postNotification()
-{
-  NSUserNotification *notification = [[NSUserNotification alloc] init];
-  notification.title = @"Blender Progress Notification";
-  notification.informativeText = @"Calculation is finished.";
-  notification.soundName = NSUserNotificationDefaultSoundName;
-  [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
-  [notification release];
-}
-
 GHOST_TSuccess GHOST_WindowCocoa::endProgressBar()
 {
   if (!m_progressBarVisible)
     return GHOST_kFailure;
   m_progressBarVisible = false;
 
+  /* Reset application icon to remove the progress bar. */
   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
   NSImage *dockIcon = [[NSImage alloc] initWithSize:NSMakeSize(128, 128)];
@@ -915,15 +915,6 @@ GHOST_TSuccess GHOST_WindowCocoa::endProgressBar()
                                                 fraction:1.0];
   [dockIcon unlockFocus];
   [NSApp setApplicationIconImage:dockIcon];
-
-  // We use notifications to inform the user when the progress reached 100%
-  // Atm. just fire this when the progressbar ends, the behavior is controlled
-  // in the NotificationCenter If Blender is not frontmost window, a message
-  // pops up with sound, in any case an entry in notifications
-  if ([NSUserNotificationCenter respondsToSelector:@selector(defaultUserNotificationCenter)]) {
-    postNotification();
-  }
-
   [dockIcon release];
 
   [pool drain];

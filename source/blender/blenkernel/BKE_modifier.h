@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 /** \file
@@ -8,6 +10,15 @@
 #include "BKE_customdata.h"
 #include "BLI_compiler_attrs.h"
 #include "DNA_modifier_types.h" /* needed for all enum typdefs */
+
+#ifdef __cplusplus
+namespace blender::bke {
+struct GeometrySet;
+}
+using GeometrySetHandle = blender::bke::GeometrySet;
+#else
+typedef struct GeometrySetHandle GeometrySetHandle;
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,7 +32,6 @@ struct BlendWriter;
 struct CustomData_MeshMasks;
 struct DepsNodeHandle;
 struct Depsgraph;
-struct GeometrySet;
 struct ID;
 struct ListBase;
 struct Main;
@@ -240,7 +250,7 @@ typedef struct ModifierTypeInfo {
    */
   void (*modifyGeometrySet)(struct ModifierData *md,
                             const struct ModifierEvalContext *ctx,
-                            struct GeometrySet *geometry_set);
+                            GeometrySetHandle *geometry_set);
 
   /********************* Optional functions *********************/
 
@@ -556,7 +566,7 @@ void BKE_modifier_mdef_compact_influences(struct ModifierData *md);
 /**
  * Initializes `path` with either the blend file or temporary directory.
  */
-void BKE_modifier_path_init(char *path, int path_maxlen, const char *name);
+void BKE_modifier_path_init(char *path, int path_maxncpy, const char *name);
 const char *BKE_modifier_path_relbase(struct Main *bmain, struct Object *ob);
 const char *BKE_modifier_path_relbase_from_global(struct Object *ob);
 
@@ -611,4 +621,26 @@ void BKE_modifier_blend_read_lib(struct BlendLibReader *reader, struct Object *o
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+
+namespace blender::bke {
+
+/**
+ * A convenience class that can be used to set `ModifierData::execution_time` based on the lifetime
+ * of this class.
+ */
+class ScopedModifierTimer {
+ private:
+  ModifierData &md_;
+  double start_time_;
+
+ public:
+  ScopedModifierTimer(ModifierData &md);
+  ~ScopedModifierTimer();
+};
+
+}  // namespace blender::bke
+
 #endif

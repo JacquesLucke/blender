@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
@@ -16,12 +18,15 @@ set(INC
   ${CMAKE_CURRENT_BINARY_DIR}/../../makesdna/intern
 )
 
-set(SRC
-  console_draw.c
-  console_ops.c
-  space_console.c
+set(INC_SYS
+)
 
-  console_intern.h
+set(SRC
+  console_draw.cc
+  console_ops.cc
+  space_console.cc
+
+  console_intern.hh
 )
 
 set(LIB

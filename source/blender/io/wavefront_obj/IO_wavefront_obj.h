@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup obj
@@ -68,6 +70,8 @@ struct OBJImportParams {
   float global_scale;
   eIOAxis forward_axis;
   eIOAxis up_axis;
+  bool use_split_objects;
+  bool use_split_groups;
   bool import_vertex_groups;
   bool validate_meshes;
   bool relative_paths;

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -76,10 +78,10 @@ static void rna_ShapeKey_name_set(PointerRNA *ptr, const char *value)
   char oldname[sizeof(kb->name)];
 
   /* make a copy of the old name first */
-  BLI_strncpy(oldname, kb->name, sizeof(kb->name));
+  STRNCPY(oldname, kb->name);
 
   /* copy the new name into the name slot */
-  BLI_strncpy_utf8(kb->name, value, sizeof(kb->name));
+  STRNCPY_UTF8(kb->name, value);
 
   /* make sure the name is truly unique */
   if (ptr->owner_id) {
@@ -987,7 +989,7 @@ static void rna_def_keyblock(BlenderRNA *brna)
   RNA_def_function_ui_description(func,
                                   "Compute local space vertices' normals for this shape key");
   RNA_def_function_flag(func, FUNC_USE_SELF_ID);
-  parm = RNA_def_property(func, "normals", PROP_FLOAT, /* PROP_DIRECTION */ PROP_NONE);
+  parm = RNA_def_property(func, "normals", PROP_FLOAT, /*PROP_DIRECTION*/ PROP_NONE);
   RNA_def_parameter_flags(parm, PROP_DYNAMIC, PARM_OUTPUT);
   RNA_def_property_multi_array(parm, 2, NULL);
   RNA_def_property_range(parm, -1.0f, 1.0f);
@@ -996,7 +998,7 @@ static void rna_def_keyblock(BlenderRNA *brna)
   func = RNA_def_function(srna, "normals_polygon_get", "rna_KeyBlock_normals_poly_calc");
   RNA_def_function_ui_description(func, "Compute local space faces' normals for this shape key");
   RNA_def_function_flag(func, FUNC_USE_SELF_ID);
-  parm = RNA_def_property(func, "normals", PROP_FLOAT, /* PROP_DIRECTION */ PROP_NONE);
+  parm = RNA_def_property(func, "normals", PROP_FLOAT, /*PROP_DIRECTION*/ PROP_NONE);
   RNA_def_parameter_flags(parm, PROP_DYNAMIC, PARM_OUTPUT);
   RNA_def_property_multi_array(parm, 2, NULL);
   RNA_def_property_range(parm, -1.0f, 1.0f);
@@ -1006,7 +1008,7 @@ static void rna_def_keyblock(BlenderRNA *brna)
   RNA_def_function_ui_description(func,
                                   "Compute local space face corners' normals for this shape key");
   RNA_def_function_flag(func, FUNC_USE_SELF_ID);
-  parm = RNA_def_property(func, "normals", PROP_FLOAT, /* PROP_DIRECTION */ PROP_NONE);
+  parm = RNA_def_property(func, "normals", PROP_FLOAT, /*PROP_DIRECTION*/ PROP_NONE);
   RNA_def_parameter_flags(parm, PROP_DYNAMIC, PARM_OUTPUT);
   RNA_def_property_multi_array(parm, 2, NULL);
   RNA_def_property_range(parm, -1.0f, 1.0f);

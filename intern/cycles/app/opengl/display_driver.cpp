@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "app/opengl/display_driver.h"
 #include "app/opengl/shader.h"
@@ -22,9 +23,7 @@ OpenGLDisplayDriver::OpenGLDisplayDriver(const function<bool()> &gl_context_enab
 {
 }
 
-OpenGLDisplayDriver::~OpenGLDisplayDriver()
-{
-}
+OpenGLDisplayDriver::~OpenGLDisplayDriver() {}
 
 /* --------------------------------------------------------------------
  * Update procedure.

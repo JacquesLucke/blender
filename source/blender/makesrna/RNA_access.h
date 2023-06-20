@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /* Use a define instead of `#pragma once` because of `rna_internal.h` */
 #ifndef __RNA_ACCESS_H__
@@ -216,6 +218,9 @@ bool RNA_enum_name(const EnumPropertyItem *item, int value, const char **r_name)
 bool RNA_enum_description(const EnumPropertyItem *item, int value, const char **description);
 int RNA_enum_from_value(const EnumPropertyItem *item, int value);
 int RNA_enum_from_identifier(const EnumPropertyItem *item, const char *identifier);
+bool RNA_enum_value_from_identifier(const EnumPropertyItem *item,
+                                    const char *identifier,
+                                    int *r_value);
 /**
  * Take care using this with translated enums,
  * prefer #RNA_enum_from_identifier where possible.
@@ -377,7 +382,7 @@ void RNA_property_string_search(const struct bContext *C,
  * \return the length without `\0` terminator.
  */
 int RNA_property_string_length(PointerRNA *ptr, PropertyRNA *prop);
-void RNA_property_string_get_default(PropertyRNA *prop, char *value, int max_len);
+void RNA_property_string_get_default(PropertyRNA *prop, char *value, int value_maxncpy);
 char *RNA_property_string_get_default_alloc(
     PointerRNA *ptr, PropertyRNA *prop, char *fixedbuf, int fixedlen, int *r_len);
 /**
@@ -433,6 +438,12 @@ int RNA_property_collection_lookup_string_index(
 
 bool RNA_property_collection_lookup_int_has_fn(PropertyRNA *prop);
 bool RNA_property_collection_lookup_string_has_fn(PropertyRNA *prop);
+bool RNA_property_collection_lookup_string_has_nameprop(PropertyRNA *prop);
+/**
+ * Return true when this type supports string lookups,
+ * it has a lookup function or it's type has a name property.
+ */
+bool RNA_property_collection_lookup_string_supported(PropertyRNA *prop);
 
 /**
  * Zero return is an assignment error.
@@ -544,7 +555,8 @@ void RNA_collection_clear(PointerRNA *ptr, const char *name);
   { \
     CollectionPropertyIterator rna_macro_iter; \
     for (RNA_collection_begin(sptr, propname, &rna_macro_iter); rna_macro_iter.valid; \
-         RNA_property_collection_next(&rna_macro_iter)) { \
+         RNA_property_collection_next(&rna_macro_iter)) \
+    { \
       PointerRNA itemptr = rna_macro_iter.ptr;
 
 #define RNA_END \
@@ -557,7 +569,8 @@ void RNA_collection_clear(PointerRNA *ptr, const char *name);
   { \
     CollectionPropertyIterator rna_macro_iter; \
     for (RNA_property_collection_begin(sptr, prop, &rna_macro_iter); rna_macro_iter.valid; \
-         RNA_property_collection_next(&rna_macro_iter)) { \
+         RNA_property_collection_next(&rna_macro_iter)) \
+    { \
       PointerRNA itemptr = rna_macro_iter.ptr;
 
 #define RNA_PROP_END \
@@ -572,7 +585,8 @@ void RNA_collection_clear(PointerRNA *ptr, const char *name);
     for (RNA_property_collection_begin( \
              sptr, RNA_struct_iterator_property((sptr)->type), &rna_macro_iter); \
          rna_macro_iter.valid; \
-         RNA_property_collection_next(&rna_macro_iter)) { \
+         RNA_property_collection_next(&rna_macro_iter)) \
+    { \
       PropertyRNA *prop = (PropertyRNA *)rna_macro_iter.ptr.data;
 
 #define RNA_STRUCT_BEGIN_SKIP_RNA_TYPE(sptr, prop) \
@@ -798,18 +812,27 @@ typedef enum eRNAOverrideMatch {
 
   /** Create new property override if needed and possible. */
   RNA_OVERRIDE_COMPARE_CREATE = 1 << 16,
-  /** Restore property's value(s) to reference ones if needed and possible. */
+  /** Restore property's value(s) to reference ones, if needed and possible. */
   RNA_OVERRIDE_COMPARE_RESTORE = 1 << 17,
+  /** Tag for restoration of property's value(s) to reference ones, if needed and possible. */
+  RNA_OVERRIDE_COMPARE_TAG_FOR_RESTORE = 1 << 18,
 } eRNAOverrideMatch;
 
 typedef enum eRNAOverrideMatchResult {
+  RNA_OVERRIDE_MATCH_RESULT_INIT = 0,
+
   /**
    * Some new property overrides were created to take into account
    * differences between local and reference.
    */
   RNA_OVERRIDE_MATCH_RESULT_CREATED = 1 << 0,
+  /**
+   * Some properties are illegally different from their reference values and have been tagged for
+   * restoration.
+   */
+  RNA_OVERRIDE_MATCH_RESULT_RESTORE_TAGGED = 1 << 1,
   /** Some properties were reset to reference values. */
-  RNA_OVERRIDE_MATCH_RESULT_RESTORED = 1 << 1,
+  RNA_OVERRIDE_MATCH_RESULT_RESTORED = 1 << 2,
 } eRNAOverrideMatchResult;
 
 typedef enum eRNAOverrideStatus {
@@ -859,6 +882,12 @@ typedef enum eRNAOverrideApplyFlag {
    * pointers properties, unless the destination original value (the one being overridden) is NULL.
    */
   RNA_OVERRIDE_APPLY_FLAG_IGNORE_ID_POINTERS = 1 << 0,
+
+  /** Do not check for liboverrides needing resync with their linked reference data. */
+  RNA_OVERRIDE_APPLY_FLAG_SKIP_RESYNC_CHECK = 1 << 1,
+
+  /** Only perform restore operations. */
+  RNA_OVERRIDE_APPLY_FLAG_RESTORE_ONLY = 1 << 2,
 } eRNAOverrideApplyFlag;
 
 /**

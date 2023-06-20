@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup shdnodes
@@ -19,16 +20,10 @@ namespace blender::nodes::node_shader_math_cc {
 static void sh_node_math_declare(NodeDeclarationBuilder &b)
 {
   b.is_function_node();
-  b.add_input<decl::Float>(N_("Value")).default_value(0.5f).min(-10000.0f).max(10000.0f);
-  b.add_input<decl::Float>(N_("Value"), "Value_001")
-      .default_value(0.5f)
-      .min(-10000.0f)
-      .max(10000.0f);
-  b.add_input<decl::Float>(N_("Value"), "Value_002")
-      .default_value(0.5f)
-      .min(-10000.0f)
-      .max(10000.0f);
-  b.add_output<decl::Float>(N_("Value"));
+  b.add_input<decl::Float>("Value").default_value(0.5f).min(-10000.0f).max(10000.0f);
+  b.add_input<decl::Float>("Value", "Value_001").default_value(0.5f).min(-10000.0f).max(10000.0f);
+  b.add_input<decl::Float>("Value", "Value_002").default_value(0.5f).min(-10000.0f).max(10000.0f);
+  b.add_output<decl::Float>("Value");
 }
 
 class SocketSearchOp {
@@ -46,7 +41,8 @@ class SocketSearchOp {
 static void sh_node_math_gather_link_searches(GatherLinkSearchOpParams &params)
 {
   if (!params.node_tree().typeinfo->validate_link(
-          static_cast<eNodeSocketDatatype>(params.other_socket().type), SOCK_FLOAT)) {
+          static_cast<eNodeSocketDatatype>(params.other_socket().type), SOCK_FLOAT))
+  {
     return;
   }
 
@@ -102,15 +98,15 @@ static int gpu_shader_math(GPUMaterial *mat,
   return 0;
 }
 
-static const fn::MultiFunction *get_base_multi_function(const bNode &node)
+static const mf::MultiFunction *get_base_multi_function(const bNode &node)
 {
   const int mode = node.custom1;
-  const fn::MultiFunction *base_fn = nullptr;
+  const mf::MultiFunction *base_fn = nullptr;
 
   try_dispatch_float_math_fl_to_fl(
       mode, [&](auto devi_fn, auto function, const FloatMathOperationInfo &info) {
-        static fn::CustomMF_SI_SO<float, float> fn{
-            info.title_case_name.c_str(), function, devi_fn};
+        static auto fn = mf::build::SI1_SO<float, float>(
+            info.title_case_name.c_str(), function, devi_fn);
         base_fn = &fn;
       });
   if (base_fn != nullptr) {
@@ -119,8 +115,8 @@ static const fn::MultiFunction *get_base_multi_function(const bNode &node)
 
   try_dispatch_float_math_fl_fl_to_fl(
       mode, [&](auto devi_fn, auto function, const FloatMathOperationInfo &info) {
-        static fn::CustomMF_SI_SI_SO<float, float, float> fn{
-            info.title_case_name.c_str(), function, devi_fn};
+        static auto fn = mf::build::SI2_SO<float, float, float>(
+            info.title_case_name.c_str(), function, devi_fn);
         base_fn = &fn;
       });
   if (base_fn != nullptr) {
@@ -129,8 +125,8 @@ static const fn::MultiFunction *get_base_multi_function(const bNode &node)
 
   try_dispatch_float_math_fl_fl_fl_to_fl(
       mode, [&](auto devi_fn, auto function, const FloatMathOperationInfo &info) {
-        static fn::CustomMF_SI_SI_SI_SO<float, float, float, float> fn{
-            info.title_case_name.c_str(), function, devi_fn};
+        static auto fn = mf::build::SI3_SO<float, float, float, float>(
+            info.title_case_name.c_str(), function, devi_fn);
         base_fn = &fn;
       });
   if (base_fn != nullptr) {
@@ -140,17 +136,17 @@ static const fn::MultiFunction *get_base_multi_function(const bNode &node)
   return nullptr;
 }
 
-class ClampWrapperFunction : public fn::MultiFunction {
+class ClampWrapperFunction : public mf::MultiFunction {
  private:
-  const fn::MultiFunction &fn_;
+  const mf::MultiFunction &fn_;
 
  public:
-  ClampWrapperFunction(const fn::MultiFunction &fn) : fn_(fn)
+  ClampWrapperFunction(const mf::MultiFunction &fn) : fn_(fn)
   {
     this->set_signature(&fn.signature());
   }
 
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext context) const override
+  void call(const IndexMask &mask, mf::Params params, mf::Context context) const override
   {
     fn_.call(mask, params, context);
 
@@ -159,16 +155,16 @@ class ClampWrapperFunction : public fn::MultiFunction {
     /* This has actually been initialized in the call above. */
     MutableSpan<float> results = params.uninitialized_single_output<float>(output_param_index);
 
-    for (const int i : mask) {
+    mask.foreach_index_optimized<int>([&](const int i) {
       float &value = results[i];
       CLAMP(value, 0.0f, 1.0f);
-    }
+    });
   }
 };
 
 static void sh_node_math_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
-  const fn::MultiFunction *base_function = get_base_multi_function(builder.node());
+  const mf::MultiFunction *base_function = get_base_multi_function(builder.node());
 
   const bool clamp_output = builder.node().custom2 != 0;
   if (clamp_output) {

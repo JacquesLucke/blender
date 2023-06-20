@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -23,7 +25,8 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-/* enum defines exported for rna_animation.c */
+/* Enum defines exported for `rna_animation.c`. */
+
 const EnumPropertyItem rna_enum_nla_mode_blend_items[] = {
     {NLASTRIP_MODE_REPLACE,
      "REPLACE",
@@ -88,7 +91,7 @@ static void rna_NlaStrip_name_set(PointerRNA *ptr, const char *value)
   NlaStrip *data = (NlaStrip *)ptr->data;
 
   /* copy the name first */
-  BLI_strncpy_utf8(data->name, value, sizeof(data->name));
+  STRNCPY_UTF8(data->name, value);
 
   /* validate if there's enough info to do so */
   if (ptr->owner_id) {
@@ -156,6 +159,8 @@ static void rna_NlaStrip_transform_update(Main *bmain, Scene *scene, PointerRNA 
       BKE_nla_validate_state(iat->adt);
     }
   }
+
+  BKE_nlastrip_recalculate_blend(strip);
 
   rna_NlaStrip_update(bmain, scene, ptr);
 }
@@ -320,8 +325,9 @@ static void rna_NlaStrip_frame_end_ui_set(PointerRNA *ptr, float value)
     float action_length_delta = (old_strip_end - data->end) / data->scale;
     /* If no repeats are used, then modify the action end frame : */
     if (IS_EQF(data->repeat, 1.0f)) {
-      /* If they're equal, strip has been reduced by the same amount as the whole strip length, so
-       * clamp the action clip length to 1 frame, and add a frame to end so that len(strip)!=0 :*/
+      /* If they're equal, strip has been reduced by the same amount as the whole strip length,
+       * so clamp the action clip length to 1 frame, and add a frame to end so that
+       * `len(strip) != 0`. */
       if (IS_EQF(action_length_delta, actlen)) {
         data->actend = data->actstart + 1.0f;
         data->end += 1.0f;
@@ -536,12 +542,12 @@ static NlaStrip *rna_NlaStrip_new(ID *id,
   strip->end += (start - strip->start);
   strip->start = start;
 
-  if (BKE_nlastrips_add_strip(&track->strips, strip) == 0) {
+  if (!BKE_nlastrips_add_strip(&track->strips, strip)) {
     BKE_report(
         reports,
         RPT_ERROR,
         "Unable to add strip (the track does not have any space to accommodate this new strip)");
-    BKE_nlastrip_free(NULL, strip, true);
+    BKE_nlastrip_free(strip, true);
     return NULL;
   }
 
@@ -592,7 +598,7 @@ static void rna_NlaStrip_remove(
     return;
   }
 
-  BKE_nlastrip_free(&track->strips, strip, true);
+  BKE_nlastrip_remove_and_free(&track->strips, strip, true);
   RNA_POINTER_INVALIDATE(strip_ptr);
 
   WM_event_add_notifier(C, NC_ANIMATION | ND_NLA | NA_REMOVED, NULL);
@@ -735,11 +741,38 @@ static void rna_def_nlastrip(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Start Frame", "");
   RNA_def_property_update(
       prop, NC_ANIMATION | ND_NLA | NA_EDITED, "rna_NlaStrip_transform_update");
+  /* The `frame_start` and `frame_end` properties should NOT be considered for library overrides,
+   * as their setters always enforce a valid state. While library overrides are applied, the
+   * intermediate state may be invalid, even when the end state is valid. */
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_NO_COMPARISON);
 
   prop = RNA_def_property(srna, "frame_end", PROP_FLOAT, PROP_TIME);
   RNA_def_property_float_sdna(prop, NULL, "end");
   RNA_def_property_float_funcs(prop, NULL, "rna_NlaStrip_end_frame_set", NULL);
   RNA_def_property_ui_text(prop, "End Frame", "");
+  RNA_def_property_update(
+      prop, NC_ANIMATION | ND_NLA | NA_EDITED, "rna_NlaStrip_transform_update");
+  /* The `frame_start` and `frame_end` properties should NOT be considered for library overrides,
+   * as their setters always enforce a valid state. While library overrides are applied, the
+   * intermediate state may be invalid, even when the end state is valid. */
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_NO_COMPARISON);
+
+  /* Strip extents without enforcing a valid state. */
+  prop = RNA_def_property(srna, "frame_start_raw", PROP_FLOAT, PROP_TIME);
+  RNA_def_property_float_sdna(prop, NULL, "start");
+  RNA_def_property_ui_text(prop,
+                           "Start Frame (raw value)",
+                           "Same as frame_start, except that any value can be set, including ones "
+                           "that create an invalid state");
+  RNA_def_property_update(
+      prop, NC_ANIMATION | ND_NLA | NA_EDITED, "rna_NlaStrip_transform_update");
+
+  prop = RNA_def_property(srna, "frame_end_raw", PROP_FLOAT, PROP_TIME);
+  RNA_def_property_float_sdna(prop, NULL, "end");
+  RNA_def_property_ui_text(prop,
+                           "End Frame (raw value)",
+                           "Same as frame_end, except that any value can be set, including ones "
+                           "that create an invalid state");
   RNA_def_property_update(
       prop, NC_ANIMATION | ND_NLA | NA_EDITED, "rna_NlaStrip_transform_update");
 
@@ -755,6 +788,9 @@ static void rna_def_nlastrip(BlenderRNA *brna)
       "property instead");
   RNA_def_property_update(
       prop, NC_ANIMATION | ND_NLA | NA_EDITED, "rna_NlaStrip_transform_update");
+  /* The `..._ui` properties should NOT be considered for library overrides, as they are meant to
+   * have different behavior than when setting their non-`..._ui` counterparts. */
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_NO_COMPARISON);
 
   prop = RNA_def_property(srna, "frame_end_ui", PROP_FLOAT, PROP_TIME);
   RNA_def_property_float_sdna(prop, NULL, "end");
@@ -767,6 +803,9 @@ static void rna_def_nlastrip(BlenderRNA *brna)
       "changed, see the \"frame_end\" property instead");
   RNA_def_property_update(
       prop, NC_ANIMATION | ND_NLA | NA_EDITED, "rna_NlaStrip_transform_update");
+  /* The `..._ui` properties should NOT be considered for library overrides, as they are meant to
+   * have different behavior than when setting their non-`..._ui` counterparts. */
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_NO_COMPARISON);
 
   /* Blending */
   prop = RNA_def_property(srna, "blend_in", PROP_FLOAT, PROP_NONE);
@@ -951,7 +990,7 @@ static void rna_api_nlatrack_strips(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_property_srna(cprop, "NlaStrips");
   srna = RNA_def_struct(brna, "NlaStrips", NULL);
   RNA_def_struct_sdna(srna, "NlaTrack");
-  RNA_def_struct_ui_text(srna, "Nla Strips", "Collection of Nla Strips");
+  RNA_def_struct_ui_text(srna, "NLA Strips", "Collection of NLA Strips");
 
   func = RNA_def_function(srna, "new", "rna_NlaStrip_new");
   RNA_def_function_flag(func,
@@ -991,7 +1030,7 @@ static void rna_def_nlatrack(BlenderRNA *brna)
 
   srna = RNA_def_struct(brna, "NlaTrack", NULL);
   RNA_def_struct_ui_text(
-      srna, "NLA Track", "A animation layer containing Actions referenced as NLA strips");
+      srna, "NLA Track", "An animation layer containing Actions referenced as NLA strips");
   RNA_def_struct_ui_icon(srna, ICON_NLA);
 
   /* strips collection */

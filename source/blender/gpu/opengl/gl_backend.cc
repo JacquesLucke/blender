@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2020 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2020 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -66,14 +67,16 @@ void GLBackend::platform_init()
   }
   else if (strstr(vendor, "Intel") ||
            /* src/mesa/drivers/dri/intel/intel_context.c */
-           strstr(renderer, "Mesa DRI Intel") || strstr(renderer, "Mesa DRI Mobile Intel")) {
+           strstr(renderer, "Mesa DRI Intel") || strstr(renderer, "Mesa DRI Mobile Intel"))
+  {
     device = GPU_DEVICE_INTEL;
     driver = GPU_DRIVER_OFFICIAL;
 
     if (strstr(renderer, "UHD Graphics") ||
         /* Not UHD but affected by the same bugs. */
         strstr(renderer, "HD Graphics 530") || strstr(renderer, "Kaby Lake GT2") ||
-        strstr(renderer, "Whiskey Lake")) {
+        strstr(renderer, "Whiskey Lake"))
+    {
       device |= GPU_DEVICE_INTEL_UHD;
     }
   }
@@ -81,7 +84,8 @@ void GLBackend::platform_init()
            (strstr(renderer, "Radeon") && strstr(vendor, "X.Org")) ||
            (strstr(renderer, "AMD") && strstr(vendor, "X.Org")) ||
            (strstr(renderer, "Gallium ") && strstr(renderer, " on ATI ")) ||
-           (strstr(renderer, "Gallium ") && strstr(renderer, " on AMD "))) {
+           (strstr(renderer, "Gallium ") && strstr(renderer, " on AMD ")))
+  {
     device = GPU_DEVICE_ATI;
     driver = GPU_DRIVER_OPENSOURCE;
   }
@@ -130,7 +134,8 @@ void GLBackend::platform_init()
           strstr(version, "Build 8.15") || strstr(version, "Build 9.17") ||
           strstr(version, "Build 9.18") || strstr(version, "Build 10.18.10.3") ||
           strstr(version, "Build 10.18.10.4") || strstr(version, "Build 10.18.10.5") ||
-          strstr(version, "Build 10.18.14.4")) {
+          strstr(version, "Build 10.18.14.4"))
+      {
         support_level = GPU_SUPPORT_LEVEL_LIMITED;
       }
     }
@@ -249,19 +254,26 @@ static void detect_workarounds()
     return;
   }
 
+  /* Only use main context when running inside RenderDoc.
+   * RenderDoc requires that all calls are* from the same context. */
+  if (G.debug & G_DEBUG_GPU_RENDERDOC) {
+    GCaps.use_main_context_workaround = true;
+  }
+
   /* Limit support for GL_ARB_base_instance to OpenGL 4.0 and higher. NVIDIA Quadro FX 4800
    * (TeraScale) report that they support GL_ARB_base_instance, but the driver does not support
    * GLEW_ARB_draw_indirect as it has an OpenGL3 context what also matches the minimum needed
    * requirements.
    *
    * We use it as a target for glMapBuffer(Range) what is part of the OpenGL 4 API. So better
-   * disable it when we don't have an OpenGL4 context (See T77657) */
+   * disable it when we don't have an OpenGL4 context (See #77657) */
   if (!(epoxy_gl_version() >= 40)) {
     GLContext::base_instance_support = false;
   }
   if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_WIN, GPU_DRIVER_OFFICIAL) &&
       (strstr(version, "4.5.13399") || strstr(version, "4.5.13417") ||
-       strstr(version, "4.5.13422") || strstr(version, "4.5.13467"))) {
+       strstr(version, "4.5.13422") || strstr(version, "4.5.13467")))
+  {
     /* The renderers include:
      *   Radeon HD 5000;
      *   Radeon HD 7500M;
@@ -275,28 +287,31 @@ static void detect_workarounds()
     GCaps.shader_draw_parameters_support = false;
     GCaps.broken_amd_driver = true;
   }
-  /* Compute shaders have some issues with those versions (see T94936). */
+  /* Compute shaders have some issues with those versions (see #94936). */
   if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_ANY, GPU_DRIVER_OFFICIAL) &&
-      (strstr(version, "4.5.14831") || strstr(version, "4.5.14760"))) {
+      (strstr(version, "4.5.14831") || strstr(version, "4.5.14760")))
+  {
     GCaps.compute_shader_support = false;
   }
-  /* We have issues with this specific renderer. (see T74024) */
+  /* We have issues with this specific renderer. (see #74024) */
   if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_UNIX, GPU_DRIVER_OPENSOURCE) &&
       (strstr(renderer, "AMD VERDE") || strstr(renderer, "AMD KAVERI") ||
-       strstr(renderer, "AMD TAHITI"))) {
+       strstr(renderer, "AMD TAHITI")))
+  {
     GLContext::unused_fb_slot_workaround = true;
     GCaps.shader_image_load_store_support = false;
     GCaps.shader_draw_parameters_support = false;
     GCaps.broken_amd_driver = true;
   }
-  /* Fix slowdown on this particular driver. (see T77641) */
+  /* Fix slowdown on this particular driver. (see #77641) */
   if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_UNIX, GPU_DRIVER_OPENSOURCE) &&
-      strstr(version, "Mesa 19.3.4")) {
+      strstr(version, "Mesa 19.3.4"))
+  {
     GCaps.shader_image_load_store_support = false;
     GCaps.shader_draw_parameters_support = false;
     GCaps.broken_amd_driver = true;
   }
-  /* See T82856: AMD drivers since 20.11 running on a polaris architecture doesn't support the
+  /* See #82856: AMD drivers since 20.11 running on a polaris architecture doesn't support the
    * `GL_INT_2_10_10_10_REV` data type correctly. This data type is used to pack normals and flags.
    * The work around uses `GPU_RGBA16I`. In 22.?.? drivers this has been fixed for
    * polaris platform. Keeping legacy platforms around just in case.
@@ -315,27 +330,31 @@ static void detect_workarounds()
    * still be broken. */
   if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_MAC, GPU_DRIVER_OFFICIAL)) {
     if (strstr(renderer, "AMD Radeon Pro") || strstr(renderer, "AMD Radeon R9") ||
-        strstr(renderer, "AMD Radeon RX")) {
+        strstr(renderer, "AMD Radeon RX"))
+    {
       GCaps.depth_blitting_workaround = true;
     }
   }
   /* Limit this fix to older hardware with GL < 4.5. This means Broadwell GPUs are
    * covered since they only support GL 4.4 on windows.
-   * This fixes some issues with workbench anti-aliasing on Win + Intel GPU. (see T76273) */
+   * This fixes some issues with workbench anti-aliasing on Win + Intel GPU. (see #76273) */
   if (GPU_type_matches(GPU_DEVICE_INTEL, GPU_OS_WIN, GPU_DRIVER_OFFICIAL) &&
-      !(epoxy_gl_version() >= 45)) {
+      !(epoxy_gl_version() >= 45))
+  {
     GLContext::copy_image_support = false;
   }
   /* Special fix for these specific GPUs.
-   * Without this workaround, blender crashes on startup. (see T72098) */
+   * Without this workaround, blender crashes on startup. (see #72098) */
   if (GPU_type_matches(GPU_DEVICE_INTEL, GPU_OS_WIN, GPU_DRIVER_OFFICIAL) &&
-      (strstr(renderer, "HD Graphics 620") || strstr(renderer, "HD Graphics 630"))) {
+      (strstr(renderer, "HD Graphics 620") || strstr(renderer, "HD Graphics 630")))
+  {
     GCaps.mip_render_workaround = true;
   }
-  /* Intel Ivy Bridge GPU's seems to have buggy cube-map array support. (see T75943) */
+  /* Intel Ivy Bridge GPU's seems to have buggy cube-map array support. (see #75943) */
   if (GPU_type_matches(GPU_DEVICE_INTEL, GPU_OS_WIN, GPU_DRIVER_OFFICIAL) &&
       (strstr(renderer, "HD Graphics 4000") || strstr(renderer, "HD Graphics 4400") ||
-       strstr(renderer, "HD Graphics 2500"))) {
+       strstr(renderer, "HD Graphics 2500")))
+  {
     GLContext::texture_cube_map_array_support = false;
   }
   /* Maybe not all of these drivers have problems with `GL_ARB_base_instance`.
@@ -345,32 +364,35 @@ static void detect_workarounds()
   if (GPU_type_matches(GPU_DEVICE_INTEL, GPU_OS_WIN, GPU_DRIVER_ANY) &&
       (strstr(version, "Build 10.18.10.3") || strstr(version, "Build 10.18.10.4") ||
        strstr(version, "Build 10.18.10.5") || strstr(version, "Build 10.18.14.4") ||
-       strstr(version, "Build 10.18.14.5"))) {
+       strstr(version, "Build 10.18.14.5")))
+  {
     GLContext::base_instance_support = false;
     GCaps.use_main_context_workaround = true;
   }
-  /* Somehow fixes armature display issues (see T69743). */
+  /* Somehow fixes armature display issues (see #69743). */
   if (GPU_type_matches(GPU_DEVICE_INTEL, GPU_OS_WIN, GPU_DRIVER_ANY) &&
-      strstr(version, "Build 20.19.15.4285")) {
+      strstr(version, "Build 20.19.15.4285"))
+  {
     GCaps.use_main_context_workaround = true;
   }
-  /* See T70187: merging vertices fail. This has been tested from `18.2.2` till `19.3.0~dev`
+  /* See #70187: merging vertices fail. This has been tested from `18.2.2` till `19.3.0~dev`
    * of the Mesa driver */
   if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_UNIX, GPU_DRIVER_OPENSOURCE) &&
       (strstr(version, "Mesa 18.") || strstr(version, "Mesa 19.0") ||
-       strstr(version, "Mesa 19.1") || strstr(version, "Mesa 19.2"))) {
+       strstr(version, "Mesa 19.1") || strstr(version, "Mesa 19.2")))
+  {
     GLContext::unused_fb_slot_workaround = true;
   }
   /* There is a bug on older Nvidia GPU where GL_ARB_texture_gather
-   * is reported to be supported but yield a compile error (see T55802). */
+   * is reported to be supported but yield a compile error (see #55802). */
   if (GPU_type_matches(GPU_DEVICE_NVIDIA, GPU_OS_ANY, GPU_DRIVER_ANY) &&
       !(epoxy_gl_version() >= 40)) {
     GLContext::texture_gather_support = false;
   }
 
   /* dFdx/dFdy calculation factors, those are dependent on driver. */
-  if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_ANY, GPU_DRIVER_ANY) &&
-      strstr(version, "3.3.10750")) {
+  if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_ANY, GPU_DRIVER_ANY) && strstr(version, "3.3.10750"))
+  {
     GLContext::derivative_signs[0] = 1.0;
     GLContext::derivative_signs[1] = -1.0;
   }
@@ -380,7 +402,8 @@ static void detect_workarounds()
         strstr(version, "4.0.0 - Build 9.18.10.3165") ||
         strstr(version, "3.1.0 - Build 9.17.10.3347") ||
         strstr(version, "3.1.0 - Build 9.17.10.4101") ||
-        strstr(version, "3.3.0 - Build 8.15.10.2618")) {
+        strstr(version, "3.3.0 - Build 8.15.10.2618"))
+    {
       GLContext::derivative_signs[0] = -1.0;
       GLContext::derivative_signs[1] = 1.0;
     }
@@ -409,20 +432,23 @@ static void detect_workarounds()
 
   /* Broken glGenerateMipmap on macOS 10.15.7 security update. */
   if (GPU_type_matches(GPU_DEVICE_INTEL, GPU_OS_MAC, GPU_DRIVER_ANY) &&
-      strstr(renderer, "HD Graphics 4000")) {
+      strstr(renderer, "HD Graphics 4000"))
+  {
     GLContext::generate_mipmap_workaround = true;
   }
 
-  /* Buggy interface query functions cause crashes when handling SSBOs (T93680) */
+  /* Buggy interface query functions cause crashes when handling SSBOs (#93680) */
   if (GPU_type_matches(GPU_DEVICE_INTEL, GPU_OS_ANY, GPU_DRIVER_ANY) &&
-      (strstr(renderer, "HD Graphics 4400") || strstr(renderer, "HD Graphics 4600"))) {
+      (strstr(renderer, "HD Graphics 4400") || strstr(renderer, "HD Graphics 4600")))
+  {
     GCaps.shader_storage_buffer_objects_support = false;
   }
 
   /* Certain Intel/AMD based platforms don't clear the viewport textures. Always clearing leads to
    * noticeable performance regressions on other platforms as well. */
   if (GPU_type_matches(GPU_DEVICE_ANY, GPU_OS_MAC, GPU_DRIVER_ANY) ||
-      GPU_type_matches(GPU_DEVICE_INTEL, GPU_OS_ANY, GPU_DRIVER_ANY)) {
+      GPU_type_matches(GPU_DEVICE_INTEL, GPU_OS_ANY, GPU_DRIVER_ANY))
+  {
     GCaps.clear_viewport_workaround = true;
   }
 
@@ -510,6 +536,7 @@ void GLBackend::capabilities_init()
   GCaps.shader_draw_parameters_support = epoxy_has_gl_extension("GL_ARB_shader_draw_parameters");
   GCaps.compute_shader_support = epoxy_has_gl_extension("GL_ARB_compute_shader") &&
                                  epoxy_gl_version() >= 43;
+  GCaps.geometry_shader_support = true;
   GCaps.max_samplers = GCaps.max_textures;
 
   if (GCaps.compute_shader_support) {

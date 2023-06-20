@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -52,7 +53,8 @@ static void createTransLatticeVerts(bContext *UNUSED(C), TransInfo *t)
       bp++;
     }
 
-    /* Support other objects using PET to adjust these, unless connected is enabled. */
+    /* Support other objects using proportional editing to adjust these, unless connected is
+     * enabled. */
     if (((is_prop_edit && !is_prop_connected) ? count : countsel) == 0) {
       tc->data_len = 0;
       continue;
@@ -101,7 +103,7 @@ static void createTransLatticeVerts(bContext *UNUSED(C), TransInfo *t)
 static void recalcData_lattice(TransInfo *t)
 {
   if (t->state != TRANS_CANCEL) {
-    applySnappingIndividual(t);
+    transform_snap_project_individual_apply(t);
   }
 
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
@@ -116,8 +118,8 @@ static void recalcData_lattice(TransInfo *t)
 /** \} */
 
 TransConvertTypeInfo TransConvertType_Lattice = {
-    /* flags */ (T_EDIT | T_POINTS),
-    /* createTransData */ createTransLatticeVerts,
-    /* recalcData */ recalcData_lattice,
-    /* special_aftertrans_update */ NULL,
+    /*flags*/ (T_EDIT | T_POINTS),
+    /*createTransData*/ createTransLatticeVerts,
+    /*recalcData*/ recalcData_lattice,
+    /*special_aftertrans_update*/ NULL,
 };

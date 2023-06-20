@@ -1,4 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
+
+#include "BLI_task.hh"
 
 #include "BKE_curves.hh"
 
@@ -11,20 +15,19 @@ namespace blender::nodes::node_geo_curve_endpoint_selection_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Int>(N_("Start Size"))
+  b.add_input<decl::Int>("Start Size")
       .min(0)
       .default_value(1)
       .supports_field()
-      .description(N_("The amount of points to select from the start of each spline"));
-  b.add_input<decl::Int>(N_("End Size"))
+      .description("The amount of points to select from the start of each spline");
+  b.add_input<decl::Int>("End Size")
       .min(0)
       .default_value(1)
       .supports_field()
-      .description(N_("The amount of points to select from the end of each spline"));
-  b.add_output<decl::Bool>(N_("Selection"))
-      .field_source()
-      .description(
-          N_("The selection from the start and end of the splines based on the input sizes"));
+      .description("The amount of points to select from the end of each spline");
+  b.add_output<decl::Bool>("Selection")
+      .field_source_reference_all()
+      .description("The selection from the start and end of the splines based on the input sizes");
 }
 
 class EndpointFieldInput final : public bke::CurvesFieldInput {
@@ -42,7 +45,7 @@ class EndpointFieldInput final : public bke::CurvesFieldInput {
 
   GVArray get_varray_for_context(const bke::CurvesGeometry &curves,
                                  const eAttrDomain domain,
-                                 const IndexMask /*mask*/) const final
+                                 const IndexMask & /*mask*/) const final
   {
     if (domain != ATTR_DOMAIN_POINT) {
       return {};
@@ -51,7 +54,7 @@ class EndpointFieldInput final : public bke::CurvesFieldInput {
       return {};
     }
 
-    bke::CurvesFieldContext size_context{curves, ATTR_DOMAIN_CURVE};
+    const bke::CurvesFieldContext size_context{curves, ATTR_DOMAIN_CURVE};
     fn::FieldEvaluator evaluator{size_context, curves.curves_num()};
     evaluator.add(start_size_);
     evaluator.add(end_size_);
@@ -61,10 +64,11 @@ class EndpointFieldInput final : public bke::CurvesFieldInput {
 
     Array<bool> selection(curves.points_num(), false);
     MutableSpan<bool> selection_span = selection.as_mutable_span();
+    const OffsetIndices points_by_curve = curves.points_by_curve();
     devirtualize_varray2(start_size, end_size, [&](const auto &start_size, const auto &end_size) {
       threading::parallel_for(curves.curves_range(), 1024, [&](IndexRange curves_range) {
         for (const int i : curves_range) {
-          const IndexRange points = curves.points_for_curve(i);
+          const IndexRange points = points_by_curve[i];
           const int start = std::max(start_size[i], 0);
           const int end = std::max(end_size[i], 0);
 
@@ -76,6 +80,12 @@ class EndpointFieldInput final : public bke::CurvesFieldInput {
 
     return VArray<bool>::ForContainer(std::move(selection));
   };
+
+  void for_each_field_input_recursive(FunctionRef<void(const FieldInput &)> fn) const override
+  {
+    start_size_.node().for_each_field_input_recursive(fn);
+    end_size_.node().for_each_field_input_recursive(fn);
+  }
 
   uint64_t hash() const override
   {

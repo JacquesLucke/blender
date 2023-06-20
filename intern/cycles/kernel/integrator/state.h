@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 /* Integrator State
  *
@@ -126,13 +127,16 @@ typedef struct IntegratorStateGPU {
   /* Count number of kernels queued for specific shaders. */
   ccl_global int *sort_key_counter[DEVICE_KERNEL_INTEGRATOR_NUM];
 
-  /* Index of shadow path which will be used by a next shadow path.  */
+  /* Index of shadow path which will be used by a next shadow path. */
   ccl_global int *next_shadow_path_index;
 
-  /* Index of main path which will be used by a next shadow catcher split.  */
+  /* Index of main path which will be used by a next shadow catcher split. */
   ccl_global int *next_main_path_index;
 
-  /* Divisor used to partition active indices by locality when sorting by material.  */
+  /* Partition/key offsets used when writing sorted active indices. */
+  ccl_global int *sort_partition_key_offsets;
+
+  /* Divisor used to partition active indices by locality when sorting by material. */
   uint sort_partition_divisor;
 } IntegratorStateGPU;
 

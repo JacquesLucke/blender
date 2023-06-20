@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -84,6 +86,12 @@ class FieldNode {
 
   virtual uint64_t hash() const;
   virtual bool is_equal_to(const FieldNode &other) const;
+
+  /**
+   * Calls the callback for every field input that the current field depends on. This is recursive,
+   * so if a field input depends on other field inputs, those are taken into account as well.
+   */
+  virtual void for_each_field_input_recursive(FunctionRef<void(const FieldInput &)> fn) const;
 };
 
 /**
@@ -187,6 +195,16 @@ template<typename T> class Field : public GField, detail::TypedFieldBase {
     BLI_assert(this->cpp_type().template is<T>());
   }
 
+  /**
+   * Generally, the constructor above would be sufficient, but this additional constructor ensures
+   * that trying to create e.g. a `Field<int>` from a `Field<float>` does not compile (instead of
+   * only failing at run-time).
+   */
+  template<typename U> Field(Field<U> field) : GField(std::move(field))
+  {
+    static_assert(std::is_same_v<T, U>);
+  }
+
   Field(std::shared_ptr<FieldNode> node, const int node_output_index = 0)
       : Field(GField(std::move(node), node_output_index))
   {
@@ -206,28 +224,28 @@ class FieldOperation : public FieldNode {
    * The multi-function used by this node. It is optionally owned.
    * Multi-functions with mutable or vector parameters are not supported currently.
    */
-  std::shared_ptr<const MultiFunction> owned_function_;
-  const MultiFunction *function_;
+  std::shared_ptr<const mf::MultiFunction> owned_function_;
+  const mf::MultiFunction *function_;
 
   /** Inputs to the operation. */
   blender::Vector<GField> inputs_;
 
  public:
-  FieldOperation(std::shared_ptr<const MultiFunction> function, Vector<GField> inputs = {});
-  FieldOperation(const MultiFunction &function, Vector<GField> inputs = {});
+  FieldOperation(std::shared_ptr<const mf::MultiFunction> function, Vector<GField> inputs = {});
+  FieldOperation(const mf::MultiFunction &function, Vector<GField> inputs = {});
   ~FieldOperation();
 
   Span<GField> inputs() const;
-  const MultiFunction &multi_function() const;
+  const mf::MultiFunction &multi_function() const;
 
   const CPPType &output_cpp_type(int output_index) const override;
 
-  static std::shared_ptr<FieldOperation> Create(std::shared_ptr<const MultiFunction> function,
+  static std::shared_ptr<FieldOperation> Create(std::shared_ptr<const mf::MultiFunction> function,
                                                 Vector<GField> inputs = {})
   {
     return std::make_shared<FieldOperation>(FieldOperation(std::move(function), inputs));
   }
-  static std::shared_ptr<FieldOperation> Create(const MultiFunction &function,
+  static std::shared_ptr<FieldOperation> Create(const mf::MultiFunction &function,
                                                 Vector<GField> inputs = {})
   {
     return std::make_shared<FieldOperation>(FieldOperation(function, inputs));
@@ -263,7 +281,7 @@ class FieldInput : public FieldNode {
    * should live at least as long as the passed in #scope. May return null.
    */
   virtual GVArray get_varray_for_context(const FieldContext &context,
-                                         IndexMask mask,
+                                         const IndexMask &mask,
                                          ResourceScope &scope) const = 0;
 
   virtual std::string socket_inspection_name() const;
@@ -309,7 +327,7 @@ class FieldContext {
   virtual ~FieldContext() = default;
 
   virtual GVArray get_varray_for_input(const FieldInput &field_input,
-                                       IndexMask mask,
+                                       const IndexMask &mask,
                                        ResourceScope &scope) const;
 };
 
@@ -327,7 +345,7 @@ class FieldEvaluator : NonMovable, NonCopyable {
 
   ResourceScope scope_;
   const FieldContext &context_;
-  const IndexMask mask_;
+  const IndexMask &mask_;
   Vector<GField> fields_to_evaluate_;
   Vector<GVMutableArray> dst_varrays_;
   Vector<GVArray> evaluated_varrays_;
@@ -345,7 +363,8 @@ class FieldEvaluator : NonMovable, NonCopyable {
   }
 
   /** Construct a field evaluator for all indices less than #size. */
-  FieldEvaluator(const FieldContext &context, const int64_t size) : context_(context), mask_(size)
+  FieldEvaluator(const FieldContext &context, const int64_t size)
+      : context_(context), mask_(scope_.construct<IndexMask>(size))
   {
   }
 
@@ -469,7 +488,7 @@ class FieldEvaluator : NonMovable, NonCopyable {
  */
 Vector<GVArray> evaluate_fields(ResourceScope &scope,
                                 Span<GFieldRef> fields_to_evaluate,
-                                IndexMask mask,
+                                const IndexMask &mask,
                                 const FieldContext &context,
                                 Span<GVMutableArray> dst_varrays = {});
 
@@ -511,10 +530,10 @@ class IndexFieldInput final : public FieldInput {
  public:
   IndexFieldInput();
 
-  static GVArray get_index_varray(IndexMask mask);
+  static GVArray get_index_varray(const IndexMask &mask);
 
   GVArray get_varray_for_context(const FieldContext &context,
-                                 IndexMask mask,
+                                 const IndexMask &mask,
                                  ResourceScope &scope) const final;
 
   uint64_t hash() const override;
@@ -536,13 +555,9 @@ template<typename T> struct ValueOrField {
 
   ValueOrField() = default;
 
-  ValueOrField(T value) : value(std::move(value))
-  {
-  }
+  ValueOrField(T value) : value(std::move(value)) {}
 
-  ValueOrField(Field<T> field) : field(std::move(field))
-  {
-  }
+  ValueOrField(Field<T> field) : field(std::move(field)) {}
 
   bool is_field() const
   {
@@ -584,9 +599,7 @@ template<typename T> struct ValueOrField {
 /** \name #FieldNode Inline Methods
  * \{ */
 
-inline FieldNode::FieldNode(const FieldNodeType node_type) : node_type_(node_type)
-{
-}
+inline FieldNode::FieldNode(const FieldNodeType node_type) : node_type_(node_type) {}
 
 inline FieldNodeType FieldNode::node_type() const
 {
@@ -634,7 +647,7 @@ inline Span<GField> FieldOperation::inputs() const
   return inputs_;
 }
 
-inline const MultiFunction &FieldOperation::multi_function() const
+inline const mf::MultiFunction &FieldOperation::multi_function() const
 {
   return *function_;
 }
@@ -643,7 +656,7 @@ inline const CPPType &FieldOperation::output_cpp_type(int output_index) const
 {
   int output_counter = 0;
   for (const int param_index : function_->param_indices()) {
-    MFParamType param_type = function_->param_type(param_index);
+    mf::ParamType param_type = function_->param_type(param_index);
     if (param_type.is_output()) {
       if (output_counter == output_index) {
         return param_type.data_type().single_type();

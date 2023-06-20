@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -24,6 +26,7 @@
     .gpuframenr = INT_MAX, \
     .gpu_pass = SHRT_MAX, \
     .gpu_layer = SHRT_MAX, \
+    .seam_margin = 8, \
   }
 
 /** \} */

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_context.h"
 
@@ -18,12 +20,13 @@ NODE_STORAGE_FUNCS(NodeGeometryViewer)
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Geometry>(N_("Geometry"));
-  b.add_input<decl::Float>(N_("Value")).supports_field().hide_value();
-  b.add_input<decl::Vector>(N_("Value"), "Value_001").supports_field().hide_value();
-  b.add_input<decl::Color>(N_("Value"), "Value_002").supports_field().hide_value();
-  b.add_input<decl::Int>(N_("Value"), "Value_003").supports_field().hide_value();
-  b.add_input<decl::Bool>(N_("Value"), "Value_004").supports_field().hide_value();
+  b.add_input<decl::Geometry>("Geometry");
+  b.add_input<decl::Float>("Value").field_on_all().hide_value();
+  b.add_input<decl::Vector>("Value", "Value_001").field_on_all().hide_value();
+  b.add_input<decl::Color>("Value", "Value_002").field_on_all().hide_value();
+  b.add_input<decl::Int>("Value", "Value_003").field_on_all().hide_value();
+  b.add_input<decl::Bool>("Value", "Value_004").field_on_all().hide_value();
+  b.add_input<decl::Rotation>("Value", "Value_005").field_on_all().hide_value();
 }
 
 static void node_init(bNodeTree * /*tree*/, bNode *node)
@@ -58,6 +61,8 @@ static eNodeSocketDatatype custom_data_type_to_socket_type(const eCustomDataType
       return SOCK_BOOLEAN;
     case CD_PROP_COLOR:
       return SOCK_RGBA;
+    case CD_PROP_QUATERNION:
+      return SOCK_ROTATION;
     default:
       BLI_assert_unreachable();
       return SOCK_FLOAT;
@@ -74,7 +79,7 @@ static void node_update(bNodeTree *ntree, bNode *node)
     if (socket->type == SOCK_GEOMETRY) {
       continue;
     }
-    nodeSetSocketAvailability(ntree, socket, socket->type == socket_type);
+    bke::nodeSetSocketAvailability(ntree, socket, socket->type == socket_type);
   }
 }
 
@@ -101,8 +106,14 @@ static void node_gather_link_searches(GatherLinkSearchOpParams &params)
       set_active_fn(params, node);
     });
   }
-  if (type &&
-      ELEM(type, CD_PROP_FLOAT, CD_PROP_BOOL, CD_PROP_INT32, CD_PROP_FLOAT3, CD_PROP_COLOR)) {
+  if (type && ELEM(type,
+                   CD_PROP_FLOAT,
+                   CD_PROP_BOOL,
+                   CD_PROP_INT32,
+                   CD_PROP_FLOAT3,
+                   CD_PROP_COLOR,
+                   CD_PROP_QUATERNION))
+  {
     params.add_item(IFACE_("Value"), [type, set_active_fn](LinkSearchOpParams &params) {
       bNode &node = params.add_node("GeometryNodeViewer");
       node_storage(node).data_type = *type;

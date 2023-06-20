@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2021 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2021 Blender Foundation. All rights reserved.
 
 set(INC
   .
@@ -28,6 +29,8 @@ set(INC
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
+set(INC_SYS
+)
 
 set(SRC
   nodes/node_composite_alpha_over.cc
@@ -74,6 +77,7 @@ set(SRC
   nodes/node_composite_invert.cc
   nodes/node_composite_keying.cc
   nodes/node_composite_keyingscreen.cc
+  nodes/node_composite_kuwahara.cc
   nodes/node_composite_lensdist.cc
   nodes/node_composite_levels.cc
   nodes/node_composite_luma_matte.cc
@@ -119,9 +123,11 @@ set(SRC
   nodes/node_composite_viewer.cc
   nodes/node_composite_zcombine.cc
 
+  node_composite_register.cc
   node_composite_tree.cc
   node_composite_util.cc
 
+  node_composite_register.hh
   node_composite_util.hh
 )
 
@@ -142,6 +148,15 @@ endif()
 
 if(WITH_OPENIMAGEDENOISE)
   add_definitions(-DWITH_OPENIMAGEDENOISE)
+  add_definitions(-DOIDN_STATIC_LIB)
+  list(APPEND INC_SYS
+    ${OPENIMAGEDENOISE_INCLUDE_DIRS}
+    ${TBB_INCLUDE_DIRS}
+  )
+  list(APPEND LIB
+    ${OPENIMAGEDENOISE_LIBRARIES}
+    ${TBB_LIBRARIES}
+  )
 endif()
 
 blender_add_lib(bf_nodes_composite "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2008 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2008 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edutil
@@ -53,15 +54,15 @@
  * #ED_slider_destroy.
  * \{ */
 
-#define SLIDE_PIXEL_DISTANCE (300.0f * U.dpi_fac)
+#define SLIDE_PIXEL_DISTANCE (300.0f * UI_SCALE_FAC)
 #define OVERSHOOT_RANGE_DELTA 0.2f
 
 typedef struct tSlider {
-  struct Scene *scene;
-  struct ScrArea *area;
+  Scene *scene;
+  ScrArea *area;
 
   /** Header of the region used for drawing the slider. */
-  struct ARegion *region_header;
+  ARegion *region_header;
 
   /** Draw callback handler. */
   void *draw_handle;
@@ -69,23 +70,35 @@ typedef struct tSlider {
   /** Accumulative factor (not clamped or rounded). */
   float raw_factor;
 
-  /** 0-1 value for determining the influence of whatever is relevant. */
+  /** Current value for determining the influence of whatever is relevant. */
   float factor;
 
   /** Last mouse cursor position used for mouse movement delta calculation. */
   float last_cursor[2];
 
-  /** Enable range beyond 0-100%. */
-  bool allow_overshoot;
+  /** Range of the slider without overshoot. */
+  float factor_bounds[2];
 
-  /** Allow overshoot or clamp between 0% and 100%. */
+  /** Enable range beyond factor_bounds.
+   * This is set by the code that uses the slider, as not all operations support
+   * extrapolation. */
+  bool allow_overshoot_lower;
+  bool allow_overshoot_upper;
+
+  /** Allow overshoot or clamp between factor_bounds.
+   * This is set by the artist while using the slider. */
   bool overshoot;
+
+  /** Whether keeping CTRL pressed will snap to 10% increments.
+   * Default is true. Set to false if the CTRL key is needed for other means. */
+  bool allow_increments;
 
   /** Move factor in 10% steps. */
   bool increments;
 
   /** Reduces factor delta from mouse movement. */
   bool precision;
+
 } tSlider;
 
 static void draw_overshoot_triangle(const uint8_t color[4],
@@ -231,7 +244,7 @@ static void draw_backdrop(const int fontid,
 /**
  * Draw an on screen Slider for a Pose Slide Operator.
  */
-static void slider_draw(const struct bContext *UNUSED(C), ARegion *region, void *arg)
+static void slider_draw(const bContext *UNUSED(C), ARegion *region, void *arg)
 {
   tSlider *slider = arg;
 
@@ -276,13 +289,18 @@ static void slider_draw(const struct bContext *UNUSED(C), ARegion *region, void 
       .ymax = line_y + line_width / 2,
   };
   float line_start_factor = 0;
-  int handle_pos_x = main_line_rect.xmin + SLIDE_PIXEL_DISTANCE * slider->factor;
-
+  int handle_pos_x;
   if (slider->overshoot) {
     main_line_rect.xmin = main_line_rect.xmin - SLIDE_PIXEL_DISTANCE * OVERSHOOT_RANGE_DELTA;
     main_line_rect.xmax = main_line_rect.xmax + SLIDE_PIXEL_DISTANCE * OVERSHOOT_RANGE_DELTA;
     line_start_factor = slider->factor - 0.5f - OVERSHOOT_RANGE_DELTA;
     handle_pos_x = region->winx / 2;
+  }
+  else {
+    const float total_range = slider->factor_bounds[1] - slider->factor_bounds[0];
+    /* 0-1 value of the representing the position of the slider in the allowed range. */
+    const float range_factor = (slider->factor - slider->factor_bounds[0]) / total_range;
+    handle_pos_x = main_line_rect.xmin + SLIDE_PIXEL_DISTANCE * range_factor;
   }
 
   draw_backdrop(fontid, &main_line_rect, color_bg, slider->region_header->winy, base_tick_height);
@@ -321,7 +339,7 @@ static void slider_draw(const struct bContext *UNUSED(C), ARegion *region, void 
   };
 
   UI_draw_roundbox_3ub_alpha(&handle_rect, true, 1, color_handle, 255);
-  BLI_snprintf(percentage_string, sizeof(percentage_string), "%.0f%%", slider->factor * 100);
+  SNPRINTF(percentage_string, "%.0f%%", slider->factor * 100);
 
   /* Draw percentage string. */
   float percentage_string_pixel_size[2];
@@ -347,7 +365,15 @@ static void slider_update_factor(tSlider *slider, const wmEvent *event)
   copy_v2fl_v2i(slider->last_cursor, event->xy);
 
   if (!slider->overshoot) {
-    slider->factor = clamp_f(slider->factor, 0, 1);
+    slider->factor = clamp_f(slider->factor, slider->factor_bounds[0], slider->factor_bounds[1]);
+  }
+  else {
+    if (!slider->allow_overshoot_lower) {
+      slider->factor = max_ff(slider->factor, slider->factor_bounds[0]);
+    }
+    if (!slider->allow_overshoot_upper) {
+      slider->factor = min_ff(slider->factor, slider->factor_bounds[1]);
+    }
   }
 
   if (slider->increments) {
@@ -355,7 +381,7 @@ static void slider_update_factor(tSlider *slider, const wmEvent *event)
   }
 }
 
-tSlider *ED_slider_create(struct bContext *C)
+tSlider *ED_slider_create(bContext *C)
 {
   tSlider *slider = MEM_callocN(sizeof(tSlider), "tSlider");
   slider->scene = CTX_data_scene(C);
@@ -363,7 +389,12 @@ tSlider *ED_slider_create(struct bContext *C)
   slider->region_header = CTX_wm_region(C);
 
   /* Default is true, caller needs to manually set to false. */
-  slider->allow_overshoot = true;
+  slider->allow_overshoot_lower = true;
+  slider->allow_overshoot_upper = true;
+  slider->allow_increments = true;
+
+  slider->factor_bounds[0] = 0;
+  slider->factor_bounds[1] = 1;
 
   /* Set initial factor. */
   slider->raw_factor = 0.5f;
@@ -380,10 +411,13 @@ tSlider *ED_slider_create(struct bContext *C)
     }
   }
 
+  /* Hide the area menu bar contents, as the slider will be drawn on top. */
+  ED_area_status_text(slider->area, "");
+
   return slider;
 }
 
-void ED_slider_init(struct tSlider *slider, const wmEvent *event)
+void ED_slider_init(tSlider *slider, const wmEvent *event)
 {
   copy_v2fl_v2i(slider->last_cursor, event->xy);
 }
@@ -394,7 +428,7 @@ bool ED_slider_modal(tSlider *slider, const wmEvent *event)
   /* Handle key presses. */
   switch (event->type) {
     case EVT_EKEY:
-      if (slider->allow_overshoot) {
+      if (slider->allow_overshoot_lower || slider->allow_overshoot_upper) {
         slider->overshoot = event->val == KM_PRESS ? !slider->overshoot : slider->overshoot;
         slider_update_factor(slider, event);
       }
@@ -405,7 +439,7 @@ bool ED_slider_modal(tSlider *slider, const wmEvent *event)
       break;
     case EVT_LEFTCTRLKEY:
     case EVT_RIGHTCTRLKEY:
-      slider->increments = event->val == KM_PRESS;
+      slider->increments = slider->allow_increments && event->val == KM_PRESS;
       break;
     case MOUSEMOVE:;
       /* Update factor. */
@@ -421,7 +455,7 @@ bool ED_slider_modal(tSlider *slider, const wmEvent *event)
   return event_handled;
 }
 
-void ED_slider_status_string_get(const struct tSlider *slider,
+void ED_slider_status_string_get(const tSlider *slider,
                                  char *status_string,
                                  const size_t size_of_status_string)
 {
@@ -430,7 +464,7 @@ void ED_slider_status_string_get(const struct tSlider *slider,
   char precision_str[50];
   char increments_str[50];
 
-  if (slider->allow_overshoot) {
+  if (slider->allow_overshoot_lower || slider->allow_overshoot_upper) {
     if (slider->overshoot) {
       STRNCPY(overshoot_str, TIP_("[E] - Disable overshoot"));
     }
@@ -449,22 +483,27 @@ void ED_slider_status_string_get(const struct tSlider *slider,
     STRNCPY(precision_str, TIP_("Shift - Hold for precision"));
   }
 
-  if (slider->increments) {
-    STRNCPY(increments_str, TIP_("[Ctrl] - Increments active"));
+  if (slider->allow_increments) {
+    if (slider->increments) {
+      STRNCPY(increments_str, TIP_(" | [Ctrl] - Increments active"));
+    }
+    else {
+      STRNCPY(increments_str, TIP_(" | Ctrl - Hold for 10% increments"));
+    }
   }
   else {
-    STRNCPY(increments_str, TIP_("Ctrl - Hold for 10% increments"));
+    increments_str[0] = '\0';
   }
 
   BLI_snprintf(status_string,
                size_of_status_string,
-               "%s | %s | %s",
+               "%s | %s%s",
                overshoot_str,
                precision_str,
                increments_str);
 }
 
-void ED_slider_destroy(struct bContext *C, tSlider *slider)
+void ED_slider_destroy(bContext *C, tSlider *slider)
 {
   /* Remove draw callback. */
   if (slider->draw_handle) {
@@ -477,12 +516,12 @@ void ED_slider_destroy(struct bContext *C, tSlider *slider)
 
 /* Setters & Getters */
 
-float ED_slider_factor_get(struct tSlider *slider)
+float ED_slider_factor_get(tSlider *slider)
 {
   return slider->factor;
 }
 
-void ED_slider_factor_set(struct tSlider *slider, const float factor)
+void ED_slider_factor_set(tSlider *slider, const float factor)
 {
   slider->raw_factor = factor;
   slider->factor = factor;
@@ -491,14 +530,28 @@ void ED_slider_factor_set(struct tSlider *slider, const float factor)
   }
 }
 
-bool ED_slider_allow_overshoot_get(struct tSlider *slider)
+void ED_slider_allow_overshoot_set(tSlider *slider, const bool lower, const bool upper)
 {
-  return slider->allow_overshoot;
+  slider->allow_overshoot_lower = lower;
+  slider->allow_overshoot_upper = upper;
 }
 
-void ED_slider_allow_overshoot_set(struct tSlider *slider, const bool value)
+bool ED_slider_allow_increments_get(tSlider *slider)
 {
-  slider->allow_overshoot = value;
+  return slider->allow_increments;
+}
+
+void ED_slider_allow_increments_set(tSlider *slider, const bool value)
+{
+  slider->allow_increments = value;
+}
+
+void ED_slider_factor_bounds_set(tSlider *slider,
+                                 float factor_bound_lower,
+                                 float factor_bound_upper)
+{
+  slider->factor_bounds[0] = factor_bound_lower;
+  slider->factor_bounds[1] = factor_bound_upper;
 }
 
 /** \} */
@@ -521,12 +574,12 @@ void ED_region_draw_mouse_line_cb(const bContext *C, ARegion *region, void *arg_
 
   float viewport_size[4];
   GPU_viewport_size_get_f(viewport_size);
-  immUniform2f("viewport_size", viewport_size[2] / UI_DPI_FAC, viewport_size[3] / UI_DPI_FAC);
+  immUniform2f("viewport_size", viewport_size[2] / UI_SCALE_FAC, viewport_size[3] / UI_SCALE_FAC);
 
   immUniform1i("colors_len", 0); /* "simple" mode */
   immUniformThemeColor3(TH_VIEW_OVERLAY);
   immUniform1f("dash_width", 6.0f);
-  immUniform1f("dash_factor", 0.5f);
+  immUniform1f("udash_factor", 0.5f);
 
   immBegin(GPU_PRIM_LINES, 2);
   immVertex2fv(shdr_pos, mval_src);
@@ -769,7 +822,7 @@ void ED_region_image_metadata_draw(
   GPU_matrix_translate_2f(x, y);
   GPU_matrix_scale_2f(zoomx, zoomy);
 
-  BLF_size(blf_mono_font, style->widgetlabel.points * U.dpi_fac);
+  BLF_size(blf_mono_font, style->widgetlabel.points * UI_SCALE_FAC);
 
   /* *** upper box*** */
 

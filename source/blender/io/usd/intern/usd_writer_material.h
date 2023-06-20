@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 #include <pxr/pxr.h>
@@ -9,13 +11,14 @@
 #include <string>
 
 struct Material;
-struct USDExportParams;
-struct bNode;
-struct bNodeTree;
 
 namespace blender::io::usd {
 
 struct USDExporterContext;
+
+/* Returns a USDPreviewSurface token name for a given Blender shader Socket name,
+ * or an empty TfToken if the input name is not found in the map. */
+const pxr::TfToken token_for_input(const char *input_name);
 
 /**
  * Entry point to create an approximate USD Preview Surface network from a Cycles node graph.

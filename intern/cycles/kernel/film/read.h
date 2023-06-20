@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 /* Functions to retrieving render passes for display or output. Reading from
  * the raw render buffer and normalizing based on the number of samples,
@@ -538,8 +539,8 @@ ccl_device_inline void film_apply_pass_pixel_overlays_rgba(
     ccl_global const float *ccl_restrict buffer,
     ccl_private float *ccl_restrict pixel)
 {
-  if (kfilm_convert->show_active_pixels &&
-      kfilm_convert->pass_adaptive_aux_buffer != PASS_UNUSED) {
+  if (kfilm_convert->show_active_pixels && kfilm_convert->pass_adaptive_aux_buffer != PASS_UNUSED)
+  {
     if (buffer[kfilm_convert->pass_adaptive_aux_buffer + 3] == 0.0f) {
       const float3 active_rgb = make_float3(1.0f, 0.0f, 0.0f);
       const float3 mix_rgb = interp(make_float3(pixel[0], pixel[1], pixel[2]), active_rgb, 0.5f);

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw_engine
@@ -59,7 +61,7 @@ static void populate_cache_for_instance(Object &object,
   const InstancesComponent &instances =
       *base_geometry.get_component_for_read<InstancesComponent>();
   const AttributeAccessor instance_attributes = *instances.attributes();
-  const VArray attribute = instance_attributes.lookup<ColorGeometry4f>(".viewer");
+  const VArray attribute = *instance_attributes.lookup<ColorGeometry4f>(".viewer");
   if (!attribute) {
     return;
   }
@@ -131,17 +133,19 @@ static void populate_cache_for_geometry(Object &object,
     }
     case OB_CURVES_LEGACY: {
       Curve *curve = static_cast<Curve *>(object.data);
-      const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curve->curve_eval->geometry);
-      if (curves.attributes().contains(".viewer")) {
-        GPUBatch *batch = DRW_cache_curve_edge_wire_viewer_attribute_get(&object);
-        DRW_shgroup_uniform_float_copy(pd.viewer_attribute_curve_grp, "opacity", opacity);
-        DRW_shgroup_call_obmat(pd.viewer_attribute_curve_grp, batch, object.object_to_world);
+      if (curve->curve_eval) {
+        const bke::CurvesGeometry &curves = curve->curve_eval->geometry.wrap();
+        if (curves.attributes().contains(".viewer")) {
+          GPUBatch *batch = DRW_cache_curve_edge_wire_viewer_attribute_get(&object);
+          DRW_shgroup_uniform_float_copy(pd.viewer_attribute_curve_grp, "opacity", opacity);
+          DRW_shgroup_call_obmat(pd.viewer_attribute_curve_grp, batch, object.object_to_world);
+        }
       }
       break;
     }
     case OB_CURVES: {
       Curves *curves_id = static_cast<Curves *>(object.data);
-      const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id->geometry);
+      const bke::CurvesGeometry &curves = curves_id->geometry.wrap();
       if (curves.attributes().contains(".viewer")) {
         bool is_point_domain;
         GPUVertBuf **texture = DRW_curves_texture_for_evaluated_attribute(
@@ -164,8 +168,8 @@ void OVERLAY_viewer_attribute_cache_populate(OVERLAY_Data *vedata, Object *objec
   DupliObject *dupli_object = DRW_object_get_dupli(object);
 
   if (dupli_object->preview_instance_index >= 0) {
-    const InstancesComponent &instances =
-        *dupli_object->preview_base_geometry->get_component_for_read<InstancesComponent>();
+    const auto &instances = *dupli_object->preview_base_geometry
+                                 ->get_component_for_read<blender::bke::InstancesComponent>();
     if (instances.attributes()->contains(".viewer")) {
       populate_cache_for_instance(*object, *pd, *dupli_object, opacity);
       return;

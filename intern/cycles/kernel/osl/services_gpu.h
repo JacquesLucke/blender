@@ -1,10 +1,9 @@
-/* SPDX-License-Identifier: BSD-3-Clause
+/* SPDX-FileCopyrightText: 2009-2010 Sony Pictures Imageworks Inc., et al. All Rights Reserved.
+ * SPDX-FileCopyrightText: 2011-2022 Blender Foundation
  *
- * Adapted from Open Shading Language
- * Copyright (c) 2009-2010 Sony Pictures Imageworks Inc., et al.
- * All Rights Reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
  *
- * Modifications Copyright 2011-2022 Blender Foundation. */
+ * Adapted code from Open Shading Language. */
 
 #include "kernel/tables.h"
 #include "kernel/util/differential.h"
@@ -14,111 +13,111 @@
 namespace DeviceStrings {
 
 /* "" */
-ccl_device_constant DeviceString _emptystring_ = {0ull};
+ccl_device_constant DeviceString _emptystring_ = 0ull;
 /* "common" */
-ccl_device_constant DeviceString u_common = {14645198576927606093ull};
+ccl_device_constant DeviceString u_common = 14645198576927606093ull;
 /* "world" */
-ccl_device_constant DeviceString u_world = {16436542438370751598ull};
+ccl_device_constant DeviceString u_world = 16436542438370751598ull;
 /* "shader" */
-ccl_device_constant DeviceString u_shader = {4279676006089868ull};
+ccl_device_constant DeviceString u_shader = 4279676006089868ull;
 /* "object" */
-ccl_device_constant DeviceString u_object = {973692718279674627ull};
+ccl_device_constant DeviceString u_object = 973692718279674627ull;
 /* "NDC" */
-ccl_device_constant DeviceString u_ndc = {5148305047403260775ull};
+ccl_device_constant DeviceString u_ndc = 5148305047403260775ull;
 /* "screen" */
-ccl_device_constant DeviceString u_screen = {14159088609039777114ull};
+ccl_device_constant DeviceString u_screen = 14159088609039777114ull;
 /* "camera" */
-ccl_device_constant DeviceString u_camera = {2159505832145726196ull};
+ccl_device_constant DeviceString u_camera = 2159505832145726196ull;
 /* "raster" */
-ccl_device_constant DeviceString u_raster = {7759263238610201778ull};
+ccl_device_constant DeviceString u_raster = 7759263238610201778ull;
 /* "hsv" */
-ccl_device_constant DeviceString u_hsv = {2177035556331879497ull};
+ccl_device_constant DeviceString u_hsv = 2177035556331879497ull;
 /* "hsl" */
-ccl_device_constant DeviceString u_hsl = {7749766809258288148ull};
+ccl_device_constant DeviceString u_hsl = 7749766809258288148ull;
 /* "XYZ" */
-ccl_device_constant DeviceString u_xyz = {4957977063494975483ull};
+ccl_device_constant DeviceString u_xyz = 4957977063494975483ull;
 /* "xyY" */
-ccl_device_constant DeviceString u_xyy = {5138822319725660255ull};
+ccl_device_constant DeviceString u_xyy = 5138822319725660255ull;
 /* "sRGB" */
-ccl_device_constant DeviceString u_srgb = {15368599878474175032ull};
+ccl_device_constant DeviceString u_srgb = 15368599878474175032ull;
 /* "object:location" */
-ccl_device_constant DeviceString u_object_location = {7846190347358762897ull};
+ccl_device_constant DeviceString u_object_location = 7846190347358762897ull;
 /* "object:color" */
-ccl_device_constant DeviceString u_object_color = {12695623857059169556ull};
+ccl_device_constant DeviceString u_object_color = 12695623857059169556ull;
 /* "object:alpha" */
-ccl_device_constant DeviceString u_object_alpha = {11165053919428293151ull};
+ccl_device_constant DeviceString u_object_alpha = 11165053919428293151ull;
 /* "object:index" */
-ccl_device_constant DeviceString u_object_index = {6588325838217472556ull};
+ccl_device_constant DeviceString u_object_index = 6588325838217472556ull;
 /* "geom:dupli_generated" */
-ccl_device_constant DeviceString u_geom_dupli_generated = {6715607178003388908ull};
+ccl_device_constant DeviceString u_geom_dupli_generated = 6715607178003388908ull;
 /* "geom:dupli_uv" */
-ccl_device_constant DeviceString u_geom_dupli_uv = {1294253317490155849ull};
+ccl_device_constant DeviceString u_geom_dupli_uv = 1294253317490155849ull;
 /* "material:index" */
-ccl_device_constant DeviceString u_material_index = {741770758159634623ull};
+ccl_device_constant DeviceString u_material_index = 741770758159634623ull;
 /* "object:random" */
-ccl_device_constant DeviceString u_object_random = {15789063994977955884ull};
+ccl_device_constant DeviceString u_object_random = 15789063994977955884ull;
 /* "particle:index" */
-ccl_device_constant DeviceString u_particle_index = {9489711748229903784ull};
+ccl_device_constant DeviceString u_particle_index = 9489711748229903784ull;
 /* "particle:random" */
-ccl_device_constant DeviceString u_particle_random = {17993722202766855761ull};
+ccl_device_constant DeviceString u_particle_random = 17993722202766855761ull;
 /* "particle:age" */
-ccl_device_constant DeviceString u_particle_age = {7380730644710951109ull};
+ccl_device_constant DeviceString u_particle_age = 7380730644710951109ull;
 /* "particle:lifetime" */
-ccl_device_constant DeviceString u_particle_lifetime = {16576828923156200061ull};
+ccl_device_constant DeviceString u_particle_lifetime = 16576828923156200061ull;
 /* "particle:location" */
-ccl_device_constant DeviceString u_particle_location = {10309536211423573010ull};
+ccl_device_constant DeviceString u_particle_location = 10309536211423573010ull;
 /* "particle:rotation" */
-ccl_device_constant DeviceString u_particle_rotation = {17858543768041168459ull};
+ccl_device_constant DeviceString u_particle_rotation = 17858543768041168459ull;
 /* "particle:size" */
-ccl_device_constant DeviceString u_particle_size = {16461524249715420389ull};
+ccl_device_constant DeviceString u_particle_size = 16461524249715420389ull;
 /* "particle:velocity" */
-ccl_device_constant DeviceString u_particle_velocity = {13199101248768308863ull};
+ccl_device_constant DeviceString u_particle_velocity = 13199101248768308863ull;
 /* "particle:angular_velocity" */
-ccl_device_constant DeviceString u_particle_angular_velocity = {16327930120486517910ull};
+ccl_device_constant DeviceString u_particle_angular_velocity = 16327930120486517910ull;
 /* "geom:numpolyvertices" */
-ccl_device_constant DeviceString u_geom_numpolyvertices = {382043551489988826ull};
+ccl_device_constant DeviceString u_geom_numpolyvertices = 382043551489988826ull;
 /* "geom:trianglevertices" */
-ccl_device_constant DeviceString u_geom_trianglevertices = {17839267571524187074ull};
+ccl_device_constant DeviceString u_geom_trianglevertices = 17839267571524187074ull;
 /* "geom:polyvertices" */
-ccl_device_constant DeviceString u_geom_polyvertices = {1345577201967881769ull};
+ccl_device_constant DeviceString u_geom_polyvertices = 1345577201967881769ull;
 /* "geom:name" */
-ccl_device_constant DeviceString u_geom_name = {13606338128269760050ull};
+ccl_device_constant DeviceString u_geom_name = 13606338128269760050ull;
 /* "geom:undisplaced" */
-ccl_device_constant DeviceString u_geom_undisplaced = {12431586303019276305ull};
+ccl_device_constant DeviceString u_geom_undisplaced = 12431586303019276305ull;
 /* "geom:is_smooth" */
-ccl_device_constant DeviceString u_is_smooth = {857544214094480123ull};
+ccl_device_constant DeviceString u_is_smooth = 857544214094480123ull;
 /* "geom:is_curve" */
-ccl_device_constant DeviceString u_is_curve = {129742495633653138ull};
+ccl_device_constant DeviceString u_is_curve = 129742495633653138ull;
 /* "geom:curve_thickness" */
-ccl_device_constant DeviceString u_curve_thickness = {10605802038397633852ull};
+ccl_device_constant DeviceString u_curve_thickness = 10605802038397633852ull;
 /* "geom:curve_length" */
-ccl_device_constant DeviceString u_curve_length = {11423459517663715453ull};
+ccl_device_constant DeviceString u_curve_length = 11423459517663715453ull;
 /* "geom:curve_tangent_normal" */
-ccl_device_constant DeviceString u_curve_tangent_normal = {12301397394034985633ull};
+ccl_device_constant DeviceString u_curve_tangent_normal = 12301397394034985633ull;
 /* "geom:curve_random" */
-ccl_device_constant DeviceString u_curve_random = {15293085049960492358ull};
+ccl_device_constant DeviceString u_curve_random = 15293085049960492358ull;
 /* "geom:is_point" */
-ccl_device_constant DeviceString u_is_point = {2511357849436175953ull};
+ccl_device_constant DeviceString u_is_point = 2511357849436175953ull;
 /* "geom:point_radius" */
-ccl_device_constant DeviceString u_point_radius = {9956381140398668479ull};
+ccl_device_constant DeviceString u_point_radius = 9956381140398668479ull;
 /* "geom:point_position" */
-ccl_device_constant DeviceString u_point_position = {15684484280742966916ull};
+ccl_device_constant DeviceString u_point_position = 15684484280742966916ull;
 /* "geom:point_random" */
-ccl_device_constant DeviceString u_point_random = {5632627207092325544ull};
+ccl_device_constant DeviceString u_point_random = 5632627207092325544ull;
 /* "geom:normal_map_normal" */
-ccl_device_constant DeviceString u_normal_map_normal = {10718948685686827073};
+ccl_device_constant DeviceString u_normal_map_normal = 10718948685686827073;
 /* "path:ray_length" */
-ccl_device_constant DeviceString u_path_ray_length = {16391985802412544524ull};
+ccl_device_constant DeviceString u_path_ray_length = 16391985802412544524ull;
 /* "path:ray_depth" */
-ccl_device_constant DeviceString u_path_ray_depth = {16643933224879500399ull};
+ccl_device_constant DeviceString u_path_ray_depth = 16643933224879500399ull;
 /* "path:diffuse_depth" */
-ccl_device_constant DeviceString u_path_diffuse_depth = {13191651286699118408ull};
+ccl_device_constant DeviceString u_path_diffuse_depth = 13191651286699118408ull;
 /* "path:glossy_depth" */
-ccl_device_constant DeviceString u_path_glossy_depth = {15717768399057252940ull};
+ccl_device_constant DeviceString u_path_glossy_depth = 15717768399057252940ull;
 /* "path:transparent_depth" */
-ccl_device_constant DeviceString u_path_transparent_depth = {7821650266475578543ull};
+ccl_device_constant DeviceString u_path_transparent_depth = 7821650266475578543ull;
 /* "path:transmission_depth" */
-ccl_device_constant DeviceString u_path_transmission_depth = {15113408892323917624ull};
+ccl_device_constant DeviceString u_path_transmission_depth = 15113408892323917624ull;
 
 }  // namespace DeviceStrings
 
@@ -256,13 +255,9 @@ ccl_device_extern ccl_private OSLClosure *osl_allocate_weighted_closure_componen
 #include "kernel/svm/math_util.h"
 #include "kernel/util/color.h"
 
-ccl_device_extern void osl_error(ccl_private ShaderGlobals *sg, const char *format, void *args)
-{
-}
+ccl_device_extern void osl_error(ccl_private ShaderGlobals *sg, const char *format, void *args) {}
 
-ccl_device_extern void osl_printf(ccl_private ShaderGlobals *sg, const char *format, void *args)
-{
-}
+ccl_device_extern void osl_printf(ccl_private ShaderGlobals *sg, const char *format, void *args) {}
 
 ccl_device_extern void osl_warning(ccl_private ShaderGlobals *sg, const char *format, void *args)
 {
@@ -814,16 +809,16 @@ ccl_device_inline bool set_attribute_float(ccl_private float fval[3],
   const int type_arraylen = type >> 32;
 
   if (type_basetype == 11 /* TypeDesc::FLOAT */) {
-    if ((type_aggregate == 2 /* TypeDesc::VEC2 */) ||
-        (type_aggregate == 1 && type_arraylen == 2)) {
+    if ((type_aggregate == 2 /* TypeDesc::VEC2 */) || (type_aggregate == 1 && type_arraylen == 2))
+    {
       for (int i = 0; i < (derivatives ? 3 : 1); ++i) {
         static_cast<ccl_private float *>(val)[i * 2 + 0] = fval[i];
         static_cast<ccl_private float *>(val)[i * 2 + 1] = fval[i];
       }
       return true;
     }
-    if ((type_aggregate == 3 /* TypeDesc::VEC3 */) ||
-        (type_aggregate == 1 && type_arraylen == 3)) {
+    if ((type_aggregate == 3 /* TypeDesc::VEC3 */) || (type_aggregate == 1 && type_arraylen == 3))
+    {
       for (int i = 0; i < (derivatives ? 3 : 1); ++i) {
         static_cast<ccl_private float *>(val)[i * 3 + 0] = fval[i];
         static_cast<ccl_private float *>(val)[i * 3 + 1] = fval[i];
@@ -831,8 +826,8 @@ ccl_device_inline bool set_attribute_float(ccl_private float fval[3],
       }
       return true;
     }
-    if ((type_aggregate == 4 /* TypeDesc::VEC4 */) ||
-        (type_aggregate == 1 && type_arraylen == 4)) {
+    if ((type_aggregate == 4 /* TypeDesc::VEC4 */) || (type_aggregate == 1 && type_arraylen == 4))
+    {
       for (int i = 0; i < (derivatives ? 3 : 1); ++i) {
         static_cast<ccl_private float *>(val)[i * 4 + 0] = fval[i];
         static_cast<ccl_private float *>(val)[i * 4 + 1] = fval[i];
@@ -874,16 +869,16 @@ ccl_device_inline bool set_attribute_float2(ccl_private float2 fval[3],
   const int type_arraylen = type >> 32;
 
   if (type_basetype == 11 /* TypeDesc::FLOAT */) {
-    if ((type_aggregate == 2 /* TypeDesc::VEC2 */) ||
-        (type_aggregate == 1 && type_arraylen == 2)) {
+    if ((type_aggregate == 2 /* TypeDesc::VEC2 */) || (type_aggregate == 1 && type_arraylen == 2))
+    {
       for (int i = 0; i < (derivatives ? 3 : 1); ++i) {
         static_cast<ccl_private float *>(val)[i * 2 + 0] = fval[i].x;
         static_cast<ccl_private float *>(val)[i * 2 + 1] = fval[i].y;
       }
       return true;
     }
-    if ((type_aggregate == 3 /* TypeDesc::VEC3 */) ||
-        (type_aggregate == 1 && type_arraylen == 3)) {
+    if ((type_aggregate == 3 /* TypeDesc::VEC3 */) || (type_aggregate == 1 && type_arraylen == 3))
+    {
       for (int i = 0; i < (derivatives ? 3 : 1); ++i) {
         static_cast<ccl_private float *>(val)[i * 3 + 0] = fval[i].x;
         static_cast<ccl_private float *>(val)[i * 3 + 1] = fval[i].y;
@@ -891,8 +886,8 @@ ccl_device_inline bool set_attribute_float2(ccl_private float2 fval[3],
       }
       return true;
     }
-    if ((type_aggregate == 4 /* TypeDesc::VEC4 */) ||
-        (type_aggregate == 1 && type_arraylen == 4)) {
+    if ((type_aggregate == 4 /* TypeDesc::VEC4 */) || (type_aggregate == 1 && type_arraylen == 4))
+    {
       for (int i = 0; i < (derivatives ? 3 : 1); ++i) {
         static_cast<ccl_private float *>(val)[i * 4 + 0] = fval[i].x;
         static_cast<ccl_private float *>(val)[i * 4 + 1] = fval[i].y;
@@ -921,8 +916,8 @@ ccl_device_inline bool set_attribute_float3(ccl_private float3 fval[3],
   const int type_arraylen = type >> 32;
 
   if (type_basetype == 11 /* TypeDesc::FLOAT */) {
-    if ((type_aggregate == 3 /* TypeDesc::VEC3 */) ||
-        (type_aggregate == 1 && type_arraylen == 3)) {
+    if ((type_aggregate == 3 /* TypeDesc::VEC3 */) || (type_aggregate == 1 && type_arraylen == 3))
+    {
       for (int i = 0; i < (derivatives ? 3 : 1); ++i) {
         static_cast<ccl_private float *>(val)[i * 3 + 0] = fval[i].x;
         static_cast<ccl_private float *>(val)[i * 3 + 1] = fval[i].y;
@@ -930,8 +925,8 @@ ccl_device_inline bool set_attribute_float3(ccl_private float3 fval[3],
       }
       return true;
     }
-    if ((type_aggregate == 4 /* TypeDesc::VEC4 */) ||
-        (type_aggregate == 1 && type_arraylen == 4)) {
+    if ((type_aggregate == 4 /* TypeDesc::VEC4 */) || (type_aggregate == 1 && type_arraylen == 4))
+    {
       for (int i = 0; i < (derivatives ? 3 : 1); ++i) {
         static_cast<ccl_private float *>(val)[i * 4 + 0] = fval[i].x;
         static_cast<ccl_private float *>(val)[i * 4 + 1] = fval[i].y;
@@ -973,8 +968,8 @@ ccl_device_inline bool set_attribute_float4(ccl_private float4 fval[3],
   const int type_arraylen = type >> 32;
 
   if (type_basetype == 11 /* TypeDesc::FLOAT */) {
-    if ((type_aggregate == 3 /* TypeDesc::VEC3 */) ||
-        (type_aggregate == 1 && type_arraylen == 3)) {
+    if ((type_aggregate == 3 /* TypeDesc::VEC3 */) || (type_aggregate == 1 && type_arraylen == 3))
+    {
       for (int i = 0; i < (derivatives ? 3 : 1); ++i) {
         static_cast<ccl_private float *>(val)[i * 3 + 0] = fval[i].x;
         static_cast<ccl_private float *>(val)[i * 3 + 1] = fval[i].y;
@@ -982,8 +977,8 @@ ccl_device_inline bool set_attribute_float4(ccl_private float4 fval[3],
       }
       return true;
     }
-    if ((type_aggregate == 4 /* TypeDesc::VEC4 */) ||
-        (type_aggregate == 1 && type_arraylen == 4)) {
+    if ((type_aggregate == 4 /* TypeDesc::VEC4 */) || (type_aggregate == 1 && type_arraylen == 4))
+    {
       for (int i = 0; i < (derivatives ? 3 : 1); ++i) {
         static_cast<ccl_private float *>(val)[i * 4 + 0] = fval[i].x;
         static_cast<ccl_private float *>(val)[i * 4 + 1] = fval[i].y;
@@ -1275,9 +1270,7 @@ ccl_device_extern bool osl_get_attribute(ccl_private ShaderGlobals *sg,
     object = sd->object;
   }
 
-  const uint64_t id = name.hash();
-
-  const AttributeDescriptor desc = find_attribute(kg, object, sd->prim, sd->type, id);
+  const AttributeDescriptor desc = find_attribute(kg, object, sd->prim, sd->type, name);
   if (desc.offset != ATTR_STD_NOT_FOUND) {
     return get_object_attribute(kg, sd, desc, type, derivatives, res);
   }
@@ -1396,19 +1389,128 @@ ccl_device_extern void osl_noiseparams_set_impulses(ccl_private OSLNoiseOptions 
     res->y = n; \
     res->z = n; \
   } \
-  ccl_device_extern void name##_vv(ccl_private float3 *res, const float3 *v) \
+  ccl_device_extern void name##_vv(ccl_private float3 *res, ccl_private const float3 *v) \
   { \
     const float n = name##_fv(v); \
     res->x = n; \
     res->y = n; \
     res->z = n; \
   } \
-  ccl_device_extern void name##_vvf(ccl_private float3 *res, const float3 *v, float w) \
+  ccl_device_extern void name##_vvf( \
+      ccl_private float3 *res, ccl_private const float3 *v, float w) \
   { \
     const float n = name##_fvf(v, w); \
     res->x = n; \
     res->y = n; \
     res->z = n; \
+  } \
+  ccl_device_extern void name##_dfdf(ccl_private float *res, ccl_private const float *x) \
+  { \
+    res[0] = name##_ff(x[0]); \
+    res[1] = name##_ff(x[1]); \
+    res[2] = name##_ff(x[2]); \
+  } \
+  ccl_device_extern void name##_dfdff( \
+      ccl_private float *res, ccl_private const float *x, float y) \
+  { \
+    res[0] = name##_fff(x[0], y); \
+    res[1] = name##_fff(x[1], y); \
+    res[2] = name##_fff(x[2], y); \
+  } \
+  ccl_device_extern void name##_dffdf( \
+      ccl_private float *res, float x, ccl_private const float *y) \
+  { \
+    res[0] = name##_fff(x, y[0]); \
+    res[1] = name##_fff(x, y[1]); \
+    res[2] = name##_fff(x, y[2]); \
+  } \
+  ccl_device_extern void name##_dfdfdf( \
+      ccl_private float *res, ccl_private const float *x, ccl_private const float *y) \
+  { \
+    res[0] = name##_fff(x[0], y[0]); \
+    res[1] = name##_fff(x[1], y[1]); \
+    res[2] = name##_fff(x[2], y[2]); \
+  } \
+  ccl_device_extern void name##_dfdv(ccl_private float *res, ccl_private const float3 *v) \
+  { \
+    res[0] = name##_fv(&v[0]); \
+    res[1] = name##_fv(&v[1]); \
+    res[2] = name##_fv(&v[2]); \
+  } \
+  ccl_device_extern void name##_dfdvf( \
+      ccl_private float *res, ccl_private const float3 *v, float w) \
+  { \
+    res[0] = name##_fvf(&v[0], w); \
+    res[1] = name##_fvf(&v[1], w); \
+    res[2] = name##_fvf(&v[2], w); \
+  } \
+  ccl_device_extern void name##_dfvdf( \
+      ccl_private float *res, ccl_private const float3 *v, ccl_private const float *w) \
+  { \
+    res[0] = name##_fvf(v, w[0]); \
+    res[1] = name##_fvf(v, w[1]); \
+    res[2] = name##_fvf(v, w[2]); \
+  } \
+  ccl_device_extern void name##_dfdvdf( \
+      ccl_private float *res, ccl_private const float3 *v, ccl_private const float *w) \
+  { \
+    res[0] = name##_fvf(&v[0], w[0]); \
+    res[1] = name##_fvf(&v[1], w[1]); \
+    res[2] = name##_fvf(&v[2], w[2]); \
+  } \
+  ccl_device_extern void name##_dvdf(ccl_private float3 *res, ccl_private const float *x) \
+  { \
+    name##_vf(&res[0], x[0]); \
+    name##_vf(&res[1], x[1]); \
+    name##_vf(&res[2], x[2]); \
+  } \
+  ccl_device_extern void name##_dvdff( \
+      ccl_private float3 *res, ccl_private const float *x, float y) \
+  { \
+    name##_vff(&res[0], x[0], y); \
+    name##_vff(&res[1], x[1], y); \
+    name##_vff(&res[2], x[2], y); \
+  } \
+  ccl_device_extern void name##_dvfdf( \
+      ccl_private float3 *res, float x, ccl_private const float *y) \
+  { \
+    name##_vff(&res[0], x, y[0]); \
+    name##_vff(&res[1], x, y[1]); \
+    name##_vff(&res[2], x, y[2]); \
+  } \
+  ccl_device_extern void name##_dvdfdf( \
+      ccl_private float3 *res, ccl_private const float *x, ccl_private const float *y) \
+  { \
+    name##_vff(&res[0], x[0], y[0]); \
+    name##_vff(&res[1], x[1], y[1]); \
+    name##_vff(&res[2], x[2], y[2]); \
+  } \
+  ccl_device_extern void name##_dvdv(ccl_private float3 *res, ccl_private const float3 *v) \
+  { \
+    name##_vv(&res[0], &v[0]); \
+    name##_vv(&res[1], &v[1]); \
+    name##_vv(&res[2], &v[2]); \
+  } \
+  ccl_device_extern void name##_dvdvf( \
+      ccl_private float3 *res, ccl_private const float3 *v, float w) \
+  { \
+    name##_vvf(&res[0], &v[0], w); \
+    name##_vvf(&res[1], &v[1], w); \
+    name##_vvf(&res[2], &v[2], w); \
+  } \
+  ccl_device_extern void name##_dvvdf( \
+      ccl_private float3 *res, ccl_private const float3 *v, ccl_private const float *w) \
+  { \
+    name##_vvf(&res[0], v, w[0]); \
+    name##_vvf(&res[1], v, w[1]); \
+    name##_vvf(&res[2], v, w[2]); \
+  } \
+  ccl_device_extern void name##_dvdvdf( \
+      ccl_private float3 *res, ccl_private const float3 *v, ccl_private const float *w) \
+  { \
+    name##_vvf(&res[0], &v[0], w[0]); \
+    name##_vvf(&res[1], &v[1], w[1]); \
+    name##_vvf(&res[2], &v[2], w[2]); \
   }
 
 ccl_device_forceinline float hashnoise_1d(float p)
@@ -1445,6 +1547,8 @@ OSL_NOISE_IMPL(osl_snoise, snoise)
 
 /* Texturing */
 
+#include "kernel/svm/ies.h"
+
 ccl_device_extern ccl_private OSLTextureOptions *osl_get_texture_options(
     ccl_private ShaderGlobals *sg)
 {
@@ -1456,65 +1560,35 @@ ccl_device_extern void osl_texture_set_firstchannel(ccl_private OSLTextureOption
 {
 }
 
-ccl_device_extern void osl_texture_set_swrap_code(ccl_private OSLTextureOptions *opt, int mode)
-{
-}
+ccl_device_extern void osl_texture_set_swrap_code(ccl_private OSLTextureOptions *opt, int mode) {}
 
-ccl_device_extern void osl_texture_set_twrap_code(ccl_private OSLTextureOptions *opt, int mode)
-{
-}
+ccl_device_extern void osl_texture_set_twrap_code(ccl_private OSLTextureOptions *opt, int mode) {}
 
-ccl_device_extern void osl_texture_set_rwrap_code(ccl_private OSLTextureOptions *opt, int mode)
-{
-}
+ccl_device_extern void osl_texture_set_rwrap_code(ccl_private OSLTextureOptions *opt, int mode) {}
 
-ccl_device_extern void osl_texture_set_stwrap_code(ccl_private OSLTextureOptions *opt, int mode)
-{
-}
+ccl_device_extern void osl_texture_set_stwrap_code(ccl_private OSLTextureOptions *opt, int mode) {}
 
-ccl_device_extern void osl_texture_set_sblur(ccl_private OSLTextureOptions *opt, float blur)
-{
-}
+ccl_device_extern void osl_texture_set_sblur(ccl_private OSLTextureOptions *opt, float blur) {}
 
-ccl_device_extern void osl_texture_set_tblur(ccl_private OSLTextureOptions *opt, float blur)
-{
-}
+ccl_device_extern void osl_texture_set_tblur(ccl_private OSLTextureOptions *opt, float blur) {}
 
-ccl_device_extern void osl_texture_set_rblur(ccl_private OSLTextureOptions *opt, float blur)
-{
-}
+ccl_device_extern void osl_texture_set_rblur(ccl_private OSLTextureOptions *opt, float blur) {}
 
-ccl_device_extern void osl_texture_set_stblur(ccl_private OSLTextureOptions *opt, float blur)
-{
-}
+ccl_device_extern void osl_texture_set_stblur(ccl_private OSLTextureOptions *opt, float blur) {}
 
-ccl_device_extern void osl_texture_set_swidth(ccl_private OSLTextureOptions *opt, float width)
-{
-}
+ccl_device_extern void osl_texture_set_swidth(ccl_private OSLTextureOptions *opt, float width) {}
 
-ccl_device_extern void osl_texture_set_twidth(ccl_private OSLTextureOptions *opt, float width)
-{
-}
+ccl_device_extern void osl_texture_set_twidth(ccl_private OSLTextureOptions *opt, float width) {}
 
-ccl_device_extern void osl_texture_set_rwidth(ccl_private OSLTextureOptions *opt, float width)
-{
-}
+ccl_device_extern void osl_texture_set_rwidth(ccl_private OSLTextureOptions *opt, float width) {}
 
-ccl_device_extern void osl_texture_set_stwidth(ccl_private OSLTextureOptions *opt, float width)
-{
-}
+ccl_device_extern void osl_texture_set_stwidth(ccl_private OSLTextureOptions *opt, float width) {}
 
-ccl_device_extern void osl_texture_set_fill(ccl_private OSLTextureOptions *opt, float fill)
-{
-}
+ccl_device_extern void osl_texture_set_fill(ccl_private OSLTextureOptions *opt, float fill) {}
 
-ccl_device_extern void osl_texture_set_time(ccl_private OSLTextureOptions *opt, float time)
-{
-}
+ccl_device_extern void osl_texture_set_time(ccl_private OSLTextureOptions *opt, float time) {}
 
-ccl_device_extern void osl_texture_set_interp_code(ccl_private OSLTextureOptions *opt, int mode)
-{
-}
+ccl_device_extern void osl_texture_set_interp_code(ccl_private OSLTextureOptions *opt, int mode) {}
 
 ccl_device_extern void osl_texture_set_subimage(ccl_private OSLTextureOptions *opt, int subimage)
 {
@@ -1534,7 +1608,7 @@ ccl_device_extern void osl_texture_set_missingcolor_alpha(ccl_private OSLTexture
 ccl_device_extern bool osl_texture(ccl_private ShaderGlobals *sg,
                                    DeviceString filename,
                                    ccl_private void *texture_handle,
-                                   OSLTextureOptions *opt,
+                                   ccl_private OSLTextureOptions *opt,
                                    float s,
                                    float t,
                                    float dsdx,
@@ -1550,30 +1624,37 @@ ccl_device_extern bool osl_texture(ccl_private ShaderGlobals *sg,
                                    ccl_private float *dalphady,
                                    ccl_private void *errormessage)
 {
-  if (!texture_handle) {
-    return false;
+  const unsigned int type = OSL_TEXTURE_HANDLE_TYPE(texture_handle);
+  const unsigned int slot = OSL_TEXTURE_HANDLE_SLOT(texture_handle);
+
+  switch (type) {
+    case OSL_TEXTURE_HANDLE_TYPE_SVM: {
+      const float4 rgba = kernel_tex_image_interp(nullptr, slot, s, 1.0f - t);
+      if (nchannels > 0)
+        result[0] = rgba.x;
+      if (nchannels > 1)
+        result[1] = rgba.y;
+      if (nchannels > 2)
+        result[2] = rgba.z;
+      if (alpha)
+        *alpha = rgba.w;
+      return true;
+    }
+    case OSL_TEXTURE_HANDLE_TYPE_IES: {
+      if (nchannels > 0)
+        result[0] = kernel_ies_interp(nullptr, slot, s, t);
+      return true;
+    }
+    default: {
+      return false;
+    }
   }
-
-  /* Only SVM textures are supported. */
-  int id = static_cast<int>(reinterpret_cast<size_t>(texture_handle) - 1);
-
-  const float4 rgba = kernel_tex_image_interp(nullptr, id, s, 1.0f - t);
-
-  result[0] = rgba.x;
-  if (nchannels > 1)
-    result[1] = rgba.y;
-  if (nchannels > 2)
-    result[2] = rgba.z;
-  if (nchannels > 3)
-    result[3] = rgba.w;
-
-  return true;
 }
 
 ccl_device_extern bool osl_texture3d(ccl_private ShaderGlobals *sg,
                                      DeviceString filename,
                                      ccl_private void *texture_handle,
-                                     OSLTextureOptions *opt,
+                                     ccl_private OSLTextureOptions *opt,
                                      ccl_private const float3 *P,
                                      ccl_private const float3 *dPdx,
                                      ccl_private const float3 *dPdy,
@@ -1587,30 +1668,32 @@ ccl_device_extern bool osl_texture3d(ccl_private ShaderGlobals *sg,
                                      ccl_private float *dalphady,
                                      ccl_private void *errormessage)
 {
-  if (!texture_handle) {
-    return false;
+  const unsigned int type = OSL_TEXTURE_HANDLE_TYPE(texture_handle);
+  const unsigned int slot = OSL_TEXTURE_HANDLE_SLOT(texture_handle);
+
+  switch (type) {
+    case OSL_TEXTURE_HANDLE_TYPE_SVM: {
+      const float4 rgba = kernel_tex_image_interp_3d(nullptr, slot, *P, INTERPOLATION_NONE);
+      if (nchannels > 0)
+        result[0] = rgba.x;
+      if (nchannels > 1)
+        result[1] = rgba.y;
+      if (nchannels > 2)
+        result[2] = rgba.z;
+      if (alpha)
+        *alpha = rgba.w;
+      return true;
+    }
+    default: {
+      return false;
+    }
   }
-
-  /* Only SVM textures are supported. */
-  int id = static_cast<int>(reinterpret_cast<size_t>(texture_handle) - 1);
-
-  const float4 rgba = kernel_tex_image_interp_3d(nullptr, id, *P, INTERPOLATION_NONE);
-
-  result[0] = rgba.x;
-  if (nchannels > 1)
-    result[1] = rgba.y;
-  if (nchannels > 2)
-    result[2] = rgba.z;
-  if (nchannels > 3)
-    result[3] = rgba.w;
-
-  return true;
 }
 
 ccl_device_extern bool osl_environment(ccl_private ShaderGlobals *sg,
                                        DeviceString filename,
                                        ccl_private void *texture_handle,
-                                       OSLTextureOptions *opt,
+                                       ccl_private OSLTextureOptions *opt,
                                        ccl_private const float3 *R,
                                        ccl_private const float3 *dRdx,
                                        ccl_private const float3 *dRdy,
@@ -1623,13 +1706,14 @@ ccl_device_extern bool osl_environment(ccl_private ShaderGlobals *sg,
                                        ccl_private float *dalphay,
                                        ccl_private void *errormessage)
 {
-  result[0] = 1.0f;
+  if (nchannels > 0)
+    result[0] = 1.0f;
   if (nchannels > 1)
     result[1] = 0.0f;
   if (nchannels > 2)
     result[2] = 1.0f;
-  if (nchannels > 3)
-    result[3] = 1.0f;
+  if (alpha)
+    *alpha = 1.0f;
 
   return false;
 }

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "COM_MixNode.h"
 
@@ -56,6 +57,9 @@ void MixNode::convert_to_operations(NodeConverter &converter,
       break;
     case MA_RAMP_DIFF:
       convert_prog = new MixDifferenceOperation();
+      break;
+    case MA_RAMP_EXCLUSION:
+      convert_prog = new MixExclusionOperation();
       break;
     case MA_RAMP_SAT:
       convert_prog = new MixSaturationOperation();

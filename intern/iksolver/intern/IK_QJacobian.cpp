@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup intern_iksolver
@@ -7,13 +8,9 @@
 
 #include "IK_QJacobian.h"
 
-IK_QJacobian::IK_QJacobian() : m_sdls(true), m_min_damp(1.0)
-{
-}
+IK_QJacobian::IK_QJacobian() : m_sdls(true), m_min_damp(1.0) {}
 
-IK_QJacobian::~IK_QJacobian()
-{
-}
+IK_QJacobian::~IK_QJacobian() {}
 
 void IK_QJacobian::ArmMatrices(int dof, int task_size)
 {

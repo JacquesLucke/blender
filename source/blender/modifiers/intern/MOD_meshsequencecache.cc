@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup modifiers
@@ -26,7 +28,7 @@
 #include "BKE_cachefile.h"
 #include "BKE_context.h"
 #include "BKE_lib_query.h"
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 #include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -44,8 +46,8 @@
 
 #include "GEO_mesh_primitive_cuboid.hh"
 
-#include "MOD_modifiertypes.h"
-#include "MOD_ui_common.h"
+#include "MOD_modifiertypes.hh"
+#include "MOD_ui_common.hh"
 
 #if defined(WITH_USD) || defined(WITH_ALEMBIC)
 #  include "BKE_global.h"
@@ -60,6 +62,7 @@
 #  include "usd.h"
 #endif
 
+using blender::float3;
 using blender::Span;
 
 static void initData(ModifierData *md)
@@ -98,7 +101,7 @@ static void freeData(ModifierData *md)
   }
 }
 
-static bool isDisabled(const struct Scene * /*scene*/, ModifierData *md, bool /*useRenderParams*/)
+static bool isDisabled(const Scene * /*scene*/, ModifierData *md, bool /*useRenderParams*/)
 {
   MeshSeqCacheModifierData *mcmd = reinterpret_cast<MeshSeqCacheModifierData *>(md);
 
@@ -106,20 +109,64 @@ static bool isDisabled(const struct Scene * /*scene*/, ModifierData *md, bool /*
   return (mcmd->cache_file == nullptr) || (mcmd->object_path[0] == '\0');
 }
 
+#if defined(WITH_USD) || defined(WITH_ALEMBIC)
+
+/* Return true if the modifier evaluation is for the ORCO mesh and the mesh hasn't changed
+ * topology.
+ */
+static bool can_use_mesh_for_orco_evaluation(MeshSeqCacheModifierData *mcmd,
+                                             const ModifierEvalContext *ctx,
+                                             const Mesh *mesh,
+                                             const float time,
+                                             const char **err_str)
+{
+  if ((ctx->flag & MOD_APPLY_ORCO) == 0) {
+    return false;
+  }
+
+  CacheFile *cache_file = mcmd->cache_file;
+
+  switch (cache_file->type) {
+    case CACHEFILE_TYPE_ALEMBIC:
+#  ifdef WITH_ALEMBIC
+      if (!ABC_mesh_topology_changed(mcmd->reader, ctx->object, mesh, time, err_str)) {
+        return true;
+      }
+#  endif
+      break;
+    case CACHEFILE_TYPE_USD:
+#  ifdef WITH_USD
+      if (!USD_mesh_topology_changed(mcmd->reader, ctx->object, mesh, time, err_str)) {
+        return true;
+      }
+#  endif
+      break;
+    case CACHE_FILE_TYPE_INVALID:
+      break;
+  }
+
+  return false;
+}
+
 static Mesh *generate_bounding_box_mesh(const Mesh *org_mesh)
 {
   using namespace blender;
-  float3 min(std::numeric_limits<float>::max());
-  float3 max(-std::numeric_limits<float>::max());
-  if (!BKE_mesh_minmax(org_mesh, min, max)) {
+  const std::optional<Bounds<float3>> bounds = org_mesh->bounds_min_max();
+  if (!bounds) {
     return nullptr;
   }
 
-  Mesh *result = geometry::create_cuboid_mesh(max - min, 2, 2, 2);
-  BKE_mesh_translate(result, math::midpoint(min, max), false);
+  Mesh *result = geometry::create_cuboid_mesh(bounds->max - bounds->min, 2, 2, 2);
+  if (org_mesh->mat) {
+    result->mat = static_cast<Material **>(MEM_dupallocN(org_mesh->mat));
+    result->totcol = org_mesh->totcol;
+  }
+  BKE_mesh_translate(result, math::midpoint(bounds->min, bounds->max), false);
 
   return result;
 }
+
+#endif
 
 static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *mesh)
 {
@@ -154,41 +201,25 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
 
   /* If this invocation is for the ORCO mesh, and the mesh hasn't changed topology, we
    * must return the mesh as-is instead of deforming it. */
-  if (ctx->flag & MOD_APPLY_ORCO) {
-    switch (cache_file->type) {
-      case CACHEFILE_TYPE_ALEMBIC:
-#  ifdef WITH_ALEMBIC
-        if (!ABC_mesh_topology_changed(mcmd->reader, ctx->object, mesh, time, &err_str)) {
-          return mesh;
-        }
-#  endif
-        break;
-      case CACHEFILE_TYPE_USD:
-#  ifdef WITH_USD
-        if (!USD_mesh_topology_changed(mcmd->reader, ctx->object, mesh, time, &err_str)) {
-          return mesh;
-        }
-#  endif
-        break;
-      case CACHE_FILE_TYPE_INVALID:
-        break;
-    }
+  if (can_use_mesh_for_orco_evaluation(mcmd, ctx, mesh, time, &err_str)) {
+    return mesh;
   }
 
   if (me != nullptr) {
-    const Span<MVert> mesh_verts = mesh->verts();
-    const Span<MEdge> mesh_edges = mesh->edges();
-    const Span<MPoly> mesh_polys = mesh->polys();
-    const Span<MVert> me_verts = me->verts();
-    const Span<MEdge> me_edges = me->edges();
-    const Span<MPoly> me_polys = me->polys();
+    const Span<float3> mesh_positions = mesh->vert_positions();
+    const Span<blender::int2> mesh_edges = mesh->edges();
+    const blender::OffsetIndices mesh_polys = mesh->polys();
+    const Span<float3> me_positions = me->vert_positions();
+    const Span<blender::int2> me_edges = me->edges();
+    const blender::OffsetIndices me_polys = me->polys();
 
     /* TODO(sybren+bastien): possibly check relevant custom data layers (UV/color depending on
      * flags) and duplicate those too.
      * XXX(Hans): This probably isn't true anymore with various CoW improvements, etc. */
-    if ((me_verts.data() == mesh_verts.data()) || (me_edges.data() == mesh_edges.data()) ||
-        (me_polys.data() == mesh_polys.data())) {
-      /* We need to duplicate data here, otherwise we'll modify org mesh, see T51701. */
+    if ((me_positions.data() == mesh_positions.data()) || (me_edges.data() == mesh_edges.data()) ||
+        (me_polys.data() == mesh_polys.data()))
+    {
+      /* We need to duplicate data here, otherwise we'll modify org mesh, see #51701. */
       mesh = reinterpret_cast<Mesh *>(
           BKE_id_copy_ex(nullptr,
                          &mesh->id,
@@ -220,12 +251,13 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
 #  endif
       break;
     }
-    case CACHEFILE_TYPE_USD:
+    case CACHEFILE_TYPE_USD: {
 #  ifdef WITH_USD
-      result = USD_read_mesh(
-          mcmd->reader, ctx->object, mesh, time * FPS, &err_str, mcmd->read_flag);
+      const USDMeshReadParams params = create_mesh_read_params(time * FPS, mcmd->read_flag);
+      result = USD_read_mesh(mcmd->reader, ctx->object, mesh, params, &err_str);
 #  endif
       break;
+    }
     case CACHE_FILE_TYPE_INVALID:
       break;
   }
@@ -241,7 +273,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
 
   return result ? result : mesh;
 #else
-  UNUSED_VARS(ctx, md, generate_bounding_box_mesh);
+  UNUSED_VARS(ctx, md);
   return mesh;
 #endif
 }
@@ -397,35 +429,35 @@ static void blendRead(BlendDataReader * /*reader*/, ModifierData *md)
 }
 
 ModifierTypeInfo modifierType_MeshSequenceCache = {
-    /* name */ N_("MeshSequenceCache"),
-    /* structName */ "MeshSeqCacheModifierData",
-    /* structSize */ sizeof(MeshSeqCacheModifierData),
-    /* srna */ &RNA_MeshSequenceCacheModifier,
-    /* type */ eModifierTypeType_Constructive,
-    /* flags */
+    /*name*/ N_("MeshSequenceCache"),
+    /*structName*/ "MeshSeqCacheModifierData",
+    /*structSize*/ sizeof(MeshSeqCacheModifierData),
+    /*srna*/ &RNA_MeshSequenceCacheModifier,
+    /*type*/ eModifierTypeType_Constructive,
+    /*flags*/
     static_cast<ModifierTypeFlag>(eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_AcceptsCVs),
-    /* icon */ ICON_MOD_MESHDEFORM, /* TODO: Use correct icon. */
+    /*icon*/ ICON_MOD_MESHDEFORM, /* TODO: Use correct icon. */
 
-    /* copyData */ copyData,
+    /*copyData*/ copyData,
 
-    /* deformVerts */ nullptr,
-    /* deformMatrices */ nullptr,
-    /* deformVertsEM */ nullptr,
-    /* deformMatricesEM */ nullptr,
-    /* modifyMesh */ modifyMesh,
-    /* modifyGeometrySet */ nullptr,
+    /*deformVerts*/ nullptr,
+    /*deformMatrices*/ nullptr,
+    /*deformVertsEM*/ nullptr,
+    /*deformMatricesEM*/ nullptr,
+    /*modifyMesh*/ modifyMesh,
+    /*modifyGeometrySet*/ nullptr,
 
-    /* initData */ initData,
-    /* requiredDataMask */ nullptr,
-    /* freeData */ freeData,
-    /* isDisabled */ isDisabled,
-    /* updateDepsgraph */ updateDepsgraph,
-    /* dependsOnTime */ dependsOnTime,
-    /* dependsOnNormals */ nullptr,
-    /* foreachIDLink */ foreachIDLink,
-    /* foreachTexLink */ nullptr,
-    /* freeRuntimeData */ nullptr,
-    /* panelRegister */ panelRegister,
-    /* blendWrite */ nullptr,
-    /* blendRead */ blendRead,
+    /*initData*/ initData,
+    /*requiredDataMask*/ nullptr,
+    /*freeData*/ freeData,
+    /*isDisabled*/ isDisabled,
+    /*updateDepsgraph*/ updateDepsgraph,
+    /*dependsOnTime*/ dependsOnTime,
+    /*dependsOnNormals*/ nullptr,
+    /*foreachIDLink*/ foreachIDLink,
+    /*foreachTexLink*/ nullptr,
+    /*freeRuntimeData*/ nullptr,
+    /*panelRegister*/ panelRegister,
+    /*blendWrite*/ nullptr,
+    /*blendRead*/ blendRead,
 };

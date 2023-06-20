@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edarmature
@@ -25,6 +26,7 @@
 #include "BKE_mesh_iterators.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_object_deform.h"
 #include "BKE_report.h"
 #include "BKE_subsurf.h"
@@ -162,7 +164,7 @@ static int dgroup_skinnable_cb(Object *ob, Bone *bone, void *datap)
           defgroup = BKE_object_defgroup_add_name(ob, bone->name);
         }
         else if (defgroup->flag & DG_LOCK_WEIGHT) {
-          /* In case vgroup already exists and is locked, do not modify it here. See T43814. */
+          /* In case vgroup already exists and is locked, do not modify it here. See #43814. */
           defgroup = NULL;
         }
       }
@@ -199,7 +201,8 @@ static void envelope_bone_weighting(Object *ob,
   bool use_mask = false;
 
   if ((ob->mode & OB_MODE_WEIGHT_PAINT) &&
-      (mesh->editflag & (ME_EDIT_PAINT_FACE_SEL | ME_EDIT_PAINT_VERT_SEL))) {
+      (mesh->editflag & (ME_EDIT_PAINT_FACE_SEL | ME_EDIT_PAINT_VERT_SEL)))
+  {
     use_mask = true;
   }
 
@@ -393,26 +396,26 @@ static void add_verts_to_dgroups(ReportList *reports,
 
   if (wpmode) {
     /* if in weight paint mode, use final verts from evaluated mesh */
-    Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
-    Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
-    Mesh *me_eval = mesh_get_eval_final(depsgraph, scene_eval, ob_eval, &CD_MASK_BAREMESH);
-
-    BKE_mesh_foreach_mapped_vert_coords_get(me_eval, verts, mesh->totvert);
-    vertsfilled = 1;
+    const Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
+    const Mesh *me_eval = BKE_object_get_evaluated_mesh(ob_eval);
+    if (me_eval) {
+      BKE_mesh_foreach_mapped_vert_coords_get(me_eval, verts, mesh->totvert);
+      vertsfilled = 1;
+    }
   }
   else if (BKE_modifiers_findby_type(ob, eModifierType_Subsurf)) {
-    /* is subsurf on? Lets use the verts on the limit surface then.
+    /* Is subdivision-surface on? Lets use the verts on the limit surface then.
      * = same amount of vertices as mesh, but vertices  moved to the
-     * subsurfed position, like for 'optimal'. */
+     * subdivision-surfaced position, like for 'optimal'. */
     subsurf_calculate_limit_positions(mesh, verts);
     vertsfilled = 1;
   }
 
   /* transform verts to global space */
-  const MVert *mesh_verts = BKE_mesh_verts(mesh);
+  const float(*positions)[3] = BKE_mesh_vert_positions(mesh);
   for (int i = 0; i < mesh->totvert; i++) {
     if (!vertsfilled) {
-      copy_v3_v3(verts[i], mesh_verts[i].co);
+      copy_v3_v3(verts[i], positions[i]);
     }
     mul_m4_v3(ob->object_to_world, verts[i]);
   }
@@ -477,7 +480,7 @@ void ED_object_vgroup_calc_from_armature(ReportList *reports,
 
     if (defbase_add) {
       /* It's possible there are DWeights outside the range of the current
-       * object's deform groups. In this case the new groups won't be empty T33889. */
+       * object's deform groups. In this case the new groups won't be empty #33889. */
       ED_vgroup_data_clamp_range(ob->data, defbase_tot);
     }
   }

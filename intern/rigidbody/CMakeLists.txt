@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2006 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2006 Blender Foundation. All rights reserved.
 
 add_definitions(-DBT_USE_DOUBLE_PRECISION)
 
@@ -20,7 +21,6 @@ set(SRC
 )
 
 set(LIB
-  extern_bullet
   ${BULLET_LIBRARIES}
 )
 

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edarmature
@@ -200,21 +201,6 @@ LinkData *poseAnim_mapping_getNextFCurve(ListBase *fcuLinks, LinkData *prev, con
 /* -------------------------------------------------------------------- */
 /** \name PoseLib
  * \{ */
-
-/* pose_lib.c */
-
-void POSELIB_OT_new(struct wmOperatorType *ot);
-void POSELIB_OT_unlink(struct wmOperatorType *ot);
-
-void POSELIB_OT_action_sanitize(struct wmOperatorType *ot);
-
-void POSELIB_OT_pose_add(struct wmOperatorType *ot);
-void POSELIB_OT_pose_remove(struct wmOperatorType *ot);
-void POSELIB_OT_pose_rename(struct wmOperatorType *ot);
-void POSELIB_OT_pose_move(struct wmOperatorType *ot);
-
-void POSELIB_OT_browse_interactive(struct wmOperatorType *ot);
-void POSELIB_OT_apply_pose(struct wmOperatorType *ot);
 
 /* pose_lib_2.c */
 

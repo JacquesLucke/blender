@@ -1,10 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
 #include "FN_field.hh"
 
-#include "BKE_anonymous_attribute.hh"
+#include "BKE_anonymous_attribute_id.hh"
 #include "BKE_curves.hh"
 
 namespace blender::geometry {

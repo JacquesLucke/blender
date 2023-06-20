@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "COM_BokehBlurNode.h"
 #include "COM_BokehBlurOperation.h"
@@ -45,7 +46,7 @@ void BokehBlurNode::convert_to_operations(NodeConverter &converter,
     converter.map_input_socket(get_input_socket(1), operation->get_input_socket(1));
 
     /* NOTE: on the bokeh blur operation the sockets are switched.
-     * for this reason the next two lines are correct. Fix for T43771. */
+     * for this reason the next two lines are correct. Fix for #43771. */
     converter.map_input_socket(get_input_socket(2), operation->get_input_socket(3));
     converter.map_input_socket(get_input_socket(3), operation->get_input_socket(2));
 

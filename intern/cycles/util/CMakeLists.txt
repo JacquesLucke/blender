@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+#
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2011-2022 Blender Foundation
 
 set(INC
   ..
@@ -74,7 +75,6 @@ set(SRC_HEADERS
   md5.h
   murmurhash.h
   openimagedenoise.h
-  opengl.h
   openvdb.h
   optimization.h
   param.h

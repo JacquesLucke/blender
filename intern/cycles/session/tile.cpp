@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "session/tile.h"
 
@@ -285,7 +286,7 @@ static bool configure_image_spec_from_buffer(ImageSpec *image_spec,
   *image_spec = ImageSpec(
       buffer_params.width, buffer_params.height, num_channels, TypeDesc::FLOAT);
 
-  image_spec->channelnames = move(channel_names);
+  image_spec->channelnames = std::move(channel_names);
 
   if (!buffer_params_to_image_spec_atttributes(image_spec, buffer_params)) {
     return false;
@@ -319,9 +320,7 @@ TileManager::TileManager()
                            to_string(tile_manager_id);
 }
 
-TileManager::~TileManager()
-{
-}
+TileManager::~TileManager() {}
 
 int TileManager::compute_render_tile_size(const int suggested_tile_size) const
 {
@@ -342,8 +341,8 @@ void TileManager::reset_scheduling(const BufferParams &params, int2 tile_size)
 
   tile_size_ = tile_size;
 
-  tile_state_.num_tiles_x = divide_up(params.width, tile_size_.x);
-  tile_state_.num_tiles_y = divide_up(params.height, tile_size_.y);
+  tile_state_.num_tiles_x = tile_size_.x ? divide_up(params.width, tile_size_.x) : 0;
+  tile_state_.num_tiles_y = tile_size_.y ? divide_up(params.height, tile_size_.y) : 0;
   tile_state_.num_tiles = tile_state_.num_tiles_x * tile_state_.num_tiles_y;
 
   tile_state_.next_tile_index = 0;
@@ -520,10 +519,11 @@ bool TileManager::write_tile(const RenderBuffers &tile_buffers)
   /* If there is an overscan used for the tile copy pixels into single continuous block of memory
    * without any "gaps".
    * This is a workaround for bug in OIIO (https://github.com/OpenImageIO/oiio/pull/3176).
-   * Our task reference: T93008. */
+   * Our task reference: #93008. */
   if (tile_params.window_x || tile_params.window_y ||
       tile_params.window_width != tile_params.width ||
-      tile_params.window_height != tile_params.height) {
+      tile_params.window_height != tile_params.height)
+  {
     pixel_storage.resize(pass_stride * tile_params.window_width * tile_params.window_height);
     float *pixels_continuous = pixel_storage.data();
 
@@ -563,7 +563,8 @@ bool TileManager::write_tile(const RenderBuffers &tile_buffers)
                                           pixels,
                                           xstride,
                                           ystride,
-                                          zstride)) {
+                                          zstride))
+  {
     LOG(ERROR) << "Error writing tile " << write_state_.tile_out->geterror();
     return false;
   }
@@ -588,7 +589,8 @@ void TileManager::finish_write_tiles()
     vector<float> pixel_storage(tile_size_.x * tile_size_.y * buffer_params_.pass_stride);
 
     for (int tile_index = write_state_.num_tiles_written; tile_index < tile_state_.num_tiles;
-         ++tile_index) {
+         ++tile_index)
+    {
       const Tile tile = get_tile_for_index(tile_index);
 
       const int tile_x = tile.x + tile.window_x;
@@ -646,7 +648,8 @@ bool TileManager::read_full_buffer_from_disk(const string_view filename,
     return false;
   }
 
-  if (!in->read_image(TypeDesc::FLOAT, buffers->buffer.data())) {
+  const int num_channels = in->spec().nchannels;
+  if (!in->read_image(0, 0, 0, num_channels, TypeDesc::FLOAT, buffers->buffer.data())) {
     LOG(ERROR) << "Error reading pixels from the tile file " << in->geterror();
     return false;
   }

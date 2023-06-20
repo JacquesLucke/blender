@@ -1,6 +1,9 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Adapted from code copyright 2009-2010 NVIDIA Corporation
- * Modifications Copyright 2011-2022 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2009-2010 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Adapted code from NVIDIA Corporation. */
 
 #ifndef __BVH_SPLIT_H__
 #define __BVH_SPLIT_H__
@@ -26,9 +29,7 @@ class BVHObjectSplit {
   BoundBox left_bounds;
   BoundBox right_bounds;
 
-  BVHObjectSplit()
-  {
-  }
+  BVHObjectSplit() {}
   BVHObjectSplit(BVHBuild *builder,
                  BVHSpatialStorage *storage,
                  const BVHRange &range,
@@ -64,9 +65,7 @@ class BVHSpatialSplit {
   int dim;
   float pos;
 
-  BVHSpatialSplit() : sah(FLT_MAX), dim(0), pos(0.0f), storage_(NULL), references_(NULL)
-  {
-  }
+  BVHSpatialSplit() : sah(FLT_MAX), dim(0), pos(0.0f), storage_(NULL), references_(NULL) {}
   BVHSpatialSplit(const BVHBuild &builder,
                   BVHSpatialStorage *storage,
                   const BVHRange &range,
@@ -181,9 +180,7 @@ class BVHMixedSplit {
 
   BoundBox bounds;
 
-  BVHMixedSplit()
-  {
-  }
+  BVHMixedSplit() {}
 
   __forceinline BVHMixedSplit(BVHBuild *builder,
                               BVHSpatialStorage *storage,

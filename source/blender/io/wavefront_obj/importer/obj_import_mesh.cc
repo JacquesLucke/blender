@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup obj
@@ -12,7 +14,7 @@
 #include "BKE_customdata.h"
 #include "BKE_deform.h"
 #include "BKE_material.h"
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 #include "BKE_node_tree_update.h"
 #include "BKE_object.h"
 #include "BKE_object_deform.h"
@@ -48,12 +50,12 @@ Object *MeshFromGeometry::create_mesh(Main *bmain,
   const int64_t tot_face_elems{mesh_geometry_.face_elements_.size()};
   const int64_t tot_loops{mesh_geometry_.total_loops_};
 
-  Mesh *mesh = BKE_mesh_new_nomain(tot_verts_object, tot_edges, 0, tot_loops, tot_face_elems);
+  Mesh *mesh = BKE_mesh_new_nomain(tot_verts_object, tot_edges, tot_face_elems, tot_loops);
   Object *obj = BKE_object_add_only_object(bmain, OB_MESH, ob_name.c_str());
   obj->data = BKE_object_obdata_add_from_type(bmain, OB_MESH, ob_name.c_str());
 
   create_vertices(mesh);
-  create_polys_loops(mesh, import_params.import_vertex_groups);
+  create_polys_loops(mesh, import_params.import_vertex_groups && !import_params.use_split_groups);
   create_edges(mesh);
   create_uv_verts(mesh);
   create_normals(mesh);
@@ -86,6 +88,7 @@ void MeshFromGeometry::fixup_invalid_faces()
       /* Skip and remove faces that have fewer than 3 corners. */
       mesh_geometry_.total_loops_ -= curr_face.corner_count_;
       mesh_geometry_.face_elements_.remove_and_reorder(face_idx);
+      --face_idx;
       continue;
     }
 
@@ -128,6 +131,7 @@ void MeshFromGeometry::fixup_invalid_faces()
     /* Remove the invalid face. */
     mesh_geometry_.total_loops_ -= curr_face.corner_count_;
     mesh_geometry_.face_elements_.remove_and_reorder(face_idx);
+    --face_idx;
 
     Vector<Vector<int>> new_faces = fixup_invalid_polygon(global_vertices_.vertices, face_verts);
 
@@ -154,7 +158,7 @@ void MeshFromGeometry::fixup_invalid_faces()
 
 void MeshFromGeometry::create_vertices(Mesh *mesh)
 {
-  MutableSpan<MVert> verts = mesh->verts_for_write();
+  MutableSpan<float3> positions = mesh->vert_positions_for_write();
   /* Go through all the global vertex indices from min to max,
    * checking which ones are actually and building a global->local
    * index mapping. Write out the used vertex positions into the Mesh
@@ -168,7 +172,7 @@ void MeshFromGeometry::create_vertices(Mesh *mesh)
     }
     int local_vi = int(mesh_geometry_.global_to_local_vertices_.size());
     BLI_assert(local_vi >= 0 && local_vi < mesh->totvert);
-    copy_v3_v3(verts[local_vi].co, global_vertices_.vertices[vi]);
+    copy_v3_v3(positions[local_vi], global_vertices_.vertices[vi]);
     mesh_geometry_.global_to_local_vertices_.add_new(vi, local_vi);
   }
 }
@@ -181,11 +185,13 @@ void MeshFromGeometry::create_polys_loops(Mesh *mesh, bool use_vertex_groups)
     dverts = mesh->deform_verts_for_write();
   }
 
-  MutableSpan<MPoly> polys = mesh->polys_for_write();
-  MutableSpan<MLoop> loops = mesh->loops_for_write();
+  MutableSpan<int> poly_offsets = mesh->poly_offsets_for_write();
+  MutableSpan<int> corner_verts = mesh->corner_verts_for_write();
+  bke::MutableAttributeAccessor attributes = mesh->attributes_for_write();
   bke::SpanAttributeWriter<int> material_indices =
-      mesh->attributes_for_write().lookup_or_add_for_write_only_span<int>("material_index",
-                                                                          ATTR_DOMAIN_FACE);
+      attributes.lookup_or_add_for_write_only_span<int>("material_index", ATTR_DOMAIN_FACE);
+  bke::SpanAttributeWriter<bool> sharp_faces = attributes.lookup_or_add_for_write_span<bool>(
+      "sharp_face", ATTR_DOMAIN_FACE);
 
   const int64_t tot_face_elems{mesh->totpoly};
   int tot_loop_idx = 0;
@@ -198,12 +204,8 @@ void MeshFromGeometry::create_polys_loops(Mesh *mesh, bool use_vertex_groups)
       continue;
     }
 
-    MPoly &mpoly = polys[poly_idx];
-    mpoly.totloop = curr_face.corner_count_;
-    mpoly.loopstart = tot_loop_idx;
-    if (curr_face.shaded_smooth) {
-      mpoly.flag |= ME_SMOOTH;
-    }
+    poly_offsets[poly_idx] = tot_loop_idx;
+    sharp_faces.span[poly_idx] = !curr_face.shaded_smooth;
     material_indices.span[poly_idx] = curr_face.material_index;
     /* Importing obj files without any materials would result in negative indices, which is not
      * supported. */
@@ -213,21 +215,26 @@ void MeshFromGeometry::create_polys_loops(Mesh *mesh, bool use_vertex_groups)
 
     for (int idx = 0; idx < curr_face.corner_count_; ++idx) {
       const PolyCorner &curr_corner = mesh_geometry_.face_corners_[curr_face.start_index_ + idx];
-      MLoop &mloop = loops[tot_loop_idx];
-      tot_loop_idx++;
-      mloop.v = mesh_geometry_.global_to_local_vertices_.lookup_default(curr_corner.vert_index, 0);
+      corner_verts[tot_loop_idx] = mesh_geometry_.global_to_local_vertices_.lookup_default(
+          curr_corner.vert_index, 0);
 
       /* Setup vertex group data, if needed. */
-      if (dverts.is_empty()) {
-        continue;
+      if (!dverts.is_empty()) {
+        const int group_index = curr_face.vertex_group_index;
+        /* Note: face might not belong to any group */
+        if (group_index >= 0 || 1) {
+          MDeformWeight *dw = BKE_defvert_ensure_index(&dverts[corner_verts[tot_loop_idx]],
+                                                       group_index);
+          dw->weight = 1.0f;
+        }
       }
-      const int group_index = curr_face.vertex_group_index;
-      MDeformWeight *dw = BKE_defvert_ensure_index(&dverts[mloop.v], group_index);
-      dw->weight = 1.0f;
+
+      tot_loop_idx++;
     }
   }
 
   material_indices.finish();
+  sharp_faces.finish();
 }
 
 void MeshFromGeometry::create_vertex_groups(Object *obj)
@@ -243,17 +250,17 @@ void MeshFromGeometry::create_vertex_groups(Object *obj)
 
 void MeshFromGeometry::create_edges(Mesh *mesh)
 {
-  MutableSpan<MEdge> edges = mesh->edges_for_write();
+  MutableSpan<int2> edges = mesh->edges_for_write();
 
   const int64_t tot_edges{mesh_geometry_.edges_.size()};
   const int64_t total_verts{mesh_geometry_.get_vertex_count()};
   UNUSED_VARS_NDEBUG(total_verts);
   for (int i = 0; i < tot_edges; ++i) {
-    const MEdge &src_edge = mesh_geometry_.edges_[i];
-    MEdge &dst_edge = edges[i];
-    dst_edge.v1 = mesh_geometry_.global_to_local_vertices_.lookup_default(src_edge.v1, 0);
-    dst_edge.v2 = mesh_geometry_.global_to_local_vertices_.lookup_default(src_edge.v2, 0);
-    BLI_assert(dst_edge.v1 < total_verts && dst_edge.v2 < total_verts);
+    const int2 &src_edge = mesh_geometry_.edges_[i];
+    int2 &dst_edge = edges[i];
+    dst_edge[0] = mesh_geometry_.global_to_local_vertices_.lookup_default(src_edge[0], 0);
+    dst_edge[1] = mesh_geometry_.global_to_local_vertices_.lookup_default(src_edge[1], 0);
+    BLI_assert(dst_edge[0] < total_verts && dst_edge[0] < total_verts);
   }
 
   /* Set argument `update` to true so that existing, explicitly imported edges can be merged
@@ -266,21 +273,41 @@ void MeshFromGeometry::create_uv_verts(Mesh *mesh)
   if (global_vertices_.uv_vertices.size() <= 0) {
     return;
   }
-  MLoopUV *mluv_dst = static_cast<MLoopUV *>(CustomData_add_layer(
-      &mesh->ldata, CD_MLOOPUV, CD_SET_DEFAULT, nullptr, mesh_geometry_.total_loops_));
+
+  bke::MutableAttributeAccessor attributes = mesh->attributes_for_write();
+  bke::SpanAttributeWriter<float2> uv_map = attributes.lookup_or_add_for_write_only_span<float2>(
+      "UVMap", ATTR_DOMAIN_CORNER);
+
   int tot_loop_idx = 0;
+  bool added_uv = false;
 
   for (const PolyElem &curr_face : mesh_geometry_.face_elements_) {
     for (int idx = 0; idx < curr_face.corner_count_; ++idx) {
       const PolyCorner &curr_corner = mesh_geometry_.face_corners_[curr_face.start_index_ + idx];
-      const int uv_index = curr_corner.uv_vert_index;
-      float2 uv(0, 0);
-      if (uv_index >= 0 && uv_index < global_vertices_.uv_vertices.size()) {
-        uv = global_vertices_.uv_vertices[uv_index];
+      if (curr_corner.uv_vert_index >= 0 &&
+          curr_corner.uv_vert_index < global_vertices_.uv_vertices.size())
+      {
+        uv_map.span[tot_loop_idx] = global_vertices_.uv_vertices[curr_corner.uv_vert_index];
+        added_uv = true;
       }
-      copy_v2_v2(mluv_dst[tot_loop_idx].uv, uv);
+      else {
+        uv_map.span[tot_loop_idx] = {0.0f, 0.0f};
+      }
       tot_loop_idx++;
     }
+  }
+
+  uv_map.finish();
+
+  /* If we have an object without UVs which resides in the same .obj file
+   * as an object which *does* have UVs we can end up adding a UV layer
+   * filled with zeroes.
+   * We could maybe check before creating this layer but that would need
+   * iterating over the whole mesh to check for UVs and as this is probably
+   * the exception rather than the rule, just delete it afterwards.
+   */
+  if (!added_uv) {
+    attributes.remove("UVMap");
   }
 }
 
@@ -334,7 +361,7 @@ void MeshFromGeometry::create_materials(Main *bmain,
 void MeshFromGeometry::create_normals(Mesh *mesh)
 {
   /* No normal data: nothing to do. */
-  if (global_vertices_.vertex_normals.is_empty()) {
+  if (global_vertices_.vert_normals.is_empty()) {
     return;
   }
   /* Custom normals can only be stored on face corners. */
@@ -351,7 +378,7 @@ void MeshFromGeometry::create_normals(Mesh *mesh)
       int n_index = curr_corner.vertex_normal_index;
       float3 normal(0, 0, 0);
       if (n_index >= 0) {
-        normal = global_vertices_.vertex_normals[n_index];
+        normal = global_vertices_.vert_normals[n_index];
       }
       copy_v3_v3(loop_normals[tot_loop_idx], normal);
       tot_loop_idx++;
@@ -372,10 +399,13 @@ void MeshFromGeometry::create_colors(Mesh *mesh)
   /* Find which vertex color block is for this mesh (if any). */
   for (const auto &block : global_vertices_.vertex_colors) {
     if (mesh_geometry_.vertex_index_min_ >= block.start_vertex_index &&
-        mesh_geometry_.vertex_index_max_ < block.start_vertex_index + block.colors.size()) {
+        mesh_geometry_.vertex_index_max_ < block.start_vertex_index + block.colors.size())
+    {
       /* This block is suitable, use colors from it. */
       CustomDataLayer *color_layer = BKE_id_attribute_new(
           &mesh->id, "Color", CD_PROP_COLOR, ATTR_DOMAIN_POINT, nullptr);
+      BKE_id_attributes_active_color_set(&mesh->id, color_layer->name);
+      BKE_id_attributes_default_color_set(&mesh->id, color_layer->name);
       float4 *colors = (float4 *)color_layer->data;
       int offset = mesh_geometry_.vertex_index_min_ - block.start_vertex_index;
       for (int i = 0, n = mesh_geometry_.get_vertex_count(); i != n; ++i) {

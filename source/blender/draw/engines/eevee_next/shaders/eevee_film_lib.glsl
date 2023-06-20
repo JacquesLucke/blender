@@ -90,42 +90,22 @@ float film_weight_accumulation(ivec2 texel_film)
   return film_buf.samples_weight_total;
 }
 
-void film_sample_accum(FilmSample samp, int pass_id, sampler2D tex, inout vec4 accum)
-{
-  if (pass_id == -1) {
-    return;
-  }
-  accum += texelFetch(tex, samp.texel, 0) * samp.weight;
-}
-
-void film_sample_accum(FilmSample samp, int pass_id, sampler2D tex, inout float accum)
-{
-  if (pass_id == -1) {
-    return;
-  }
-  accum += texelFetch(tex, samp.texel, 0).x * samp.weight;
-}
-
 void film_sample_accum(
-    FilmSample samp, int pass_id, uint layer, sampler2DArray tex, inout vec4 accum)
+    FilmSample samp, int pass_id, int layer, sampler2DArray tex, inout vec4 accum)
 {
-  if (pass_id == -1) {
+  if (pass_id < 0 || layer < 0) {
     return;
   }
   accum += texelFetch(tex, ivec3(samp.texel, layer), 0) * samp.weight;
 }
 
-void film_sample_accum(FilmSample samp, int pass_id, sampler2DArray tex, inout vec4 accum)
+void film_sample_accum(
+    FilmSample samp, int pass_id, int layer, sampler2DArray tex, inout float accum)
 {
-  film_sample_accum(samp, pass_id, pass_id, tex, accum);
-}
-
-void film_sample_accum(FilmSample samp, int pass_id, sampler2DArray tex, inout float accum)
-{
-  if (pass_id == -1) {
+  if (pass_id < 0 || layer < 0) {
     return;
   }
-  accum += texelFetch(tex, ivec3(samp.texel, pass_id), 0).x * samp.weight;
+  accum += texelFetch(tex, ivec3(samp.texel, layer), 0).x * samp.weight;
 }
 
 void film_sample_accum_mist(FilmSample samp, inout float accum)
@@ -134,7 +114,7 @@ void film_sample_accum_mist(FilmSample samp, inout float accum)
     return;
   }
   float depth = texelFetch(depth_tx, samp.texel, 0).x;
-  vec2 uv = (vec2(samp.texel) + 0.5) / textureSize(depth_tx, 0).xy;
+  vec2 uv = (vec2(samp.texel) + 0.5) / vec2(textureSize(depth_tx, 0).xy);
   vec3 vP = get_view_space_from_depth(uv, depth);
   bool is_persp = ProjectionMatrix[3][3] == 0.0;
   float mist = (is_persp) ? length(vP) : abs(vP.z);
@@ -159,10 +139,17 @@ void film_sample_accum_combined(FilmSample samp, inout vec4 accum, inout float w
   weight_accum += weight;
 }
 
+#ifdef GPU_METAL
+void film_sample_cryptomatte_accum(FilmSample samp,
+                                   int layer,
+                                   sampler2D tex,
+                                   thread vec2 *crypto_samples)
+#else
 void film_sample_cryptomatte_accum(FilmSample samp,
                                    int layer,
                                    sampler2D tex,
                                    inout vec2 crypto_samples[4])
+#endif
 {
   float hash = texelFetch(tex, samp.texel, 0)[layer];
   /* Find existing entry. */
@@ -257,7 +244,11 @@ vec2 film_pixel_history_motion_vector(ivec2 texel_sample)
 /* \a t is inter-pixel position. 0 means perfectly on a pixel center.
  * Returns weights in both dimensions.
  * Multiply each dimension weights to get final pixel weights. */
+#ifdef GPU_METAL
+void film_get_catmull_rom_weights(vec2 t, thread vec2 *weights)
+#else
 void film_get_catmull_rom_weights(vec2 t, out vec2 weights[4])
+#endif
 {
   vec2 t2 = t * t;
   vec2 t3 = t2 * t;
@@ -436,7 +427,7 @@ float film_history_blend_factor(float velocity,
   /* Linearly blend when history gets below to 25% of the bbox size. */
   blend *= saturate(distance_to_luma_clip * 4.0 + 0.1);
   /* Discard out of view history. */
-  if (any(lessThan(texel, vec2(0))) || any(greaterThanEqual(texel, film_buf.extent))) {
+  if (any(lessThan(texel, vec2(0))) || any(greaterThanEqual(texel, vec2(film_buf.extent)))) {
     blend = 1.0;
   }
   /* Discard history if invalid. */
@@ -651,11 +642,11 @@ void film_process_data(ivec2 texel_film, out vec4 out_color, out float out_depth
     FilmSample film_sample = film_sample_get(0, texel_film);
 
     if (film_buf.use_reprojection || film_sample.weight < film_distance) {
-      vec4 normal = texelFetch(normal_tx, film_sample.texel, 0);
+      vec4 normal = texelFetch(rp_color_tx, ivec3(film_sample.texel, rp_buf.normal_id), 0);
       float depth = texelFetch(depth_tx, film_sample.texel, 0).x;
       vec4 vector = velocity_resolve(vector_tx, film_sample.texel, depth);
       /* Transform to pixel space. */
-      vector *= vec4(film_buf.render_extent, -film_buf.render_extent);
+      vector *= vec4(vec2(film_buf.render_extent), -vec2(film_buf.render_extent));
 
       film_store_depth(texel_film, depth, out_depth);
       film_store_data(texel_film, film_buf.normal_id, normal, out_color);
@@ -677,16 +668,18 @@ void film_process_data(ivec2 texel_film, out vec4 out_color, out float out_depth
       FilmSample src = film_sample_get(i, texel_film);
       film_sample_accum(src,
                         film_buf.diffuse_light_id,
-                        RENDER_PASS_LAYER_DIFFUSE_LIGHT,
-                        light_tx,
+                        rp_buf.diffuse_light_id,
+                        rp_color_tx,
                         diffuse_light_accum);
       film_sample_accum(src,
                         film_buf.specular_light_id,
-                        RENDER_PASS_LAYER_SPECULAR_LIGHT,
-                        light_tx,
+                        rp_buf.specular_light_id,
+                        rp_color_tx,
                         specular_light_accum);
-      film_sample_accum(src, film_buf.volume_light_id, volume_light_tx, volume_light_accum);
-      film_sample_accum(src, film_buf.emission_id, emission_tx, emission_accum);
+      film_sample_accum(
+          src, film_buf.volume_light_id, rp_buf.volume_light_id, rp_color_tx, volume_light_accum);
+      film_sample_accum(
+          src, film_buf.emission_id, rp_buf.emission_id, rp_color_tx, emission_accum);
     }
     film_store_color(dst, film_buf.diffuse_light_id, diffuse_light_accum, out_color);
     film_store_color(dst, film_buf.specular_light_id, specular_light_accum, out_color);
@@ -704,11 +697,21 @@ void film_process_data(ivec2 texel_film, out vec4 out_color, out float out_depth
 
     for (int i = 0; i < film_buf.samples_len; i++) {
       FilmSample src = film_sample_get(i, texel_film);
-      film_sample_accum(src, film_buf.diffuse_color_id, diffuse_color_tx, diffuse_color_accum);
-      film_sample_accum(src, film_buf.specular_color_id, specular_color_tx, specular_color_accum);
-      film_sample_accum(src, film_buf.environment_id, environment_tx, environment_accum);
-      film_sample_accum(src, film_buf.shadow_id, shadow_tx, shadow_accum);
-      film_sample_accum(src, film_buf.ambient_occlusion_id, ambient_occlusion_tx, ao_accum);
+      film_sample_accum(src,
+                        film_buf.diffuse_color_id,
+                        rp_buf.diffuse_color_id,
+                        rp_color_tx,
+                        diffuse_color_accum);
+      film_sample_accum(src,
+                        film_buf.specular_color_id,
+                        rp_buf.specular_color_id,
+                        rp_color_tx,
+                        specular_color_accum);
+      film_sample_accum(
+          src, film_buf.environment_id, rp_buf.environment_id, rp_color_tx, environment_accum);
+      film_sample_accum(src, film_buf.shadow_id, rp_buf.shadow_id, rp_value_tx, shadow_accum);
+      film_sample_accum(
+          src, film_buf.ambient_occlusion_id, rp_buf.ambient_occlusion_id, rp_value_tx, ao_accum);
       film_sample_accum_mist(src, mist_accum);
     }
     film_store_color(dst, film_buf.diffuse_color_id, diffuse_color_accum, out_color);
@@ -724,7 +727,7 @@ void film_process_data(ivec2 texel_film, out vec4 out_color, out float out_depth
 
     for (int i = 0; i < film_buf.samples_len; i++) {
       FilmSample src = film_sample_get(i, texel_film);
-      film_sample_accum(src, aov, aov_color_tx, aov_accum);
+      film_sample_accum(src, 0, rp_buf.color_len + aov, rp_color_tx, aov_accum);
     }
     film_store_color(dst, film_buf.aov_color_id + aov, aov_accum, out_color);
   }
@@ -734,7 +737,7 @@ void film_process_data(ivec2 texel_film, out vec4 out_color, out float out_depth
 
     for (int i = 0; i < film_buf.samples_len; i++) {
       FilmSample src = film_sample_get(i, texel_film);
-      film_sample_accum(src, aov, aov_value_tx, aov_accum);
+      film_sample_accum(src, 0, rp_buf.value_len + aov, rp_value_tx, aov_accum);
     }
     film_store_value(dst, film_buf.aov_value_id + aov, aov_accum, out_color);
   }

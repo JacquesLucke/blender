@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -133,6 +134,7 @@ MINLINE void add_v4_v4v4(float r[4], const float a[4], const float b[4]);
 MINLINE void add_v3fl_v3fl_v3i(float r[3], const float a[3], const int b[3]);
 
 MINLINE void sub_v2_v2(float r[2], const float a[2]);
+MINLINE void sub_v2_v2_db(double r[2], const double a[2]);
 MINLINE void sub_v2_v2v2(float r[2], const float a[2], const float b[2]);
 MINLINE void sub_v2_v2v2_db(double r[2], const double a[2], const double b[2]);
 MINLINE void sub_v2_v2v2_int(int r[2], const int a[2], const int b[2]);
@@ -193,6 +195,7 @@ MINLINE void madd_v2_v2fl(float r[2], const float a[2], float f);
 MINLINE void madd_v3_v3fl(float r[3], const float a[3], float f);
 MINLINE void madd_v3_v3v3(float r[3], const float a[3], const float b[3]);
 MINLINE void madd_v2_v2v2fl(float r[2], const float a[2], const float b[2], float f);
+MINLINE void madd_v2_v2db_db(double r[2], const double a[2], const double b[2], double f);
 MINLINE void madd_v3_v3v3fl(float r[3], const float a[3], const float b[3], float f);
 MINLINE void madd_v3_v3v3db_db(double r[3], const double a[3], const double b[3], double f);
 MINLINE void madd_v3_v3v3v3(float r[3], const float a[3], const float b[3], const float c[3]);
@@ -369,6 +372,7 @@ bool interp_v2_v2v2_slerp(float target[2], const float a[2], const float b[2], f
 void interp_v3_v3v3_slerp_safe(float target[3], const float a[3], const float b[3], float t);
 void interp_v2_v2v2_slerp_safe(float target[2], const float a[2], const float b[2], float t);
 
+/** Cubic curve interpolation (bezier spline). */
 void interp_v2_v2v2v2v2_cubic(float p[2],
                               const float v1[2],
                               const float v2[2],
@@ -627,7 +631,7 @@ void ortho_basis_v3v3_v3(float r_n1[3], float r_n2[3], const float n[3]);
  */
 void ortho_v3_v3(float out[3], const float v[3]);
 /**
- * no brainer compared to v3, just have for consistency.
+ * Trivial compared to v3, include for consistency.
  */
 void ortho_v2_v2(float out[2], const float v[2]);
 /**
@@ -670,11 +674,6 @@ void minmax_v4v4_v4(float min[4], float max[4], const float vec[4]);
 void minmax_v3v3_v3(float min[3], float max[3], const float vec[3]);
 void minmax_v2v2_v2(float min[2], float max[2], const float vec[2]);
 
-void minmax_v3v3_v3_array(float r_min[3],
-                          float r_max[3],
-                          const float (*vec_arr)[3],
-                          int var_arr_num);
-
 /** ensure \a v1 is \a dist from \a v2 */
 void dist_ensure_v3_v3fl(float v1[3], const float v2[3], float dist);
 void dist_ensure_v2_v2fl(float v1[2], const float v2[2], float dist);
@@ -692,11 +691,9 @@ MINLINE void clamp_v4_v4v4(float vec[4], const float min[4], const float max[4])
 
 /* -------------------------------------------------------------------- */
 /** \name Array Functions
- * \{ */
-
-/**
+ *
  * Follow fixed length vector function conventions.
- */
+ * \{ */
 
 double dot_vn_vn(const float *array_src_a,
                  const float *array_src_b,

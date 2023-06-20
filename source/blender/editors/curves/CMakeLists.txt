@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
@@ -12,6 +14,7 @@ set(INC
   ../../makesdna
   ../../makesrna
   ../../windowmanager
+  ../../../../intern/clog
   ../../../../intern/guardedalloc
   ../../bmesh
 
@@ -21,7 +24,11 @@ set(INC
 
 set(SRC
   intern/curves_add.cc
+  intern/curves_data.cc
+  intern/curves_edit.cc
   intern/curves_ops.cc
+  intern/curves_selection.cc
+  intern/curves_undo.cc
 )
 
 set(LIB

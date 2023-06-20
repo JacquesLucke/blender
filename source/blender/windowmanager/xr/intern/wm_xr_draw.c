@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup wm
@@ -196,7 +198,8 @@ static GPUBatch *wm_xr_controller_model_batch_create(GHOST_XrContextHandle xr_co
   GHOST_XrControllerModelData model_data;
 
   if (!GHOST_XrGetControllerModelData(xr_context, subaction_path, &model_data) ||
-      model_data.count_vertices < 1) {
+      model_data.count_vertices < 1)
+  {
     return NULL;
   }
 
@@ -235,11 +238,15 @@ static void wm_xr_controller_model_draw(const XrSessionSettings *settings,
   switch (settings->controller_draw_style) {
     case XR_CONTROLLER_DRAW_DARK:
     case XR_CONTROLLER_DRAW_DARK_RAY:
-      color[0] = color[1] = color[2] = 0.0f, color[3] = 0.4f;
+      color[0] = color[1] = color[2] = 0.0f;
+      color[3] = 0.4f;
       break;
     case XR_CONTROLLER_DRAW_LIGHT:
     case XR_CONTROLLER_DRAW_LIGHT_RAY:
-      color[0] = 0.422f, color[1] = 0.438f, color[2] = 0.446f, color[3] = 0.4f;
+      color[0] = 0.422f;
+      color[1] = 0.438f;
+      color[2] = 0.446f;
+      color[3] = 0.4f;
       break;
   }
 
@@ -255,7 +262,8 @@ static void wm_xr_controller_model_draw(const XrSessionSettings *settings,
 
     if (model &&
         GHOST_XrGetControllerModelData(xr_context, controller->subaction_path, &model_data) &&
-        model_data.count_components > 0) {
+        model_data.count_components > 0)
+    {
       GPU_batch_program_set_builtin(model, GPU_SHADER_3D_UNIFORM_COLOR);
       GPU_batch_uniform_4fv(model, "color", color);
 

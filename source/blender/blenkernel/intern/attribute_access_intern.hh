@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_map.hh"
 #include "BLI_span.hh"
@@ -37,10 +39,6 @@ class BuiltinAttributeProvider {
     Creatable,
     NonCreatable,
   };
-  enum WritableEnum {
-    Writable,
-    Readonly,
-  };
   enum DeletableEnum {
     Deletable,
     NonDeletable,
@@ -51,7 +49,6 @@ class BuiltinAttributeProvider {
   const eAttrDomain domain_;
   const eCustomDataType data_type_;
   const CreatableEnum createable_;
-  const WritableEnum writable_;
   const DeletableEnum deletable_;
   const AttributeValidator validator_;
 
@@ -60,20 +57,18 @@ class BuiltinAttributeProvider {
                            const eAttrDomain domain,
                            const eCustomDataType data_type,
                            const CreatableEnum createable,
-                           const WritableEnum writable,
                            const DeletableEnum deletable,
                            AttributeValidator validator = {})
       : name_(std::move(name)),
         domain_(domain),
         data_type_(data_type),
         createable_(createable),
-        writable_(writable),
         deletable_(deletable),
         validator_(validator)
   {
   }
 
-  virtual GVArray try_get_for_read(const void *owner) const = 0;
+  virtual GAttributeReader try_get_for_read(const void *owner) const = 0;
   virtual GAttributeWriter try_get_for_write(void *owner) const = 0;
   virtual bool try_delete(void *owner) const = 0;
   virtual bool try_create(void *onwer, const AttributeInit &initializer) const = 0;
@@ -171,70 +166,16 @@ class CustomDataAttributeProvider final : public DynamicAttributesProvider {
 };
 
 /**
- * This attribute provider is used for uv maps and vertex colors.
- */
-class NamedLegacyCustomDataProvider final : public DynamicAttributesProvider {
- private:
-  using AsReadAttribute = GVArray (*)(const void *data, int domain_num);
-  using AsWriteAttribute = GVMutableArray (*)(void *data, int domain_num);
-  const eAttrDomain domain_;
-  const eCustomDataType attribute_type_;
-  const eCustomDataType stored_type_;
-  const CustomDataAccessInfo custom_data_access_;
-  const AsReadAttribute as_read_attribute_;
-  const AsWriteAttribute as_write_attribute_;
-
- public:
-  NamedLegacyCustomDataProvider(const eAttrDomain domain,
-                                const eCustomDataType attribute_type,
-                                const eCustomDataType stored_type,
-                                const CustomDataAccessInfo custom_data_access,
-                                const AsReadAttribute as_read_attribute,
-                                const AsWriteAttribute as_write_attribute)
-      : domain_(domain),
-        attribute_type_(attribute_type),
-        stored_type_(stored_type),
-        custom_data_access_(custom_data_access),
-        as_read_attribute_(as_read_attribute),
-        as_write_attribute_(as_write_attribute)
-  {
-  }
-
-  GAttributeReader try_get_for_read(const void *owner,
-                                    const AttributeIDRef &attribute_id) const final;
-  GAttributeWriter try_get_for_write(void *owner, const AttributeIDRef &attribute_id) const final;
-  bool try_delete(void *owner, const AttributeIDRef &attribute_id) const final;
-  bool foreach_attribute(const void *owner, const AttributeForeachCallback callback) const final;
-  void foreach_domain(const FunctionRef<void(eAttrDomain)> callback) const final;
-};
-
-template<typename T> GVArray make_array_read_attribute(const void *data, const int domain_num)
-{
-  return VArray<T>::ForSpan(Span<T>((const T *)data, domain_num));
-}
-
-template<typename T> GVMutableArray make_array_write_attribute(void *data, const int domain_num)
-{
-  return VMutableArray<T>::ForSpan(MutableSpan<T>((T *)data, domain_num));
-}
-
-/**
  * This provider is used to provide access to builtin attributes. It supports making internal types
- * available as different types. For example, the vertex position attribute is stored as part of
- * the #MVert struct, but is exposed as float3 attribute.
+ * available as different types.
  *
  * It also supports named builtin attributes, and will look up attributes in #CustomData by name
  * if the stored type is the same as the attribute type.
  */
 class BuiltinCustomDataLayerProvider final : public BuiltinAttributeProvider {
-  using AsReadAttribute = GVArray (*)(const void *data, int element_num);
-  using AsWriteAttribute = GVMutableArray (*)(void *data, int element_num);
-  using UpdateOnRead = void (*)(const void *owner);
   using UpdateOnChange = void (*)(void *owner);
   const eCustomDataType stored_type_;
   const CustomDataAccessInfo custom_data_access_;
-  const AsReadAttribute as_read_attribute_;
-  const AsWriteAttribute as_write_attribute_;
   const UpdateOnChange update_on_change_;
   bool stored_as_named_attribute_;
 
@@ -244,30 +185,20 @@ class BuiltinCustomDataLayerProvider final : public BuiltinAttributeProvider {
                                  const eCustomDataType attribute_type,
                                  const eCustomDataType stored_type,
                                  const CreatableEnum creatable,
-                                 const WritableEnum writable,
                                  const DeletableEnum deletable,
                                  const CustomDataAccessInfo custom_data_access,
-                                 const AsReadAttribute as_read_attribute,
-                                 const AsWriteAttribute as_write_attribute,
                                  const UpdateOnChange update_on_write,
                                  const AttributeValidator validator = {})
-      : BuiltinAttributeProvider(std::move(attribute_name),
-                                 domain,
-                                 attribute_type,
-                                 creatable,
-                                 writable,
-                                 deletable,
-                                 validator),
+      : BuiltinAttributeProvider(
+            std::move(attribute_name), domain, attribute_type, creatable, deletable, validator),
         stored_type_(stored_type),
         custom_data_access_(custom_data_access),
-        as_read_attribute_(as_read_attribute),
-        as_write_attribute_(as_write_attribute),
         update_on_change_(update_on_write),
         stored_as_named_attribute_(data_type_ == stored_type_)
   {
   }
 
-  GVArray try_get_for_read(const void *owner) const final;
+  GAttributeReader try_get_for_read(const void *owner) const final;
   GAttributeWriter try_get_for_write(void *owner) const final;
   bool try_delete(void *owner) const final;
   bool try_create(void *owner, const AttributeInit &initializer) const final;
@@ -336,7 +267,7 @@ namespace attribute_accessor_functions {
 template<const ComponentAttributeProviders &providers>
 inline bool is_builtin(const void * /*owner*/, const AttributeIDRef &attribute_id)
 {
-  if (!attribute_id.is_named()) {
+  if (attribute_id.is_anonymous()) {
     return false;
   }
   const StringRef name = attribute_id.name();
@@ -346,11 +277,12 @@ inline bool is_builtin(const void * /*owner*/, const AttributeIDRef &attribute_i
 template<const ComponentAttributeProviders &providers>
 inline GAttributeReader lookup(const void *owner, const AttributeIDRef &attribute_id)
 {
-  if (attribute_id.is_named()) {
+  if (!attribute_id.is_anonymous()) {
     const StringRef name = attribute_id.name();
     if (const BuiltinAttributeProvider *provider =
-            providers.builtin_attribute_providers().lookup_default_as(name, nullptr)) {
-      return {provider->try_get_for_read(owner), provider->domain()};
+            providers.builtin_attribute_providers().lookup_default_as(name, nullptr))
+    {
+      return provider->try_get_for_read(owner);
     }
   }
   for (const DynamicAttributesProvider *provider : providers.dynamic_attribute_providers()) {
@@ -367,8 +299,8 @@ inline bool for_all(const void *owner,
                     FunctionRef<bool(const AttributeIDRef &, const AttributeMetaData &)> fn)
 {
   Set<AttributeIDRef> handled_attribute_ids;
-  for (const BuiltinAttributeProvider *provider :
-       providers.builtin_attribute_providers().values()) {
+  for (const BuiltinAttributeProvider *provider : providers.builtin_attribute_providers().values())
+  {
     if (provider->exists(owner)) {
       AttributeMetaData meta_data{provider->domain(), provider->data_type()};
       if (!fn(provider->name(), meta_data)) {
@@ -396,7 +328,7 @@ template<const ComponentAttributeProviders &providers>
 inline AttributeValidator lookup_validator(const void * /*owner*/,
                                            const blender::bke::AttributeIDRef &attribute_id)
 {
-  if (!attribute_id.is_named()) {
+  if (attribute_id.is_anonymous()) {
     return {};
   }
   const BuiltinAttributeProvider *provider =
@@ -443,10 +375,11 @@ inline std::optional<AttributeMetaData> lookup_meta_data(const void *owner,
 template<const ComponentAttributeProviders &providers>
 inline GAttributeWriter lookup_for_write(void *owner, const AttributeIDRef &attribute_id)
 {
-  if (attribute_id.is_named()) {
+  if (!attribute_id.is_anonymous()) {
     const StringRef name = attribute_id.name();
     if (const BuiltinAttributeProvider *provider =
-            providers.builtin_attribute_providers().lookup_default_as(name, nullptr)) {
+            providers.builtin_attribute_providers().lookup_default_as(name, nullptr))
+    {
       return provider->try_get_for_write(owner);
     }
   }
@@ -462,18 +395,20 @@ inline GAttributeWriter lookup_for_write(void *owner, const AttributeIDRef &attr
 template<const ComponentAttributeProviders &providers>
 inline bool remove(void *owner, const AttributeIDRef &attribute_id)
 {
-  if (attribute_id.is_named()) {
+  if (!attribute_id.is_anonymous()) {
     const StringRef name = attribute_id.name();
     if (const BuiltinAttributeProvider *provider =
-            providers.builtin_attribute_providers().lookup_default_as(name, nullptr)) {
+            providers.builtin_attribute_providers().lookup_default_as(name, nullptr))
+    {
       return provider->try_delete(owner);
     }
   }
-  bool success = false;
   for (const DynamicAttributesProvider *provider : providers.dynamic_attribute_providers()) {
-    success = provider->try_delete(owner, attribute_id) || success;
+    if (provider->try_delete(owner, attribute_id)) {
+      return true;
+    }
   }
-  return success;
+  return false;
 }
 
 template<const ComponentAttributeProviders &providers>
@@ -486,10 +421,11 @@ inline bool add(void *owner,
   if (contains<providers>(owner, attribute_id)) {
     return false;
   }
-  if (attribute_id.is_named()) {
+  if (!attribute_id.is_anonymous()) {
     const StringRef name = attribute_id.name();
     if (const BuiltinAttributeProvider *provider =
-            providers.builtin_attribute_providers().lookup_default_as(name, nullptr)) {
+            providers.builtin_attribute_providers().lookup_default_as(name, nullptr))
+    {
       if (provider->domain() != domain) {
         return false;
       }

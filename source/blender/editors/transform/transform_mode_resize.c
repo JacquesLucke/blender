@@ -1,11 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
  */
 
 #include <stdlib.h>
+
+#include "DNA_windowmanager_types.h"
 
 #include "BLI_math.h"
 #include "BLI_task.h"
@@ -15,6 +18,8 @@
 #include "BKE_unit.h"
 
 #include "ED_screen.h"
+
+#include "RNA_access.h"
 
 #include "UI_interface.h"
 
@@ -70,7 +75,7 @@ static float ResizeBetween(TransInfo *t, const float p1[3], const float p2[3])
 
   /* Use 'invalid' dist when `center == p1` (after projecting),
    * in this case scale will _never_ move the point in relation to the center,
-   * so it makes no sense to take it into account when scaling. see: T46503 */
+   * so it makes no sense to take it into account when scaling. see: #46503 */
   return len_d1 != 0.0f ? len_v3(d2) / len_d1 : TRANSFORM_DIST_INVALID;
 }
 
@@ -79,7 +84,7 @@ static void ApplySnapResize(TransInfo *t, float vec[3])
   float point[3];
   getSnapPoint(t, point);
 
-  float dist = ResizeBetween(t, t->tsnap.snapTarget, point);
+  float dist = ResizeBetween(t, t->tsnap.snap_source, point);
   if (dist != TRANSFORM_DIST_INVALID) {
     copy_v3_fl(vec, dist);
   }
@@ -95,9 +100,14 @@ static void constrain_scale_to_boundary(const float numerator,
                                         const float denominator,
                                         float *scale)
 {
-  if (denominator == 0.0f) {
-    /* The origin of the scale is on the edge of the boundary. */
-    if (numerator < 0.0f) {
+  /* It's possible the numerator or denominator can be very close to zero due to so-called
+   * "catastrophic cancellation". See #102923 for an example. We use epsilon tests here to
+   * distinguish between genuine negative coordinates versus coordinates that should be rounded off
+   * to zero. */
+  const float epsilon = 0.25f / 65536.0f; /* i.e. Quarter of a texel on a 65536 x 65536 texture. */
+  if (fabsf(denominator) < epsilon) {
+    /* The origin of the scale is very near the edge of the boundary. */
+    if (numerator < -epsilon) {
       /* Negative scale will wrap around and put us outside the boundary. */
       *scale = 0.0f; /* Hold at the boundary instead. */
     }
@@ -198,7 +208,7 @@ static void applyResize(TransInfo *t, const int UNUSED(mval[2]))
       constraintNumInput(t, t->values_final);
     }
 
-    applySnappingAsGroup(t, t->values_final);
+    transform_snap_mixed_apply(t, t->values_final);
   }
 
   size_to_mat3(mat, t->values_final);
@@ -263,10 +273,8 @@ static void applyResize(TransInfo *t, const int UNUSED(mval[2]))
         ElementResize(t, tc, td, mat);
       }
 
-      /* In proportional edit it can happen that */
-      /* vertices in the radius of the brush end */
-      /* outside the clipping area               */
-      /* XXX HACK - dg */
+      /* XXX(@dg): In proportional edit it can happen that vertices
+       * in the radius of the brush end outside the clipping area. */
       if (t->flag & T_PROP_EDIT) {
         clipUVData(t);
       }
@@ -278,12 +286,30 @@ static void applyResize(TransInfo *t, const int UNUSED(mval[2]))
   ED_area_status_text(t->area, str);
 }
 
-void initResize(TransInfo *t, float mouse_dir_constraint[3])
+static void resize_transform_matrix_fn(TransInfo *t, float mat_xform[4][4])
 {
-  t->mode = TFM_RESIZE;
-  t->transform = applyResize;
-  t->tsnap.applySnap = ApplySnapResize;
-  t->tsnap.distance = ResizeBetween;
+  float mat4[4][4];
+  copy_m4_m3(mat4, t->mat);
+  transform_pivot_set_m4(mat4, t->center_global);
+  mul_m4_m4m4(mat_xform, mat4, mat_xform);
+}
+
+static void initResize(TransInfo *t, wmOperator *op)
+{
+  float mouse_dir_constraint[3];
+  if (op) {
+    PropertyRNA *prop = RNA_struct_find_property(op->ptr, "mouse_dir_constraint");
+    if (prop) {
+      RNA_property_float_get_array(op->ptr, prop, mouse_dir_constraint);
+    }
+    else {
+      /* Resize is expected to have this property. */
+      BLI_assert(!STREQ(op->idname, "TRANSFORM_OT_resize"));
+    }
+  }
+  else {
+    zero_v3(mouse_dir_constraint);
+  }
 
   if (is_zero_v3(mouse_dir_constraint)) {
     initMouseInputMode(t, &t->mouse, INPUT_SPRING_FLIP);
@@ -318,7 +344,6 @@ void initResize(TransInfo *t, float mouse_dir_constraint[3])
     initMouseInputMode(t, &t->mouse, INPUT_CUSTOM_RATIO);
   }
 
-  t->flag |= T_NULL_ONE;
   t->num.val_flag[0] |= NUM_NULL_ONE;
   t->num.val_flag[1] |= NUM_NULL_ONE;
   t->num.val_flag[2] |= NUM_NULL_ONE;
@@ -346,3 +371,14 @@ void initResize(TransInfo *t, float mouse_dir_constraint[3])
 }
 
 /** \} */
+
+TransModeInfo TransMode_resize = {
+    /*flags*/ T_NULL_ONE,
+    /*init_fn*/ initResize,
+    /*transform_fn*/ applyResize,
+    /*transform_matrix_fn*/ resize_transform_matrix_fn,
+    /*handle_event_fn*/ NULL,
+    /*snap_distance_fn*/ ResizeBetween,
+    /*snap_apply_fn*/ ApplySnapResize,
+    /*draw_fn*/ NULL,
+};

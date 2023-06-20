@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-FileCopyrightText: 2010-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # This shell script checks out and compiles blender, tested on ubuntu 10.04
@@ -11,11 +13,11 @@
 mkdir ~/blender-git
 cd ~/blender-git
 
-git clone http://git.blender.org/blender.git
+git clone https://projects.blender.org/blender/blender.git
 cd blender
 git submodule update --init --recursive
-git submodule foreach git checkout master
-git submodule foreach git pull --rebase origin master
+git submodule foreach git checkout main
+git submodule foreach git pull --rebase origin main
 
 # create build dir
 mkdir ~/blender-git/build-cmake
@@ -35,7 +37,7 @@ ln -s ~/blender-git/build-cmake/bin/blender ~/blender-git/blender/blender.bin
 echo ""
 echo "* Useful Commands *"
 echo "   Run Blender: ~/blender-git/blender/blender.bin"
-echo "   Update Blender: git pull --rebase; git submodule foreach git pull --rebase origin master"
+echo "   Update Blender: git pull --rebase; git submodule foreach git pull --rebase origin main"
 echo "   Reconfigure Blender: cd ~/blender-git/build-cmake ; cmake ."
 echo "   Build Blender: cd ~/blender-git/build-cmake ; make"
 echo ""

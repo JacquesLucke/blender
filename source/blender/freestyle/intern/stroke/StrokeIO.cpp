@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2009-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -44,7 +46,8 @@ ostream &operator<<(ostream &out, const Stroke &iStroke)
   out << "  medium type : " << iStroke.getMediumType() << endl;
   for (Stroke::const_vertex_iterator v = iStroke.vertices_begin(), vend = iStroke.vertices_end();
        v != vend;
-       ++v) {
+       ++v)
+  {
     out << *(*v) << endl;
   }
   return out;

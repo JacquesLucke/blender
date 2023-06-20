@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -22,7 +24,7 @@
 #include "WM_types.h"
 
 /* Which part of bone(s) get baked */
-// TODO: icons?
+/* TODO: icons? */
 const EnumPropertyItem rna_enum_motionpath_bake_location_items[] = {
     {MOTIONPATH_BAKE_HEADS, "HEADS", 0, "Heads", "Calculate bone paths from heads"},
     {0, "TAILS", 0, "Tails", "Calculate bone paths from tails"},
@@ -58,6 +60,7 @@ const EnumPropertyItem rna_enum_motionpath_range_items[] = {
      "Selected Keys",
      "From the first selected keyframe to the last"},
     {MOTIONPATH_RANGE_SCENE, "SCENE", 0, "Scene Frame Range", "The entire Scene / Preview range"},
+    {MOTIONPATH_RANGE_MANUAL, "MANUAL", 0, "Manual Range", "Manually determined frame range"},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -156,6 +159,7 @@ static void rna_def_animviz_motion_path(BlenderRNA *brna)
   RNA_def_property_array(prop, 3);
   RNA_def_property_ui_text(prop, "Color", "Custom color for motion path");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW_ANIMVIZ, NULL);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
 
   /* Line width */
   prop = RNA_def_property(srna, "line_thickness", PROP_INT, PROP_NONE);
@@ -163,6 +167,7 @@ static void rna_def_animviz_motion_path(BlenderRNA *brna)
   RNA_def_property_range(prop, 1, 6);
   RNA_def_property_ui_text(prop, "Line Thickness", "Line thickness for motion path");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW_ANIMVIZ, NULL);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
 
   /* Settings */
   prop = RNA_def_property(srna, "use_bone_head", PROP_BOOLEAN, PROP_NONE);
@@ -183,6 +188,7 @@ static void rna_def_animviz_motion_path(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, NULL, "flag", MOTIONPATH_FLAG_CUSTOM);
   RNA_def_property_ui_text(prop, "Custom Colors", "Use custom color for this motion path");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW_ANIMVIZ, NULL);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
 
   /* Draw lines between keyframes */
   prop = RNA_def_property(srna, "lines", PROP_BOOLEAN, PROP_NONE);

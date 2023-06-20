@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -8,6 +10,7 @@
 
 #include "DNA_listBase.h"
 
+#include "RNA_access.h"
 #include "RNA_types.h"
 
 struct BlenderRNA;
@@ -155,20 +158,23 @@ typedef void (*PropEnumSetFuncEx)(struct PointerRNA *ptr, struct PropertyRNA *pr
 typedef struct PropertyRNAOrID {
   PointerRNA ptr;
 
-  /** The PropertyRNA passed as parameter, used to generate that structure's content:
+  /**
+   * The PropertyRNA passed as parameter, used to generate that structure's content:
    * - Static RNA: The RNA property (same as `rnaprop`), never NULL.
    * - Runtime RNA: The RNA property (same as `rnaprop`), never NULL.
    * - IDProperty: The IDProperty, never NULL.
    */
   PropertyRNA *rawprop;
-  /** The real RNA property of this property, never NULL:
+  /**
+   * The real RNA property of this property, never NULL:
    * - Static RNA: The rna property, also gives direct access to the data (from any matching
    *               PointerRNA).
    * - Runtime RNA: The rna property, does not directly gives access to the data.
    * - IDProperty: The generic PropertyRNA matching its type.
    */
   PropertyRNA *rnaprop;
-  /** The IDProperty storing the data of this property, may be NULL:
+  /**
+   * The IDProperty storing the data of this property, may be NULL:
    * - Static RNA: Always NULL.
    * - Runtime RNA: The IDProperty storing the data of that property, may be NULL if never set yet.
    * - IDProperty: The IDProperty, never NULL.
@@ -179,7 +185,8 @@ typedef struct PropertyRNAOrID {
 
   /** Whether this property is a 'pure' IDProperty or not. */
   bool is_idprop;
-  /** For runtime RNA properties, whether it is set, defined, or not.
+  /**
+   * For runtime RNA properties, whether it is set, defined, or not.
    * WARNING: This DOES take into account the `IDP_FLAG_GHOST` flag, i.e. it matches result of
    *          `RNA_property_is_set`. */
   bool is_set;
@@ -205,7 +212,7 @@ typedef int (*RNAPropOverrideDiff)(struct Main *bmain,
                                    const char *rna_path,
                                    size_t rna_path_len,
                                    int flags,
-                                   bool *r_override_changed);
+                                   eRNAOverrideMatchResult *r_report_flag);
 
 /**
  * Only used for differential override (add, sub, etc.).

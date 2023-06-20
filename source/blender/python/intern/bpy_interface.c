@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup pythonintern
@@ -316,7 +318,7 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
     PyPreConfig preconfig;
     PyStatus status;
 
-    /* To narrow down reports where the systems Python is inexplicably used, see: T98131. */
+    /* To narrow down reports where the systems Python is inexplicably used, see: #98131. */
     CLOG_INFO(
         BPY_LOG_INTERFACE,
         2,
@@ -329,7 +331,7 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
     }
     else {
       /* Only use the systems environment variables and site when explicitly requested.
-       * Since an incorrect 'PYTHONPATH' causes difficult to debug errors, see: T72807.
+       * Since an incorrect 'PYTHONPATH' causes difficult to debug errors, see: #72807.
        * An alternative to setting `preconfig.use_environment = 0` */
       PyPreConfig_InitIsolatedConfig(&preconfig);
     }
@@ -371,8 +373,14 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
      * While harmless, it's noisy. */
     config.pathconfig_warnings = 0;
 
-    /* When using the system's Python, allow the site-directory as well. */
-    config.user_site_directory = py_use_system_env;
+    /* Allow the user site directory because this is used
+     * when PIP installing packages from Blender, see: #104000.
+     *
+     * NOTE(@ideasman42): While an argument can be made for isolating Blender's Python
+     * from the users home directory entirely, an alternative directory should be used in that
+     * case - so PIP can be used to install packages. Otherwise PIP will install packages to a
+     * directory which us not in the users `sys.path`, see `site.USER_BASE` for details. */
+    // config.user_site_directory = py_use_system_env;
 
     /* While `sys.argv` is set, we don't want Python to interpret it. */
     config.parse_argv = 0;
@@ -395,7 +403,8 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
     {
       char program_path[FILE_MAX];
       if (BKE_appdir_program_python_search(
-              program_path, sizeof(program_path), PY_MAJOR_VERSION, PY_MINOR_VERSION)) {
+              program_path, sizeof(program_path), PY_MAJOR_VERSION, PY_MINOR_VERSION))
+      {
         status = PyConfig_SetBytesString(&config, &config.executable, program_path);
         pystatus_exit_on_error(status);
         has_python_executable = true;
@@ -403,7 +412,7 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
       else {
         /* Set to `sys.executable = None` below (we can't do before Python is initialized). */
         fprintf(stderr,
-                "Unable to find the python binary, "
+                "Unable to find the Python binary, "
                 "the multiprocessing module may not be functional!\n");
       }
     }
@@ -420,7 +429,7 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
         if (strchr(py_path_bundle, ':')) {
           fprintf(stderr,
                   "Warning! Blender application is located in a path containing ':' or '/' chars\n"
-                  "This may make python import function fail\n");
+                  "This may make Python import function fail\n");
         }
 #  endif /* __APPLE__ */
 
@@ -452,14 +461,18 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
   Py_DECREF(PyImport_ImportModule("threading"));
 #  endif
 
-#else
+#else /* WITH_PYTHON_MODULE */
   (void)argc;
   (void)argv;
 
-  /* must run before python initializes */
-  /* broken in py3.3, load explicitly below */
+  /* NOTE(ideasman42): unfortunately the `inittab` can only be used
+   * before Python has been initialized.
+   * When built as a Python module, Python will have been initialized
+   * and using the `inittab` isn't supported.
+   * So it's necessary to load all modules as soon as `bpy` is imported. */
   // PyImport_ExtendInittab(bpy_internal_modules);
-#endif
+
+#endif /* WITH_PYTHON_MODULE */
 
   bpy_intern_string_init();
 
@@ -501,7 +514,7 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
 #endif
 
 #ifdef WITH_PYTHON_MODULE
-  /* Disable all add-ons at exit, not essential, it just avoids resource leaks, see T71362. */
+  /* Disable all add-ons at exit, not essential, it just avoids resource leaks, see #71362. */
   BPY_run_string_eval(C,
                       (const char *[]){"atexit", "addon_utils", NULL},
                       "atexit.register(addon_utils.disable_all)");
@@ -649,7 +662,7 @@ void BPY_modules_load_user(bContext *C)
       if (!(G.f & G_FLAG_SCRIPT_AUTOEXEC)) {
         if (!(G.f & G_FLAG_SCRIPT_AUTOEXEC_FAIL_QUIET)) {
           G.f |= G_FLAG_SCRIPT_AUTOEXEC_FAIL;
-          BLI_snprintf(G.autoexec_fail, sizeof(G.autoexec_fail), "Text '%s'", text->id.name + 2);
+          SNPRINTF(G.autoexec_fail, "Text '%s'", text->id.name + 2);
 
           printf("scripts disabled for \"%s\", skipping '%s'\n",
                  BKE_main_blendfile_path(bmain),
@@ -796,7 +809,7 @@ static void bpy_module_delay_init(PyObject *bpy_proxy)
   const char *filepath_rel = PyUnicode_AsUTF8(filepath_obj); /* can be relative */
   char filepath_abs[1024];
 
-  BLI_strncpy(filepath_abs, filepath_rel, sizeof(filepath_abs));
+  STRNCPY(filepath_abs, filepath_rel);
   BLI_path_abs_from_cwd(filepath_abs, sizeof(filepath_abs));
   Py_DECREF(filepath_obj);
 
@@ -842,7 +855,8 @@ static bool bpy_module_ensure_compatible_version(void)
   uint version_runtime_major = version_runtime >> 24;
   uint version_runtime_minor = ((version_runtime & 0x00ff0000) >> 16);
   if ((version_compile_major != version_runtime_major) ||
-      (version_compile_minor != version_runtime_minor)) {
+      (version_compile_minor != version_runtime_minor))
+  {
     PyErr_Format(PyExc_ImportError,
                  "The version of \"bpy\" was compiled with: "
                  "(%u.%u) is incompatible with: (%u.%u) used by the interpreter!",

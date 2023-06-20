@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2014-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # Turn everything ON that's expected for an official release builds.
@@ -26,11 +28,8 @@ set(WITH_HARU                ON  CACHE BOOL "" FORCE)
 set(WITH_IK_ITASC            ON  CACHE BOOL "" FORCE)
 set(WITH_IK_SOLVER           ON  CACHE BOOL "" FORCE)
 set(WITH_IMAGE_CINEON        ON  CACHE BOOL "" FORCE)
-set(WITH_IMAGE_DDS           ON  CACHE BOOL "" FORCE)
-set(WITH_IMAGE_HDR           ON  CACHE BOOL "" FORCE)
 set(WITH_IMAGE_OPENEXR       ON  CACHE BOOL "" FORCE)
 set(WITH_IMAGE_OPENJPEG      ON  CACHE BOOL "" FORCE)
-set(WITH_IMAGE_TIFF          ON  CACHE BOOL "" FORCE)
 set(WITH_IMAGE_WEBP          ON  CACHE BOOL "" FORCE)
 set(WITH_INPUT_NDOF          ON  CACHE BOOL "" FORCE)
 set(WITH_INPUT_IME           ON  CACHE BOOL "" FORCE)
@@ -58,6 +57,7 @@ set(WITH_QUADRIFLOW          ON  CACHE BOOL "" FORCE)
 set(WITH_SDL                 ON  CACHE BOOL "" FORCE)
 set(WITH_TBB                 ON  CACHE BOOL "" FORCE)
 set(WITH_USD                 ON  CACHE BOOL "" FORCE)
+set(WITH_MATERIALX           OFF CACHE BOOL "" FORCE)
 
 set(WITH_MEM_JEMALLOC        ON  CACHE BOOL "" FORCE)
 

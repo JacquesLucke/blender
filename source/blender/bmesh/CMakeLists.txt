@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2006 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2006 Blender Foundation. All rights reserved.
 
 set(INC
   .
@@ -71,7 +72,7 @@ set(SRC
   intern/bmesh_edgeloop.c
   intern/bmesh_edgeloop.h
   intern/bmesh_inline.h
-  intern/bmesh_interp.c
+  intern/bmesh_interp.cc
   intern/bmesh_interp.h
   intern/bmesh_iterators.cc
   intern/bmesh_iterators.h
@@ -88,7 +89,7 @@ set(SRC
   intern/bmesh_mesh_debug.h
   intern/bmesh_mesh_duplicate.c
   intern/bmesh_mesh_duplicate.h
-  intern/bmesh_mesh_normals.c
+  intern/bmesh_mesh_normals.cc
   intern/bmesh_mesh_normals.h
   intern/bmesh_mesh_partial_update.c
   intern/bmesh_mesh_partial_update.h
@@ -179,12 +180,6 @@ if(WITH_BULLET)
     ${BULLET_INCLUDE_DIRS}
     ../../../intern/rigidbody
   )
-  if(NOT WITH_SYSTEM_BULLET)
-  list(APPEND LIB
-    extern_bullet
-    )
-  endif()
-
   list(APPEND LIB
     ${BULLET_LIBRARIES}
   )

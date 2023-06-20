@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spbuttons
@@ -11,6 +12,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_listbase.h"
+#include "BLI_string.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
@@ -232,7 +234,8 @@ static bool buttons_context_path_data(ButsContextPath *path, int type)
     return true;
   }
   if (RNA_struct_is_a(ptr->type, &RNA_Curve) &&
-      (type == -1 || ELEM(type, OB_CURVES_LEGACY, OB_SURF, OB_FONT))) {
+      (type == -1 || ELEM(type, OB_CURVES_LEGACY, OB_SURF, OB_FONT)))
+  {
     return true;
   }
   if (RNA_struct_is_a(ptr->type, &RNA_Armature) && ELEM(type, -1, OB_ARMATURE)) {
@@ -256,7 +259,7 @@ static bool buttons_context_path_data(ButsContextPath *path, int type)
   if (RNA_struct_is_a(ptr->type, &RNA_LightProbe) && ELEM(type, -1, OB_LIGHTPROBE)) {
     return true;
   }
-  if (RNA_struct_is_a(ptr->type, &RNA_GreasePencil) && ELEM(type, -1, OB_GPENCIL)) {
+  if (RNA_struct_is_a(ptr->type, &RNA_GreasePencil) && ELEM(type, -1, OB_GPENCIL_LEGACY)) {
     return true;
   }
   if (RNA_struct_is_a(ptr->type, &RNA_Curves) && ELEM(type, -1, OB_CURVES)) {
@@ -297,10 +300,11 @@ static bool buttons_context_path_modifier(ButsContextPath *path)
              OB_FONT,
              OB_SURF,
              OB_LATTICE,
-             OB_GPENCIL,
+             OB_GPENCIL_LEGACY,
              OB_CURVES,
              OB_POINTCLOUD,
-             OB_VOLUME)) {
+             OB_VOLUME))
+    {
       ModifierData *md = BKE_object_active_modifier(ob);
       if (md != NULL) {
         RNA_pointer_create(&ob->id, &RNA_Modifier, md, &path->ptr[path->len]);
@@ -319,7 +323,7 @@ static bool buttons_context_path_shaderfx(ButsContextPath *path)
   if (buttons_context_path_object(path)) {
     Object *ob = path->ptr[path->len - 1].data;
 
-    if (ob && ELEM(ob->type, OB_GPENCIL)) {
+    if (ob && ELEM(ob->type, OB_GPENCIL_LEGACY)) {
       return true;
     }
   }
@@ -565,7 +569,8 @@ static bool buttons_context_path(
               BCONTEXT_RENDER,
               BCONTEXT_OUTPUT,
               BCONTEXT_VIEW_LAYER,
-              BCONTEXT_WORLD)) {
+              BCONTEXT_WORLD))
+    {
       RNA_pointer_create(NULL, &RNA_ViewLayer, view_layer, &path->ptr[path->len]);
       path->len++;
     }
@@ -965,7 +970,7 @@ int /*eContextResult*/ buttons_context(const bContext *C,
       Object *ob = ptr->data;
 
       if (ob && OB_TYPE_SUPPORT_MATERIAL(ob->type) && ob->totcol) {
-        /* a valid actcol isn't ensured T27526. */
+        /* a valid actcol isn't ensured #27526. */
         int matnr = ob->actcol - 1;
         if (matnr < 0) {
           matnr = 0;
@@ -1194,7 +1199,8 @@ static void buttons_panel_context_draw(const bContext *C, Panel *panel)
               BCONTEXT_SCENE,
               BCONTEXT_VIEW_LAYER,
               BCONTEXT_WORLD) &&
-        ptr->type == &RNA_Scene) {
+        ptr->type == &RNA_Scene)
+    {
       continue;
     }
     if (!ELEM(sbuts->mainb,
@@ -1203,7 +1209,8 @@ static void buttons_panel_context_draw(const bContext *C, Panel *panel)
               BCONTEXT_SCENE,
               BCONTEXT_VIEW_LAYER,
               BCONTEXT_WORLD) &&
-        ptr->type == &RNA_ViewLayer) {
+        ptr->type == &RNA_ViewLayer)
+    {
       continue;
     }
 
@@ -1248,9 +1255,9 @@ static void buttons_panel_context_draw(const bContext *C, Panel *panel)
 void buttons_context_register(ARegionType *art)
 {
   PanelType *pt = MEM_callocN(sizeof(PanelType), "spacetype buttons panel context");
-  strcpy(pt->idname, "PROPERTIES_PT_context");
-  strcpy(pt->label, N_("Context")); /* XXX C panels unavailable through RNA bpy.types! */
-  strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(pt->idname, "PROPERTIES_PT_context");
+  STRNCPY(pt->label, N_("Context")); /* XXX C panels unavailable through RNA bpy.types! */
+  STRNCPY(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   pt->poll = buttons_panel_context_poll;
   pt->draw = buttons_panel_context_draw;
   pt->flag = PANEL_TYPE_NO_HEADER | PANEL_TYPE_NO_SEARCH;

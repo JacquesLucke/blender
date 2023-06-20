@@ -1,8 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
  */
+
+#include "BLI_task.hh"
 
 #include "BKE_attribute_math.hh"
 #include "BKE_curves.hh"
@@ -20,9 +24,9 @@ int calculate_evaluated_num(const int points_num, const bool cyclic, const int r
   return eval_num + 1;
 }
 
-/* Adapted from Cycles #catmull_rom_basis_eval function. */
 void calculate_basis(const float parameter, float4 &r_weights)
 {
+  /* Adapted from Cycles #catmull_rom_basis_eval function. */
   const float t = parameter;
   const float s = 1.0f - parameter;
   r_weights[0] = -t * s * s;
@@ -123,7 +127,7 @@ static void interpolate_to_evaluated(const Span<T> src,
 template<typename T>
 static void interpolate_to_evaluated(const Span<T> src,
                                      const bool cyclic,
-                                     const Span<int> evaluated_offsets,
+                                     const OffsetIndices<int> evaluated_offsets,
                                      MutableSpan<T> dst)
 
 {
@@ -131,7 +135,7 @@ static void interpolate_to_evaluated(const Span<T> src,
       src,
       cyclic,
       [evaluated_offsets](const int segment_i) -> IndexRange {
-        return bke::offsets_to_range(evaluated_offsets, segment_i);
+        return evaluated_offsets[segment_i];
       },
       dst);
 }
@@ -149,7 +153,7 @@ void interpolate_to_evaluated(const GSpan src,
 
 void interpolate_to_evaluated(const GSpan src,
                               const bool cyclic,
-                              const Span<int> evaluated_offsets,
+                              const OffsetIndices<int> evaluated_offsets,
                               GMutableSpan dst)
 {
   attribute_math::convert_to_static_type(src.type(), [&](auto dummy) {

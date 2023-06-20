@@ -1,4 +1,7 @@
+# SPDX-FileCopyrightText: 2022-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(WIN32)
   set(EPOXY_LIB_TYPE shared)
 else()
@@ -10,7 +13,7 @@ ExternalProject_Add(external_epoxy
   URL_HASH ${EPOXY_HASH_TYPE}=${EPOXY_HASH}
   PREFIX ${BUILD_DIR}/epoxy
   PATCH_COMMAND ${PATCH_CMD} -p 1 -N -d ${BUILD_DIR}/epoxy/src/external_epoxy/ < ${PATCH_DIR}/epoxy.diff
-  CONFIGURE_COMMAND ${CONFIGURE_ENV} && meson setup --prefix ${LIBDIR}/epoxy --default-library ${EPOXY_LIB_TYPE} --libdir lib ${BUILD_DIR}/epoxy/src/external_epoxy-build ${BUILD_DIR}/epoxy/src/external_epoxy -Dtests=false
+  CONFIGURE_COMMAND ${CONFIGURE_ENV} && ${MESON} setup --prefix ${LIBDIR}/epoxy --default-library ${EPOXY_LIB_TYPE} --libdir lib ${BUILD_DIR}/epoxy/src/external_epoxy-build ${BUILD_DIR}/epoxy/src/external_epoxy -Dtests=false ${MESON_BUILD_TYPE}
   BUILD_COMMAND ninja
   INSTALL_COMMAND ninja install
 )
@@ -23,3 +26,9 @@ if(BUILD_MODE STREQUAL Release AND WIN32)
     DEPENDEES install
   )
 endif()
+
+add_dependencies(
+  external_epoxy
+  # Needed for `MESON`.
+  external_python_site_packages
+)

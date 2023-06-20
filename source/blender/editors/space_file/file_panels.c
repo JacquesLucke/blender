@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spfile
@@ -55,7 +56,7 @@ static void file_panel_operator_header(const bContext *C, Panel *panel)
   SpaceFile *sfile = CTX_wm_space_file(C);
   wmOperator *op = sfile->op;
 
-  BLI_strncpy(panel->drawname, WM_operatortype_name(op->type, op->ptr), sizeof(panel->drawname));
+  STRNCPY(panel->drawname, WM_operatortype_name(op->type, op->ptr));
 }
 
 static void file_panel_operator(const bContext *C, Panel *panel)
@@ -93,9 +94,9 @@ void file_tool_props_region_panels_register(ARegionType *art)
   PanelType *pt;
 
   pt = MEM_callocN(sizeof(PanelType), "spacetype file operator properties");
-  strcpy(pt->idname, "FILE_PT_operator");
-  strcpy(pt->label, N_("Operator"));
-  strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(pt->idname, "FILE_PT_operator");
+  STRNCPY(pt->label, N_("Operator"));
+  STRNCPY(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   pt->flag = PANEL_TYPE_NO_HEADER;
   pt->poll = file_panel_operator_poll;
   pt->draw_header = file_panel_operator_header;
@@ -207,9 +208,9 @@ void file_execute_region_panels_register(ARegionType *art)
   PanelType *pt;
 
   pt = MEM_callocN(sizeof(PanelType), "spacetype file execution buttons");
-  strcpy(pt->idname, "FILE_PT_execution_buttons");
-  strcpy(pt->label, N_("Execute Buttons"));
-  strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(pt->idname, "FILE_PT_execution_buttons");
+  STRNCPY(pt->label, N_("Execute Buttons"));
+  STRNCPY(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   pt->flag = PANEL_TYPE_NO_HEADER;
   pt->poll = file_panel_operator_poll;
   pt->draw = file_panel_execution_buttons_draw;
@@ -237,7 +238,7 @@ static void file_panel_asset_catalog_buttons_draw(const bContext *C, Panel *pane
     if (WM_operator_name_poll(mutable_ctx, "asset.bundle_install")) {
       uiItemS(col);
       uiItemMenuEnumO(col,
-                      mutable_ctx,
+                      C,
                       "asset.bundle_install",
                       "asset_library_ref",
                       "Copy Bundle to Asset Library...",
@@ -259,9 +260,9 @@ void file_tools_region_panels_register(ARegionType *art)
   PanelType *pt;
 
   pt = MEM_callocN(sizeof(PanelType), "spacetype file asset catalog buttons");
-  strcpy(pt->idname, "FILE_PT_asset_catalog_buttons");
-  strcpy(pt->label, N_("Asset Catalogs"));
-  strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+  STRNCPY(pt->idname, "FILE_PT_asset_catalog_buttons");
+  STRNCPY(pt->label, N_("Asset Catalogs"));
+  STRNCPY(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
   pt->flag = PANEL_TYPE_NO_HEADER;
   pt->poll = file_panel_asset_browsing_poll;
   pt->draw = file_panel_asset_catalog_buttons_draw;

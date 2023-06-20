@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
@@ -24,24 +26,29 @@ set(INC
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
+set(INC_SYS
+)
 
 set(SRC
-  sequencer_add.c
-  sequencer_buttons.c
-  sequencer_channels_draw.c
-  sequencer_channels_edit.c
-  sequencer_drag_drop.c
-  sequencer_draw.c
-  sequencer_edit.c
-  sequencer_modifier.c
-  sequencer_ops.c
-  sequencer_preview.c
-  sequencer_proxy.c
-  sequencer_scopes.c
-  sequencer_select.c
-  sequencer_thumbnails.c
-  sequencer_view.c
-  space_sequencer.c
+  sequencer_add.cc
+  sequencer_buttons.cc
+  sequencer_channels_draw.cc
+  sequencer_channels_edit.cc
+  sequencer_drag_drop.cc
+  sequencer_draw.cc
+  sequencer_edit.cc
+  sequencer_gizmo_retime.cc
+  sequencer_gizmo_retime_type.cc
+  sequencer_modifier.cc
+  sequencer_ops.cc
+  sequencer_preview.cc
+  sequencer_proxy.cc
+  sequencer_retiming.cc
+  sequencer_scopes.cc
+  sequencer_select.cc
+  sequencer_thumbnails.cc
+  sequencer_view.cc
+  space_sequencer.cc
 
   sequencer_intern.h
 )
@@ -52,15 +59,16 @@ set(LIB
 )
 
 if(WITH_AUDASPACE)
-  add_definitions(-DWITH_AUDASPACE)
-
   list(APPEND INC_SYS
     ${AUDASPACE_C_INCLUDE_DIRS}
   )
-  list(APPEND LIB
-    ${AUDASPACE_C_LIBRARIES}
-    ${AUDASPACE_PY_LIBRARIES}
-  )
+  if(WITH_SYSTEM_AUDASPACE)
+    list(APPEND LIB
+      ${AUDASPACE_C_LIBRARIES}
+      ${AUDASPACE_PY_LIBRARIES}
+    )
+  endif()
+  add_definitions(-DWITH_AUDASPACE)
 endif()
 
 

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -422,9 +424,7 @@ constexpr StringRef StringRefBase::trim(StringRef characters_to_remove) const
 /** \name #StringRefNull Inline Methods
  * \{ */
 
-constexpr StringRefNull::StringRefNull() : StringRefBase("", 0)
-{
-}
+constexpr StringRefNull::StringRefNull() : StringRefBase("", 0) {}
 
 /**
  * Construct a StringRefNull from a null terminated c-string. This invokes undefined behavior
@@ -450,9 +450,7 @@ inline StringRefNull::StringRefNull(const char *str) : StringRefBase(str, int64_
  * Reference a std::string. Remember that when the std::string is destructed, the StringRefNull
  * will point to uninitialized memory.
  */
-inline StringRefNull::StringRefNull(const std::string &str) : StringRefNull(str.c_str())
-{
-}
+inline StringRefNull::StringRefNull(const std::string &str) : StringRefNull(str.c_str()) {}
 
 /**
  * Get the char at the given index.
@@ -481,16 +479,12 @@ constexpr const char *StringRefNull::c_str() const
 /** \name #StringRef Inline Methods
  * \{ */
 
-constexpr StringRef::StringRef() : StringRefBase(nullptr, 0)
-{
-}
+constexpr StringRef::StringRef() : StringRefBase(nullptr, 0) {}
 
 /**
  * StringRefNull can be converted into StringRef, but not the other way around.
  */
-constexpr StringRef::StringRef(StringRefNull other) : StringRefBase(other.data(), other.size())
-{
-}
+constexpr StringRef::StringRef(StringRefNull other) : StringRefBase(other.data(), other.size()) {}
 
 /**
  * Create a StringRef from a null-terminated c-string.
@@ -604,19 +598,12 @@ inline std::string operator+(StringRef a, StringRef b)
  * Ideally, we only use StringRef in our code to avoid this problem altogether. */
 constexpr bool operator==(StringRef a, StringRef b)
 {
-  if (a.size() != b.size()) {
-    return false;
-  }
-  if (a.data() == b.data()) {
-    /* This also avoids passing null to the call below, which would results in an ASAN warning. */
-    return true;
-  }
-  return STREQLEN(a.data(), b.data(), size_t(a.size()));
+  return std::string_view(a) == std::string_view(b);
 }
 
 constexpr bool operator!=(StringRef a, StringRef b)
 {
-  return !(a == b);
+  return std::string_view(a) != std::string_view(b);
 }
 
 constexpr bool operator<(StringRef a, StringRef b)

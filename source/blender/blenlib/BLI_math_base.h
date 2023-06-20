@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -97,8 +98,9 @@ MINLINE float saacos(float fac);
 MINLINE float saasin(float fac);
 MINLINE float sasqrt(float fac);
 
-MINLINE float interpf(float a, float b, float t);
-MINLINE double interpd(double a, double b, double t);
+/* Compute linear interpolation (lerp) between origin and target. */
+MINLINE float interpf(float target, float origin, float t);
+MINLINE double interpd(double target, double origin, double t);
 
 MINLINE float ratiof(float min, float max, float pos);
 MINLINE double ratiod(double min, double max, double pos);
@@ -112,7 +114,7 @@ MINLINE float scalenorm(float a, float b, float x);
  */
 MINLINE double scalenormd(double a, double b, double x);
 
-/* NOTE: Compilers will upcast all types smaller than int to int when performing arithmetic
+/* NOTE: Compilers will up-cast all types smaller than int to int when performing arithmetic
  * operation. */
 
 MINLINE int square_s(short a);
@@ -139,6 +141,8 @@ MINLINE float max_ffff(float a, float b, float c, float d);
 
 MINLINE double min_dd(double a, double b);
 MINLINE double max_dd(double a, double b);
+MINLINE double min_ddd(double a, double b, double c);
+MINLINE double max_ddd(double a, double b, double c);
 
 MINLINE int min_ii(int a, int b);
 MINLINE int max_ii(int a, int b);
@@ -240,6 +244,15 @@ MINLINE uint64_t ceil_to_multiple_ul(uint64_t a, uint64_t b);
 MINLINE int mod_i(int i, int n);
 
 /**
+ * Modulo that returns a positive result, regardless of the sign of \a f.
+ *
+ * For example, mod_f_positive(-0.1, 1.0) => 0.9.
+ *
+ * \returns a float in the interval [0, n).
+ */
+MINLINE float mod_f_positive(float f, float n);
+
+/**
  * Round to closest even number, halfway cases are rounded away from zero.
  */
 MINLINE float round_to_even(float f);
@@ -308,7 +321,7 @@ float ceil_power_of_10(float f);
  * check the vector is unit length, or zero length (which can't be helped in some cases). */
 
 #ifndef NDEBUG
-/** \note 0.0001 is too small because normals may be converted from short's: see T34322. */
+/** \note 0.0001 is too small because normals may be converted from short's: see #34322. */
 #  define BLI_ASSERT_UNIT_EPSILON 0.0002f
 #  define BLI_ASSERT_UNIT_EPSILON_DB 0.0002
 /**

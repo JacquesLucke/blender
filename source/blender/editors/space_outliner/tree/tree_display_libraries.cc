@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spoutliner
@@ -49,7 +51,7 @@ ListBase TreeDisplayLibraries::buildTree(const TreeSourceData &source_data)
   for (ID *id : List<ID>(source_data.bmain->libraries)) {
     Library *lib = reinterpret_cast<Library *>(id);
     TreeElement *ten = add_library_contents(*source_data.bmain, tree, lib);
-    /* NULL-check matters, due to filtering there may not be a new element. */
+    /* Null-check matters, due to filtering there may not be a new element. */
     if (ten) {
       lib->id.newid = (ID *)ten;
     }
@@ -189,7 +191,7 @@ bool TreeDisplayLibraries::library_id_filter_poll(const Library *lib, ID *id) co
     Collection *collection = (Collection *)id;
     bool has_non_scene_parent = false;
 
-    for (CollectionParent *cparent : List<CollectionParent>(collection->parents)) {
+    for (CollectionParent *cparent : List<CollectionParent>(collection->runtime.parents)) {
       if (!(cparent->collection->flag & COLLECTION_IS_MASTER)) {
         has_non_scene_parent = true;
       }

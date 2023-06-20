@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2008-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -26,7 +28,7 @@ uint WXFaceLayer::Get0VertexIndex() const
   int i = 0;
   int nEdges = _pWXFace->numberOfEdges();
   for (i = 0; i < nEdges; ++i) {
-    if (_DotP[i] == 0.0f) {  // TODO: this comparison is weak, check if it actually works
+    if (_DotP[i] == 0.0f) { /* TODO: this comparison is weak, check if it actually works */
       return i;
     }
   }
@@ -37,7 +39,7 @@ uint WXFaceLayer::GetSmoothEdgeIndex() const
   int i = 0;
   int nEdges = _pWXFace->numberOfEdges();
   for (i = 0; i < nEdges; ++i) {
-    if ((_DotP[i] == 0.0f) && (_DotP[(i + 1) % nEdges] == 0.0f)) {  // TODO: ditto
+    if ((_DotP[i] == 0.0f) && (_DotP[(i + 1) % nEdges] == 0.0f)) { /* TODO: ditto */
       return i;
     }
   }
@@ -243,7 +245,8 @@ void WXFace::ComputeCenter()
   Vec3f center;
   for (vector<WVertex *>::iterator wv = iVertexList.begin(), wvend = iVertexList.end();
        wv != wvend;
-       ++wv) {
+       ++wv)
+  {
     center += (*wv)->GetVertex();
   }
   center /= float(iVertexList.size());
@@ -270,7 +273,8 @@ WFace *WXShape::MakeFace(vector<WVertex *> &iVertexList,
   Vec3f center;
   for (vector<WVertex *>::iterator wv = iVertexList.begin(), wvend = iVertexList.end();
        wv != wvend;
-       ++wv) {
+       ++wv)
+  {
     center += (*wv)->GetVertex();
   }
   center /= float(iVertexList.size());

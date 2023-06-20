@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -39,6 +40,15 @@ enum {
   IDTYPE_FLAGS_APPEND_IS_REUSABLE = 1 << 3,
   /** Indicates that the given IDType does not have animation data. */
   IDTYPE_FLAGS_NO_ANIMDATA = 1 << 4,
+  /**
+   * Indicates that the given IDType is not handled through memfile (aka global) undo.
+   *
+   * \note This currently only affect local data-blocks.
+   *
+   * \note Current readfile undo code expects these data-blocks to not be used by any 'regular'
+   * data-blocks.
+   */
+  IDTYPE_FLAGS_NO_MEMFILE_UNDO = 1 << 5,
 };
 
 typedef struct IDCacheKey {
@@ -210,6 +220,10 @@ typedef struct IDTypeInfo {
    * Allow an ID type to preserve some of its data across (memfile) undo steps.
    *
    * \note Called from #setup_app_data when undoing or redoing a memfile step.
+   *
+   * \note In case the whole ID should be fully preserved across undo steps, it is better to flag
+   * its type with `IDTYPE_FLAGS_NO_MEMFILE_UNDO`, since that flag allows more aggressive
+   * optimizations in readfile code for memfile undo.
    */
   IDTypeBlendReadUndoPreserve blend_read_undo_preserve;
 
@@ -250,7 +264,7 @@ extern IDTypeInfo IDType_ID_AC;
 extern IDTypeInfo IDType_ID_NT;
 extern IDTypeInfo IDType_ID_BR;
 extern IDTypeInfo IDType_ID_PA;
-extern IDTypeInfo IDType_ID_GD;
+extern IDTypeInfo IDType_ID_GD_LEGACY;
 extern IDTypeInfo IDType_ID_WM;
 extern IDTypeInfo IDType_ID_MC;
 extern IDTypeInfo IDType_ID_MSK;
@@ -264,6 +278,7 @@ extern IDTypeInfo IDType_ID_CV;
 extern IDTypeInfo IDType_ID_PT;
 extern IDTypeInfo IDType_ID_VO;
 extern IDTypeInfo IDType_ID_SIM;
+extern IDTypeInfo IDType_ID_GP;
 
 /** Empty shell mostly, but needed for read code. */
 extern IDTypeInfo IDType_ID_LINK_PLACEHOLDER;

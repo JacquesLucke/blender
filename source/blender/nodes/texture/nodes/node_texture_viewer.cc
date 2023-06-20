@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup texnodes
@@ -15,11 +16,11 @@ static bNodeSocketTemplate inputs[] = {
 };
 
 static void exec(void *data,
-                 int UNUSED(thread),
-                 bNode *UNUSED(node),
-                 bNodeExecData *UNUSED(execdata),
+                 int /*thread*/,
+                 bNode * /*node*/,
+                 bNodeExecData * /*execdata*/,
                  bNodeStack **in,
-                 bNodeStack **UNUSED(out))
+                 bNodeStack ** /*out*/)
 {
   TexCallData *cdata = (TexCallData *)data;
 
@@ -37,7 +38,7 @@ void register_node_type_tex_viewer(void)
   static bNodeType ntype;
 
   tex_node_type_base(&ntype, TEX_NODE_VIEWER, "Viewer", NODE_CLASS_OUTPUT);
-  node_type_socket_templates(&ntype, inputs, nullptr);
+  blender::bke::node_type_socket_templates(&ntype, inputs, nullptr);
   ntype.exec_fn = exec;
 
   ntype.no_muting = true;

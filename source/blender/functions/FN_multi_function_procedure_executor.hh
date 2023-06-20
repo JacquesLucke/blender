@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -8,21 +10,21 @@
 
 #include "FN_multi_function_procedure.hh"
 
-namespace blender::fn {
+namespace blender::fn::multi_function {
 
 /** A multi-function that executes a procedure internally. */
-class MFProcedureExecutor : public MultiFunction {
+class ProcedureExecutor : public MultiFunction {
  private:
-  MFSignature signature_;
-  const MFProcedure &procedure_;
+  Signature signature_;
+  const Procedure &procedure_;
 
  public:
-  MFProcedureExecutor(const MFProcedure &procedure);
+  ProcedureExecutor(const Procedure &procedure);
 
-  void call(IndexMask mask, MFParams params, MFContext context) const override;
+  void call(const IndexMask &mask, Params params, Context context) const override;
 
  private:
   ExecutionHints get_execution_hints() const override;
 };
 
-}  // namespace blender::fn
+}  // namespace blender::fn::multi_function

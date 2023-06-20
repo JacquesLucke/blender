@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2020 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2020 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -149,7 +150,7 @@ class StateManager {
 
   virtual void issue_barrier(eGPUBarrier barrier_bits) = 0;
 
-  virtual void texture_bind(Texture *tex, eGPUSamplerState sampler, int unit) = 0;
+  virtual void texture_bind(Texture *tex, GPUSamplerState sampler, int unit) = 0;
   virtual void texture_unbind(Texture *tex) = 0;
   virtual void texture_unbind_all() = 0;
 
@@ -159,6 +160,35 @@ class StateManager {
 
   virtual void texture_unpack_row_length_set(uint len) = 0;
 };
+
+/**
+ * GPUFence.
+ */
+class Fence {
+ protected:
+  bool signalled_ = false;
+
+ public:
+  Fence(){};
+  virtual ~Fence(){};
+
+  virtual void signal() = 0;
+  virtual void wait() = 0;
+};
+
+/* Syntactic sugar. */
+static inline GPUFence *wrap(Fence *pixbuf)
+{
+  return reinterpret_cast<GPUFence *>(pixbuf);
+}
+static inline Fence *unwrap(GPUFence *pixbuf)
+{
+  return reinterpret_cast<Fence *>(pixbuf);
+}
+static inline const Fence *unwrap(const GPUFence *pixbuf)
+{
+  return reinterpret_cast<const Fence *>(pixbuf);
+}
 
 }  // namespace gpu
 }  // namespace blender

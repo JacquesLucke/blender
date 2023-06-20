@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -28,9 +29,6 @@ typedef struct TracksMap {
   char object_name[MAX_NAME];
 
   int num_tracks;
-  int customdata_size;
-
-  char *customdata;
   MovieTrackingTrack *tracks;
 
   struct GHash *hash;
@@ -41,14 +39,10 @@ typedef struct TracksMap {
   SpinLock spin_lock;
 } TracksMap;
 
-struct TracksMap *tracks_map_new(const char *object_name, int num_tracks, int customdata_size);
+struct TracksMap *tracks_map_new(const char *object_name, int num_tracks);
 int tracks_map_get_size(struct TracksMap *map);
-void tracks_map_get_indexed_element(struct TracksMap *map,
-                                    int index,
-                                    struct MovieTrackingTrack **track,
-                                    void **customdata);
-void tracks_map_insert(struct TracksMap *map, struct MovieTrackingTrack *track, void *customdata);
-void tracks_map_free(struct TracksMap *map, void (*customdata_free)(void *customdata));
+void tracks_map_insert(struct TracksMap *map, struct MovieTrackingTrack *track);
+void tracks_map_free(struct TracksMap *map);
 void tracks_map_merge(struct TracksMap *map, struct MovieTracking *tracking);
 
 /*********************** Space transformation functions *************************/
@@ -83,11 +77,11 @@ void tracking_set_marker_coords_from_tracking(int frame_width,
  * Convert the lens principal point (optical center) between normalized and pixel spaces.
  *
  * The normalized space stores principal point relative to the frame center which has normalized
- * princibal coordinate of (0, 0). The right top corder of the frame corresponds to a notmalized
- * principal coordinate of (1, 1), and the left bottom cornder corresponds to coordinate of
+ * principal coordinate of (0, 0). The right top corner of the frame corresponds to a normalized
+ * principal coordinate of (1, 1), and the left bottom corner corresponds to coordinate of
  * (-1, -1).
  *
- * The pixel space is measured in pixels, with the reference being the left bottom cornder of
+ * The pixel space is measured in pixels, with the reference being the left bottom corner of
  * the frame.
  */
 void tracking_principal_point_normalized_to_pixel(const float principal_point_normalized[2],

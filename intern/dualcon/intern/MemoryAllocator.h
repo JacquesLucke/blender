@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2011-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #ifndef __MEMORYALLOCATOR_H__
 #define __MEMORYALLOCATOR_H__
@@ -20,9 +22,7 @@
  */
 class VirtualMemoryAllocator {
  public:
-  virtual ~VirtualMemoryAllocator()
-  {
-  }
+  virtual ~VirtualMemoryAllocator() {}
 
   virtual void *allocate() = 0;
   virtual void deallocate(void *obj) = 0;

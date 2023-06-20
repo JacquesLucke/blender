@@ -1,11 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "node_geometry_util.hh"
 
 #include "BKE_image.h"
 
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_threads.h"
 #include "BLI_timeit.hh"
 
@@ -22,13 +23,13 @@ NODE_STORAGE_FUNCS(NodeGeometryImageTexture)
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Image>(N_("Image")).hide_label();
-  b.add_input<decl::Vector>(N_("Vector"))
+  b.add_input<decl::Image>("Image").hide_label();
+  b.add_input<decl::Vector>("Vector")
       .implicit_field(implicit_field_inputs::position)
       .description("Texture coordinates from 0 to 1");
-  b.add_input<decl::Int>(N_("Frame")).min(0).max(MAXFRAMEF);
-  b.add_output<decl::Color>(N_("Color")).no_muted_links().dependent_field();
-  b.add_output<decl::Float>(N_("Alpha")).no_muted_links().dependent_field();
+  b.add_input<decl::Int>("Frame").min(0).max(MAXFRAMEF);
+  b.add_output<decl::Color>("Color").no_muted_links().dependent_field().reference_pass_all();
+  b.add_output<decl::Float>("Alpha").no_muted_links().dependent_field().reference_pass_all();
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -40,21 +41,23 @@ static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 static void node_init(bNodeTree * /*tree*/, bNode *node)
 {
   NodeGeometryImageTexture *tex = MEM_cnew<NodeGeometryImageTexture>(__func__);
+  tex->interpolation = SHD_INTERP_LINEAR;
+  tex->extension = SHD_IMAGE_EXTENSION_REPEAT;
   node->storage = tex;
 }
 
-class ImageFieldsFunction : public fn::MultiFunction {
+class ImageFieldsFunction : public mf::MultiFunction {
  private:
-  const int interpolation_;
-  const int extension_;
+  const int8_t interpolation_;
+  const int8_t extension_;
   Image &image_;
   ImageUser image_user_;
   void *image_lock_;
   ImBuf *image_buffer_;
 
  public:
-  ImageFieldsFunction(const int interpolation,
-                      const int extension,
+  ImageFieldsFunction(const int8_t interpolation,
+                      const int8_t extension,
                       Image &image,
                       ImageUser image_user)
       : interpolation_(interpolation),
@@ -62,7 +65,14 @@ class ImageFieldsFunction : public fn::MultiFunction {
         image_(image),
         image_user_(image_user)
   {
-    static fn::MFSignature signature = create_signature();
+    static const mf::Signature signature = []() {
+      mf::Signature signature;
+      mf::SignatureBuilder builder{"ImageFunction", signature};
+      builder.single_input<float3>("Vector");
+      builder.single_output<ColorGeometry4f>("Color");
+      builder.single_output<float>("Alpha", mf::ParamFlag::SupportsUnusedOutput);
+      return signature;
+    }();
     this->set_signature(&signature);
 
     image_buffer_ = BKE_image_acquire_ibuf(&image_, &image_user_, &image_lock_);
@@ -70,15 +80,15 @@ class ImageFieldsFunction : public fn::MultiFunction {
       throw std::runtime_error("cannot acquire image buffer");
     }
 
-    if (image_buffer_->rect_float == nullptr) {
+    if (image_buffer_->float_buffer.data == nullptr) {
       BLI_thread_lock(LOCK_IMAGE);
-      if (!image_buffer_->rect_float) {
+      if (!image_buffer_->float_buffer.data) {
         IMB_float_from_rect(image_buffer_);
       }
       BLI_thread_unlock(LOCK_IMAGE);
     }
 
-    if (image_buffer_->rect_float == nullptr) {
+    if (image_buffer_->float_buffer.data == nullptr) {
       BKE_image_release_ibuf(&image_, image_buffer_, image_lock_);
       throw std::runtime_error("cannot get float buffer");
     }
@@ -87,15 +97,6 @@ class ImageFieldsFunction : public fn::MultiFunction {
   ~ImageFieldsFunction() override
   {
     BKE_image_release_ibuf(&image_, image_buffer_, image_lock_);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"ImageFunction"};
-    signature.single_input<float3>("Vector");
-    signature.single_output<ColorGeometry4f>("Color");
-    signature.single_output<float>("Alpha");
-    return signature.build();
   }
 
   static int wrap_periodic(int x, const int width)
@@ -112,12 +113,21 @@ class ImageFieldsFunction : public fn::MultiFunction {
     return std::clamp(x, 0, width - 1);
   }
 
-  static float4 image_pixel_lookup(const ImBuf *ibuf, const int px, const int py)
+  static int wrap_mirror(const int x, const int width)
   {
-    if (px < 0 || py < 0 || px >= ibuf->x || py >= ibuf->y) {
+    const int m = std::abs(x + (x < 0)) % (2 * width);
+    if (m >= width) {
+      return 2 * width - m - 1;
+    }
+    return m;
+  }
+
+  static float4 image_pixel_lookup(const ImBuf &ibuf, const int px, const int py)
+  {
+    if (px < 0 || py < 0 || px >= ibuf.x || py >= ibuf.y) {
       return float4(0.0f, 0.0f, 0.0f, 0.0f);
     }
-    return ((const float4 *)ibuf->rect_float)[px + py * ibuf->x];
+    return ((const float4 *)ibuf.float_buffer.data)[px + py * ibuf.x];
   }
 
   static float frac(const float x, int *ix)
@@ -127,13 +137,13 @@ class ImageFieldsFunction : public fn::MultiFunction {
     return x - float(i);
   }
 
-  static float4 image_cubic_texture_lookup(const ImBuf *ibuf,
+  static float4 image_cubic_texture_lookup(const ImBuf &ibuf,
                                            const float px,
                                            const float py,
                                            const int extension)
   {
-    const int width = ibuf->x;
-    const int height = ibuf->y;
+    const int width = ibuf.x;
+    const int height = ibuf.y;
     int pix, piy, nix, niy;
     const float tx = frac(px * float(width) - 0.5f, &pix);
     const float ty = frac(py * float(height) - 0.5f, &piy);
@@ -169,6 +179,17 @@ class ImageFieldsFunction : public fn::MultiFunction {
         nniy = wrap_clamp(piy + 2, height);
         pix = wrap_clamp(pix, width);
         piy = wrap_clamp(piy, height);
+        break;
+      }
+      case SHD_IMAGE_EXTENSION_MIRROR: {
+        ppix = wrap_mirror(pix - 1, width);
+        ppiy = wrap_mirror(piy - 1, height);
+        nix = wrap_mirror(pix + 1, width);
+        niy = wrap_mirror(piy + 1, height);
+        nnix = wrap_mirror(pix + 2, width);
+        nniy = wrap_mirror(piy + 2, height);
+        pix = wrap_mirror(pix, width);
+        piy = wrap_mirror(piy, height);
         break;
       }
       default:
@@ -207,13 +228,13 @@ class ImageFieldsFunction : public fn::MultiFunction {
                     u[3] * image_pixel_lookup(ibuf, xc[3], yc[3])));
   }
 
-  static float4 image_linear_texture_lookup(const ImBuf *ibuf,
+  static float4 image_linear_texture_lookup(const ImBuf &ibuf,
                                             const float px,
                                             const float py,
-                                            const int extension)
+                                            const int8_t extension)
   {
-    const int width = ibuf->x;
-    const int height = ibuf->y;
+    const int width = ibuf.x;
+    const int height = ibuf.y;
     int pix, piy, nix, niy;
     const float nfx = frac(px * float(width) - 0.5f, &pix);
     const float nfy = frac(py * float(height) - 0.5f, &piy);
@@ -231,6 +252,12 @@ class ImageFieldsFunction : public fn::MultiFunction {
         piy = wrap_clamp(piy, height);
         break;
       }
+      case SHD_IMAGE_EXTENSION_MIRROR:
+        nix = wrap_mirror(pix + 1, width);
+        niy = wrap_mirror(piy + 1, height);
+        pix = wrap_mirror(pix, width);
+        piy = wrap_mirror(piy, height);
+        break;
       default:
       case SHD_IMAGE_EXTENSION_REPEAT:
         pix = wrap_periodic(pix, width);
@@ -249,13 +276,13 @@ class ImageFieldsFunction : public fn::MultiFunction {
            image_pixel_lookup(ibuf, nix, niy) * nfx * nfy;
   }
 
-  static float4 image_closest_texture_lookup(const ImBuf *ibuf,
+  static float4 image_closest_texture_lookup(const ImBuf &ibuf,
                                              const float px,
                                              const float py,
                                              const int extension)
   {
-    const int width = ibuf->x;
-    const int height = ibuf->y;
+    const int width = ibuf.x;
+    const int height = ibuf.y;
     int ix, iy;
     const float tx = frac(px * float(width), &ix);
     const float ty = frac(py * float(height), &iy);
@@ -280,12 +307,17 @@ class ImageFieldsFunction : public fn::MultiFunction {
         iy = wrap_clamp(iy, height);
         return image_pixel_lookup(ibuf, ix, iy);
       }
+      case SHD_IMAGE_EXTENSION_MIRROR: {
+        ix = wrap_mirror(ix, width);
+        iy = wrap_mirror(iy, height);
+        return image_pixel_lookup(ibuf, ix, iy);
+      }
       default:
         return float4(0.0f, 0.0f, 0.0f, 0.0f);
     }
   }
 
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext /*context*/) const override
+  void call(const IndexMask &mask, mf::Params params, mf::Context /*context*/) const override
   {
     const VArray<float3> &vectors = params.readonly_single_input<float3>(0, "Vector");
     MutableSpan<ColorGeometry4f> r_color = params.uninitialized_single_output<ColorGeometry4f>(
@@ -297,23 +329,23 @@ class ImageFieldsFunction : public fn::MultiFunction {
     /* Sample image texture. */
     switch (interpolation_) {
       case SHD_INTERP_LINEAR:
-        for (const int64_t i : mask) {
+        mask.foreach_index([&](const int64_t i) {
           const float3 p = vectors[i];
-          color_data[i] = image_linear_texture_lookup(image_buffer_, p.x, p.y, extension_);
-        }
+          color_data[i] = image_linear_texture_lookup(*image_buffer_, p.x, p.y, extension_);
+        });
         break;
       case SHD_INTERP_CLOSEST:
-        for (const int64_t i : mask) {
+        mask.foreach_index([&](const int64_t i) {
           const float3 p = vectors[i];
-          color_data[i] = image_closest_texture_lookup(image_buffer_, p.x, p.y, extension_);
-        }
+          color_data[i] = image_closest_texture_lookup(*image_buffer_, p.x, p.y, extension_);
+        });
         break;
       case SHD_INTERP_CUBIC:
       case SHD_INTERP_SMART:
-        for (const int64_t i : mask) {
+        mask.foreach_index([&](const int64_t i) {
           const float3 p = vectors[i];
-          color_data[i] = image_cubic_texture_lookup(image_buffer_, p.x, p.y, extension_);
-        }
+          color_data[i] = image_cubic_texture_lookup(*image_buffer_, p.x, p.y, extension_);
+        });
         break;
     }
 
@@ -325,9 +357,7 @@ class ImageFieldsFunction : public fn::MultiFunction {
     switch (alpha_mode) {
       case IMA_ALPHA_STRAIGHT: {
         /* #ColorGeometry expects premultiplied alpha, so convert from straight to that. */
-        for (int64_t i : mask) {
-          straight_to_premul_v4(color_data[i]);
-        }
+        mask.foreach_index([&](const int64_t i) { straight_to_premul_v4(color_data[i]); });
         break;
       }
       case IMA_ALPHA_PREMUL: {
@@ -340,17 +370,13 @@ class ImageFieldsFunction : public fn::MultiFunction {
       }
       case IMA_ALPHA_IGNORE: {
         /* The image should be treated as being opaque. */
-        for (int64_t i : mask) {
-          color_data[i].w = 1.0f;
-        }
+        mask.foreach_index([&](const int64_t i) { color_data[i].w = 1.0f; });
         break;
       }
     }
 
     if (!r_alpha.is_empty()) {
-      for (int64_t i : mask) {
-        r_alpha[i] = r_color[i].a;
-      }
+      mask.foreach_index([&](const int64_t i) { r_alpha[i] = r_color[i].a; });
     }
   }
 };
@@ -384,8 +410,7 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   Field<float3> vector_field = params.extract_input<Field<float3>>("Vector");
 
-  auto image_op = std::make_shared<FieldOperation>(
-      FieldOperation(std::move(image_fn), {std::move(vector_field)}));
+  auto image_op = FieldOperation::Create(std::move(image_fn), {std::move(vector_field)});
 
   params.set_output("Color", Field<ColorGeometry4f>(image_op, 0));
   params.set_output("Alpha", Field<float>(image_op, 1));
@@ -405,7 +430,7 @@ void register_node_type_geo_image_texture()
   ntype.initfunc = file_ns::node_init;
   node_type_storage(
       &ntype, "NodeGeometryImageTexture", node_free_standard_storage, node_copy_standard_storage);
-  node_type_size_preset(&ntype, NODE_SIZE_LARGE);
+  blender::bke::node_type_size_preset(&ntype, blender::bke::eNodeSizePreset::LARGE);
   ntype.geometry_node_execute = file_ns::node_geo_exec;
 
   nodeRegisterType(&ntype);

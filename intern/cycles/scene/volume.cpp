@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2020-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2020-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/volume.h"
 #include "scene/attribute.h"
@@ -428,7 +429,8 @@ void VolumeMeshBuilder::convert_quads_to_tris(const vector<QuadData> &quads,
 bool VolumeMeshBuilder::empty_grid() const
 {
 #ifdef WITH_OPENVDB
-  return !topology_grid || topology_grid->tree().leafCount() == 0;
+  return !topology_grid ||
+         (!topology_grid->tree().hasActiveTiles() && topology_grid->tree().leafCount() == 0);
 #else
   return true;
 #endif

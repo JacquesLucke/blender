@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup pythonintern
@@ -42,6 +44,8 @@
 
 #include "UI_interface_icons.h"
 
+#include "MEM_guardedalloc.h"
+
 #include "RNA_enum_types.h" /* For `rna_enum_wm_job_type_items`. */
 
 /* for notifiers */
@@ -78,7 +82,6 @@ static PyStructSequence_Field app_info_fields[] = {
      "Blender versions"},
     {"version_string", "The Blender version formatted as a string"},
     {"version_cycle", "The release status of this build alpha/beta/rc/release"},
-    {"version_char", "Deprecated, always an empty string"},
     {"background",
      "Boolean, True when blender is running without a user interface (started with -b)"},
     {"factory_startup", "Boolean, True when blender is running with --factory-startup)"},
@@ -148,12 +151,11 @@ static PyObject *make_app_info(void)
   SetStrItem(BKE_blender_version_string());
 
   SetStrItem(STRINGIFY(BLENDER_VERSION_CYCLE));
-  SetStrItem("");
   SetObjItem(PyBool_FromLong(G.background));
   SetObjItem(PyBool_FromLong(G.factory_startup));
 
   /* build info, use bytes since we can't assume _any_ encoding:
-   * see patch T30154 for issue */
+   * see patch #30154 for issue */
 #ifdef BUILD_DATE
   SetBytesItem(build_date);
   SetBytesItem(build_time);
@@ -312,7 +314,7 @@ static int bpy_app_debug_value_set(PyObject *UNUSED(self), PyObject *value, void
 PyDoc_STRVAR(bpy_app_tempdir_doc, "String, the temp directory used by blender (read-only)");
 static PyObject *bpy_app_tempdir_get(PyObject *UNUSED(self), void *UNUSED(closure))
 {
-  return PyC_UnicodeFromByte(BKE_tempdir_session());
+  return PyC_UnicodeFromBytes(BKE_tempdir_session());
 }
 
 PyDoc_STRVAR(
@@ -339,7 +341,7 @@ static PyObject *bpy_app_preview_render_size_get(PyObject *UNUSED(self), void *c
 
 static PyObject *bpy_app_autoexec_fail_message_get(PyObject *UNUSED(self), void *UNUSED(closure))
 {
-  return PyC_UnicodeFromByte(G.autoexec_fail);
+  return PyC_UnicodeFromBytes(G.autoexec_fail);
 }
 
 PyDoc_STRVAR(bpy_app_binary_path_doc,
@@ -348,7 +350,7 @@ PyDoc_STRVAR(bpy_app_binary_path_doc,
              "an empty string which script authors may point to a Blender binary.");
 static PyObject *bpy_app_binary_path_get(PyObject *UNUSED(self), void *UNUSED(closure))
 {
-  return PyC_UnicodeFromByte(BKE_appdir_program_path());
+  return PyC_UnicodeFromBytes(BKE_appdir_program_path());
 }
 
 static int bpy_app_binary_path_set(PyObject *UNUSED(self), PyObject *value, void *UNUSED(closure))
@@ -359,7 +361,7 @@ static int bpy_app_binary_path_set(PyObject *UNUSED(self), PyObject *value, void
   return -1;
 #endif
   PyObject *value_coerce = NULL;
-  const char *filepath = PyC_UnicodeAsByte(value, &value_coerce);
+  const char *filepath = PyC_UnicodeAsBytes(value, &value_coerce);
   if (filepath == NULL) {
     PyErr_Format(PyExc_ValueError, "expected a string or bytes, got %s", Py_TYPE(value)->tp_name);
     return -1;
@@ -508,18 +510,54 @@ static PyObject *bpy_app_is_job_running(PyObject *UNUSED(self), PyObject *args, 
       0,
   };
   if (!_PyArg_ParseTupleAndKeywordsFast(
-          args, kwds, &_parser, pyrna_enum_value_parse_string, &job_type_enum)) {
+          args, kwds, &_parser, pyrna_enum_value_parse_string, &job_type_enum))
+  {
     return NULL;
   }
   wmWindowManager *wm = G_MAIN->wm.first;
   return PyBool_FromLong(WM_jobs_has_running_type(wm, job_type_enum.value));
 }
 
-static struct PyMethodDef bpy_app_methods[] = {
+char *(*BPY_python_app_help_text_fn)(bool all) = NULL;
+
+PyDoc_STRVAR(bpy_app_help_text_doc,
+             ".. staticmethod:: help_text(all=False)\n"
+             "\n"
+             "   Return the help text as a string.\n"
+             "\n"
+             "   :arg all: Return all arguments, "
+             "even those which aren't available for the current platform.\n"
+             "   :type all: bool\n");
+static PyObject *bpy_app_help_text(PyObject *UNUSED(self), PyObject *args, PyObject *kwds)
+{
+  bool all = false;
+  static const char *_keywords[] = {"all", NULL};
+  static _PyArg_Parser _parser = {
+      "|$" /* Optional keyword only arguments. */
+      "O&" /* `all` */
+      ":help_text",
+      _keywords,
+      0,
+  };
+  if (!_PyArg_ParseTupleAndKeywordsFast(args, kwds, &_parser, PyC_ParseBool, &all)) {
+    return NULL;
+  }
+
+  char *buf = BPY_python_app_help_text_fn(all);
+  PyObject *result = PyUnicode_FromString(buf);
+  MEM_freeN(buf);
+  return result;
+}
+
+static PyMethodDef bpy_app_methods[] = {
     {"is_job_running",
      (PyCFunction)bpy_app_is_job_running,
      METH_VARARGS | METH_KEYWORDS | METH_STATIC,
      bpy_app_is_job_running_doc},
+    {"help_text",
+     (PyCFunction)bpy_app_help_text,
+     METH_VARARGS | METH_KEYWORDS | METH_STATIC,
+     bpy_app_help_text_doc},
     {NULL, NULL, 0, NULL},
 };
 
@@ -556,8 +594,8 @@ PyObject *BPY_app_struct(void)
   /* prevent user from creating new instances */
   BlenderAppType.tp_init = NULL;
   BlenderAppType.tp_new = NULL;
-  BlenderAppType.tp_hash = (hashfunc)
-      _Py_HashPointer; /* without this we can't do set(sys.modules) T29635. */
+  /* Without this we can't do `set(sys.modules)` #29635. */
+  BlenderAppType.tp_hash = (hashfunc)_Py_HashPointer;
 
   /* Kind of a hack on top of #PyStructSequence. */
   py_struct_seq_getset_init();

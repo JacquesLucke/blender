@@ -1,6 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2022 NVIDIA Corporation
- * Copyright 2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2022 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "hydra/material.h"
 #include "hydra/node_util.h"
@@ -71,7 +72,8 @@ class UsdToCyclesMapping {
       }
       // TODO: Is there a better mapping than 'color'?
       if (name == CyclesMaterialTokens->r || name == CyclesMaterialTokens->g ||
-          name == CyclesMaterialTokens->b) {
+          name == CyclesMaterialTokens->b)
+      {
         return "color";
       }
 
@@ -168,7 +170,8 @@ class UsdToCycles {
         usdNodeType == CyclesMaterialTokens->UsdPrimvarReader_float2 ||
         usdNodeType == CyclesMaterialTokens->UsdPrimvarReader_float3 ||
         usdNodeType == CyclesMaterialTokens->UsdPrimvarReader_float4 ||
-        usdNodeType == CyclesMaterialTokens->UsdPrimvarReader_int) {
+        usdNodeType == CyclesMaterialTokens->UsdPrimvarReader_int)
+    {
       return &UsdPrimvarReader;
     }
 
@@ -183,13 +186,9 @@ TfStaticData<UsdToCycles> sUsdToCyles;
 
 }  // namespace
 
-HdCyclesMaterial::HdCyclesMaterial(const SdfPath &sprimId) : HdMaterial(sprimId)
-{
-}
+HdCyclesMaterial::HdCyclesMaterial(const SdfPath &sprimId) : HdMaterial(sprimId) {}
 
-HdCyclesMaterial::~HdCyclesMaterial()
-{
-}
+HdCyclesMaterial::~HdCyclesMaterial() {}
 
 HdDirtyBits HdCyclesMaterial::GetInitialDirtyBitsMask() const
 {
@@ -235,7 +234,11 @@ void HdCyclesMaterial::Sync(HdSceneDelegate *sceneDelegate,
       }
       else {
         networkConverted = std::make_unique<HdMaterialNetwork2>();
+#  if PXR_VERSION >= 2205
+        *networkConverted = HdConvertToHdMaterialNetwork2(networkOld);
+#  else
         HdMaterialNetwork2ConvertFromHdMaterialNetworkMap(networkOld, networkConverted.get());
+#  endif
         network = networkConverted.get();
       }
     }
@@ -492,7 +495,8 @@ void HdCyclesMaterial::PopulateShaderGraph(const HdMaterialNetwork2 &networkMap)
     const char *inputName = nullptr;
     const char *outputName = nullptr;
     if (terminalName == HdMaterialTerminalTokens->surface ||
-        terminalName == CyclesMaterialTokens->cyclesSurface) {
+        terminalName == CyclesMaterialTokens->cyclesSurface)
+    {
       inputName = "Surface";
       // Find default output name based on the node if none is provided
       if (node->type->name == "add_closure" || node->type->name == "mix_closure") {
@@ -506,11 +510,13 @@ void HdCyclesMaterial::PopulateShaderGraph(const HdMaterialNetwork2 &networkMap)
       }
     }
     else if (terminalName == HdMaterialTerminalTokens->displacement ||
-             terminalName == CyclesMaterialTokens->cyclesDisplacement) {
+             terminalName == CyclesMaterialTokens->cyclesDisplacement)
+    {
       inputName = outputName = "Displacement";
     }
     else if (terminalName == HdMaterialTerminalTokens->volume ||
-             terminalName == CyclesMaterialTokens->cyclesVolume) {
+             terminalName == CyclesMaterialTokens->cyclesVolume)
+    {
       inputName = outputName = "Volume";
     }
 

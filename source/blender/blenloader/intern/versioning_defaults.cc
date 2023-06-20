@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup blenloader
@@ -15,14 +17,14 @@
 
 #include "BLI_listbase.h"
 #include "BLI_math.h"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_string.h"
 #include "BLI_system.h"
 #include "BLI_utildefines.h"
 
 #include "DNA_camera_types.h"
 #include "DNA_curveprofile_types.h"
-#include "DNA_gpencil_types.h"
+#include "DNA_gpencil_legacy_types.h"
 #include "DNA_light_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_material_types.h"
@@ -42,15 +44,16 @@
 #include "BKE_colortools.h"
 #include "BKE_curveprofile.h"
 #include "BKE_customdata.h"
-#include "BKE_gpencil.h"
+#include "BKE_gpencil_legacy.h"
 #include "BKE_idprop.h"
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_main_namemap.h"
 #include "BKE_material.h"
-#include "BKE_mesh.h"
-#include "BKE_node.h"
+#include "BKE_mesh.hh"
+#include "BKE_node.hh"
+#include "BKE_node_runtime.hh"
 #include "BKE_node_tree_update.h"
 #include "BKE_paint.h"
 #include "BKE_screen.h"
@@ -81,7 +84,7 @@ static void blo_update_defaults_screen(bScreen *screen,
   LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
     LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
       /* Some toolbars have been saved as initialized,
-       * we don't want them to have odd zoom-level or scrolling set, see: T47047 */
+       * we don't want them to have odd zoom-level or scrolling set, see: #47047 */
       if (ELEM(region->regiontype, RGN_TYPE_UI, RGN_TYPE_TOOLS, RGN_TYPE_TOOL_PROPS)) {
         region->v2d.flag &= ~V2D_IS_INIT;
       }
@@ -287,7 +290,7 @@ void BLO_update_defaults_workspace(WorkSpace *workspace, const char *app_templat
 
 static void blo_update_defaults_scene(Main *bmain, Scene *scene)
 {
-  BLI_strncpy(scene->r.engine, RE_engine_id_BLENDER_EEVEE, sizeof(scene->r.engine));
+  STRNCPY(scene->r.engine, RE_engine_id_BLENDER_EEVEE);
 
   scene->r.cfra = 1.0f;
 
@@ -348,19 +351,18 @@ static void blo_update_defaults_scene(Main *bmain, Scene *scene)
     ts->sculpt->paint.symmetry_flags |= PAINT_SYMMETRY_FEATHER;
   }
 
-  /* Correct default startup UV's. */
+  /* Correct default startup UVs. */
   Mesh *me = static_cast<Mesh *>(BLI_findstring(&bmain->meshes, "Cube", offsetof(ID, name) + 2));
-  if (me && (me->totloop == 24) && CustomData_has_layer(&me->ldata, CD_MLOOPUV)) {
-    MLoopUV *mloopuv = static_cast<MLoopUV *>(CustomData_get_layer(&me->ldata, CD_MLOOPUV));
+  if (me && (me->totloop == 24) && CustomData_has_layer(&me->ldata, CD_PROP_FLOAT2)) {
     const float uv_values[24][2] = {
         {0.625, 0.50}, {0.875, 0.50}, {0.875, 0.75}, {0.625, 0.75}, {0.375, 0.75}, {0.625, 0.75},
         {0.625, 1.00}, {0.375, 1.00}, {0.375, 0.00}, {0.625, 0.00}, {0.625, 0.25}, {0.375, 0.25},
         {0.125, 0.50}, {0.375, 0.50}, {0.375, 0.75}, {0.125, 0.75}, {0.375, 0.50}, {0.625, 0.50},
         {0.625, 0.75}, {0.375, 0.75}, {0.375, 0.25}, {0.625, 0.25}, {0.625, 0.50}, {0.375, 0.50},
     };
-    for (int i = 0; i < ARRAY_SIZE(uv_values); i++) {
-      copy_v2_v2(mloopuv[i].uv, uv_values[i]);
-    }
+    float(*mloopuv)[2] = static_cast<float(*)[2]>(
+        CustomData_get_layer_for_write(&me->ldata, CD_PROP_FLOAT2, me->totloop));
+    memcpy(mloopuv, uv_values, sizeof(float[2]) * me->totloop);
   }
 
   /* Make sure that the curve profile is initialized */
@@ -464,7 +466,7 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
 
       Object *ob = static_cast<Object *>(
           BLI_findstring(&bmain->objects, "Stroke", offsetof(ID, name) + 2));
-      if (ob && ob->type == OB_GPENCIL) {
+      if (ob && ob->type == OB_GPENCIL_LEGACY) {
         ob->dtx |= OB_USE_GPENCIL_LIGHTS;
       }
     }
@@ -494,7 +496,7 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
     return;
   }
 
-  /* Workspaces. */
+  /* Work-spaces. */
   LISTBASE_FOREACH (wmWindowManager *, wm, &bmain->wm) {
     LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
       LISTBASE_FOREACH (WorkSpace *, workspace, &bmain->workspaces) {
@@ -550,7 +552,7 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
 
   if (app_template && STREQ(app_template, "2D_Animation")) {
     LISTBASE_FOREACH (Object *, object, &bmain->objects) {
-      if (object->type == OB_GPENCIL) {
+      if (object->type == OB_GPENCIL_LEGACY) {
         /* Set grease pencil object in drawing mode */
         bGPdata *gpd = (bGPdata *)object->data;
         object->mode = OB_MODE_PAINT_GPENCIL;
@@ -598,7 +600,7 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
     ma->roughness = 0.5f;
 
     if (ma->nodetree) {
-      LISTBASE_FOREACH (bNode *, node, &ma->nodetree->nodes) {
+      for (bNode *node : ma->nodetree->all_nodes()) {
         if (node->type == SH_NODE_BSDF_PRINCIPLED) {
           bNodeSocket *roughness_socket = nodeFindSocket(node, SOCK_IN, "Roughness");
           bNodeSocketValueFloat *roughness_data = static_cast<bNodeSocketValueFloat *>(
@@ -637,7 +639,7 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
      * its values are overwritten by #BKE_brush_sculpt_reset below. */
     brush->alpha = 1.0;
 
-    /* Enable antialiasing by default */
+    /* Enable anti-aliasing by default. */
     brush->sampling_flag |= BRUSH_PAINT_ANTIALIASING;
   }
 

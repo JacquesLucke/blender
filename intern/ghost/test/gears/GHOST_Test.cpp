@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /**
  * Copyright (C) 2001 NaN Technologies B.V.
@@ -27,11 +28,11 @@
 #  include <GL/gl.h>
 #endif  // defined(WIN32) || defined(__APPLE__)
 
-#include "GHOST_Rect.h"
+#include "GHOST_Rect.hh"
 
-#include "GHOST_IEvent.h"
-#include "GHOST_IEventConsumer.h"
-#include "GHOST_ISystem.h"
+#include "GHOST_IEvent.hh"
+#include "GHOST_IEventConsumer.hh"
+#include "GHOST_ISystem.hh"
 
 #define LEFT_EYE 0
 #define RIGHT_EYE 1
@@ -381,7 +382,7 @@ void StereoProjection(float left,
 class Application : public GHOST_IEventConsumer {
  public:
   Application(GHOST_ISystem *system);
-  ~Application(void);
+  ~Application();
   virtual bool processEvent(GHOST_IEvent *event);
 
   GHOST_ISystem *m_system;
@@ -406,13 +407,13 @@ Application::Application(GHOST_ISystem *system)
       m_exitRequested(false),
       stereo(false)
 {
-  GHOST_GLSettings glSettings = {0};
-  glSettings.context_type = GHOST_kDrawingContextTypeOpenGL;
+  GHOST_GPUSettings gpuSettings = {0};
+  gpuSettings.context_type = GHOST_kDrawingContextTypeOpenGL;
   fApp = this;
 
   // Create the main window
   m_mainWindow = system->createWindow(
-      "gears - main window", 10, 64, 320, 200, GHOST_kWindowStateNormal, glSettings);
+      "gears - main window", 10, 64, 320, 200, GHOST_kWindowStateNormal, gpuSettings);
 
   if (!m_mainWindow) {
     std::cout << "could not create main window\n";
@@ -421,7 +422,7 @@ Application::Application(GHOST_ISystem *system)
 
   // Create a secondary window
   m_secondaryWindow = system->createWindow(
-      "gears - secondary window", 340, 64, 320, 200, GHOST_kWindowStateNormal, glSettings);
+      "gears - secondary window", 340, 64, 320, 200, GHOST_kWindowStateNormal, gpuSettings);
   if (!m_secondaryWindow) {
     std::cout << "could not create secondary window\n";
     exit(-1);
@@ -431,7 +432,7 @@ Application::Application(GHOST_ISystem *system)
   m_gearsTimer = system->installTimer(0 /*delay*/, 20 /*interval*/, gearsTimerProc, m_mainWindow);
 }
 
-Application::~Application(void)
+Application::~Application()
 {
   // Dispose windows
   if (m_system->validWindow(m_mainWindow)) {

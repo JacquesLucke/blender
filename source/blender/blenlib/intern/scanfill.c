@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bli
@@ -382,8 +383,8 @@ static void testvertexnearedge(ScanFillContext *sf_ctx)
       /* find the edge which has vertex eve,
        * NOTE: we _know_ this will crash if 'ed1' becomes NULL
        * but this will never happen. */
-      for (ed1 = sf_ctx->filledgebase.first; !(ed1->v1 == eve || ed1->v2 == eve);
-           ed1 = ed1->next) {
+      for (ed1 = sf_ctx->filledgebase.first; !(ed1->v1 == eve || ed1->v2 == eve); ed1 = ed1->next)
+      {
         /* do nothing */
       }
 
@@ -524,11 +525,11 @@ static uint scanfill(ScanFillContext *sf_ctx, PolyFill *pf, const int flag)
       BLI_remlink(&sf_ctx->filledgebase, eed);
       /* This code is for handling zero-length edges that get
        * collapsed in step 0. It was removed for some time to
-       * fix trunk bug T4544, so if that comes back, this code
+       * fix trunk bug #4544, so if that comes back, this code
        * may need some work, or there will have to be a better
-       * fix to T4544.
+       * fix to #4544.
        *
-       * warning, this can hang on un-ordered edges, see: T33281.
+       * warning, this can hang on un-ordered edges, see: #33281.
        * for now disable 'BLI_SCANFILL_CALC_REMOVE_DOUBLES' for ngons.
        */
       if (eed->v1->f == SF_VERT_ZERO_LEN) {
@@ -660,7 +661,7 @@ static uint scanfill(ScanFillContext *sf_ctx, PolyFill *pf, const int flag)
                    * (concave holes) we continue searching and pick the
                    * one with sharpest corner. */
                   if (best_sc == NULL) {
-                    /* even without holes we need to keep checking T35861. */
+                    /* even without holes we need to keep checking #35861. */
                     best_sc = sc1;
                   }
                   else {
@@ -867,7 +868,7 @@ uint BLI_scanfill_calc_ex(ScanFillContext *sf_ctx, const int flag, const float n
      * which historically this function supports so better not change */
 
     /* WARNING: this only gives stable direction with single polygons,
-     * ideally we'd calculate connectivity and each polys normal, see T41047 */
+     * ideally we'd calculate connectivity and each polys normal, see #41047 */
     const float *v_prev;
 
     zero_v3(n);
@@ -911,7 +912,8 @@ uint BLI_scanfill_calc_ex(ScanFillContext *sf_ctx, const int flag, const float n
 
           toggle++;
           for (eed = (toggle & 1) ? sf_ctx->filledgebase.first : sf_ctx->filledgebase.last; eed;
-               eed = (toggle & 1) ? eed->next : eed->prev) {
+               eed = (toggle & 1) ? eed->next : eed->prev)
+          {
             if (eed->v1->poly_nr == SF_POLY_UNSET && eed->v2->poly_nr == poly) {
               eed->v1->poly_nr = poly;
               eed->poly_nr = poly;
@@ -983,7 +985,8 @@ uint BLI_scanfill_calc_ex(ScanFillContext *sf_ctx, const int flag, const float n
 
       toggle++;
       for (eed = (toggle & 1) ? sf_ctx->filledgebase.first : sf_ctx->filledgebase.last; eed;
-           eed = eed_next) {
+           eed = eed_next)
+      {
         eed_next = (toggle & 1) ? eed->next : eed->prev;
         if (eed->v1->edge_count == 1) {
           eed->v2->edge_count--;

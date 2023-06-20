@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2009-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -19,7 +21,8 @@ int DensityF0D::operator()(Interface0DIterator &iter)
   int bound = _filter.getBound();
 
   if ((iter->getProjectedX() - bound < 0) || (iter->getProjectedX() + bound > canvas->width()) ||
-      (iter->getProjectedY() - bound < 0) || (iter->getProjectedY() + bound > canvas->height())) {
+      (iter->getProjectedY() - bound < 0) || (iter->getProjectedY() + bound > canvas->height()))
+  {
     result = 0.0;
     return 0;
   }
@@ -42,7 +45,8 @@ int LocalAverageDepthF0D::operator()(Interface0DIterator &iter)
   int bound = _filter.getBound();
 
   if ((iter->getProjectedX() - bound < 0) || (iter->getProjectedX() + bound > iViewer->width()) ||
-      (iter->getProjectedY() - bound < 0) || (iter->getProjectedY() + bound > iViewer->height())) {
+      (iter->getProjectedY() - bound < 0) || (iter->getProjectedY() + bound > iViewer->height()))
+  {
     result = 0.0;
     return 0;
   }

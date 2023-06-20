@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -16,9 +18,6 @@ inline ValueOrFieldCPPType::ValueOrFieldCPPType(TypeTag<ValueType> /*value_type*
   };
   construct_from_field_ = [](void *dst, GField field) {
     new (dst) ValueOrField<T>(Field<T>(std::move(field)));
-  };
-  get_value_ptr_ = [](const void *value_or_field) {
-    return (const void *)&((ValueOrField<T> *)value_or_field)->value;
   };
   get_field_ptr_ = [](const void *value_or_field) -> const GField * {
     return &((ValueOrField<T> *)value_or_field)->field;
@@ -38,7 +37,7 @@ inline ValueOrFieldCPPType::ValueOrFieldCPPType(TypeTag<ValueType> /*value_type*
  * Create a new #ValueOrFieldCPPType that can be accessed through `ValueOrFieldCPPType::get<T>()`.
  */
 #define FN_FIELD_CPP_TYPE_MAKE(VALUE_TYPE) \
-  BLI_CPP_TYPE_MAKE(blender::fn::ValueOrField<VALUE_TYPE>, CPPTypeFlags::None) \
+  BLI_CPP_TYPE_MAKE(blender::fn::ValueOrField<VALUE_TYPE>, CPPTypeFlags::Printable) \
   template<> \
   const blender::fn::ValueOrFieldCPPType & \
   blender::fn::ValueOrFieldCPPType::get_impl<VALUE_TYPE>() \

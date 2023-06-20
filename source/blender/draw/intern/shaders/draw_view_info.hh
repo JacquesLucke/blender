@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "draw_defines.h"
 #include "gpu_shader_create_info.hh"
@@ -79,7 +81,7 @@ GPU_SHADER_CREATE_INFO(draw_modelmat_instanced_attr)
 
 GPU_SHADER_CREATE_INFO(drw_clipped)
     /* TODO(fclem): Move to engine side. */
-    .uniform_buf(DRW_CLIPPING_UBO_SLOT, "vec4", "drw_clipping[6]", Frequency::PASS)
+    .uniform_buf(DRW_CLIPPING_UBO_SLOT, "vec4", "drw_clipping_[6]", Frequency::PASS)
     .define("USE_WORLD_CLIP_PLANES");
 
 /** \} */
@@ -101,6 +103,8 @@ GPU_SHADER_CREATE_INFO(draw_globals)
 GPU_SHADER_CREATE_INFO(draw_mesh).additional_info("draw_modelmat", "draw_resource_id");
 
 GPU_SHADER_CREATE_INFO(draw_hair)
+    .define("HAIR_SHADER")
+    .define("DRW_HAIR_INFO")
     .sampler(15, ImageType::FLOAT_BUFFER, "hairPointBuffer")
     /* TODO(@fclem): Pack these into one UBO. */
     .push_constant(Type::INT, "hairStrandsRes")
@@ -115,9 +119,17 @@ GPU_SHADER_CREATE_INFO(draw_hair)
 
 GPU_SHADER_CREATE_INFO(draw_pointcloud)
     .sampler(0, ImageType::FLOAT_BUFFER, "ptcloud_pos_rad_tx", Frequency::BATCH)
+    .define("POINTCLOUD_SHADER")
+    .define("DRW_POINTCLOUD_INFO")
+    .vertex_in(0, Type::VEC4, "pos")
+    .vertex_in(1, Type::VEC3, "pos_inst")
+    .vertex_in(2, Type::VEC3, "nor")
     .additional_info("draw_modelmat_instanced_attr", "draw_resource_id_uniform");
 
 GPU_SHADER_CREATE_INFO(draw_volume).additional_info("draw_modelmat", "draw_resource_id_uniform");
+
+GPU_SHADER_CREATE_INFO(draw_volume_new)
+    .additional_info("draw_modelmat_new", "draw_resource_handle_new");
 
 GPU_SHADER_CREATE_INFO(draw_gpencil)
     .typedef_source("gpencil_shader_shared.h")
@@ -131,6 +143,22 @@ GPU_SHADER_CREATE_INFO(draw_gpencil)
     /* Per Layer */
     .push_constant(Type::FLOAT, "gpThicknessOffset")
     .additional_info("draw_modelmat", "draw_object_infos");
+
+GPU_SHADER_CREATE_INFO(draw_gpencil_new)
+    .typedef_source("gpencil_shader_shared.h")
+    .define("DRW_GPENCIL_INFO")
+    .sampler(0, ImageType::FLOAT_BUFFER, "gp_pos_tx")
+    .sampler(1, ImageType::FLOAT_BUFFER, "gp_col_tx")
+    /* Per Object */
+    .define("gpThicknessScale", "1.0")               /* TODO(fclem): Replace with object info. */
+    .define("gpThicknessWorldScale", "1.0 / 2000.0") /* TODO(fclem): Same as above. */
+    .define("gpThicknessIsScreenSpace", "(gpThicknessWorldScale < 0.0)")
+    /* Per Layer */
+    .define("gpThicknessOffset", "0.0") /* TODO(fclem): Remove. */
+    .additional_info("draw_modelmat_new",
+                     "draw_resource_id_varying",
+                     "draw_view",
+                     "draw_object_infos_new");
 
 /** \} */
 
@@ -148,6 +176,14 @@ GPU_SHADER_CREATE_INFO(draw_resource_finalize)
     .storage_buf(2, Qualifier::READ_WRITE, "ObjectInfos", "infos_buf[]")
     .push_constant(Type::INT, "resource_len")
     .compute_source("draw_resource_finalize_comp.glsl");
+
+GPU_SHADER_CREATE_INFO(draw_view_finalize)
+    .do_static_compilation(true)
+    .local_group_size(64) /* DRW_VIEW_MAX */
+    .define("DRW_VIEW_LEN", "64")
+    .storage_buf(0, Qualifier::READ_WRITE, "ViewCullingData", "view_culling_buf[DRW_VIEW_LEN]")
+    .compute_source("draw_view_finalize_comp.glsl")
+    .additional_info("draw_view");
 
 GPU_SHADER_CREATE_INFO(draw_visibility_compute)
     .do_static_compilation(true)
@@ -174,6 +210,7 @@ GPU_SHADER_CREATE_INFO(draw_command_generate)
     .push_constant(Type::INT, "prototype_len")
     .push_constant(Type::INT, "visibility_word_per_draw")
     .push_constant(Type::INT, "view_shift")
+    .push_constant(Type::BOOL, "use_custom_ids")
     .compute_source("draw_command_generate_comp.glsl");
 
 /** \} */
@@ -185,8 +222,17 @@ GPU_SHADER_CREATE_INFO(draw_command_generate)
 
 GPU_SHADER_CREATE_INFO(draw_resource_id_new)
     .define("UNIFORM_RESOURCE_ID_NEW")
+    /* TODO (Miguel Pozo): This is an int for compatibility.
+     * It should become uint once the "Next" ports are complete. */
     .storage_buf(DRW_RESOURCE_ID_SLOT, Qualifier::READ, "int", "resource_id_buf[]")
     .define("drw_ResourceID", "resource_id_buf[gpu_BaseInstance + gl_InstanceID]");
+
+GPU_SHADER_CREATE_INFO(draw_resource_with_custom_id_new)
+    .define("UNIFORM_RESOURCE_ID_NEW")
+    .define("WITH_CUSTOM_IDS")
+    .storage_buf(DRW_RESOURCE_ID_SLOT, Qualifier::READ, "int2", "resource_id_buf[]")
+    .define("drw_ResourceID", "resource_id_buf[gpu_BaseInstance + gl_InstanceID].x")
+    .define("drw_CustomID", "resource_id_buf[gpu_BaseInstance + gl_InstanceID].y");
 
 /**
  * Workaround the lack of gl_BaseInstance by binding the resource_id_buf as vertex buf.
@@ -195,20 +241,35 @@ GPU_SHADER_CREATE_INFO(draw_resource_id_fallback)
     .define("UNIFORM_RESOURCE_ID_NEW")
     .vertex_in(15, Type::INT, "drw_ResourceID");
 
+GPU_SHADER_CREATE_INFO(draw_resource_with_custom_id_fallback)
+    .define("UNIFORM_RESOURCE_ID_NEW")
+    .define("WITH_CUSTOM_IDS")
+    .vertex_in(15, Type::IVEC2, "vertex_in_drw_ResourceID")
+    .define("drw_ResourceID", "vertex_in_drw_ResourceID.x")
+    .define("drw_CustomID", "vertex_in_drw_ResourceID.y");
+
+/** TODO mask view id bits. */
+GPU_SHADER_CREATE_INFO(draw_resource_handle_new).define("resource_handle", "drw_ResourceID");
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
 /** \name Draw Object Resources
  * \{ */
 
-GPU_SHADER_CREATE_INFO(draw_modelmat_new)
+GPU_SHADER_CREATE_INFO(draw_modelmat_new_common)
     .typedef_source("draw_shader_shared.h")
     .storage_buf(DRW_OBJ_MAT_SLOT, Qualifier::READ, "ObjectMatrices", "drw_matrix_buf[]")
     .define("drw_ModelMatrixInverse", "drw_matrix_buf[resource_id].model_inverse")
     .define("drw_ModelMatrix", "drw_matrix_buf[resource_id].model")
     /* TODO For compatibility with old shaders. To be removed. */
     .define("ModelMatrixInverse", "drw_ModelMatrixInverse")
-    .define("ModelMatrix", "drw_ModelMatrix")
-    .additional_info("draw_resource_id_new");
+    .define("ModelMatrix", "drw_ModelMatrix");
+
+GPU_SHADER_CREATE_INFO(draw_modelmat_new)
+    .additional_info("draw_modelmat_new_common", "draw_resource_id_new");
+
+GPU_SHADER_CREATE_INFO(draw_modelmat_new_with_custom_id)
+    .additional_info("draw_modelmat_new_common", "draw_resource_with_custom_id_new");
 
 /** \} */

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2021 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2021 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw
@@ -32,8 +33,10 @@ eMRIterType mesh_extract_iter_type(const MeshExtract *ext)
   eMRIterType type = (eMRIterType)0;
   SET_FLAG_FROM_TEST(type, (ext->iter_looptri_bm || ext->iter_looptri_mesh), MR_ITER_LOOPTRI);
   SET_FLAG_FROM_TEST(type, (ext->iter_poly_bm || ext->iter_poly_mesh), MR_ITER_POLY);
-  SET_FLAG_FROM_TEST(type, (ext->iter_ledge_bm || ext->iter_ledge_mesh), MR_ITER_LEDGE);
-  SET_FLAG_FROM_TEST(type, (ext->iter_lvert_bm || ext->iter_lvert_mesh), MR_ITER_LVERT);
+  SET_FLAG_FROM_TEST(
+      type, (ext->iter_loose_edge_bm || ext->iter_loose_edge_mesh), MR_ITER_LOOSE_EDGE);
+  SET_FLAG_FROM_TEST(
+      type, (ext->iter_loose_vert_bm || ext->iter_loose_vert_mesh), MR_ITER_LOOSE_VERT);
   return type;
 }
 
@@ -91,7 +94,7 @@ const MeshExtract *mesh_extract_override_get(const MeshExtract *extractor,
 
 void mesh_render_data_face_flag(const MeshRenderData *mr,
                                 const BMFace *efa,
-                                const int cd_ofs,
+                                const BMUVOffsets offsets,
                                 EditLoopData *eattr)
 {
   if (efa == mr->efa_act) {
@@ -104,7 +107,7 @@ void mesh_render_data_face_flag(const MeshRenderData *mr,
   if (efa == mr->efa_act_uv) {
     eattr->v_flag |= VFLAG_FACE_UV_ACTIVE;
   }
-  if ((cd_ofs != -1) && uvedit_face_select_test_ex(mr->toolsettings, (BMFace *)efa, cd_ofs)) {
+  if ((offsets.uv != -1) && uvedit_face_select_test_ex(mr->toolsettings, (BMFace *)efa, offsets)) {
     eattr->v_flag |= VFLAG_FACE_UV_SELECT;
   }
 
@@ -121,30 +124,29 @@ void mesh_render_data_face_flag(const MeshRenderData *mr,
 
 void mesh_render_data_loop_flag(const MeshRenderData *mr,
                                 BMLoop *l,
-                                const int cd_ofs,
+                                const BMUVOffsets offsets,
                                 EditLoopData *eattr)
 {
-  if (cd_ofs == -1) {
+  if (offsets.uv == -1) {
     return;
   }
-  MLoopUV *luv = (MLoopUV *)BM_ELEM_CD_GET_VOID_P(l, cd_ofs);
-  if (luv != nullptr && (luv->flag & MLOOPUV_PINNED)) {
+  if (BM_ELEM_CD_GET_BOOL(l, offsets.pin)) {
     eattr->v_flag |= VFLAG_VERT_UV_PINNED;
   }
-  if (uvedit_uv_select_test_ex(mr->toolsettings, l, cd_ofs)) {
+  if (uvedit_uv_select_test_ex(mr->toolsettings, l, offsets)) {
     eattr->v_flag |= VFLAG_VERT_UV_SELECT;
   }
 }
 
 void mesh_render_data_loop_edge_flag(const MeshRenderData *mr,
                                      BMLoop *l,
-                                     const int cd_ofs,
+                                     const BMUVOffsets offsets,
                                      EditLoopData *eattr)
 {
-  if (cd_ofs == -1) {
+  if (offsets.uv == -1) {
     return;
   }
-  if (uvedit_edge_select_test_ex(mr->toolsettings, l, cd_ofs)) {
+  if (uvedit_edge_select_test_ex(mr->toolsettings, l, offsets)) {
     eattr->v_flag |= VFLAG_EDGE_UV_SELECT;
     eattr->v_flag |= VFLAG_VERT_UV_SELECT;
   }

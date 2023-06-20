@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2006 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2006 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup cmpnodes
@@ -7,7 +8,7 @@
 
 #include "BLI_assert.h"
 #include "BLI_math_base.hh"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 
 #include "RNA_access.h"
 
@@ -32,8 +33,8 @@ NODE_STORAGE_FUNCS(NodeDilateErode)
 
 static void cmp_node_dilate_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Float>(N_("Mask")).default_value(0.0f).min(0.0f).max(1.0f);
-  b.add_output<decl::Float>(N_("Mask"));
+  b.add_input<decl::Float>("Mask").default_value(0.0f).min(0.0f).max(1.0f);
+  b.add_output<decl::Float>("Mask");
 }
 
 static void node_composit_init_dilateerode(bNodeTree * /*ntree*/, bNode *node)
@@ -122,7 +123,7 @@ class DilateErodeOperation : public NodeOperation {
     const int2 transposed_domain = int2(domain.size.y, domain.size.x);
 
     GPUTexture *horizontal_pass_result = texture_pool().acquire_color(transposed_domain);
-    const int image_unit = GPU_shader_get_texture_binding(shader, "output_img");
+    const int image_unit = GPU_shader_get_sampler_binding(shader, "output_img");
     GPU_texture_image_bind(horizontal_pass_result, image_unit);
 
     compute_dispatch_threads_at_least(shader, domain.size);
@@ -143,7 +144,7 @@ class DilateErodeOperation : public NodeOperation {
     GPU_shader_uniform_1i(shader, "radius", math::abs(get_distance()));
 
     GPU_memory_barrier(GPU_BARRIER_TEXTURE_FETCH);
-    const int texture_image_unit = GPU_shader_get_texture_binding(shader, "input_tx");
+    const int texture_image_unit = GPU_shader_get_sampler_binding(shader, "input_tx");
     GPU_texture_bind(horizontal_pass_result, texture_image_unit);
 
     const Domain domain = compute_domain();
@@ -256,7 +257,7 @@ class DilateErodeOperation : public NodeOperation {
     input_image.bind_as_texture(shader, "input_tx");
 
     const MorphologicalDistanceFeatherWeights &weights =
-        context().cache_manager().get_morphological_distance_feather_weights(
+        context().cache_manager().morphological_distance_feather_weights.get(
             node_storage(bnode()).falloff, math::abs(get_distance()));
     weights.bind_weights_as_texture(shader, "weights_tx");
     weights.bind_distance_falloffs_as_texture(shader, "falloffs_tx");
@@ -273,7 +274,7 @@ class DilateErodeOperation : public NodeOperation {
     const int2 transposed_domain = int2(domain.size.y, domain.size.x);
 
     GPUTexture *horizontal_pass_result = texture_pool().acquire_color(transposed_domain);
-    const int image_unit = GPU_shader_get_texture_binding(shader, "output_img");
+    const int image_unit = GPU_shader_get_sampler_binding(shader, "output_img");
     GPU_texture_image_bind(horizontal_pass_result, image_unit);
 
     compute_dispatch_threads_at_least(shader, domain.size);
@@ -293,11 +294,11 @@ class DilateErodeOperation : public NodeOperation {
     GPU_shader_bind(shader);
 
     GPU_memory_barrier(GPU_BARRIER_TEXTURE_FETCH);
-    const int texture_image_unit = GPU_shader_get_texture_binding(shader, "input_tx");
+    const int texture_image_unit = GPU_shader_get_sampler_binding(shader, "input_tx");
     GPU_texture_bind(horizontal_pass_result, texture_image_unit);
 
     const MorphologicalDistanceFeatherWeights &weights =
-        context().cache_manager().get_morphological_distance_feather_weights(
+        context().cache_manager().morphological_distance_feather_weights.get(
             node_storage(bnode()).falloff, math::abs(get_distance()));
     weights.bind_weights_as_texture(shader, "weights_tx");
     weights.bind_distance_falloffs_as_texture(shader, "falloffs_tx");

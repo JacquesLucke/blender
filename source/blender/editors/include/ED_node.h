@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup editors
@@ -14,13 +15,11 @@ extern "C" {
 struct ID;
 struct Main;
 struct Scene;
-struct ScrArea;
 struct SpaceNode;
 struct Tex;
 struct View2D;
 struct bContext;
 struct bNode;
-struct bNodeSocket;
 struct bNodeSocketType;
 struct bNodeTree;
 struct bNodeTreeType;
@@ -42,12 +41,19 @@ ENUM_OPERATORS(NodeBorder, NODE_RIGHT)
 #define NODE_EDGE_PAN_DELAY 0.5f
 #define NODE_EDGE_PAN_ZOOM_INFLUENCE 0.5f
 
+/* clipboard.cc */
+
+void ED_node_clipboard_free(void);
+
 /* space_node.cc */
 
 void ED_node_cursor_location_get(const struct SpaceNode *snode, float value[2]);
 void ED_node_cursor_location_set(struct SpaceNode *snode, const float value[2]);
 
 int ED_node_tree_path_length(struct SpaceNode *snode);
+/**
+ * \param value: The path output at least the size of `ED_node_tree_path_length(snode) + 1`.
+ */
 void ED_node_tree_path_get(struct SpaceNode *snode, char *value);
 
 void ED_node_tree_start(struct SpaceNode *snode,
@@ -71,18 +77,10 @@ void ED_init_node_socket_type_virtual(struct bNodeSocketType *stype);
 void ED_node_sample_set(const float col[4]);
 void ED_node_draw_snap(
     struct View2D *v2d, const float cent[2], float size, NodeBorder border, unsigned int pos);
+void ED_node_type_draw_color(const char *idname, float *r_color);
 
 /* node_draw.cc */
 
-/**
- * Draw a single node socket at default size.
- * \note this is only called from external code, internally #node_socket_draw_nested() is used for
- *       optimized drawing of multiple/all sockets of a node.
- */
-void ED_node_socket_draw(struct bNodeSocket *sock,
-                         const struct rcti *rect,
-                         const float color[4],
-                         float scale);
 void ED_node_tree_update(const struct bContext *C);
 void ED_node_tag_update_id(struct ID *id);
 
@@ -175,21 +173,4 @@ bool ED_space_node_color_sample(struct Main *bmain,
 
 #ifdef __cplusplus
 }
-#endif
-
-#ifdef __cplusplus
-
-/* node_relationships.cc */
-
-namespace blender::ed::space_node {
-
-void node_insert_on_link_flags_set(SpaceNode &snode, const ARegion &region);
-/**
- * Assumes link with #NODE_LINKFLAG_HILITE set.
- */
-void node_insert_on_link_flags(Main &bmain, SpaceNode &snode);
-void node_insert_on_link_flags_clear(bNodeTree &node_tree);
-
-}  // namespace blender::ed::space_node
-
 #endif

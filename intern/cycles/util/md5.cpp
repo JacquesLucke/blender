@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: Zlib
- * Copyright (C) 1999, 2002 Aladdin Enterprises.  All rights reserved.
- * L. Peter Deutsch
- * ghost@aladdin.com */
+/* SPDX-FileCopyrightText: 1999, 2002 Aladdin Enterprises. All rights reserved.
+ *
+ * SPDX-License-Identifier: Zlib
+ *
+ * By `L. Peter Deutsch <ghost@aladdin.com>`. */
 
 /* Minor modifications done to remove some code and change style. */
 
@@ -95,8 +96,7 @@ void MD5Hash::process(const uint8_t *data /*[64]*/)
      */
     static const int w = 1;
 
-    if (*((const uint8_t *)&w)) /* dynamic little-endian */
-    {
+    if (*((const uint8_t *)&w)) /* dynamic little-endian */ {
       /*
        * On little-endian machines, we can process properly aligned
        * data without copying it.
@@ -249,9 +249,7 @@ MD5Hash::MD5Hash()
   abcd[3] = 0x10325476;
 }
 
-MD5Hash::~MD5Hash()
-{
-}
+MD5Hash::~MD5Hash() {}
 
 void MD5Hash::append(const uint8_t *data, int nbytes)
 {

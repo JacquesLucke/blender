@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 /** \file
@@ -8,7 +10,6 @@
 struct BMEditMesh;
 struct CustomData_MeshMasks;
 struct Mesh;
-struct Object;
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,26 +1,6 @@
-//
-//   Copyright 2015 Pixar
-//
-//   Licensed under the Apache License, Version 2.0 (the "Apache License")
-//   with the following modification; you may not use this file except in
-//   compliance with the Apache License and the following modification to it:
-//   Section 6. Trademarks. is deleted and replaced with:
-//
-//   6. Trademarks. This License does not grant permission to use the trade
-//      names, trademarks, service marks, or product names of the Licensor
-//      and its affiliates, except as required to comply with Section 4(c) of
-//      the License and to reproduce the content of the NOTICE file.
-//
-//   You may obtain a copy of the Apache License at
-//
-//       http://www.apache.org/licenses/LICENSE-2.0
-//
-//   Unless required by applicable law or agreed to in writing, software
-//   distributed under the Apache License with the above modification is
-//   distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-//   KIND, either express or implied. See the Apache License for the specific
-//   language governing permissions and limitations under the Apache License.
-//
+/* SPDX-FileCopyrightText: 2015 Pixar
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include <epoxy/gl.h>
 
@@ -243,13 +223,15 @@ bool GLComputeEvaluator::Compile(BufferDescriptor const &srcDesc,
 
   // create a stencil kernel
   if (!_stencilKernel.Compile(
-          srcDesc, dstDesc, duDesc, dvDesc, duuDesc, duvDesc, dvvDesc, _workGroupSize)) {
+          srcDesc, dstDesc, duDesc, dvDesc, duuDesc, duvDesc, dvvDesc, _workGroupSize))
+  {
     return false;
   }
 
   // create a patch kernel
   if (!_patchKernel.Compile(
-          srcDesc, dstDesc, duDesc, dvDesc, duuDesc, duvDesc, dvvDesc, _workGroupSize)) {
+          srcDesc, dstDesc, duDesc, dvDesc, duuDesc, duvDesc, dvvDesc, _workGroupSize))
+  {
     return false;
   }
 
@@ -570,9 +552,7 @@ bool GLComputeEvaluator::EvalPatches(GLuint srcBuffer,
 }
 // ---------------------------------------------------------------------------
 
-GLComputeEvaluator::_StencilKernel::_StencilKernel() : program(0)
-{
-}
+GLComputeEvaluator::_StencilKernel::_StencilKernel() : program(0) {}
 GLComputeEvaluator::_StencilKernel::~_StencilKernel()
 {
   if (program) {
@@ -617,9 +597,7 @@ bool GLComputeEvaluator::_StencilKernel::Compile(BufferDescriptor const &srcDesc
 
 // ---------------------------------------------------------------------------
 
-GLComputeEvaluator::_PatchKernel::_PatchKernel() : program(0)
-{
-}
+GLComputeEvaluator::_PatchKernel::_PatchKernel() : program(0) {}
 GLComputeEvaluator::_PatchKernel::~_PatchKernel()
 {
   if (program) {

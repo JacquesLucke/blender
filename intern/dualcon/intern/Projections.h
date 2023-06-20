@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2011-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #ifndef __PROJECTIONS_H__
 #define __PROJECTIONS_H__
@@ -75,9 +77,7 @@ class CubeTriangleIsect {
   CubeProjection cubeProj[NUM_AXES];
 
  public:
-  CubeTriangleIsect()
-  {
-  }
+  CubeTriangleIsect() {}
 
   /**
    * Construction from a cube (axes aligned) and triangle

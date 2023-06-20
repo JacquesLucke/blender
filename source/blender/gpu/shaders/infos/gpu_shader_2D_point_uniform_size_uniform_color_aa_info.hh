@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2022 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -17,4 +18,5 @@ GPU_SHADER_CREATE_INFO(gpu_shader_2D_point_uniform_size_uniform_color_aa)
     .push_constant(Type::FLOAT, "size")
     .vertex_source("gpu_shader_2D_point_uniform_size_aa_vert.glsl")
     .fragment_source("gpu_shader_point_uniform_color_aa_frag.glsl")
+    .additional_info("gpu_srgb_to_framebuffer_space")
     .do_static_compilation(true);

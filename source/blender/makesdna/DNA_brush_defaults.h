@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -94,11 +96,12 @@
     .automasking_cavity_blur_steps = 0,\
     .automasking_cavity_factor = 1.0f,\
  \
-    /* A kernel radius of 1 has almost no effect (T63233). */ \
+    /* A kernel radius of 1 has almost no effect (#63233). */ \
     .blur_kernel_radius = 2, \
  \
     .mtex = _DNA_DEFAULT_MTex, \
     .mask_mtex = _DNA_DEFAULT_MTex, \
+    .falloff_shape = 0,\
   }
 
 /** \} */

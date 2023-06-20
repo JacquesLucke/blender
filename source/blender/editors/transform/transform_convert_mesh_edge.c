@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -67,24 +68,27 @@ static void createTransEdge(bContext *UNUSED(C), TransInfo *t)
 
     /* create data we need */
     if (t->mode == TFM_BWEIGHT) {
-      if (!CustomData_has_layer(&em->bm->edata, CD_BWEIGHT)) {
-        BM_data_layer_add(em->bm, &em->bm->edata, CD_BWEIGHT);
+      if (!CustomData_has_layer_named(&em->bm->edata, CD_PROP_FLOAT, "bevel_weight_edge")) {
+        BM_data_layer_add_named(em->bm, &em->bm->edata, CD_PROP_FLOAT, "bevel_weight_edge");
       }
-      cd_edge_float_offset = CustomData_get_offset(&em->bm->edata, CD_BWEIGHT);
+      cd_edge_float_offset = CustomData_get_offset_named(
+          &em->bm->edata, CD_PROP_FLOAT, "bevel_weight_edge");
     }
     else { /* if (t->mode == TFM_EDGE_CREASE) { */
       BLI_assert(t->mode == TFM_EDGE_CREASE);
-      if (!CustomData_has_layer(&em->bm->edata, CD_CREASE)) {
-        BM_data_layer_add(em->bm, &em->bm->edata, CD_CREASE);
+      if (!CustomData_has_layer_named(&em->bm->edata, CD_PROP_FLOAT, "crease_edge")) {
+        BM_data_layer_add_named(em->bm, &em->bm->edata, CD_PROP_FLOAT, "crease_edge");
       }
-      cd_edge_float_offset = CustomData_get_offset(&em->bm->edata, CD_CREASE);
+      cd_edge_float_offset = CustomData_get_offset_named(
+          &em->bm->edata, CD_PROP_FLOAT, "crease_edge");
     }
 
     BLI_assert(cd_edge_float_offset != -1);
 
     BM_ITER_MESH (eed, &iter, em->bm, BM_EDGES_OF_MESH) {
       if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN) &&
-          (BM_elem_flag_test(eed, BM_ELEM_SELECT) || is_prop_edit)) {
+          (BM_elem_flag_test(eed, BM_ELEM_SELECT) || is_prop_edit))
+      {
         float *fl_ptr;
         /* need to set center for center calculations */
         mid_v3_v3v3(td->center, eed->v1->co, eed->v2->co);
@@ -103,8 +107,8 @@ static void createTransEdge(bContext *UNUSED(C), TransInfo *t)
         td->ext = NULL;
 
         fl_ptr = BM_ELEM_CD_GET_VOID_P(eed, cd_edge_float_offset);
-        td->loc = fl_ptr;
-        td->iloc[0] = *fl_ptr;
+        td->val = fl_ptr;
+        td->ival = *fl_ptr;
 
         td++;
       }
@@ -122,8 +126,8 @@ static void recalcData_mesh_edge(TransInfo *t)
 /** \} */
 
 TransConvertTypeInfo TransConvertType_MeshEdge = {
-    /* flags */ T_EDIT,
-    /* createTransData */ createTransEdge,
-    /* recalcData */ recalcData_mesh_edge,
-    /* special_aftertrans_update */ NULL,
+    /*flags*/ T_EDIT,
+    /*createTransData*/ createTransEdge,
+    /*recalcData*/ recalcData_mesh_edge,
+    /*special_aftertrans_update*/ NULL,
 };

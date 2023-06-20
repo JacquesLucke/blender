@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2017-2022 Blender Foundation
+#
 # SPDX-License-Identifier: Apache-2.0
 
 # ./blender.bin --background -noaudio --python tests/python/bl_pyapi_idprop.py -- --verbose
@@ -218,7 +220,7 @@ class TestBufferProtocol(TestHelper, unittest.TestCase):
     def assertEqualMemviews(self, view1, view2):
         props_to_compare = (
             "contiguous", "format", "itemsize", "nbytes", "ndim",
-            "readonly", "shape", "strides", "suboffsets"
+            "readonly", "shape", "strides", "suboffsets",
         )
         for attr in props_to_compare:
             self.assertEqual(getattr(view1, attr), getattr(view2, attr))

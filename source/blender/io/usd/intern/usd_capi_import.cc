@@ -1,9 +1,9 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2019 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2019 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "IO_types.h"
 #include "usd.h"
-#include "usd_common.h"
 #include "usd_hierarchy_iterator.h"
 #include "usd_reader_geom.h"
 #include "usd_reader_prim.h"
@@ -19,7 +19,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
-#include "BKE_node.h"
+#include "BKE_node.hh"
 #include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_world.h"
@@ -159,9 +159,9 @@ static void import_startjob(void *customdata, bool *stop, bool *do_update, float
   G.is_break = false;
 
   if (data->params.create_collection) {
-    char display_name[1024];
+    char display_name[MAX_ID_NAME - 2];
     BLI_path_to_display_name(
-        display_name, strlen(data->filepath), BLI_path_basename(data->filepath));
+        display_name, sizeof(display_name), BLI_path_basename(data->filepath));
     Collection *import_collection = BKE_collection_add(
         data->bmain, data->scene->master_collection, display_name);
     id_fake_user_set(&import_collection->id);
@@ -202,15 +202,31 @@ static void import_startjob(void *customdata, bool *stop, bool *do_update, float
   *data->do_update = true;
   *data->progress = 0.1f;
 
-  pxr::UsdStageRefPtr stage = pxr::UsdStage::Open(data->filepath);
+  std::string prim_path_mask(data->params.prim_path_mask);
+  pxr::UsdStagePopulationMask pop_mask;
+  if (!prim_path_mask.empty()) {
+    const std::vector<std::string> mask_tokens = pxr::TfStringTokenize(prim_path_mask, ",;");
+    for (const std::string &tok : mask_tokens) {
+      pxr::SdfPath prim_path(tok);
+      if (!prim_path.IsEmpty()) {
+        pop_mask.Add(prim_path);
+      }
+    }
+  }
+
+  pxr::UsdStageRefPtr stage = pop_mask.IsEmpty() ?
+                                  pxr::UsdStage::Open(data->filepath) :
+                                  pxr::UsdStage::OpenMasked(data->filepath, pop_mask);
 
   if (!stage) {
     WM_reportf(RPT_ERROR, "USD Import: unable to open stage to read %s", data->filepath);
     data->import_ok = false;
+    data->error_code = USD_ARCHIVE_FAIL;
     return;
   }
 
   convert_to_z_up(stage, &data->settings);
+  data->settings.stage_meters_per_unit = UsdGeomGetStageMetersPerUnit(stage);
 
   /* Set up the stage for animated data. */
   if (data->params.set_frame_range) {
@@ -226,6 +242,10 @@ static void import_startjob(void *customdata, bool *stop, bool *do_update, float
   data->archive = archive;
 
   archive->collect_readers(data->bmain);
+
+  if (data->params.import_materials && data->params.import_all_materials) {
+    archive->import_all_materials(data->bmain);
+  }
 
   *data->do_update = true;
   *data->progress = 0.2f;
@@ -352,6 +372,10 @@ static void import_endjob(void *customdata)
 
     DEG_id_tag_update(&data->scene->id, ID_RECALC_BASE_FLAGS);
     DEG_relations_tag_update(data->bmain);
+
+    if (data->params.import_materials && data->params.import_all_materials) {
+      data->archive->fake_users_for_unused_materials();
+    }
   }
 
   WM_set_locked_interface(data->wm, false);
@@ -362,9 +386,11 @@ static void import_endjob(void *customdata)
       data->import_ok = !data->was_canceled;
       break;
     case USD_ARCHIVE_FAIL:
-      WM_report(RPT_ERROR, "Could not open USD archive for reading! See console for detail.");
+      WM_report(RPT_ERROR, "Could not open USD archive for reading, see console for detail");
       break;
   }
+
+  MEM_SAFE_FREE(data->params.prim_path_mask);
 
   WM_main_add_notifier(NC_SCENE | ND_FRAME, data->scene);
   report_job_duration(data);
@@ -387,8 +413,6 @@ bool USD_import(struct bContext *C,
                 const USDImportParams *params,
                 bool as_background_job)
 {
-  blender::io::usd::ensure_usd_plugin_path_registered();
-
   /* Using new here since `MEM_*` functions do not call constructor to properly initialize data. */
   ImportJobData *job = new ImportJobData();
   job->bmain = CTX_data_main(C);
@@ -429,7 +453,7 @@ bool USD_import(struct bContext *C,
     WM_jobs_start(CTX_wm_manager(C), wm_job);
   }
   else {
-    /* Fake a job context, so that we don't need NULL pointer checks while importing. */
+    /* Fake a job context, so that we don't need null pointer checks while importing. */
     bool stop = false, do_update = false;
     float progress = 0.0f;
 
@@ -447,7 +471,9 @@ bool USD_import(struct bContext *C,
  * USD reader is compatible with the type of the given (currently unused) 'ob'
  * Object parameter, similar to the logic in get_abc_reader() in the
  * Alembic importer code. */
-static USDPrimReader *get_usd_reader(CacheReader *reader, Object * /* ob */, const char **err_str)
+static USDPrimReader *get_usd_reader(CacheReader *reader,
+                                     const Object * /* ob */,
+                                     const char **err_str)
 {
   USDPrimReader *usd_reader = reinterpret_cast<USDPrimReader *>(reader);
   pxr::UsdPrim iobject = usd_reader->prim();
@@ -460,12 +486,19 @@ static USDPrimReader *get_usd_reader(CacheReader *reader, Object * /* ob */, con
   return usd_reader;
 }
 
+USDMeshReadParams create_mesh_read_params(const double motion_sample_time, const int read_flags)
+{
+  USDMeshReadParams params = {};
+  params.motion_sample_time = motion_sample_time;
+  params.read_flags = read_flags;
+  return params;
+}
+
 struct Mesh *USD_read_mesh(struct CacheReader *reader,
                            struct Object *ob,
                            struct Mesh *existing_mesh,
-                           const double time,
-                           const char **err_str,
-                           const int read_flag)
+                           const USDMeshReadParams params,
+                           const char **err_str)
 {
   USDGeomReader *usd_reader = dynamic_cast<USDGeomReader *>(get_usd_reader(reader, ob, err_str));
 
@@ -473,11 +506,14 @@ struct Mesh *USD_read_mesh(struct CacheReader *reader,
     return nullptr;
   }
 
-  return usd_reader->read_mesh(existing_mesh, time, read_flag, err_str);
+  return usd_reader->read_mesh(existing_mesh, params, err_str);
 }
 
-bool USD_mesh_topology_changed(
-    CacheReader *reader, Object *ob, Mesh *existing_mesh, const double time, const char **err_str)
+bool USD_mesh_topology_changed(CacheReader *reader,
+                               const Object *ob,
+                               const Mesh *existing_mesh,
+                               const double time,
+                               const char **err_str)
 {
   USDGeomReader *usd_reader = dynamic_cast<USDGeomReader *>(get_usd_reader(reader, ob, err_str));
 
@@ -542,9 +578,6 @@ CacheArchiveHandle *USD_create_handle(struct Main * /*bmain*/,
                                       const char *filepath,
                                       ListBase *object_paths)
 {
-  /* Must call this so that USD file format plugins are loaded. */
-  ensure_usd_plugin_path_registered();
-
   pxr::UsdStageRefPtr stage = pxr::UsdStage::Open(filepath);
 
   if (!stage) {

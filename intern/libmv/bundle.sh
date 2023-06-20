@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-FileCopyrightText: 2011-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 if [ "x$1" = "x--i-really-know-what-im-doing" ] ; then
@@ -8,9 +10,9 @@ else
   exit 1
 fi
 
-BRANCH="master"
+BRANCH="main"
 
-# repo="git://git.blender.org/libmv.git"
+# repo="https://projects.blender.org/blender/libmv.git"
 repo="/home/sergey/Developer/libmv"
 tmp=`mktemp -d`
 

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifndef __OSL_SERVICES_H__
 #define __OSL_SERVICES_H__
@@ -15,6 +16,8 @@
 #include <OSL/oslclosure.h>
 #include <OSL/oslexec.h>
 #include <OSL/rendererservices.h>
+
+#include "scene/image.h"
 
 #ifdef WITH_PTEX
 class PtexCache;
@@ -54,10 +57,20 @@ struct OSLTextureHandle : public OIIO::RefCnt {
   {
   }
 
+  OSLTextureHandle(const ImageHandle &handle)
+      : type(SVM),
+        svm_slots(handle.get_svm_slots()),
+        oiio_handle(nullptr),
+        processor(nullptr),
+        handle(handle)
+  {
+  }
+
   Type type;
   vector<int4> svm_slots;
   OSL::TextureSystem::TextureHandle *oiio_handle;
   ColorSpaceProcessor *processor;
+  ImageHandle handle;
 };
 
 typedef OIIO::intrusive_ptr<OSLTextureHandle> OSLTextureHandleRef;
@@ -323,6 +336,8 @@ class OSLRenderServices : public OSL::RendererServices {
    * and is required because texture handles are cached as part of the shared
    * shading system. */
   OSLTextureHandleMap textures;
+
+  static ImageManager *image_manager;
 
  private:
   int device_type_;

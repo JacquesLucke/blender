@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2008 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2008 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edinterface
@@ -34,7 +35,7 @@
 
 #include "IMB_colormanagement.h"
 
-#include "interface_intern.h"
+#include "interface_intern.hh"
 
 enum ePickerType {
   PICKER_TYPE_RGB = 0,
@@ -213,9 +214,8 @@ static void ui_update_color_picker_buts_rgb(uiBut *from_but,
       }
 
       rgb_float_to_uchar(rgb_hex_uchar, rgb_hex);
-      BLI_snprintf(col, sizeof(col), "%02X%02X%02X", UNPACK3_EX((uint), rgb_hex_uchar, ));
-
-      strcpy(bt->poin, col);
+      const int col_len = SNPRINTF_RLEN(col, "%02X%02X%02X", UNPACK3_EX((uint), rgb_hex_uchar, ));
+      memcpy(bt->poin, col, col_len + 1);
     }
     else if (bt->str[1] == ' ') {
       if (bt->str[0] == 'R') {
@@ -321,7 +321,8 @@ static void ui_colorpicker_hide_reveal(uiBlock *block, ePickerType colormode)
   /* tag buttons */
   LISTBASE_FOREACH (uiBut *, bt, &block->buttons) {
     if ((bt->func == ui_colorpicker_rgba_update_cb) && (bt->type == UI_BTYPE_NUM_SLIDER) &&
-        (bt->rnaindex != 3)) {
+        (bt->rnaindex != 3))
+    {
       /* RGB sliders (color circle and alpha are always shown) */
       SET_FLAG_FROM_TEST(bt->flag, (colormode != PICKER_TYPE_RGB), UI_HIDDEN);
     }
@@ -397,7 +398,7 @@ static void ui_colorpicker_circle(uiBlock *block,
                                              0,
                                              "Lightness");
     hsv_but->gradient_type = UI_GRAD_L_ALT;
-    UI_but_func_set(&hsv_but->but, ui_colorpicker_rgba_update_cb, &hsv_but->but, nullptr);
+    UI_but_func_set(hsv_but, ui_colorpicker_rgba_update_cb, hsv_but, nullptr);
   }
   else {
     hsv_but = (uiButHSVCube *)uiDefButR_prop(block,
@@ -415,11 +416,11 @@ static void ui_colorpicker_circle(uiBlock *block,
                                              0.0,
                                              0,
                                              0,
-                                             TIP_("Value"));
+                                             CTX_TIP_(BLT_I18NCONTEXT_COLOR, "Value"));
     hsv_but->gradient_type = UI_GRAD_V_ALT;
-    UI_but_func_set(&hsv_but->but, ui_colorpicker_rgba_update_cb, &hsv_but->but, nullptr);
+    UI_but_func_set(hsv_but, ui_colorpicker_rgba_update_cb, hsv_but, nullptr);
   }
-  hsv_but->but.custom_data = cpicker;
+  hsv_but->custom_data = cpicker;
 }
 
 static void ui_colorpicker_square(uiBlock *block,
@@ -450,8 +451,8 @@ static void ui_colorpicker_square(uiBlock *block,
                                            0,
                                            TIP_("Color"));
   hsv_but->gradient_type = type;
-  UI_but_func_set(&hsv_but->but, ui_colorpicker_rgba_update_cb, &hsv_but->but, nullptr);
-  hsv_but->but.custom_data = cpicker;
+  UI_but_func_set(hsv_but, ui_colorpicker_rgba_update_cb, hsv_but, nullptr);
+  hsv_but->custom_data = cpicker;
 
   /* value */
   hsv_but = (uiButHSVCube *)uiDefButR_prop(block,
@@ -469,10 +470,10 @@ static void ui_colorpicker_square(uiBlock *block,
                                            0.0,
                                            0,
                                            0,
-                                           TIP_("Value"));
+                                           CTX_TIP_(BLT_I18NCONTEXT_COLOR, "Value"));
   hsv_but->gradient_type = (eButGradientType)(type + 3);
-  UI_but_func_set(&hsv_but->but, ui_colorpicker_rgba_update_cb, &hsv_but->but, nullptr);
-  hsv_but->but.custom_data = cpicker;
+  UI_but_func_set(hsv_but, ui_colorpicker_rgba_update_cb, hsv_but, nullptr);
+  hsv_but->custom_data = cpicker;
 }
 
 /* a HS circle, V slider, rgb/hsv/hex sliders */
@@ -726,7 +727,7 @@ static void ui_block_colorpicker(uiBlock *block,
     bt = uiDefButF(block,
                    UI_BTYPE_NUM_SLIDER,
                    0,
-                   IFACE_("Value:"),
+                   CTX_IFACE_(BLT_I18NCONTEXT_COLOR, "Value:"),
                    0,
                    yco -= UI_UNIT_Y,
                    butwidth,
@@ -736,7 +737,7 @@ static void ui_block_colorpicker(uiBlock *block,
                    softmax,
                    10,
                    3,
-                   TIP_("Value"));
+                   CTX_TIP_(BLT_I18NCONTEXT_COLOR, "Value"));
   }
   UI_but_flag_disable(bt, UI_BUT_UNDO);
 
@@ -782,7 +783,7 @@ static void ui_block_colorpicker(uiBlock *block,
   }
 
   rgb_float_to_uchar(rgb_hex_uchar, rgb_hex);
-  BLI_snprintf(hexcol, sizeof(hexcol), "%02X%02X%02X", UNPACK3_EX((uint), rgb_hex_uchar, ));
+  SNPRINTF(hexcol, "%02X%02X%02X", UNPACK3_EX((uint), rgb_hex_uchar, ));
 
   yco = -3.0f * UI_UNIT_Y;
   bt = uiDefBut(block,
@@ -868,7 +869,6 @@ uiBlock *ui_block_func_COLOR(bContext *C, uiPopupBlockHandle *handle, void *arg_
 {
   uiBut *but = static_cast<uiBut *>(arg_but);
   uiBlock *block;
-  bool show_picker = true;
 
   block = UI_block_begin(C, handle->region, __func__, UI_EMBOSS);
 
@@ -876,17 +876,9 @@ uiBlock *ui_block_func_COLOR(bContext *C, uiPopupBlockHandle *handle, void *arg_
     block->is_color_gamma_picker = true;
   }
 
-  if (but->block) {
-    /* if color block is invoked from a popup we wouldn't be able to set color properly
-     * this is because color picker will close popups first and then will try to figure
-     * out active button RNA, and of course it'll fail
-     */
-    show_picker = (but->block->flag & UI_BLOCK_POPUP) == 0;
-  }
-
   copy_v3_v3(handle->retvec, but->editvec);
 
-  ui_block_colorpicker(block, but, handle->retvec, show_picker);
+  ui_block_colorpicker(block, but, handle->retvec, true);
 
   block->flag = UI_BLOCK_LOOP | UI_BLOCK_KEEP_OPEN | UI_BLOCK_OUT_1 | UI_BLOCK_MOVEMOUSE_QUIT;
   UI_block_theme_style_set(block, UI_BLOCK_THEME_STYLE_POPUP);
@@ -900,7 +892,7 @@ uiBlock *ui_block_func_COLOR(bContext *C, uiPopupBlockHandle *handle, void *arg_
   return block;
 }
 
-ColorPicker *ui_block_colorpicker_create(struct uiBlock *block)
+ColorPicker *ui_block_colorpicker_create(uiBlock *block)
 {
   ColorPicker *cpicker = MEM_cnew<ColorPicker>(__func__);
   BLI_addhead(&block->color_pickers.list, cpicker);

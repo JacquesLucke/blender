@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bmesh
@@ -191,7 +193,8 @@ void bmo_extrude_edge_only_exec(BMesh *bm, BMOperator *op)
   }
 
   for (e = BMO_iter_new(&siter, dupeop.slots_out, "boundary_map.out", 0); e;
-       e = BMO_iter_step(&siter)) {
+       e = BMO_iter_step(&siter))
+  {
     BMVert *f_verts[4];
     e_new = BMO_iter_map_value_ptr(&siter);
 
@@ -367,7 +370,7 @@ void bmo_extrude_face_region_exec(BMesh *bm, BMOperator *op)
 
   /* calculate verts to delete */
   BM_ITER_MESH (v, &iter, bm, BM_VERTS_OF_MESH) {
-    if (v->e) { /* only deal with verts attached to geometry T33651. */
+    if (v->e) { /* only deal with verts attached to geometry #33651. */
       found = false;
 
       BM_ITER_ELEM (e, &viter, v, BM_EDGES_OF_VERT) {
@@ -455,7 +458,8 @@ void bmo_extrude_face_region_exec(BMesh *bm, BMOperator *op)
 
   slot_edges_exclude = BMO_slot_get(op->slots_in, "edges_exclude");
   for (e = BMO_iter_new(&siter, dupeop.slots_out, "boundary_map.out", 0); e;
-       e = BMO_iter_step(&siter)) {
+       e = BMO_iter_step(&siter))
+  {
     BMVert *f_verts[4];
 #ifdef USE_EDGE_REGION_FLAGS
     BMEdge *f_edges[4];
@@ -466,10 +470,10 @@ void bmo_extrude_face_region_exec(BMesh *bm, BMOperator *op)
       BMVert *v1 = e->v1, *v2 = e->v2;
 
       /* The original edge was excluded,
-       * this would result in a standalone wire edge - see T30399. */
+       * this would result in a standalone wire edge - see #30399. */
       BM_edge_kill(bm, e);
 
-      /* kill standalone vertices from this edge - see T32341. */
+      /* kill standalone vertices from this edge - see #32341. */
       if (!v1->e) {
         BM_vert_kill(bm, v1);
       }
@@ -480,7 +484,7 @@ void bmo_extrude_face_region_exec(BMesh *bm, BMOperator *op)
       continue;
     }
 
-    /* skip creating face for excluded edges see T35503. */
+    /* skip creating face for excluded edges see #35503. */
     if (BMO_slot_map_contains(slot_edges_exclude, e)) {
       /* simply skip creating the face */
       continue;
@@ -581,7 +585,8 @@ void bmo_extrude_face_region_exec(BMesh *bm, BMOperator *op)
 
   /* link isolated vert */
   for (v = BMO_iter_new(&siter, dupeop.slots_out, "isovert_map.out", 0); v;
-       v = BMO_iter_step(&siter)) {
+       v = BMO_iter_step(&siter))
+  {
     BMVert *v2 = BMO_iter_map_value_ptr(&siter);
 
     /* not essential, but ensures face normals from extruded edges are contiguous */

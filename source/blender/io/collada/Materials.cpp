@@ -1,7 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2018-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "Materials.h"
 
+#include "BKE_node.hh"
+
+#include "BKE_node_runtime.hh"
 #include "BKE_node_tree_update.h"
 
 MaterialNode::MaterialNode(bContext *C, Material *ma, KeyImageMap &key_image_map)
@@ -86,7 +91,7 @@ bNodeTree *MaterialNode::prepare_material_nodetree()
     return nullptr;
   }
 
-  ntreeAddTreeEmbedded(nullptr, &material->id, "Shader Nodetree", "ShaderNodeTree");
+  blender::bke::ntreeAddTreeEmbedded(nullptr, &material->id, "Shader Nodetree", "ShaderNodeTree");
   material->use_nodes = true;
   ntree = material->nodetree;
   return ntree;
@@ -102,7 +107,7 @@ bNode *MaterialNode::add_node(int node_type, int locx, int locy, std::string lab
   bNode *node = nodeAddStaticNode(mContext, ntree, node_type);
   if (node) {
     if (label.length() > 0) {
-      strcpy(node->label, label.c_str());
+      STRNCPY(node->label, label.c_str());
     }
     node->locx = locx;
     node->locy = locy;
@@ -161,7 +166,7 @@ void MaterialNode::set_ior(COLLADAFW::FloatOrParam &val)
   if (ior < 0) {
     fprintf(stderr,
             "IOR of negative value is not allowed for materials (using Blender default value "
-            "instead)");
+            "instead)\n");
     return;
   }
 
@@ -173,9 +178,8 @@ void MaterialNode::set_alpha(COLLADAFW::EffectCommon::OpaqueMode mode,
                              COLLADAFW::ColorOrTexture &cot,
                              COLLADAFW::FloatOrParam &val)
 {
-  /*  Handling the alpha value according to the Collada 1.4 reference guide
-   *  see page 7-5 Determining Transparency (Opacity)
-   */
+  /* Handling the alpha value according to the Collada 1.4 reference guide
+   * see page 7-5 Determining Transparency (Opacity). */
 
   if (effect == nullptr) {
     return;
@@ -248,22 +252,24 @@ void MaterialNode::set_diffuse(COLLADAFW::ColorOrTexture &cot)
 
 Image *MaterialNode::get_diffuse_image()
 {
-  bNode *shader = ntreeFindType(ntree, SH_NODE_BSDF_PRINCIPLED);
-  if (shader == nullptr) {
+  ntree->ensure_topology_cache();
+  const blender::Span<const bNode *> nodes = ntree->nodes_by_type("ShaderNodeBsdfPrincipled");
+  if (nodes.is_empty()) {
     return nullptr;
   }
+  const bNode *shader = nodes.first();
 
-  bNodeSocket *in_socket = nodeFindSocket(shader, SOCK_IN, "Base Color");
+  const bNodeSocket *in_socket = nodeFindSocket(shader, SOCK_IN, "Base Color");
   if (in_socket == nullptr) {
     return nullptr;
   }
 
-  bNodeLink *link = in_socket->link;
+  const bNodeLink *link = in_socket->link;
   if (link == nullptr) {
     return nullptr;
   }
 
-  bNode *texture = link->fromnode;
+  const bNode *texture = link->fromnode;
   if (texture == nullptr) {
     return nullptr;
   }

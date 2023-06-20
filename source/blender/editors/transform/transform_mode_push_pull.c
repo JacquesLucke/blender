@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -122,12 +123,11 @@ static void applyPushPull(TransInfo *t, const int UNUSED(mval[2]))
 
     outputNumInput(&(t->num), c, &t->scene->unit);
 
-    BLI_snprintf(str, sizeof(str), TIP_("Push/Pull: %s%s %s"), c, t->con.text, t->proptext);
+    SNPRINTF(str, TIP_("Push/Pull: %s%s %s"), c, t->con.text, t->proptext);
   }
   else {
     /* default header print */
-    BLI_snprintf(
-        str, sizeof(str), TIP_("Push/Pull: %.4f%s %s"), distance, t->con.text, t->proptext);
+    SNPRINTF(str, TIP_("Push/Pull: %.4f%s %s"), distance, t->con.text, t->proptext);
   }
 
   if (t->con.applyRot && t->con.mode & CON_APPLY) {
@@ -152,6 +152,8 @@ static void applyPushPull(TransInfo *t, const int UNUSED(mval[2]))
       struct TransDataArgs_PushPull data = {
           .t = t,
           .tc = tc,
+
+          .distance = distance,
           .axis_global = {UNPACK3(axis_global)},
           .is_lock_constraint = is_lock_constraint,
           .is_data_space = is_data_space,
@@ -167,10 +169,9 @@ static void applyPushPull(TransInfo *t, const int UNUSED(mval[2]))
   ED_area_status_text(t->area, str);
 }
 
-void initPushPull(TransInfo *t)
+static void initPushPull(TransInfo *t, struct wmOperator *UNUSED(op))
 {
   t->mode = TFM_PUSHPULL;
-  t->transform = applyPushPull;
 
   initMouseInputMode(t, &t->mouse, INPUT_VERTICAL_ABSOLUTE);
 
@@ -185,3 +186,14 @@ void initPushPull(TransInfo *t)
 }
 
 /** \} */
+
+TransModeInfo TransMode_pushpull = {
+    /*flags*/ 0,
+    /*init_fn*/ initPushPull,
+    /*transform_fn*/ applyPushPull,
+    /*transform_matrix_fn*/ NULL,
+    /*handle_event_fn*/ NULL,
+    /*snap_distance_fn*/ NULL,
+    /*snap_apply_fn*/ NULL,
+    /*draw_fn*/ NULL,
+};

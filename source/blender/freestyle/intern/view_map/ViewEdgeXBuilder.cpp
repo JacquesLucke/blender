@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2008-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -66,7 +68,8 @@ void ViewEdgeXBuilder::BuildViewEdges(WXShape *iWShape,
     vector<WXFaceLayer *> &smoothLayers = wxf->getSmoothLayers();
     for (vector<WXFaceLayer *>::iterator sl = smoothLayers.begin(), slend = smoothLayers.end();
          sl != slend;
-         ++sl) {
+         ++sl)
+    {
       if (!(*sl)->hasSmoothEdge()) {
         continue;
       }
@@ -168,7 +171,8 @@ ViewEdge *ViewEdgeXBuilder::BuildSmoothViewEdge(const OWXFaceLayer &iFaceLayer)
   FEdge *fefirst = nullptr;
   FEdge *fe = nullptr;
   for (list<OWXFaceLayer>::iterator fl = facesChain.begin(), flend = facesChain.end(); fl != flend;
-       ++fl) {
+       ++fl)
+  {
     fe = BuildSmoothFEdge(feprevious, (*fl));
     if (feprevious && fe == feprevious) {
       continue;
@@ -475,8 +479,9 @@ FEdge *ViewEdgeXBuilder::BuildSmoothFEdge(FEdge *feprevious, const OWXFaceLayer 
 
   Vec3r normal;
   // Make the 2 Svertices
-  if (feprevious ==
-      nullptr) {  // that means that we don't have any vertex already built for that face
+
+  /* That means that we don't have any vertex already built for that face. */
+  if (feprevious == nullptr) {
     Vec3r A1(woea->GetaVertex()->GetVertex());
     Vec3r A2(woea->GetbVertex()->GetVertex());
     Vec3r A(A1 + ta * (A2 - A1));

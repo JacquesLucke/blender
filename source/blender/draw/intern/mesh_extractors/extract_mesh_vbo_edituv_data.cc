@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2021 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2021 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw
@@ -19,7 +20,7 @@ namespace blender::draw {
 
 struct MeshExtract_EditUVData_Data {
   EditLoopData *vbo_data;
-  int cd_ofs;
+  BMUVOffsets offsets;
 };
 
 static void extract_edituv_data_init_common(const MeshRenderData *mr,
@@ -37,9 +38,8 @@ static void extract_edituv_data_init_common(const MeshRenderData *mr,
   GPU_vertbuf_init_with_format(vbo, &format);
   GPU_vertbuf_data_alloc(vbo, loop_len);
 
-  CustomData *cd_ldata = (mr->extract_type == MR_EXTRACT_BMESH) ? &mr->bm->ldata : &mr->me->ldata;
   data->vbo_data = (EditLoopData *)GPU_vertbuf_get_data(vbo);
-  data->cd_ofs = CustomData_get_offset(cd_ldata, CD_MLOOPUV);
+  data->offsets = BM_uv_map_get_offsets(mr->bm);
 }
 
 static void extract_edituv_data_init(const MeshRenderData *mr,
@@ -64,48 +64,44 @@ static void extract_edituv_data_iter_poly_bm(const MeshRenderData *mr,
     MeshExtract_EditUVData_Data *data = static_cast<MeshExtract_EditUVData_Data *>(_data);
     EditLoopData *eldata = &data->vbo_data[l_index];
     memset(eldata, 0x0, sizeof(*eldata));
-    mesh_render_data_loop_flag(mr, l_iter, data->cd_ofs, eldata);
-    mesh_render_data_face_flag(mr, f, data->cd_ofs, eldata);
-    mesh_render_data_loop_edge_flag(mr, l_iter, data->cd_ofs, eldata);
+    mesh_render_data_loop_flag(mr, l_iter, data->offsets, eldata);
+    mesh_render_data_face_flag(mr, f, data->offsets, eldata);
+    mesh_render_data_loop_edge_flag(mr, l_iter, data->offsets, eldata);
   } while ((l_iter = l_iter->next) != l_first);
 }
 
 static void extract_edituv_data_iter_poly_mesh(const MeshRenderData *mr,
-                                               const MPoly *mp,
-                                               const int mp_index,
+                                               const int poly_index,
                                                void *_data)
 {
   MeshExtract_EditUVData_Data *data = static_cast<MeshExtract_EditUVData_Data *>(_data);
-  const MLoop *mloop = mr->mloop;
-  const int ml_index_end = mp->loopstart + mp->totloop;
-  for (int ml_index = mp->loopstart; ml_index < ml_index_end; ml_index += 1) {
-    const MLoop *ml = &mloop[ml_index];
-
+  const IndexRange poly = mr->polys[poly_index];
+  const int ml_index_end = poly.start() + poly.size();
+  for (int ml_index = poly.start(); ml_index < ml_index_end; ml_index += 1) {
     EditLoopData *eldata = &data->vbo_data[ml_index];
     memset(eldata, 0x0, sizeof(*eldata));
-    BMFace *efa = bm_original_face_get(mr, mp_index);
+    BMFace *efa = bm_original_face_get(mr, poly_index);
     if (efa) {
-      BMEdge *eed = bm_original_edge_get(mr, ml->e);
-      BMVert *eve = bm_original_vert_get(mr, ml->v);
+      BMVert *eve = bm_original_vert_get(mr, mr->corner_verts[ml_index]);
+      BMEdge *eed = bm_original_edge_get(mr, mr->corner_edges[ml_index]);
       if (eed && eve) {
         /* Loop on an edge endpoint. */
         BMLoop *l = BM_face_edge_share_loop(efa, eed);
-        mesh_render_data_loop_flag(mr, l, data->cd_ofs, eldata);
-        mesh_render_data_loop_edge_flag(mr, l, data->cd_ofs, eldata);
+        mesh_render_data_loop_flag(mr, l, data->offsets, eldata);
+        mesh_render_data_loop_edge_flag(mr, l, data->offsets, eldata);
       }
       else {
         if (eed == nullptr) {
           /* Find if the loop's vert is not part of an edit edge.
            * For this, we check if the previous loop was on an edge. */
-          const int ml_index_last = mp->loopstart + mp->totloop - 1;
-          const int l_prev = (ml_index == mp->loopstart) ? ml_index_last : (ml_index - 1);
-          const MLoop *ml_prev = &mr->mloop[l_prev];
-          eed = bm_original_edge_get(mr, ml_prev->e);
+          const int ml_index_last = poly.start() + poly.size() - 1;
+          const int l_prev = (ml_index == poly.start()) ? ml_index_last : (ml_index - 1);
+          eed = bm_original_edge_get(mr, mr->corner_edges[l_prev]);
         }
         if (eed) {
           /* Mapped points on an edge between two edit verts. */
           BMLoop *l = BM_face_edge_share_loop(efa, eed);
-          mesh_render_data_loop_edge_flag(mr, l, data->cd_ofs, eldata);
+          mesh_render_data_loop_edge_flag(mr, l, data->offsets, eldata);
         }
       }
     }
@@ -146,8 +142,8 @@ static void extract_edituv_data_iter_subdiv_bm(const DRWSubdivCache *subdiv_cach
       BMEdge *eed = BM_edge_at_index(mr->bm, edge_origindex);
       /* Loop on an edge endpoint. */
       BMLoop *l = BM_face_edge_share_loop(const_cast<BMFace *>(coarse_quad), eed);
-      mesh_render_data_loop_flag(mr, l, data->cd_ofs, edit_loop_data);
-      mesh_render_data_loop_edge_flag(mr, l, data->cd_ofs, edit_loop_data);
+      mesh_render_data_loop_flag(mr, l, data->offsets, edit_loop_data);
+      mesh_render_data_loop_edge_flag(mr, l, data->offsets, edit_loop_data);
     }
     else {
       if (edge_origindex == -1) {
@@ -160,11 +156,11 @@ static void extract_edituv_data_iter_subdiv_bm(const DRWSubdivCache *subdiv_cach
         /* Mapped points on an edge between two edit verts. */
         BMEdge *eed = BM_edge_at_index(mr->bm, edge_origindex);
         BMLoop *l = BM_face_edge_share_loop(const_cast<BMFace *>(coarse_quad), eed);
-        mesh_render_data_loop_edge_flag(mr, l, data->cd_ofs, edit_loop_data);
+        mesh_render_data_loop_edge_flag(mr, l, data->offsets, edit_loop_data);
       }
     }
 
-    mesh_render_data_face_flag(mr, coarse_quad, data->cd_ofs, edit_loop_data);
+    mesh_render_data_face_flag(mr, coarse_quad, data->offsets, edit_loop_data);
   }
 }
 
@@ -172,9 +168,8 @@ static void extract_edituv_data_iter_subdiv_mesh(const DRWSubdivCache *subdiv_ca
                                                  const MeshRenderData *mr,
                                                  void *_data,
                                                  uint subdiv_quad_index,
-                                                 const MPoly *coarse_quad)
+                                                 const int coarse_quad_index)
 {
-  const int coarse_quad_index = int(coarse_quad - mr->mpoly);
   BMFace *coarse_quad_bm = bm_original_face_get(mr, coarse_quad_index);
   extract_edituv_data_iter_subdiv_bm(subdiv_cache, mr, _data, subdiv_quad_index, coarse_quad_bm);
 }

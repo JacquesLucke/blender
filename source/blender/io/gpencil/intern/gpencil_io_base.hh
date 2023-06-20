@@ -1,13 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2020 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2020 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 /** \file
  * \ingroup bgpencil
  */
 
-#include "BLI_float4x4.hh"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_matrix_types.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_vector.hh"
 
 #include "DNA_space_types.h" /* for FILE_MAX */
@@ -67,7 +68,7 @@ class GpencilIO {
 
   int cfra_;
 
-  float stroke_color_[4], fill_color_[4];
+  float4 stroke_color_, fill_color_;
 
   /* Geometry functions. */
   /** Convert to screen-space. */
@@ -104,7 +105,7 @@ class GpencilIO {
   rctf select_boundbox_;
 
   /* Camera matrix. */
-  float persmat_[4][4];
+  float4x4 persmat_;
 };
 
 }  // namespace blender::io::gpencil

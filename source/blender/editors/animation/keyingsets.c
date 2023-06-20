@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation, Joshua Leung. All rights reserved. */
+/* SPDX-FileCopyrightText: 2009 Blender Foundation, Joshua Leung. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edanimation
@@ -577,7 +578,7 @@ void ANIM_keyingset_info_register(KeyingSetInfo *ksi)
   memcpy(&ks->typeinfo, ksi->idname, sizeof(ks->typeinfo));
 
   /* Copy description... */
-  BLI_strncpy(ks->description, ksi->description, sizeof(ks->description));
+  STRNCPY(ks->description, ksi->description);
 
   /* add type-info to the list */
   BLI_addtail(&keyingset_type_infos, ksi);
@@ -1119,7 +1120,7 @@ int ANIM_apply_keyingset(
       RNA_id_pointer_create(ksp->id, &id_ptr);
       if (RNA_path_resolve_property(&id_ptr, ksp->rna_path, &ptr, &prop)) {
         arraylen = RNA_property_array_length(&ptr, prop);
-        /* start from start of array, instead of the previously specified index - T48020 */
+        /* start from start of array, instead of the previously specified index - #48020 */
         i = 0;
       }
     }

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "DNA_mesh_types.h"
 
@@ -10,9 +12,9 @@ namespace blender::nodes::node_geo_mesh_to_curve_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Geometry>(N_("Mesh")).supported_type(GEO_COMPONENT_TYPE_MESH);
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().supports_field();
-  b.add_output<decl::Geometry>(N_("Curve"));
+  b.add_input<decl::Geometry>("Mesh").supported_type(GeometryComponent::Type::Mesh);
+  b.add_input<decl::Bool>("Selection").default_value(true).hide_value().field_on_all();
+  b.add_output<decl::Geometry>("Curve").propagate_all();
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
@@ -26,7 +28,7 @@ static void node_geo_exec(GeoNodeExecParams params)
       return;
     }
 
-    bke::MeshFieldContext context{*mesh, ATTR_DOMAIN_EDGE};
+    const bke::MeshFieldContext context{*mesh, ATTR_DOMAIN_EDGE};
     fn::FieldEvaluator evaluator{context, mesh->totedge};
     evaluator.add(params.get_input<Field<bool>>("Selection"));
     evaluator.evaluate();
@@ -36,9 +38,10 @@ static void node_geo_exec(GeoNodeExecParams params)
       return;
     }
 
-    bke::CurvesGeometry curves = geometry::mesh_to_curve_convert(*mesh, selection);
+    bke::CurvesGeometry curves = geometry::mesh_to_curve_convert(
+        *mesh, selection, params.get_output_propagation_info("Curve"));
     geometry_set.replace_curves(bke::curves_new_nomain(std::move(curves)));
-    geometry_set.keep_only_during_modify({GEO_COMPONENT_TYPE_CURVE});
+    geometry_set.keep_only_during_modify({GeometryComponent::Type::Curve});
   });
 
   params.set_output("Curve", std::move(geometry_set));

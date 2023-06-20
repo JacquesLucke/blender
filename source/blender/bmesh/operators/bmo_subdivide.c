@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bmesh
@@ -97,7 +99,7 @@ typedef struct SubDPattern {
 #define ELE_INNER 8
 #define ELE_SPLIT 16
 
-/* see bug T32665, 0.00005 means a we get face splits at a little under 1.0 degrees */
+/* see bug #32665, 0.00005 means a we get face splits at a little under 1.0 degrees */
 #define FLT_FACE_SPLIT_EPSILON 0.00005f
 
 /*
@@ -1062,7 +1064,7 @@ void bmo_subdivide_edges_exec(BMesh *bm, BMOperator *op)
         matched = 1;
         for (j = 0; j < pat->len; j++) {
           a = (j + i) % pat->len;
-          if ((!!BMO_edge_flag_test(bm, edges[a], SUBD_SPLIT)) != (!!pat->seledges[j])) {
+          if (!!BMO_edge_flag_test(bm, edges[a], SUBD_SPLIT) != (!!pat->seledges[j])) {
             matched = 0;
             break;
           }
@@ -1095,7 +1097,7 @@ void bmo_subdivide_edges_exec(BMesh *bm, BMOperator *op)
           matched = 1;
           for (b = 0; b < pat->len; b++) {
             j = (b + a) % pat->len;
-            if ((!!BMO_edge_flag_test(bm, edges[j], SUBD_SPLIT)) != (!!pat->seledges[b])) {
+            if (!!BMO_edge_flag_test(bm, edges[j], SUBD_SPLIT) != (!!pat->seledges[b])) {
               matched = 0;
               break;
             }
@@ -1175,7 +1177,8 @@ void bmo_subdivide_edges_exec(BMesh *bm, BMOperator *op)
       /* find the boundary of one of the split edges */
       for (a = 0; a < vlen; a++) {
         if (!BMO_vert_flag_test(bm, loops[a ? (a - 1) : (vlen - 1)]->v, ELE_INNER) &&
-            BMO_vert_flag_test(bm, loops[a]->v, ELE_INNER)) {
+            BMO_vert_flag_test(bm, loops[a]->v, ELE_INNER))
+        {
           break;
         }
       }
@@ -1190,7 +1193,8 @@ void bmo_subdivide_edges_exec(BMesh *bm, BMOperator *op)
         for (j = 0; j < vlen; j++) {
           b = (j + a + numcuts + 1) % vlen;
           if (!BMO_vert_flag_test(bm, loops[b == 0 ? vlen - 1 : b - 1]->v, ELE_INNER) &&
-              BMO_vert_flag_test(bm, loops[b]->v, ELE_INNER)) {
+              BMO_vert_flag_test(bm, loops[b]->v, ELE_INNER))
+          {
             break;
           }
         }
@@ -1202,7 +1206,7 @@ void bmo_subdivide_edges_exec(BMesh *bm, BMOperator *op)
       for (j = 0; j < numcuts; j++) {
         bool ok = true;
 
-        /* Check for special case, see: T32500.
+        /* Check for special case, see: #32500.
          * This edge pair could be used by more than one face,
          * in this case it used to (2.63), split both faces along the same verts
          * while it could be calculated which face should do the split,

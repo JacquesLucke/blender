@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edasset
@@ -9,13 +11,12 @@
 
 #include "BKE_bpath.h"
 #include "BKE_context.h"
-#include "BKE_global.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_preferences.h"
 #include "BKE_report.h"
 
-#include "BLI_fileops.h"
+#include "BLI_fileops.h" /* MSVC needs this for `PATH_MAX` */
 #include "BLI_fnmatch.h"
 #include "BLI_path_util.h"
 #include "BLI_set.hh"
@@ -37,8 +38,6 @@
 
 #include "DNA_space_types.h"
 
-#include "BLO_writefile.h"
-
 using namespace blender;
 
 /* -------------------------------------------------------------------- */
@@ -46,25 +45,32 @@ using namespace blender;
 using PointerRNAVec = blender::Vector<PointerRNA>;
 
 /**
- * Return the IDs to operate on as PointerRNA vector. Either a single one ("id" context member) or
- * multiple ones ("selected_ids" context member).
+ * Return the IDs to operate on as PointerRNA vector. Prioritizes multiple selected ones
+ * ("selected_ids" context member) over a single active one ("id" context member), since usually
+ * batch operations are more useful.
  */
 static PointerRNAVec asset_operation_get_ids_from_context(const bContext *C)
 {
   PointerRNAVec ids;
 
-  PointerRNA idptr = CTX_data_pointer_get_type(C, "id", &RNA_ID);
-  if (idptr.data) {
-    /* Single ID. */
-    ids.append(idptr);
-  }
-  else {
+  /* "selected_ids" context member. */
+  {
     ListBase list;
     CTX_data_selected_ids(C, &list);
     LISTBASE_FOREACH (CollectionPointerLink *, link, &list) {
       ids.append(link->ptr);
     }
     BLI_freelistN(&list);
+
+    if (!ids.is_empty()) {
+      return ids;
+    }
+  }
+
+  /* "id" context member. */
+  PointerRNA idptr = CTX_data_pointer_get_type(C, "id", &RNA_ID);
+  if (idptr.data) {
+    ids.append(idptr);
   }
 
   return ids;
@@ -236,9 +242,7 @@ class AssetClearHelper {
   const bool set_fake_user_;
 
  public:
-  AssetClearHelper(const bool set_fake_user) : set_fake_user_(set_fake_user)
-  {
-  }
+  AssetClearHelper(const bool set_fake_user) : set_fake_user_(set_fake_user) {}
 
   void operator()(PointerRNAVec &ids);
 
@@ -284,7 +288,8 @@ void AssetClearHelper::reportResults(const bContext *C, ReportList &reports) con
     /* Dedicated error message for when there is an active asset detected, but it's not an ID local
      * to this file. Helps users better understanding what's going on. */
     if (AssetHandle active_asset = CTX_wm_asset_handle(C, &is_valid);
-        is_valid && !ED_asset_handle_get_local_id(&active_asset)) {
+        is_valid && !ED_asset_handle_get_local_id(&active_asset))
+    {
       BKE_report(&reports,
                  RPT_ERROR,
                  "No asset data-blocks from the current file selected (assets must be stored in "
@@ -346,9 +351,9 @@ static bool asset_clear_poll(bContext *C)
   return true;
 }
 
-static char *asset_clear_get_description(struct bContext * /*C*/,
-                                         struct wmOperatorType * /*op*/,
-                                         struct PointerRNA *values)
+static char *asset_clear_get_description(bContext * /*C*/,
+                                         wmOperatorType * /*op*/,
+                                         PointerRNA *values)
 {
   const bool set_fake_user = RNA_boolean_get(values, "set_fake_user");
   if (!set_fake_user) {
@@ -421,7 +426,7 @@ static int asset_library_refresh_exec(bContext *C, wmOperator * /*unused*/)
  * used for the asset-view template. Once the asset list design is used by the Asset Browser, this
  * can be simplified to just that case.
  */
-static void ASSET_OT_library_refresh(struct wmOperatorType *ot)
+static void ASSET_OT_library_refresh(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Refresh Asset Library";
@@ -438,17 +443,28 @@ static void ASSET_OT_library_refresh(struct wmOperatorType *ot)
 static bool asset_catalog_operator_poll(bContext *C)
 {
   const SpaceFile *sfile = CTX_wm_space_file(C);
-  return sfile && ED_fileselect_active_asset_library_get(sfile);
+  if (!sfile) {
+    return false;
+  }
+  const AssetLibrary *asset_library = ED_fileselect_active_asset_library_get(sfile);
+  if (!asset_library) {
+    return false;
+  }
+  if (ED_asset_catalogs_read_only(*asset_library)) {
+    CTX_wm_operator_poll_msg_set(C, "Asset catalogs cannot be edited in this asset library");
+    return false;
+  }
+  return true;
 }
 
 static int asset_catalog_new_exec(bContext *C, wmOperator *op)
 {
   SpaceFile *sfile = CTX_wm_space_file(C);
-  struct AssetLibrary *asset_library = ED_fileselect_active_asset_library_get(sfile);
+  AssetLibrary *asset_library = ED_fileselect_active_asset_library_get(sfile);
   char *parent_path = RNA_string_get_alloc(op->ptr, "parent_path", nullptr, 0, nullptr);
 
   blender::asset_system::AssetCatalog *new_catalog = ED_asset_catalog_add(
-      asset_library, "Catalog", parent_path);
+      asset_library, DATA_("Catalog"), parent_path);
 
   if (sfile) {
     ED_fileselect_activate_asset_catalog(sfile, new_catalog->catalog_id);
@@ -462,7 +478,7 @@ static int asset_catalog_new_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static void ASSET_OT_catalog_new(struct wmOperatorType *ot)
+static void ASSET_OT_catalog_new(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "New Asset Catalog";
@@ -484,7 +500,7 @@ static void ASSET_OT_catalog_new(struct wmOperatorType *ot)
 static int asset_catalog_delete_exec(bContext *C, wmOperator *op)
 {
   SpaceFile *sfile = CTX_wm_space_file(C);
-  struct AssetLibrary *asset_library = ED_fileselect_active_asset_library_get(sfile);
+  AssetLibrary *asset_library = ED_fileselect_active_asset_library_get(sfile);
   char *catalog_id_str = RNA_string_get_alloc(op->ptr, "catalog_id", nullptr, 0, nullptr);
   asset_system::CatalogID catalog_id;
   if (!BLI_uuid_parse_string(&catalog_id, catalog_id_str)) {
@@ -501,7 +517,7 @@ static int asset_catalog_delete_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static void ASSET_OT_catalog_delete(struct wmOperatorType *ot)
+static void ASSET_OT_catalog_delete(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Delete Asset Catalog";
@@ -546,7 +562,7 @@ static bool asset_catalog_undo_poll(bContext *C)
   return catalog_service && catalog_service->is_undo_possbile();
 }
 
-static void ASSET_OT_catalog_undo(struct wmOperatorType *ot)
+static void ASSET_OT_catalog_undo(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Undo Catalog Edits";
@@ -576,7 +592,7 @@ static bool asset_catalog_redo_poll(bContext *C)
   return catalog_service && catalog_service->is_redo_possbile();
 }
 
-static void ASSET_OT_catalog_redo(struct wmOperatorType *ot)
+static void ASSET_OT_catalog_redo(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Redo Catalog Edits";
@@ -604,7 +620,7 @@ static bool asset_catalog_undo_push_poll(bContext *C)
   return get_catalog_service(C) != nullptr;
 }
 
-static void ASSET_OT_catalog_undo_push(struct wmOperatorType *ot)
+static void ASSET_OT_catalog_undo_push(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Store undo snapshot for asset catalog edits";
@@ -654,7 +670,7 @@ static int asset_catalogs_save_exec(bContext *C, wmOperator * /*op*/)
   return OPERATOR_FINISHED;
 }
 
-static void ASSET_OT_catalogs_save(struct wmOperatorType *ot)
+static void ASSET_OT_catalogs_save(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Save Asset Catalogs";
@@ -671,10 +687,10 @@ static void ASSET_OT_catalogs_save(struct wmOperatorType *ot)
 /* -------------------------------------------------------------------- */
 
 static bool could_be_asset_bundle(const Main *bmain);
-static const bUserAssetLibrary *selected_asset_library(struct wmOperator *op);
-static bool is_contained_in_selected_asset_library(struct wmOperator *op, const char *filepath);
-static bool set_filepath_for_asset_lib(const Main *bmain, struct wmOperator *op);
-static bool has_external_files(Main *bmain, struct ReportList *reports);
+static const bUserAssetLibrary *selected_asset_library(wmOperator *op);
+static bool is_contained_in_selected_asset_library(wmOperator *op, const char *filepath);
+static bool set_filepath_for_asset_lib(const Main *bmain, wmOperator *op);
+static bool has_external_files(Main *bmain, ReportList *reports);
 
 static bool asset_bundle_install_poll(bContext *C)
 {
@@ -693,7 +709,7 @@ static bool asset_bundle_install_poll(bContext *C)
   }
 
   /* Check whether this file is already located inside any asset library. */
-  const struct bUserAssetLibrary *asset_lib = BKE_preferences_asset_library_containing_path(
+  const bUserAssetLibrary *asset_lib = BKE_preferences_asset_library_containing_path(
       &U, bmain->filepath);
   if (asset_lib) {
     return false;
@@ -702,9 +718,7 @@ static bool asset_bundle_install_poll(bContext *C)
   return true;
 }
 
-static int asset_bundle_install_invoke(struct bContext *C,
-                                       struct wmOperator *op,
-                                       const struct wmEvent * /*event*/)
+static int asset_bundle_install_invoke(bContext *C, wmOperator *op, const wmEvent * /*event*/)
 {
   Main *bmain = CTX_data_main(C);
   if (has_external_files(bmain, op->reports)) {
@@ -790,7 +804,7 @@ static const EnumPropertyItem *rna_asset_library_reference_itemf(bContext * /*C*
   return items;
 }
 
-static void ASSET_OT_bundle_install(struct wmOperatorType *ot)
+static void ASSET_OT_bundle_install(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Copy to Asset Library";
@@ -825,7 +839,7 @@ static bool could_be_asset_bundle(const Main *bmain)
   return fnmatch("*_bundle.blend", bmain->filepath, FNM_CASEFOLD) == 0;
 }
 
-static const bUserAssetLibrary *selected_asset_library(struct wmOperator *op)
+static const bUserAssetLibrary *selected_asset_library(wmOperator *op)
 {
   const int enum_value = RNA_enum_get(op->ptr, "asset_library_ref");
   const AssetLibraryReference lib_ref = ED_asset_library_reference_from_enum_value(enum_value);
@@ -834,20 +848,20 @@ static const bUserAssetLibrary *selected_asset_library(struct wmOperator *op)
   return lib;
 }
 
-static bool is_contained_in_selected_asset_library(struct wmOperator *op, const char *filepath)
+static bool is_contained_in_selected_asset_library(wmOperator *op, const char *filepath)
 {
   const bUserAssetLibrary *lib = selected_asset_library(op);
   if (!lib) {
     return false;
   }
-  return BLI_path_contains(lib->path, filepath);
+  return BLI_path_contains(lib->dirpath, filepath);
 }
 
 /**
  * Set the "filepath" RNA property based on selected "asset_library_ref".
  * \return true if ok, false if error.
  */
-static bool set_filepath_for_asset_lib(const Main *bmain, struct wmOperator *op)
+static bool set_filepath_for_asset_lib(const Main *bmain, wmOperator *op)
 {
   /* Find the directory path of the selected asset library. */
   const bUserAssetLibrary *lib = selected_asset_library(op);
@@ -862,14 +876,14 @@ static bool set_filepath_for_asset_lib(const Main *bmain, struct wmOperator *op)
   }
 
   char file_path[PATH_MAX];
-  BLI_path_join(file_path, sizeof(file_path), lib->path, blend_filename);
+  BLI_path_join(file_path, sizeof(file_path), lib->dirpath, blend_filename);
   RNA_string_set(op->ptr, "filepath", file_path);
 
   return true;
 }
 
 struct FileCheckCallbackInfo {
-  struct ReportList *reports;
+  ReportList *reports;
   Set<std::string> external_files;
 };
 
@@ -890,9 +904,9 @@ static bool external_file_check_callback(BPathForeachPathData *bpath_data,
  *
  * \return true when there are external files, false otherwise.
  */
-static bool has_external_files(Main *bmain, struct ReportList *reports)
+static bool has_external_files(Main *bmain, ReportList *reports)
 {
-  struct FileCheckCallbackInfo callback_info = {reports, Set<std::string>()};
+  FileCheckCallbackInfo callback_info = {reports, Set<std::string>()};
 
   eBPathForeachFlag flag = static_cast<eBPathForeachFlag>(
       BKE_BPATH_FOREACH_PATH_SKIP_PACKED          /* Packed files are fine. */
@@ -900,11 +914,11 @@ static bool has_external_files(Main *bmain, struct ReportList *reports)
       | BKE_BPATH_TRAVERSE_SKIP_WEAK_REFERENCES); /* Only care about actually used files. */
 
   BPathForeachPathData bpath_data = {
-      /* bmain */ bmain,
-      /* callback_function */ &external_file_check_callback,
-      /* flag */ flag,
-      /* user_data */ &callback_info,
-      /* absolute_base_path */ nullptr,
+      /*bmain*/ bmain,
+      /*callback_function*/ &external_file_check_callback,
+      /*flag*/ flag,
+      /*user_data*/ &callback_info,
+      /*absolute_base_path*/ nullptr,
   };
   BKE_bpath_foreach_path_main(&bpath_data);
 

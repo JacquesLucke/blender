@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup creator
@@ -39,7 +40,7 @@
 #include "BKE_context.h"
 #include "BKE_cpp_types.h"
 #include "BKE_global.h"
-#include "BKE_gpencil_modifier.h"
+#include "BKE_gpencil_modifier_legacy.h"
 #include "BKE_idtype.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
@@ -235,12 +236,12 @@ void *gmp_alloc(size_t size)
 {
   return scalable_malloc(size);
 }
-void *gmp_realloc(void *ptr, size_t old_size, size_t new_size)
+void *gmp_realloc(void *ptr, size_t UNUSED(old_size), size_t new_size)
 {
   return scalable_realloc(ptr, new_size);
 }
 
-void gmp_free(void *ptr, size_t size)
+void gmp_free(void *ptr, size_t UNUSED(size))
 {
   scalable_free(ptr);
 }
@@ -297,7 +298,7 @@ int main(int argc,
   /* Un-buffered `stdout` makes `stdout` and `stderr` better synchronized, and helps
    * when stepping through code in a debugger (prints are immediately
    * visible). However disabling buffering causes lock contention on windows
-   * see T76767 for details, since this is a debugging aid, we do not enable
+   * see #76767 for details, since this is a debugging aid, we do not enable
    * the un-buffered behavior for release builds. */
 #ifndef NDEBUG
   setvbuf(stdout, NULL, _IONBF, 0);
@@ -357,8 +358,8 @@ int main(int argc,
     }
     else {
       const char *unknown = "date-unknown";
-      BLI_strncpy(build_commit_date, unknown, sizeof(build_commit_date));
-      BLI_strncpy(build_commit_time, unknown, sizeof(build_commit_time));
+      STRNCPY(build_commit_date, unknown);
+      STRNCPY(build_commit_time, unknown);
     }
   }
 #endif
@@ -447,7 +448,7 @@ int main(int argc,
   /* Ensure we free on early exit. */
   app_init_data.ba = ba;
 
-  main_args_setup(C, ba);
+  main_args_setup(C, ba, false);
 
   /* Begin argument parsing, ignore leaks so arguments that call #exit
    * (such as '--version' & '--help') don't report leaks. */
@@ -539,7 +540,7 @@ int main(int argc,
   /* OK we are ready for it */
 #ifndef WITH_PYTHON_MODULE
   /* Handles #ARG_PASS_FINAL. */
-  main_args_setup_post(C, ba);
+  BLI_args_parse(ba, ARG_PASS_FINAL, main_args_handle_load_file, C);
 #endif
 
   /* Explicitly free data allocated for argument parsing:
@@ -566,25 +567,27 @@ int main(int argc,
 #ifndef WITH_PYTHON_MODULE
   if (G.background) {
     /* Using window-manager API in background-mode is a bit odd, but works fine. */
-    WM_exit(C);
+    WM_exit(C, G.is_break ? EXIT_FAILURE : EXIT_SUCCESS);
   }
   else {
-    /* When no file is loaded, show the splash screen. */
-    const char *blendfile_path = BKE_main_blendfile_path_from_global();
-    if (blendfile_path[0] == '\0') {
-      WM_init_splash(C);
-    }
+    /* Shows the splash as needed. */
+    WM_init_splash_on_startup(C);
+
     WM_main(C);
   }
-#endif /* WITH_PYTHON_MODULE */
+  /* Neither #WM_exit, #WM_main return, this quiets CLANG's `unreachable-code-return` warning. */
+  BLI_assert_unreachable();
+
+#endif /* !WITH_PYTHON_MODULE */
 
   return 0;
+
 } /* End of `int main(...)` function. */
 
 #ifdef WITH_PYTHON_MODULE
 void main_python_exit(void)
 {
-  WM_exit_ex((bContext *)evil_C, true);
+  WM_exit_ex((bContext *)evil_C, true, false);
   evil_C = NULL;
 }
 #endif

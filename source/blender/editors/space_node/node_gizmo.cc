@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spnode
@@ -117,7 +119,7 @@ static void WIDGETGROUP_node_transform_setup(const bContext * /*C*/, wmGizmoGrou
 
   RNA_enum_set(wwrapper->gizmo->ptr,
                "transform",
-               ED_GIZMO_CAGE2D_XFORM_FLAG_TRANSLATE | ED_GIZMO_CAGE2D_XFORM_FLAG_SCALE_UNIFORM);
+               ED_GIZMO_CAGE_XFORM_FLAG_TRANSLATE | ED_GIZMO_CAGE_XFORM_FLAG_SCALE_UNIFORM);
 
   gzgroup->customdata = wwrapper;
 }
@@ -200,7 +202,7 @@ struct NodeCropWidgetGroup {
   } update_data;
 };
 
-static void gizmo_node_crop_update(struct NodeCropWidgetGroup *crop_group)
+static void gizmo_node_crop_update(NodeCropWidgetGroup *crop_group)
 {
   RNA_property_update(
       crop_group->update_data.context, &crop_group->update_data.ptr, crop_group->update_data.prop);
@@ -285,10 +287,10 @@ static void gizmo_node_crop_prop_matrix_set(const wmGizmo *gz,
   rct_isect.ymax = 1;
   BLI_rctf_isect(&rct_isect, &rct, &rct);
   if (nx) {
-    SWAP(float, rct.xmin, rct.xmax);
+    std::swap(rct.xmin, rct.xmax);
   }
   if (ny) {
-    SWAP(float, rct.ymin, rct.ymax);
+    std::swap(rct.ymin, rct.ymax);
   }
   two_xy_from_rect(nxy, &rct, dims, is_relative);
   gizmo_node_crop_update(crop_group);
@@ -323,7 +325,7 @@ static void WIDGETGROUP_node_crop_setup(const bContext * /*C*/, wmGizmoGroup *gz
 
   RNA_enum_set(crop_group->border->ptr,
                "transform",
-               ED_GIZMO_CAGE2D_XFORM_FLAG_TRANSLATE | ED_GIZMO_CAGE2D_XFORM_FLAG_SCALE);
+               ED_GIZMO_CAGE_XFORM_FLAG_TRANSLATE | ED_GIZMO_CAGE_XFORM_FLAG_SCALE);
 
   gzgroup->customdata = crop_group;
 }

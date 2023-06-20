@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -6,8 +8,7 @@
 
 #pragma once
 
-#include "BLI_float3x3.hh"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_matrix.hh"
 #include "BLI_span.hh"
 
 struct Depsgraph;
@@ -38,7 +39,7 @@ struct GeometryDeformation {
       return translation;
     }
     const float3x3 &deform_mat = this->deform_mats[position_i];
-    return deform_mat.inverted() * translation;
+    return math::transform_point(math::invert(deform_mat), translation);
   }
 };
 
@@ -47,7 +48,11 @@ struct GeometryDeformation {
  * function either retrieves the deformation data from the evaluated object, or falls back to
  * returning the original data.
  */
+GeometryDeformation get_evaluated_curves_deformation(const Object *ob_eval, const Object &ob_orig);
 GeometryDeformation get_evaluated_curves_deformation(const Depsgraph &depsgraph,
                                                      const Object &ob_orig);
+GeometryDeformation get_evaluated_grease_pencil_drawing_deformation(const Object *ob_eval,
+                                                                    const Object &ob_orig,
+                                                                    int drawing_index);
 
 }  // namespace blender::bke::crazyspace

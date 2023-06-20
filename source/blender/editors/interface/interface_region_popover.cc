@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2008 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2008 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edinterface
@@ -45,7 +46,7 @@
 
 #include "UI_interface.h"
 
-#include "interface_intern.h"
+#include "interface_intern.hh"
 #include "interface_regions_intern.hh"
 
 /* -------------------------------------------------------------------- */
@@ -61,7 +62,7 @@ struct uiPopover {
   /* Needed for keymap removal. */
   wmWindow *window;
   wmKeyMap *keymap;
-  struct wmEventHandler_Keymap *keymap_handler;
+  wmEventHandler_Keymap *keymap_handler;
 
   uiMenuCreateFunc menu_func;
   void *menu_arg;
@@ -397,7 +398,7 @@ void UI_popover_end(bContext *C, uiPopover *pup, wmKeyMap *keymap)
 
   pup->window = window;
 
-  /* TODO(@campbellbarton): we may want to make this configurable.
+  /* TODO(@ideasman42): we may want to make this configurable.
    * The begin/end stype of calling popups doesn't allow 'can_refresh' to be set.
    * For now close this style of popovers when accessed. */
   UI_block_flag_disable(pup->block, UI_BLOCK_KEEP_OPEN);

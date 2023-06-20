@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2004-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -102,7 +104,8 @@ static PyObject *UnaryPredicate0D___call__(BPy_UnaryPredicate0D *self,
   PyObject *py_if0D_it;
 
   if (!PyArg_ParseTupleAndKeywords(
-          args, kwds, "O!", (char **)kwlist, &Interface0DIterator_Type, &py_if0D_it)) {
+          args, kwds, "O!", (char **)kwlist, &Interface0DIterator_Type, &py_if0D_it))
+  {
     return nullptr;
   }
 

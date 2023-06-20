@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -99,6 +101,15 @@ static void rna_trackingPlaneTracks_begin(CollectionPropertyIterator *iter, Poin
   MovieTrackingObject *tracking_camera_object = BKE_tracking_object_get_camera(&clip->tracking);
 
   rna_iterator_listbase_begin(iter, &tracking_camera_object->plane_tracks, NULL);
+}
+
+static PointerRNA rna_trackingReconstruction_get(PointerRNA *ptr)
+{
+  MovieClip *clip = (MovieClip *)ptr->owner_id;
+  MovieTrackingObject *tracking_camera_object = BKE_tracking_object_get_camera(&clip->tracking);
+
+  return rna_pointer_inherit_refine(
+      ptr, &RNA_MovieTrackingReconstruction, &tracking_camera_object->reconstruction);
 }
 
 static void rna_trackingObjects_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
@@ -255,16 +266,18 @@ static void rna_trackingTrack_name_set(PointerRNA *ptr, const char *value)
                                                                             track);
   /* Store old name, for the animation fix later. */
   char old_name[sizeof(track->name)];
-  BLI_strncpy(old_name, track->name, sizeof(track->name));
+  STRNCPY(old_name, track->name);
   /* Update the name, */
-  BLI_strncpy(track->name, value, sizeof(track->name));
+  STRNCPY(track->name, value);
   BKE_tracking_track_unique_name(&tracking_object->tracks, track);
   /* Fix animation paths. */
   AnimData *adt = BKE_animdata_from_id(&clip->id);
   if (adt != NULL) {
-    char rna_path[MAX_NAME * 2 + 64];
-    BKE_tracking_get_rna_path_prefix_for_track(&clip->tracking, track, rna_path, sizeof(rna_path));
-    BKE_animdata_fix_paths_rename(&clip->id, adt, NULL, rna_path, old_name, track->name, 0, 0, 1);
+    char rna_path_prefix[MAX_NAME * 2 + 64];
+    BKE_tracking_get_rna_path_prefix_for_track(
+        &clip->tracking, track, rna_path_prefix, sizeof(rna_path_prefix));
+    BKE_animdata_fix_paths_rename(
+        &clip->id, adt, NULL, rna_path_prefix, old_name, track->name, 0, 0, 1);
   }
 }
 
@@ -301,7 +314,8 @@ static void rna_trackingPlaneMarker_frame_set(PointerRNA *ptr, int value)
   LISTBASE_FOREACH (MovieTrackingObject *, tracking_object, &tracking->objects) {
     LISTBASE_FOREACH (MovieTrackingPlaneTrack *, plane_track, &tracking_object->plane_tracks) {
       if (plane_marker >= plane_track->markers &&
-          plane_marker < plane_track->markers + plane_track->markersnr) {
+          plane_marker < plane_track->markers + plane_track->markersnr)
+      {
         plane_track_of_marker = plane_track;
         break;
       }
@@ -340,9 +354,9 @@ static void rna_trackingPlaneTrack_name_set(PointerRNA *ptr, const char *value)
                                                                                   plane_track);
   /* Store old name, for the animation fix later. */
   char old_name[sizeof(plane_track->name)];
-  BLI_strncpy(old_name, plane_track->name, sizeof(plane_track->name));
+  STRNCPY(old_name, plane_track->name);
   /* Update the name, */
-  BLI_strncpy(plane_track->name, value, sizeof(plane_track->name));
+  STRNCPY(plane_track->name, value);
   BKE_tracking_plane_track_unique_name(&tracking_object->plane_tracks, plane_track);
   /* Fix animation paths. */
   AnimData *adt = BKE_animdata_from_id(&clip->id);
@@ -561,7 +575,7 @@ static void rna_trackingObject_name_set(PointerRNA *ptr, const char *value)
   MovieClip *clip = (MovieClip *)ptr->owner_id;
   MovieTrackingObject *tracking_object = (MovieTrackingObject *)ptr->data;
 
-  BLI_strncpy(tracking_object->name, value, sizeof(tracking_object->name));
+  STRNCPY(tracking_object->name, value);
 
   BKE_tracking_object_unique_name(&clip->tracking, tracking_object);
 }
@@ -660,7 +674,7 @@ static MovieTrackingTrack *add_track_to_base(
   track = BKE_tracking_track_add(tracking, tracksbase, 0, 0, frame, width, height);
 
   if (name && name[0]) {
-    BLI_strncpy(track->name, name, sizeof(track->name));
+    STRNCPY(track->name, name);
     BKE_tracking_track_unique_name(tracksbase, track);
   }
 
@@ -886,7 +900,7 @@ static const EnumPropertyItem tracker_motion_model[] = {
 
 static const EnumPropertyItem pattern_match_items[] = {
     {TRACK_MATCH_KEYFRAME, "KEYFRAME", 0, "Keyframe", "Track pattern from keyframe to next frame"},
-    {TRACK_MATCH_PREVIOS_FRAME,
+    {TRACK_MATCH_PREVIOUS_FRAME,
      "PREV_FRAME",
      0,
      "Previous frame",
@@ -900,7 +914,7 @@ static void rna_def_trackingSettings(BlenderRNA *brna)
   PropertyRNA *prop;
 
   static const EnumPropertyItem speed_items[] = {
-      {0, "FASTEST", 0, "Fastest", "Track as fast as it's possible"},
+      {0, "FASTEST", 0, "Fastest", "Track as fast as possible"},
       {TRACKING_SPEED_DOUBLE, "DOUBLE", 0, "Double", "Track with double speed"},
       {TRACKING_SPEED_REALTIME, "REALTIME", 0, "Realtime", "Track with realtime speed"},
       {TRACKING_SPEED_HALF, "HALF", 0, "Half", "Track with half of realtime speed"},
@@ -2609,6 +2623,7 @@ static void rna_def_tracking(BlenderRNA *brna)
   /* reconstruction */
   prop = RNA_def_property(srna, "reconstruction", PROP_POINTER, PROP_NONE);
   RNA_def_property_pointer_sdna(prop, NULL, "reconstruction_legacy");
+  RNA_def_property_pointer_funcs(prop, "rna_trackingReconstruction_get", NULL, NULL, NULL);
   RNA_def_property_struct_type(prop, "MovieTrackingReconstruction");
 
   /* objects */

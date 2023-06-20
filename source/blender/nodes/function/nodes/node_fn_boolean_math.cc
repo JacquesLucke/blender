@@ -1,7 +1,10 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_listbase.h"
 #include "BLI_string.h"
+#include "BLI_string_utf8.h"
 
 #include "RNA_enum_types.h"
 
@@ -14,49 +17,51 @@
 
 namespace blender::nodes::node_fn_boolean_math_cc {
 
-static void fn_node_boolean_math_declare(NodeDeclarationBuilder &b)
+static void node_declare(NodeDeclarationBuilder &b)
 {
   b.is_function_node();
-  b.add_input<decl::Bool>(N_("Boolean"), "Boolean");
-  b.add_input<decl::Bool>(N_("Boolean"), "Boolean_001");
-  b.add_output<decl::Bool>(N_("Boolean"));
+  b.add_input<decl::Bool>("Boolean", "Boolean");
+  b.add_input<decl::Bool>("Boolean", "Boolean_001");
+  b.add_output<decl::Bool>("Boolean");
 }
 
-static void fn_node_boolean_math_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "operation", 0, "", ICON_NONE);
 }
 
-static void node_boolean_math_update(bNodeTree *ntree, bNode *node)
+static void node_update(bNodeTree *ntree, bNode *node)
 {
   bNodeSocket *sockB = (bNodeSocket *)BLI_findlink(&node->inputs, 1);
 
-  nodeSetSocketAvailability(ntree, sockB, !ELEM(node->custom1, NODE_BOOLEAN_MATH_NOT));
+  bke::nodeSetSocketAvailability(ntree, sockB, !ELEM(node->custom1, NODE_BOOLEAN_MATH_NOT));
 }
 
-static void node_boolean_math_label(const bNodeTree * /*tree*/,
-                                    const bNode *node,
-                                    char *label,
-                                    int maxlen)
+static void node_label(const bNodeTree * /*tree*/,
+                       const bNode *node,
+                       char *label,
+                       int label_maxncpy)
 {
   const char *name;
   bool enum_label = RNA_enum_name(rna_enum_node_boolean_math_items, node->custom1, &name);
   if (!enum_label) {
     name = "Unknown";
   }
-  BLI_strncpy(label, IFACE_(name), maxlen);
+  BLI_strncpy_utf8(label, IFACE_(name), label_maxncpy);
 }
 
 static void node_gather_link_searches(GatherLinkSearchOpParams &params)
 {
   if (!params.node_tree().typeinfo->validate_link(
-          static_cast<eNodeSocketDatatype>(params.other_socket().type), SOCK_BOOLEAN)) {
+          static_cast<eNodeSocketDatatype>(params.other_socket().type), SOCK_BOOLEAN))
+  {
     return;
   }
 
   for (const EnumPropertyItem *item = rna_enum_node_boolean_math_items;
        item->identifier != nullptr;
-       item++) {
+       item++)
+  {
     if (item->name != nullptr && item->identifier[0] != '\0') {
       NodeBooleanMathOperation operation = static_cast<NodeBooleanMathOperation>(item->value);
       params.add_item(IFACE_(item->name), [operation](LinkSearchOpParams &params) {
@@ -68,26 +73,27 @@ static void node_gather_link_searches(GatherLinkSearchOpParams &params)
   }
 }
 
-static const fn::MultiFunction *get_multi_function(const bNode &bnode)
+static const mf::MultiFunction *get_multi_function(const bNode &bnode)
 {
-  static auto exec_preset = fn::CustomMF_presets::AllSpanOrSingle();
-  static fn::CustomMF_SI_SI_SO<bool, bool, bool> and_fn{
-      "And", [](bool a, bool b) { return a && b; }, exec_preset};
-  static fn::CustomMF_SI_SI_SO<bool, bool, bool> or_fn{
-      "Or", [](bool a, bool b) { return a || b; }, exec_preset};
-  static fn::CustomMF_SI_SO<bool, bool> not_fn{"Not", [](bool a) { return !a; }, exec_preset};
-  static fn::CustomMF_SI_SI_SO<bool, bool, bool> nand_fn{
-      "Not And", [](bool a, bool b) { return !(a && b); }, exec_preset};
-  static fn::CustomMF_SI_SI_SO<bool, bool, bool> nor_fn{
-      "Nor", [](bool a, bool b) { return !(a || b); }, exec_preset};
-  static fn::CustomMF_SI_SI_SO<bool, bool, bool> xnor_fn{
-      "Equal", [](bool a, bool b) { return a == b; }, exec_preset};
-  static fn::CustomMF_SI_SI_SO<bool, bool, bool> xor_fn{
-      "Not Equal", [](bool a, bool b) { return a != b; }, exec_preset};
-  static fn::CustomMF_SI_SI_SO<bool, bool, bool> imply_fn{
-      "Imply", [](bool a, bool b) { return !a || b; }, exec_preset};
-  static fn::CustomMF_SI_SI_SO<bool, bool, bool> nimply_fn{
-      "Subtract", [](bool a, bool b) { return a && !b; }, exec_preset};
+  static auto exec_preset = mf::build::exec_presets::AllSpanOrSingle();
+  static auto and_fn = mf::build::SI2_SO<bool, bool, bool>(
+      "And", [](bool a, bool b) { return a && b; }, exec_preset);
+  static auto or_fn = mf::build::SI2_SO<bool, bool, bool>(
+      "Or", [](bool a, bool b) { return a || b; }, exec_preset);
+  static auto not_fn = mf::build::SI1_SO<bool, bool>(
+      "Not", [](bool a) { return !a; }, exec_preset);
+  static auto nand_fn = mf::build::SI2_SO<bool, bool, bool>(
+      "Not And", [](bool a, bool b) { return !(a && b); }, exec_preset);
+  static auto nor_fn = mf::build::SI2_SO<bool, bool, bool>(
+      "Nor", [](bool a, bool b) { return !(a || b); }, exec_preset);
+  static auto xnor_fn = mf::build::SI2_SO<bool, bool, bool>(
+      "Equal", [](bool a, bool b) { return a == b; }, exec_preset);
+  static auto xor_fn = mf::build::SI2_SO<bool, bool, bool>(
+      "Not Equal", [](bool a, bool b) { return a != b; }, exec_preset);
+  static auto imply_fn = mf::build::SI2_SO<bool, bool, bool>(
+      "Imply", [](bool a, bool b) { return !a || b; }, exec_preset);
+  static auto nimply_fn = mf::build::SI2_SO<bool, bool, bool>(
+      "Subtract", [](bool a, bool b) { return a && !b; }, exec_preset);
 
   switch (bnode.custom1) {
     case NODE_BOOLEAN_MATH_AND:
@@ -114,9 +120,9 @@ static const fn::MultiFunction *get_multi_function(const bNode &bnode)
   return nullptr;
 }
 
-static void fn_node_boolean_math_build_multi_function(NodeMultiFunctionBuilder &builder)
+static void node_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
-  const fn::MultiFunction *fn = get_multi_function(builder.node());
+  const mf::MultiFunction *fn = get_multi_function(builder.node());
   builder.set_matching_fn(fn);
 }
 
@@ -129,11 +135,11 @@ void register_node_type_fn_boolean_math()
   static bNodeType ntype;
 
   fn_node_type_base(&ntype, FN_NODE_BOOLEAN_MATH, "Boolean Math", NODE_CLASS_CONVERTER);
-  ntype.declare = file_ns::fn_node_boolean_math_declare;
-  ntype.labelfunc = file_ns::node_boolean_math_label;
-  ntype.updatefunc = file_ns::node_boolean_math_update;
-  ntype.build_multi_function = file_ns::fn_node_boolean_math_build_multi_function;
-  ntype.draw_buttons = file_ns::fn_node_boolean_math_layout;
+  ntype.declare = file_ns::node_declare;
+  ntype.labelfunc = file_ns::node_label;
+  ntype.updatefunc = file_ns::node_update;
+  ntype.build_multi_function = file_ns::node_build_multi_function;
+  ntype.draw_buttons = file_ns::node_layout;
   ntype.gather_link_search_ops = file_ns::node_gather_link_searches;
   nodeRegisterType(&ntype);
 }

@@ -1,9 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 /** \file
  * \ingroup bke
  */
+
+#include "BKE_undo_system.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,8 +16,6 @@ extern "C" {
 struct Main;
 struct MemFileUndoData;
 struct bContext;
-
-enum eUndoStepDir;
 
 #define BKE_UNDO_STR_MAX 64
 

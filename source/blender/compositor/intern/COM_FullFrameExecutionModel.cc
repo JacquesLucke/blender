@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2021 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2021 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "COM_FullFrameExecutionModel.h"
 
@@ -32,7 +33,8 @@ FullFrameExecutionModel::FullFrameExecutionModel(CompositorContext &context,
 void FullFrameExecutionModel::execute(ExecutionSystem &exec_system)
 {
   const bNodeTree *node_tree = this->context_.get_bnodetree();
-  node_tree->stats_draw(node_tree->sdh, TIP_("Compositing | Initializing execution"));
+  node_tree->runtime->stats_draw(node_tree->runtime->sdh,
+                                 TIP_("Compositing | Initializing execution"));
 
   DebugInfo::graphviz(&exec_system, "compositor_prior_rendering");
 
@@ -272,15 +274,14 @@ void FullFrameExecutionModel::update_progress_bar()
   const bNodeTree *tree = context_.get_bnodetree();
   if (tree) {
     const float progress = num_operations_finished_ / float(operations_.size());
-    tree->progress(tree->prh, progress);
+    tree->runtime->progress(tree->runtime->prh, progress);
 
     char buf[128];
-    BLI_snprintf(buf,
-                 sizeof(buf),
-                 TIP_("Compositing | Operation %i-%li"),
-                 num_operations_finished_ + 1,
-                 operations_.size());
-    tree->stats_draw(tree->sdh, buf);
+    SNPRINTF(buf,
+             TIP_("Compositing | Operation %i-%li"),
+             num_operations_finished_ + 1,
+             operations_.size());
+    tree->runtime->stats_draw(tree->runtime->sdh, buf);
   }
 }
 

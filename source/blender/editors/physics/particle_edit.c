@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2007 by Janne Karhu. All rights reserved. */
+/* SPDX-FileCopyrightText: 2007 by Janne Karhu. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edphys
@@ -622,7 +623,8 @@ static bool key_inside_circle(const PEData *data, float rad, const float co[3], 
 
   /* TODO: should this check V3D_PROJ_TEST_CLIP_BB too? */
   if (ED_view3d_project_int_global(data->vc.region, co, screen_co, V3D_PROJ_TEST_CLIP_WIN) !=
-      V3D_PROJ_RET_OK) {
+      V3D_PROJ_RET_OK)
+  {
     return 0;
   }
 
@@ -650,12 +652,14 @@ static bool key_inside_rect(PEData *data, const float co[3])
   int screen_co[2];
 
   if (ED_view3d_project_int_global(data->vc.region, co, screen_co, V3D_PROJ_TEST_CLIP_WIN) !=
-      V3D_PROJ_RET_OK) {
+      V3D_PROJ_RET_OK)
+  {
     return 0;
   }
 
   if (screen_co[0] > data->rect->xmin && screen_co[0] < data->rect->xmax &&
-      screen_co[1] > data->rect->ymin && screen_co[1] < data->rect->ymax) {
+      screen_co[1] > data->rect->ymin && screen_co[1] < data->rect->ymax)
+  {
     return key_test_depth(data, co, screen_co);
   }
 
@@ -1264,7 +1268,8 @@ static void pe_deflect_emitter(Scene *scene, Object *ob, PTCacheEdit *edit)
   const float dist = ED_view3d_select_dist_px() * 0.01f;
 
   if (edit == NULL || edit->psys == NULL || (pset->flag & PE_DEFLECT_EMITTER) == 0 ||
-      (edit->psys->flag & PSYS_GLOBAL_HAIR)) {
+      (edit->psys->flag & PSYS_GLOBAL_HAIR))
+  {
     return;
   }
 
@@ -1452,28 +1457,23 @@ void recalc_emitter_field(Depsgraph *UNUSED(depsgraph), Object *UNUSED(ob), Part
   vec = edit->emitter_cosnos;
   nor = vec + 3;
 
-  const MVert *verts = BKE_mesh_verts(mesh);
-  const float(*vert_normals)[3] = BKE_mesh_vertex_normals_ensure(mesh);
-  MFace *mfaces = (MFace *)CustomData_get_layer(&mesh->fdata, CD_MFACE);
+  const float(*positions)[3] = BKE_mesh_vert_positions(mesh);
+  const float(*vert_normals)[3] = BKE_mesh_vert_normals_ensure(mesh);
+  const MFace *mfaces = (const MFace *)CustomData_get_layer(&mesh->fdata, CD_MFACE);
   for (i = 0; i < totface; i++, vec += 6, nor += 6) {
-    MFace *mface = &mfaces[i];
-    const MVert *mvert;
+    const MFace *mface = &mfaces[i];
 
-    mvert = &verts[mface->v1];
-    copy_v3_v3(vec, mvert->co);
+    copy_v3_v3(vec, positions[mface->v1]);
     copy_v3_v3(nor, vert_normals[mface->v1]);
 
-    mvert = &verts[mface->v2];
-    add_v3_v3v3(vec, vec, mvert->co);
+    add_v3_v3v3(vec, vec, positions[mface->v2]);
     add_v3_v3(nor, vert_normals[mface->v2]);
 
-    mvert = &verts[mface->v3];
-    add_v3_v3v3(vec, vec, mvert->co);
+    add_v3_v3v3(vec, vec, positions[mface->v3]);
     add_v3_v3(nor, vert_normals[mface->v3]);
 
     if (mface->v4) {
-      mvert = &verts[mface->v4];
-      add_v3_v3v3(vec, vec, mvert->co);
+      add_v3_v3v3(vec, vec, positions[mface->v4]);
       add_v3_v3(nor, vert_normals[mface->v4]);
 
       mul_v3_fl(vec, 0.25);
@@ -2349,7 +2349,7 @@ static void pe_select_cache_free_generic_userdata(void *data)
 
 static void pe_select_cache_init_with_generic_userdata(bContext *C, wmGenericUserData *wm_userdata)
 {
-  struct PEData *data = MEM_callocN(sizeof(*data), __func__);
+  PEData *data = MEM_callocN(sizeof(*data), __func__);
   wm_userdata->data = data;
   wm_userdata->free_fn = pe_select_cache_free_generic_userdata;
   wm_userdata->use_free = true;
@@ -3239,7 +3239,7 @@ static int remove_doubles_exec(bContext *C, wmOperator *op)
 
     tree = BLI_kdtree_3d_new(psys->totpart);
 
-    /* insert particles into kd tree */
+    /* Insert particles into KD-tree. */
     LOOP_SELECTED_POINTS {
       psys_mat_hair_to_object(
           ob, psmd_eval->mesh_final, psys->part->from, psys->particles + p, mat);
@@ -3569,9 +3569,10 @@ static void PE_mirror_x(Depsgraph *depsgraph, Scene *scene, Object *ob, int tagg
   }
 
   if (newtotpart != psys->totpart) {
-    MFace *mtessface = use_dm_final_indices ?
-                           (MFace *)CustomData_get_layer(&psmd_eval->mesh_final->fdata, CD_MFACE) :
-                           (MFace *)CustomData_get_layer(&me->fdata, CD_MFACE);
+    const MFace *mtessface = use_dm_final_indices ?
+                                 (const MFace *)CustomData_get_layer(&psmd_eval->mesh_final->fdata,
+                                                                     CD_MFACE) :
+                                 (const MFace *)CustomData_get_layer(&me->fdata, CD_MFACE);
 
     /* allocate new arrays and copy existing */
     new_pars = MEM_callocN(newtotpart * sizeof(ParticleData), "ParticleData new");
@@ -3773,7 +3774,8 @@ static void brush_cut(PEData *data, int pa_index)
   }
 
   if (ED_view3d_project_int_global(region, key->co, screen_co, V3D_PROJ_TEST_CLIP_NEAR) !=
-      V3D_PROJ_RET_OK) {
+      V3D_PROJ_RET_OK)
+  {
     return;
   }
 
@@ -3801,7 +3803,8 @@ static void brush_cut(PEData *data, int pa_index)
 
       if ((ED_view3d_project_int_global(region, key->co, screen_co, V3D_PROJ_TEST_CLIP_NEAR) !=
            V3D_PROJ_RET_OK) ||
-          key_test_depth(data, key->co, screen_co) == 0) {
+          key_test_depth(data, key->co, screen_co) == 0)
+      {
         x0 = (float)screen_co[0];
         x1 = (float)screen_co[1];
 
@@ -3962,7 +3965,7 @@ static void brush_puff(PEData *data, int point_index, float mouse_distance)
         /* blend between the current and straight position */
         sub_v3_v3v3(dco, kco, co);
         madd_v3_v3fl(co, dco, fac);
-        /* keep the same distance from the root or we get glitches T35406. */
+        /* keep the same distance from the root or we get glitches #35406. */
         dist_ensure_v3_v3fl(co, co_root, length_accum);
 
         /* Re-use dco to compare before and after translation and add to the offset. */
@@ -4141,8 +4144,7 @@ static int particle_intersect_mesh(Depsgraph *depsgraph,
                                    float radius,
                                    float *ipoint)
 {
-  MFace *mface = NULL;
-  MVert *mvert = NULL;
+  const MFace *mface = NULL;
   int i, totface, intersect = 0;
   float cur_d, cur_uv[2], v1[3], v2[3], v3[3], v4[3], min[3], max[3], p_min[3], p_max[3];
   float cur_ipoint[3];
@@ -4150,12 +4152,10 @@ static int particle_intersect_mesh(Depsgraph *depsgraph,
   if (mesh == NULL) {
     psys_disable_all(ob);
 
-    Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
     Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
-
-    mesh = mesh_get_eval_final(depsgraph, scene_eval, ob_eval, &CD_MASK_BAREMESH);
+    mesh = (Mesh *)BKE_object_get_evaluated_mesh(ob_eval);
     if (mesh == NULL) {
-      mesh = mesh_get_eval_deform(depsgraph, scene_eval, ob_eval, &CD_MASK_BAREMESH);
+      return 0;
     }
 
     psys_enable_all(ob);
@@ -4179,8 +4179,8 @@ static int particle_intersect_mesh(Depsgraph *depsgraph,
   }
 
   totface = mesh->totface;
-  mface = (MFace *)CustomData_get_layer(&mesh->fdata, CD_MFACE);
-  mvert = BKE_mesh_verts_for_write(mesh);
+  mface = (const MFace *)CustomData_get_layer(&mesh->fdata, CD_MFACE);
+  float(*positions)[3] = BKE_mesh_vert_positions_for_write(mesh);
 
   /* lets intersect the faces */
   for (i = 0; i < totface; i++, mface++) {
@@ -4193,11 +4193,11 @@ static int particle_intersect_mesh(Depsgraph *depsgraph,
       }
     }
     else {
-      copy_v3_v3(v1, mvert[mface->v1].co);
-      copy_v3_v3(v2, mvert[mface->v2].co);
-      copy_v3_v3(v3, mvert[mface->v3].co);
+      copy_v3_v3(v1, positions[mface->v1]);
+      copy_v3_v3(v2, positions[mface->v2]);
+      copy_v3_v3(v3, positions[mface->v3]);
       if (mface->v4) {
-        copy_v3_v3(v4, mvert[mface->v4].co);
+        copy_v3_v3(v4, positions[mface->v4]);
       }
     }
 
@@ -4352,7 +4352,8 @@ static void brush_add_count_iter(void *__restrict iter_data_v,
                               0,
                               0,
                               0,
-                              0)) {
+                              0))
+  {
     if (psys->part->use_modifier_stack && !BKE_mesh_is_deformed_only(psmd_eval->mesh_final)) {
       add_pars[iter].num = add_pars[iter].num_dmcache;
       add_pars[iter].num_dmcache = DMCACHE_ISCHILD;
@@ -4766,7 +4767,8 @@ static void brush_edit_apply(bContext *C, wmOperator *op, PointerRNA *itemptr)
   if (((pset->brushtype == PE_BRUSH_ADD) ?
            (sqrtf(dx * dx + dy * dy) > pset->brush[PE_BRUSH_ADD].step) :
            (dx != 0 || dy != 0)) ||
-      bedit->first) {
+      bedit->first)
+  {
     PEData data = bedit->data;
     data.context = C; /* TODO(mai): why isn't this set in bedit->data? */
 
@@ -5693,7 +5695,7 @@ static int unify_length_exec(bContext *C, wmOperator *UNUSED(op))
   return OPERATOR_FINISHED;
 }
 
-void PARTICLE_OT_unify_length(struct wmOperatorType *ot)
+void PARTICLE_OT_unify_length(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Unify Length";

@@ -1,6 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "BLI_index_mask_ops.hh"
+#include "BLI_array_utils.hh"
 #include "BLI_map.hh"
 #include "BLI_multi_value_map.hh"
 #include "BLI_set.hh"
@@ -83,7 +85,7 @@ static FieldTreeInfo preprocess_field_tree(Span<GFieldRef> entry_fields)
  */
 static Vector<GVArray> get_field_context_inputs(
     ResourceScope &scope,
-    const IndexMask mask,
+    const IndexMask &mask,
     const FieldContext &context,
     const Span<std::reference_wrapper<const FieldInput>> field_inputs)
 {
@@ -141,19 +143,19 @@ static Set<GFieldRef> find_varying_fields(const FieldTreeInfo &field_tree_info,
 /**
  * Builds the #procedure so that it computes the fields.
  */
-static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
+static void build_multi_function_procedure_for_fields(mf::Procedure &procedure,
                                                       ResourceScope &scope,
                                                       const FieldTreeInfo &field_tree_info,
                                                       Span<GFieldRef> output_fields)
 {
-  MFProcedureBuilder builder{procedure};
+  mf::ProcedureBuilder builder{procedure};
   /* Every input, intermediate and output field corresponds to a variable in the procedure. */
-  Map<GFieldRef, MFVariable *> variable_by_field;
+  Map<GFieldRef, mf::Variable *> variable_by_field;
 
   /* Start by adding the field inputs as parameters to the procedure. */
   for (const FieldInput &field_input : field_tree_info.deduplicated_field_inputs) {
-    MFVariable &variable = builder.add_input_parameter(
-        MFDataType::ForSingle(field_input.cpp_type()), field_input.debug_name());
+    mf::Variable &variable = builder.add_input_parameter(
+        mf::DataType::ForSingle(field_input.cpp_type()), field_input.debug_name());
     variable_by_field.add_new({field_input, 0}, &variable);
   }
 
@@ -195,20 +197,20 @@ static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
           else {
             /* All inputs variables are ready, now gather all variables that are used by the
              * function and call it. */
-            const MultiFunction &multi_function = operation_node.multi_function();
-            Vector<MFVariable *> variables(multi_function.param_amount());
+            const mf::MultiFunction &multi_function = operation_node.multi_function();
+            Vector<mf::Variable *> variables(multi_function.param_amount());
 
             int param_input_index = 0;
             int param_output_index = 0;
             for (const int param_index : multi_function.param_indices()) {
-              const MFParamType param_type = multi_function.param_type(param_index);
-              const MFParamType::InterfaceType interface_type = param_type.interface_type();
-              if (interface_type == MFParamType::Input) {
+              const mf::ParamType param_type = multi_function.param_type(param_index);
+              const mf::ParamType::InterfaceType interface_type = param_type.interface_type();
+              if (interface_type == mf::ParamType::Input) {
                 const GField &input_field = operation_inputs[param_input_index];
                 variables[param_index] = variable_by_field.lookup(input_field);
                 param_input_index++;
               }
-              else if (interface_type == MFParamType::Output) {
+              else if (interface_type == mf::ParamType::Output) {
                 const GFieldRef output_field{operation_node, param_output_index};
                 const bool output_is_ignored =
                     field_tree_info.field_users.lookup(output_field).is_empty() &&
@@ -219,7 +221,7 @@ static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
                 }
                 else {
                   /* Create a new variable for used outputs. */
-                  MFVariable &new_variable = procedure.new_variable(param_type.data_type());
+                  mf::Variable &new_variable = procedure.new_variable(param_type.data_type());
                   variables[param_index] = &new_variable;
                   variable_by_field.add_new(output_field, &new_variable);
                 }
@@ -235,9 +237,9 @@ static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
         }
         case FieldNodeType::Constant: {
           const FieldConstant &constant_node = static_cast<const FieldConstant &>(field_node);
-          const MultiFunction &fn = procedure.construct_function<CustomMF_GenericConstant>(
+          const mf::MultiFunction &fn = procedure.construct_function<mf::CustomMF_GenericConstant>(
               constant_node.type(), constant_node.value().get(), false);
-          MFVariable &new_variable = *builder.add_call<1>(fn)[0];
+          mf::Variable &new_variable = *builder.add_call<1>(fn)[0];
           variable_by_field.add_new(field, &new_variable);
           break;
         }
@@ -246,13 +248,14 @@ static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
   }
 
   /* Add output parameters to the procedure. */
-  Set<MFVariable *> already_output_variables;
+  Set<mf::Variable *> already_output_variables;
   for (const GFieldRef &field : output_fields) {
-    MFVariable *variable = variable_by_field.lookup(field);
+    mf::Variable *variable = variable_by_field.lookup(field);
     if (!already_output_variables.add(variable)) {
       /* One variable can be output at most once. To output the same value twice, we have to make
        * a copy first. */
-      const MultiFunction &copy_fn = scope.construct<CustomMF_GenericCopy>(variable->data_type());
+      const mf::MultiFunction &copy_fn = scope.construct<mf::CustomMF_GenericCopy>(
+          variable->data_type());
       variable = builder.add_call<1>(copy_fn, {variable})[0];
     }
     builder.add_output_parameter(*variable);
@@ -263,13 +266,13 @@ static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
     variable_by_field.remove(field);
   }
   /* Add destructor calls for the remaining variables. */
-  for (MFVariable *variable : variable_by_field.values()) {
+  for (mf::Variable *variable : variable_by_field.values()) {
     builder.add_destruct(*variable);
   }
 
-  MFReturnInstruction &return_instr = builder.add_return();
+  mf::ReturnInstruction &return_instr = builder.add_return();
 
-  procedure_optimization::move_destructs_up(procedure, return_instr);
+  mf::procedure_optimization::move_destructs_up(procedure, return_instr);
 
   // std::cout << procedure.to_dot() << "\n";
   BLI_assert(procedure.validate());
@@ -277,7 +280,7 @@ static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
 
 Vector<GVArray> evaluate_fields(ResourceScope &scope,
                                 Span<GFieldRef> fields_to_evaluate,
-                                IndexMask mask,
+                                const IndexMask &mask,
                                 const FieldContext &context,
                                 Span<GVMutableArray> dst_varrays)
 {
@@ -365,13 +368,13 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
   /* Evaluate varying fields if necessary. */
   if (!varying_fields_to_evaluate.is_empty()) {
     /* Build the procedure for those fields. */
-    MFProcedure procedure;
+    mf::Procedure procedure;
     build_multi_function_procedure_for_fields(
         procedure, scope, field_tree_info, varying_fields_to_evaluate);
-    MFProcedureExecutor procedure_executor{procedure};
+    mf::ProcedureExecutor procedure_executor{procedure};
 
-    MFParamsBuilder mf_params{procedure_executor, &mask};
-    MFContextBuilder mf_context;
+    mf::ParamsBuilder mf_params{procedure_executor, &mask};
+    mf::ContextBuilder mf_context;
 
     /* Provide inputs to the procedure executor. */
     for (const GVArray &varray : field_context_inputs) {
@@ -417,12 +420,13 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
   /* Evaluate constant fields if necessary. */
   if (!constant_fields_to_evaluate.is_empty()) {
     /* Build the procedure for those fields. */
-    MFProcedure procedure;
+    mf::Procedure procedure;
     build_multi_function_procedure_for_fields(
         procedure, scope, field_tree_info, constant_fields_to_evaluate);
-    MFProcedureExecutor procedure_executor{procedure};
-    MFParamsBuilder mf_params{procedure_executor, 1};
-    MFContextBuilder mf_context;
+    mf::ProcedureExecutor procedure_executor{procedure};
+    const IndexMask mask(1);
+    mf::ParamsBuilder mf_params{procedure_executor, &mask};
+    mf::ContextBuilder mf_context;
 
     /* Provide inputs to the procedure executor. */
     for (const GVArray &varray : field_context_inputs) {
@@ -448,7 +452,7 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
       r_varrays[out_index] = GVArray::ForSingleRef(type, array_size, buffer);
     }
 
-    procedure_executor.call(IndexRange(1), mf_params, mf_context);
+    procedure_executor.call(mask, mf_params, mf_context);
   }
 
   /* Copy data to supplied destination arrays if necessary. In some cases the evaluation above
@@ -468,21 +472,21 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
       }
       /* Still have to copy over the data in the destination provided by the caller. */
       if (dst_varray.is_span()) {
-        /* Materialize into a span. */
-        threading::parallel_for(mask.index_range(), 2048, [&](const IndexRange range) {
-          computed_varray.materialize_to_uninitialized(mask.slice(range),
-                                                       dst_varray.get_internal_span().data());
-        });
+        array_utils::copy(computed_varray,
+                          mask,
+                          dst_varray.get_internal_span().take_front(mask.min_array_size()));
       }
       else {
         /* Slower materialize into a different structure. */
         const CPPType &type = computed_varray.type();
         threading::parallel_for(mask.index_range(), 2048, [&](const IndexRange range) {
           BUFFER_FOR_CPP_TYPE_VALUE(type, buffer);
-          for (const int i : mask.slice(range)) {
-            computed_varray.get_to_uninitialized(i, buffer);
-            dst_varray.set_by_relocate(i, buffer);
-          }
+          mask.slice(range).foreach_segment([&](auto segment) {
+            for (const int i : segment) {
+              computed_varray.get_to_uninitialized(i, buffer);
+              dst_varray.set_by_relocate(i, buffer);
+            }
+          });
         });
       }
       r_varrays[out_index] = dst_varray;
@@ -520,9 +524,9 @@ GField make_field_constant_if_possible(GField field)
 
 Field<bool> invert_boolean_field(const Field<bool> &field)
 {
-  static CustomMF_SI_SO<bool, bool> not_fn{
-      "Not", [](bool a) { return !a; }, CustomMF_presets::AllSpanOrSingle()};
-  auto not_op = std::make_shared<FieldOperation>(FieldOperation(not_fn, {field}));
+  static auto not_fn = mf::build::SI1_SO<bool, bool>(
+      "Not", [](bool a) { return !a; }, mf::build::exec_presets::AllSpanOrSingle());
+  auto not_op = FieldOperation::Create(not_fn, {field});
   return Field<bool>(not_op);
 }
 
@@ -533,7 +537,7 @@ GField make_constant_field(const CPPType &type, const void *value)
 }
 
 GVArray FieldContext::get_varray_for_input(const FieldInput &field_input,
-                                           IndexMask mask,
+                                           const IndexMask &mask,
                                            ResourceScope &scope) const
 {
   /* By default ask the field input to create the varray. Another field context might overwrite
@@ -546,14 +550,14 @@ IndexFieldInput::IndexFieldInput() : FieldInput(CPPType::get<int>(), "Index")
   category_ = Category::Generated;
 }
 
-GVArray IndexFieldInput::get_index_varray(IndexMask mask)
+GVArray IndexFieldInput::get_index_varray(const IndexMask &mask)
 {
   auto index_func = [](int i) { return i; };
   return VArray<int>::ForFunc(mask.min_array_size(), index_func);
 }
 
 GVArray IndexFieldInput::get_varray_for_context(const fn::FieldContext & /*context*/,
-                                                IndexMask mask,
+                                                const IndexMask &mask,
                                                 ResourceScope & /*scope*/) const
 {
   /* TODO: Investigate a similar method to IndexRange::as_span() */
@@ -580,13 +584,25 @@ bool IndexFieldInput::is_equal_to(const fn::FieldNode &other) const
 /* Avoid generating the destructor in every translation unit. */
 FieldNode::~FieldNode() = default;
 
+void FieldNode::for_each_field_input_recursive(FunctionRef<void(const FieldInput &)> fn) const
+{
+  if (field_inputs_) {
+    for (const FieldInput &field_input : field_inputs_->deduplicated_nodes) {
+      fn(field_input);
+      if (&field_input != this) {
+        field_input.for_each_field_input_recursive(fn);
+      }
+    }
+  }
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
 /** \name #FieldOperation
  * \{ */
 
-FieldOperation::FieldOperation(std::shared_ptr<const MultiFunction> function,
+FieldOperation::FieldOperation(std::shared_ptr<const mf::MultiFunction> function,
                                Vector<GField> inputs)
     : FieldOperation(*function, std::move(inputs))
 {
@@ -651,7 +667,7 @@ static std::shared_ptr<const FieldInputs> combine_field_inputs(Span<GField> fiel
   return new_field_inputs;
 }
 
-FieldOperation::FieldOperation(const MultiFunction &function, Vector<GField> inputs)
+FieldOperation::FieldOperation(const mf::MultiFunction &function, Vector<GField> inputs)
     : FieldNode(FieldNodeType::Operation), function_(&function), inputs_(std::move(inputs))
 {
   field_inputs_ = combine_field_inputs(inputs_);
@@ -721,8 +737,7 @@ static IndexMask index_mask_from_selection(const IndexMask full_mask,
                                            const VArray<bool> &selection,
                                            ResourceScope &scope)
 {
-  return index_mask_ops::find_indices_from_virtual_array(
-      full_mask, selection, 1024, scope.construct<Vector<int64_t>>());
+  return IndexMask::from_bools(full_mask, selection, scope.construct<IndexMaskMemory>());
 }
 
 int FieldEvaluator::add_with_destination(GField field, GVMutableArray dst)

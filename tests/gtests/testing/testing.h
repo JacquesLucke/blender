@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2014 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2014 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 #ifndef __BLENDER_TESTING_H__
 #define __BLENDER_TESTING_H__
 
@@ -41,6 +42,12 @@ const std::string &flags_test_release_dir(); /* bin/{blender version} in the bui
     EXPECT_NEAR(a[3], b[3], eps); \
   } \
   (void)0
+
+#define EXPECT_M2_NEAR(a, b, eps) \
+  do { \
+    EXPECT_V2_NEAR(a[0], b[0], eps); \
+    EXPECT_V2_NEAR(a[1], b[1], eps); \
+  } while (false);
 
 #define EXPECT_M3_NEAR(a, b, eps) \
   do { \

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 #include "BLI_compiler_compat.h"
 
 #include "DNA_material_types.h"
@@ -67,8 +69,7 @@ bool BKE_paint_canvas_image_get(PaintModeSettings *settings,
   return *r_image != nullptr;
 }
 
-int BKE_paint_canvas_uvmap_layer_index_get(const struct PaintModeSettings *settings,
-                                           struct Object *ob)
+int BKE_paint_canvas_uvmap_layer_index_get(const PaintModeSettings *settings, Object *ob)
 {
   switch (settings->canvas_source) {
     case PAINT_CANVAS_SOURCE_COLOR_ATTRIBUTE:
@@ -80,7 +81,7 @@ int BKE_paint_canvas_uvmap_layer_index_get(const struct PaintModeSettings *setti
       }
 
       const Mesh *mesh = static_cast<Mesh *>(ob->data);
-      return CustomData_get_active_layer_index(&mesh->ldata, CD_MLOOPUV);
+      return CustomData_get_active_layer_index(&mesh->ldata, CD_PROP_FLOAT2);
     }
     case PAINT_CANVAS_SOURCE_MATERIAL: {
       /* Use uv map of the canvas. */
@@ -98,13 +99,13 @@ int BKE_paint_canvas_uvmap_layer_index_get(const struct PaintModeSettings *setti
       }
 
       const Mesh *mesh = static_cast<Mesh *>(ob->data);
-      return CustomData_get_named_layer_index(&mesh->ldata, CD_MLOOPUV, slot->uvname);
+      return CustomData_get_named_layer_index(&mesh->ldata, CD_PROP_FLOAT2, slot->uvname);
     }
   }
   return -1;
 }
 
-char *BKE_paint_canvas_key_get(struct PaintModeSettings *settings, struct Object *ob)
+char *BKE_paint_canvas_key_get(PaintModeSettings *settings, Object *ob)
 {
   std::stringstream ss;
   int active_uv_map_layer_index = BKE_paint_canvas_uvmap_layer_index_get(settings, ob);
@@ -113,6 +114,7 @@ char *BKE_paint_canvas_key_get(struct PaintModeSettings *settings, struct Object
   Image *image;
   ImageUser *image_user;
   if (BKE_paint_canvas_image_get(settings, ob, &image, &image_user)) {
+    ss << ",SEAM_MARGIN:" << image->seam_margin;
     ImageUser tile_user = *image_user;
     LISTBASE_FOREACH (ImageTile *, image_tile, &image->tiles) {
       tile_user.tile = image_tile->tile_number;

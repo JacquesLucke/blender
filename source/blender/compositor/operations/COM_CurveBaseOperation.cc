@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2011 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2011 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "COM_CurveBaseOperation.h"
 
@@ -35,7 +36,7 @@ void CurveBaseOperation::deinit_execution()
 
 void CurveBaseOperation::set_curve_mapping(const CurveMapping *mapping)
 {
-  /* duplicate the curve to avoid glitches while drawing, see bug T32374. */
+  /* duplicate the curve to avoid glitches while drawing, see bug #32374. */
   if (curve_mapping_) {
     BKE_curvemapping_free(curve_mapping_);
   }

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
@@ -20,6 +22,8 @@ set(INC
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
+set(INC_SYS
+)
 
 set(SRC
   nodes/node_texture_at.cc
@@ -47,9 +51,12 @@ set(SRC
   nodes/node_texture_valToNor.cc
   nodes/node_texture_valToRgb.cc
   nodes/node_texture_viewer.cc
+
+  node_texture_register.cc
   node_texture_tree.cc
   node_texture_util.cc
 
+  node_texture_register.hh
   node_texture_util.hh
 )
 

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -463,7 +464,7 @@ ccl_device void svm_eval_nodes(KernelGlobals kg,
       svm_node_tex_environment(kg, sd, stack, node);
       break;
       SVM_CASE(NODE_TEX_SKY)
-      offset = svm_node_tex_sky(kg, sd, stack, node, offset);
+      offset = svm_node_tex_sky(kg, sd, path_flag, stack, node, offset);
       break;
       SVM_CASE(NODE_TEX_GRADIENT)
       svm_node_tex_gradient(sd, stack, node);

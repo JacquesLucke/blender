@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2008 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2008 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup blf
@@ -40,7 +41,7 @@ typedef int32_t ft_pix;
 /* Macros copied from `include/freetype/internal/ftobjs.h`. */
 
 /**
- * FIXME(@campbellbarton): Follow rounding from Blender 3.1x and older.
+ * FIXME(@ideasman42): Follow rounding from Blender 3.1x and older.
  * This is what users will expect and changing this creates wider spaced text.
  * Use this macro to communicate that rounding should be used, using floor is to avoid
  * user visible changes, which can be reviewed and handled separately.
@@ -238,15 +239,14 @@ typedef struct FontBufInfoBLF {
 } FontBufInfoBLF;
 
 typedef struct FontBLF {
-  /** Font name. */
-  char *name;
-
   /** Full path to font file or NULL if from memory. */
   char *filepath;
 
   /** Pointer to in-memory font, or NULL if from file. */
   void *mem;
   size_t mem_size;
+  /** Handle for in-memory fonts to avoid loading them multiple times. */
+  char *mem_name;
 
   /**
    * Copied from the SFNT OS/2 table. Bit flags for unicode blocks and ranges
@@ -300,7 +300,7 @@ typedef struct FontBLF {
   /** Font size. */
   float size;
 
-  /** Axes data for Adobe MM, TrueType GX, or OpenType variation fonts.  */
+  /** Axes data for Adobe MM, TrueType GX, or OpenType variation fonts. */
   FT_MM_Var *variations;
 
   /** Character variation; 0=default, -1=min, +1=max. */
@@ -342,11 +342,3 @@ typedef struct FontBLF {
   /** Mutex lock for glyph cache. */
   ThreadMutex glyph_cache_mutex;
 } FontBLF;
-
-typedef struct DirBLF {
-  struct DirBLF *next;
-  struct DirBLF *prev;
-
-  /** Full path where search fonts. */
-  char *path;
-} DirBLF;

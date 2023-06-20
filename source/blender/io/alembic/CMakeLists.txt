@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2006 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2006 Blender Foundation. All rights reserved.
 
 set(INC
   .
@@ -7,6 +8,7 @@ set(INC
   ../../blenkernel
   ../../blenlib
   ../../blenloader
+  ../../blentranslation
   ../../bmesh
   ../../depsgraph
   ../../editors/include
@@ -20,9 +22,14 @@ set(INC
 
 set(INC_SYS
   ${ALEMBIC_INCLUDE_DIRS}
-  ${BOOST_INCLUDE_DIR}
   ${OPENEXR_INCLUDE_DIRS}
 )
+
+if(WITH_BOOST)
+  list(APPEND INC_SYS
+    ${BOOST_INCLUDE_DIR}
+  )
+endif()
 
 set(SRC
   intern/abc_axis_conversion.cc
@@ -92,9 +99,11 @@ set(LIB
   ${OPENEXR_LIBRARIES}
 )
 
-list(APPEND LIB
-  ${BOOST_LIBRARIES}
-)
+if(WITH_BOOST)
+  list(APPEND LIB
+    ${BOOST_LIBRARIES}
+  )
+endif()
 
 blender_add_lib(bf_alembic "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 

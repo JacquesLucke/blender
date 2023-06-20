@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -118,6 +119,7 @@ ccl_device float3 geographical_to_direction(float lat, float lon)
 
 ccl_device float3 sky_radiance_nishita(KernelGlobals kg,
                                        float3 dir,
+                                       uint32_t path_flag,
                                        float3 pixel_bottom,
                                        float3 pixel_top,
                                        ccl_private float *nishita_data,
@@ -137,11 +139,14 @@ ccl_device float3 sky_radiance_nishita(KernelGlobals kg,
     /* definitions */
     float3 sun_dir = geographical_to_direction(sun_elevation, sun_rotation + M_PI_2_F);
     float sun_dir_angle = precise_angle(dir, sun_dir);
-    float half_angular = angular_diameter / 2.0f;
+    float half_angular = angular_diameter * 0.5f;
     float dir_elevation = M_PI_2_F - direction.x;
 
-    /* if ray inside sun disc render it, otherwise render sky */
-    if (sun_disc && sun_dir_angle < half_angular) {
+    /* If the ray is inside the sun disc, render it, otherwise render the sky.
+     * Alternatively, ignore the sun if we're evaluating the background texture. */
+    if (sun_disc && sun_dir_angle < half_angular &&
+        !((path_flag & PATH_RAY_IMPORTANCE_BAKE) && kernel_data.background.use_sun_guiding))
+    {
       /* get 2 pixels data */
       float y;
 
@@ -197,8 +202,12 @@ ccl_device float3 sky_radiance_nishita(KernelGlobals kg,
   return xyz_to_rgb_clamped(kg, xyz);
 }
 
-ccl_device_noinline int svm_node_tex_sky(
-    KernelGlobals kg, ccl_private ShaderData *sd, ccl_private float *stack, uint4 node, int offset)
+ccl_device_noinline int svm_node_tex_sky(KernelGlobals kg,
+                                         ccl_private ShaderData *sd,
+                                         uint32_t path_flag,
+                                         ccl_private float *stack,
+                                         uint4 node,
+                                         int offset)
 {
   /* Load data */
   uint dir_offset = node.y;
@@ -310,7 +319,8 @@ ccl_device_noinline int svm_node_tex_sky(
     uint texture_id = __float_as_uint(data.z);
 
     /* Compute Sky */
-    f = sky_radiance_nishita(kg, dir, pixel_bottom, pixel_top, nishita_data, texture_id);
+    f = sky_radiance_nishita(
+        kg, dir, path_flag, pixel_bottom, pixel_top, nishita_data, texture_id);
   }
 
   stack_store_float3(stack, out_offset, f);

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2022-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -30,9 +32,14 @@ void MTLQueryPool::allocate()
 {
   /* Allocate Metal buffer for visibility results. */
   size_t buffer_size_in_bytes = VISIBILITY_COUNT_PER_BUFFER * VISIBILITY_RESULT_SIZE_IN_BYTES;
-  gpu::MTLBuffer *buffer = MTLContext::get_global_memory_manager().allocate(buffer_size_in_bytes,
-                                                                            true);
+  gpu::MTLBuffer *buffer = MTLContext::get_global_memory_manager()->allocate(buffer_size_in_bytes,
+                                                                             true);
   BLI_assert(buffer);
+
+  /* We must zero-initialize the query buffer as visibility queries with no draws between
+   * begin and end will not write any result to the buffer. */
+  memset(buffer->get_host_ptr(), 0, buffer_size_in_bytes);
+  buffer->flush();
   buffer_.append(buffer);
 }
 
@@ -56,7 +63,7 @@ void MTLQueryPool::init(GPUQueryType type)
 
 void MTLQueryPool::begin_query()
 {
-  MTLContext *ctx = reinterpret_cast<MTLContext *>(GPU_context_active_get());
+  MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
 
   /* Ensure our allocated buffer pool has enough space for the current queries. */
   int query_id = query_issued_;
@@ -83,7 +90,7 @@ void MTLQueryPool::begin_query()
 
 void MTLQueryPool::end_query()
 {
-  MTLContext *ctx = reinterpret_cast<MTLContext *>(GPU_context_active_get());
+  MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
 
   id<MTLRenderCommandEncoder> rec = ctx->main_command_buffer.get_active_render_command_encoder();
   [rec setVisibilityResultMode:MTLVisibilityResultModeDisabled offset:0];
@@ -91,7 +98,7 @@ void MTLQueryPool::end_query()
 
 void MTLQueryPool::get_occlusion_result(MutableSpan<uint32_t> r_values)
 {
-  MTLContext *ctx = reinterpret_cast<MTLContext *>(GPU_context_active_get());
+  MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
 
   /* Create a blit encoder to synchronize the query buffer results between
    * GPU and CPU when not using shared-memory. */

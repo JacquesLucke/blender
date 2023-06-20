@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2018-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 """
@@ -31,7 +33,7 @@ def with_tempdir(wrapped):
     @functools.wraps(wrapped)
     def decorator(*args, **kwargs):
         dirname = tempfile.mkdtemp(prefix='blender-collada-test')
-        #print("Using tempdir %s" % dirname)
+        # print("Using tempdir %s" % dirname)
         try:
             retval = wrapped(*args, pathlib.Path(dirname), **kwargs)
         except:

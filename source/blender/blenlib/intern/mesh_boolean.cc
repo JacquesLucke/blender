@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bli
@@ -21,8 +23,8 @@
 #  include "BLI_math_boolean.hh"
 #  include "BLI_math_geom.h"
 #  include "BLI_math_mpq.hh"
-#  include "BLI_math_vec_mpq_types.hh"
 #  include "BLI_math_vector.hh"
+#  include "BLI_math_vector_mpq_types.hh"
 #  include "BLI_mesh_intersect.hh"
 #  include "BLI_set.hh"
 #  include "BLI_span.hh"
@@ -1746,7 +1748,7 @@ static int find_containing_cell(const Vert *v,
  * (Adapted from #closest_on_tri_to_point_v3()).
  * The arguments ab, ac, ..., r are used as temporaries
  * in this routine. Passing them in from the caller can
- * avoid many allocs and frees of temporary mpq3 values
+ * avoid many allocations and frees of temporary mpq3 values
  * and the mpq_class values within them.
  */
 static mpq_class closest_on_tri_to_point(const mpq3 &p,
@@ -2554,7 +2556,8 @@ static void inside_shape_callback(void *userdata,
     std::cout << "  fv2=(" << fv2[0] << "," << fv2[1] << "," << fv2[2] << ")\n";
   }
   if (isect_ray_tri_epsilon_v3(
-          ray->origin, ray->direction, fv0, fv1, fv2, &dist, nullptr, FLT_EPSILON)) {
+          ray->origin, ray->direction, fv0, fv1, fv2, &dist, nullptr, FLT_EPSILON))
+  {
     /* Count parity as +1 if ray is in the same direction as tri's normal,
      * and -1 if the directions are opposite. */
     double3 o_db{double(ray->origin[0]), double(ray->origin[1]), double(ray->origin[2])};
@@ -2761,7 +2764,7 @@ static IMesh raycast_tris_boolean(const IMesh &tm,
          * For most operations, even a hint of being inside
          * gives good results, but when shape is a cutter in a Difference
          * operation, we want to be pretty sure that the point is inside other_shape.
-         * E.g., T75827.
+         * E.g., #75827.
          * Also, when the operation is intersection, we also want high confidence.
          */
         bool need_high_confidence = (op == BoolOpType::Difference && shape != 0) ||
@@ -3116,7 +3119,8 @@ static bool dissolve_leaves_valid_bmesh(FaceMergeState *fms,
   bool ok = true;
   /* Is there another edge, not me, in A's face, whose right face is B's left? */
   for (int a_e_index = (a_edge_start + 1) % alen; ok && a_e_index != a_edge_start;
-       a_e_index = (a_e_index + 1) % alen) {
+       a_e_index = (a_e_index + 1) % alen)
+  {
     const MergeEdge &a_me_cur = fms->edge[mf_left.edge[a_e_index]];
     if (a_me_cur.right_face == b_left_face) {
       ok = false;

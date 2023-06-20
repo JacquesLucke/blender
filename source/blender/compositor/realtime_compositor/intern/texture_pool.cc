@@ -1,10 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <cstdint>
 
 #include "BLI_hash.hh"
 #include "BLI_map.hh"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_vector.hh"
 
 #include "GPU_texture.h"
@@ -17,9 +19,7 @@ namespace blender::realtime_compositor {
 /** \name Texture Pool Key
  * \{ */
 
-TexturePoolKey::TexturePoolKey(int2 size, eGPUTextureFormat format) : size(size), format(format)
-{
-}
+TexturePoolKey::TexturePoolKey(int2 size, eGPUTextureFormat format) : size(size), format(format) {}
 
 TexturePoolKey::TexturePoolKey(const GPUTexture *texture)
 {

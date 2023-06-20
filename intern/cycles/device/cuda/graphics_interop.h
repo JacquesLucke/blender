@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifdef WITH_CUDA
 
@@ -38,7 +39,7 @@ class CUDADeviceGraphicsInterop : public DeviceGraphicsInterop {
   CUDADevice *device_ = nullptr;
 
   /* OpenGL PBO which is currently registered as the destination for the CUDA buffer. */
-  uint opengl_pbo_id_ = 0;
+  int64_t opengl_pbo_id_ = 0;
   /* Buffer area in pixels of the corresponding PBO. */
   int64_t buffer_area_ = 0;
 

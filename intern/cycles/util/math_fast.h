@@ -1,4 +1,8 @@
-/* SPDX-License-Identifier: BSD-3-Clause
+/* SPDX-FileCopyrightText: 2004 NVIDIA Corporation
+ * SPDX-FileCopyrightText: 2008-2014 Larry Gritz
+ * SPDX-FileCopyrightText: 2009-2014 Sony Pictures Imageworks Inc., et al.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *
  * Adapted from OpenImageIO
  * Copyright 2008-2014 Larry Gritz and the other authors and contributors.
@@ -6,11 +10,11 @@
  *
  * A few bits here are based upon code from NVIDIA that was also released
  * under the same modified BSD license, and marked as:
- *    Copyright 2004 NVIDIA Corporation. All Rights Reserved.
+ *    `Copyright 2004 NVIDIA Corporation. All Rights Reserved.`
  *
  * Some parts of this file were first open-sourced in Open Shading Language,
  * then later moved here. The original copyright notice was:
- *    Copyright (c) 2009-2014 Sony Pictures Imageworks Inc., et al.
+ *    `Copyright (c) 2009-2014 Sony Pictures Imageworks Inc., et al.`
  *
  * Many of the math functions were copied from or inspired by other
  * public domain sources or open source packages with compatible licenses.
@@ -58,9 +62,12 @@ ccl_device_inline float4 madd4(const float4 a, const float4 b, const float4 c)
 ccl_device_inline int fast_rint(float x)
 {
   /* used by sin/cos/tan range reduction. */
-#ifdef __KERNEL_SSE4__
-  /* Single `roundps` instruction on SSE4.1+ (for gcc/clang at least). */
-  return float_to_int(rintf(x));
+#ifdef __KERNEL_SSE41__
+  /* Single `roundps` instruction on SSE4.1+ for gcc/clang but not MSVC 19.35:
+   * float_to_int(rintf(x)); so we use the equivalent intrinsics. */
+  __m128 vec = _mm_set_ss(x);
+  vec = _mm_round_ss(vec, vec, (_MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC));
+  return _mm_cvtss_si32(vec);
 #else
   /* emulate rounding by adding/subtracting 0.5. */
   return float_to_int(x + copysignf(0.5f, x));
@@ -74,7 +81,7 @@ ccl_device float fast_sinf(float x)
    *
    * Results on: [-2pi,2pi].
    *
-   * Examined 2173837240 values of sin: 0.00662760244 avg ulp diff, 2 max ulp,
+   * Examined 2173837240 values of sin: 0.00662760244 avg ULP diff, 2 max ULP,
    * 1.19209e-07 max error
    */
   int q = fast_rint(x * M_1_PI_F);
@@ -256,11 +263,11 @@ ccl_device float fast_acosf(float x)
   /* clamp and crush denormals. */
   const float m = (f < 1.0f) ? 1.0f - (1.0f - f) : 1.0f;
   /* Based on http://www.pouet.net/topic.php?which=9132&page=2
-   * 85% accurate (ulp 0)
+   * 85% accurate (ULP 0)
    * Examined 2130706434 values of acos:
-   *   15.2000597 avg ulp diff, 4492 max ulp, 4.51803e-05 max error // without "denormal crush"
+   *   15.2000597 avg ULP diff, 4492 max ULP, 4.51803e-05 max error // without "denormal crush"
    * Examined 2130706434 values of acos:
-   *   15.2007108 avg ulp diff, 4492 max ulp, 4.51803e-05 max error // with "denormal crush"
+   *   15.2007108 avg ULP diff, 4492 max ULP, 4.51803e-05 max error // with "denormal crush"
    */
   const float a = sqrtf(1.0f - m) *
                   (1.5707963267f + m * (-0.213300989f + m * (0.077980478f + m * -0.02164095f)));
@@ -270,9 +277,8 @@ ccl_device float fast_acosf(float x)
 ccl_device float fast_asinf(float x)
 {
   /* Based on acosf approximation above.
-   * Max error is 4.51133e-05 (ulps are higher because we are consistently off
-   * by a little amount).
-   */
+   * Max error is 4.51133e-05 (ULPS are higher because we are consistently off
+   * by a little amount). */
   const float f = fabsf(x);
   /* Clamp and crush denormals. */
   const float m = (f < 1.0f) ? 1.0f - (1.0f - f) : 1.0f;
@@ -290,9 +296,9 @@ ccl_device float fast_atanf(float x)
   const float t = s * s;
   /* http://mathforum.org/library/drmath/view/62672.html
    * Examined 4278190080 values of atan:
-   *   2.36864877 avg ulp diff, 302 max ulp, 6.55651e-06 max error      // (with  denormals)
+   *   2.36864877 avg ULP diff, 302 max ULP, 6.55651e-06 max error      // (with  denormals)
    * Examined 4278190080 values of atan:
-   *   171160502 avg ulp diff, 855638016 max ulp, 6.55651e-06 max error // (crush denormals)
+   *   171160502 avg ULP diff, 855638016 max ULP, 6.55651e-06 max error // (crush denormals)
    */
   float r = s * madd(0.43157974f, t, 1.0f) / madd(madd(0.05831938f, t, 0.76443945f), t, 1.0f);
   if (a > 1.0f) {
@@ -343,8 +349,8 @@ ccl_device float fast_log2f(float x)
   int exponent = (int)(bits >> 23) - 127;
   float f = __uint_as_float((bits & 0x007FFFFF) | 0x3f800000) - 1.0f;
   /* Examined 2130706432 values of log2 on [1.17549435e-38,3.40282347e+38]:
-   * 0.0797524457 avg ulp diff, 3713596 max ulp, 7.62939e-06 max error.
-   * ulp histogram:
+   * 0.0797524457 avg ULP diff, 3713596 max ULP, 7.62939e-06 max error.
+   * ULP histogram:
    *  0  = 97.46%
    *  1  =  2.29%
    *  2  =  0.11%
@@ -363,7 +369,7 @@ ccl_device float fast_log2f(float x)
 ccl_device_inline float fast_logf(float x)
 {
   /* Examined 2130706432 values of logf on [1.17549435e-38,3.40282347e+38]:
-   * 0.313865375 avg ulp diff, 5148137 max ulp, 7.62939e-06 max error.
+   * 0.313865375 avg ULP diff, 5148137 max ULP, 7.62939e-06 max error.
    */
   return fast_log2f(x) * M_LN2_F;
 }
@@ -371,7 +377,7 @@ ccl_device_inline float fast_logf(float x)
 ccl_device_inline float fast_log10(float x)
 {
   /* Examined 2130706432 values of log10f on [1.17549435e-38,3.40282347e+38]:
-   * 0.631237033 avg ulp diff, 4471615 max ulp, 3.8147e-06 max error.
+   * 0.631237033 avg ULP diff, 4471615 max ULP, 3.8147e-06 max error.
    */
   return fast_log2f(x) * M_LN2_F / M_LN10_F;
 }
@@ -392,12 +398,12 @@ ccl_device float fast_exp2f(float x)
   /* Range reduction. */
   int m = (int)x;
   x -= m;
-  x = 1.0f - (1.0f - x); /* Crush denormals (does not affect max ulps!). */
+  x = 1.0f - (1.0f - x); /* Crush denormals (does not affect max ULPS!). */
   /* 5th degree polynomial generated with sollya
-   * Examined 2247622658 values of exp2 on [-126,126]: 2.75764912 avg ulp diff,
-   * 232 max ulp.
+   * Examined 2247622658 values of exp2 on [-126,126]: 2.75764912 avg ULP diff,
+   * 232 max ULP.
    *
-   * ulp histogram:
+   * ULP histogram:
    *  0  = 87.81%
    *  1  =  4.18%
    */
@@ -415,14 +421,14 @@ ccl_device float fast_exp2f(float x)
 ccl_device_inline float fast_expf(float x)
 {
   /* Examined 2237485550 values of exp on [-87.3300018,87.3300018]:
-   * 2.6666452 avg ulp diff, 230 max ulp.
+   * 2.6666452 avg ULP diff, 230 max ULP.
    */
   return fast_exp2f(x / M_LN2_F);
 }
 
 #if !defined(__KERNEL_GPU__) && !defined(_MSC_VER)
 /* MSVC seems to have a code-gen bug here in at least SSE41/AVX, see
- * T78047 and T78869 for details. Just disable for now, it only makes
+ * #78047 and #78869 for details. Just disable for now, it only makes
  * a small difference in denoising performance. */
 ccl_device float4 fast_exp2f4(float4 x)
 {
@@ -454,7 +460,7 @@ ccl_device_inline float4 fast_expf4(float4 x)
 ccl_device_inline float fast_exp10(float x)
 {
   /* Examined 2217701018 values of exp10 on [-37.9290009,37.9290009]:
-   * 2.71732409 avg ulp diff, 232 max ulp.
+   * 2.71732409 avg ULP diff, 232 max ULP.
    */
   return fast_exp2f(x * M_LN10_F / M_LN2_F);
 }
@@ -475,7 +481,7 @@ ccl_device float fast_sinhf(float x)
   float a = fabsf(x);
   if (a > 1.0f) {
     /* Examined 53389559 values of sinh on [1,87.3300018]:
-     * 33.6886442 avg ulp diff, 178 max ulp. */
+     * 33.6886442 avg ULP diff, 178 max ULP. */
     float e = fast_expf(a);
     return copysignf(0.5f * e - 0.5f / e, x);
   }
@@ -495,7 +501,7 @@ ccl_device float fast_sinhf(float x)
 ccl_device_inline float fast_coshf(float x)
 {
   /* Examined 2237485550 values of cosh on [-87.3300018,87.3300018]:
-   * 1.78256726 avg ulp diff, 178 max ulp.
+   * 1.78256726 avg ULP diff, 178 max ULP.
    */
   float e = fast_expf(fabsf(x));
   return 0.5f * e + 0.5f / e;
@@ -506,7 +512,7 @@ ccl_device_inline float fast_tanhf(float x)
   /* Examined 4278190080 values of tanh on [-3.40282347e+38,3.40282347e+38]:
    * 3.12924e-06 max error.
    */
-  /* NOTE: ulp error is high because of sub-optimal handling around the origin. */
+  /* NOTE: ULP error is high because of sub-optimal handling around the origin. */
   float e = fast_expf(2.0f * fabsf(x));
   return copysignf(1.0f - 2.0f / (1.0f + e), x);
 }
@@ -579,7 +585,7 @@ ccl_device_inline float fast_erfcf(float x)
 {
   /* Examined 2164260866 values of erfcf on [-4,4]: 1.90735e-06 max error.
    *
-   * ulp histogram:
+   * ULP histogram:
    *
    *  0  = 80.30%
    */

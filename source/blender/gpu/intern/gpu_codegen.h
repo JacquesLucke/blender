@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2005 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2005 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -25,10 +26,12 @@ typedef struct GPUPass GPUPass;
 GPUPass *GPU_generate_pass(GPUMaterial *material,
                            struct GPUNodeGraph *graph,
                            GPUCodegenCallbackFn finalize_source_cb,
-                           void *thunk);
+                           void *thunk,
+                           bool optimize_graph);
 GPUShader *GPU_pass_shader_get(GPUPass *pass);
 bool GPU_pass_compile(GPUPass *pass, const char *shname);
 void GPU_pass_release(GPUPass *pass);
+bool GPU_pass_should_optimize(GPUPass *pass);
 
 /* Module */
 

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup pygen
@@ -214,8 +216,8 @@ static int PyC_AsArray_Multi_FAST_impl(void **array_p,
   const int length = dims[0];
 
   if (dims_len == 1) {
-    if (PyC_AsArray_FAST(*array_p, array_item_size, value_fast, length, type, error_prefix) ==
-        -1) {
+    if (PyC_AsArray_FAST(*array_p, array_item_size, value_fast, length, type, error_prefix) == -1)
+    {
       return -1;
     }
     *array_p = POINTER_OFFSET(*array_p, array_item_size * length);
@@ -241,7 +243,8 @@ static int PyC_AsArray_Multi_FAST_impl(void **array_p,
                                  dims_next,
                                  dims_next_len,
                                  type,
-                                 error_prefix) == -1) {
+                                 error_prefix) == -1)
+      {
         return -1;
       }
     }
@@ -536,7 +539,6 @@ const char *PyC_StringEnum_FindIDFromValue(const struct PyC_StringEnumItems *ite
   return NULL;
 }
 
-/* Silly function, we don't use arg. just check its compatible with `__deepcopy__`. */
 int PyC_CheckArgs_DeepCopy(PyObject *args)
 {
   PyObject *dummy_pydict;
@@ -553,7 +555,6 @@ int PyC_CheckArgs_DeepCopy(PyObject *args)
  * These are useful to run directly from a debugger to be able to inspect the state.
  * \{ */
 
-/* for debugging */
 void PyC_ObSpit(const char *name, PyObject *var)
 {
   const char *null_str = "<null>";
@@ -572,12 +573,12 @@ void PyC_ObSpit(const char *name, PyObject *var)
   }
 }
 
-void PyC_ObSpitStr(char *result, size_t result_len, PyObject *var)
+void PyC_ObSpitStr(char *result, size_t result_maxncpy, PyObject *var)
 {
   /* No name, creator of string can manage that. */
   const char *null_str = "<null>";
   if (var == NULL) {
-    BLI_snprintf(result, result_len, "%s", null_str);
+    BLI_snprintf(result, result_maxncpy, "%s", null_str);
   }
   else {
     const PyTypeObject *type = Py_TYPE(var);
@@ -588,7 +589,7 @@ void PyC_ObSpitStr(char *result, size_t result_len, PyObject *var)
       PyErr_Clear();
     }
     BLI_snprintf(result,
-                 result_len,
+                 result_maxncpy,
                  " ref=%d, ptr=%p, type=%s, value=%.200s",
                  (int)var->ob_refcnt,
                  (void *)var,
@@ -608,7 +609,7 @@ void PyC_LineSpit(void)
 
   /* NOTE: allow calling from outside python (RNA). */
   if (!PyC_IsInterpreterActive()) {
-    fprintf(stderr, "python line lookup failed, interpreter inactive\n");
+    fprintf(stderr, "Python line lookup failed, interpreter inactive\n");
     return;
   }
 
@@ -622,7 +623,7 @@ void PyC_StackSpit(void)
 {
   /* NOTE: allow calling from outside python (RNA). */
   if (!PyC_IsInterpreterActive()) {
-    fprintf(stderr, "python line lookup failed, interpreter inactive\n");
+    fprintf(stderr, "Python line lookup failed, interpreter inactive\n");
     return;
   }
 
@@ -707,9 +708,10 @@ void PyC_FileAndNum_Safe(const char **r_filename, int *r_lineno)
 /** \name Object Access Utilities
  * \{ */
 
-/* Would be nice if python had this built in */
 PyObject *PyC_Object_GetAttrStringArgs(PyObject *o, Py_ssize_t n, ...)
 {
+  /* NOTE: Would be nice if python had this built in. */
+
   Py_ssize_t i;
   PyObject *item = o;
   const char *attr;
@@ -835,11 +837,11 @@ static void pyc_exception_buffer_handle_system_exit(PyObject *error_type,
     return;
   }
 
-  /* NOTE(@campbellbarton): A `SystemExit` exception will exit immediately (unless inspecting).
+  /* NOTE(@ideasman42): A `SystemExit` exception will exit immediately (unless inspecting).
    * So print the error and exit now. This is necessary as the call to #PyErr_Print exits,
    * the temporary `sys.stderr` assignment causes the output to be suppressed, failing silently.
    * Instead, restore the error and print it. If Python changes it's behavior and doesn't exit in
-   * the future - continue to create the exception buffer, see: T99966.
+   * the future - continue to create the exception buffer, see: #99966.
    *
    * Arguably accessing a `SystemExit` exception as a buffer should be supported without exiting.
    * (by temporarily enabling inspection for example) however - it's not obvious exactly when this
@@ -940,7 +942,7 @@ PyObject *PyC_ExceptionBuffer(void)
   PySys_SetObject("stdout", stdout_backup);
   PySys_SetObject("stderr", stderr_backup);
 
-  Py_DECREF(stdout_backup); /* now sys owns the ref again */
+  Py_DECREF(stdout_backup); /* Now `sys` owns the reference again. */
   Py_DECREF(stderr_backup);
 
   Py_DECREF(string_io_mod);
@@ -1012,11 +1014,11 @@ PyObject *PyC_ExceptionBuffer_Simple(void)
  * In some cases we need to coerce strings, avoid doing this inline.
  * \{ */
 
-const char *PyC_UnicodeAsByteAndSize(PyObject *py_str, Py_ssize_t *size, PyObject **coerce)
+const char *PyC_UnicodeAsBytesAndSize(PyObject *py_str, Py_ssize_t *r_size, PyObject **r_coerce)
 {
   const char *result;
 
-  result = PyUnicode_AsUTF8AndSize(py_str, size);
+  result = PyUnicode_AsUTF8AndSize(py_str, r_size);
 
   if (result) {
     /* 99% of the time this is enough but we better support non unicode
@@ -1027,19 +1029,19 @@ const char *PyC_UnicodeAsByteAndSize(PyObject *py_str, Py_ssize_t *size, PyObjec
   PyErr_Clear();
 
   if (PyBytes_Check(py_str)) {
-    *size = PyBytes_GET_SIZE(py_str);
+    *r_size = PyBytes_GET_SIZE(py_str);
     return PyBytes_AS_STRING(py_str);
   }
-  if ((*coerce = PyUnicode_EncodeFSDefault(py_str))) {
-    *size = PyBytes_GET_SIZE(*coerce);
-    return PyBytes_AS_STRING(*coerce);
+  if ((*r_coerce = PyUnicode_EncodeFSDefault(py_str))) {
+    *r_size = PyBytes_GET_SIZE(*r_coerce);
+    return PyBytes_AS_STRING(*r_coerce);
   }
 
   /* leave error raised from EncodeFS */
   return NULL;
 }
 
-const char *PyC_UnicodeAsByte(PyObject *py_str, PyObject **coerce)
+const char *PyC_UnicodeAsBytes(PyObject *py_str, PyObject **r_coerce)
 {
   const char *result;
 
@@ -1056,15 +1058,15 @@ const char *PyC_UnicodeAsByte(PyObject *py_str, PyObject **coerce)
   if (PyBytes_Check(py_str)) {
     return PyBytes_AS_STRING(py_str);
   }
-  if ((*coerce = PyUnicode_EncodeFSDefault(py_str))) {
-    return PyBytes_AS_STRING(*coerce);
+  if ((*r_coerce = PyUnicode_EncodeFSDefault(py_str))) {
+    return PyBytes_AS_STRING(*r_coerce);
   }
 
   /* leave error raised from EncodeFS */
   return NULL;
 }
 
-PyObject *PyC_UnicodeFromByteAndSize(const char *str, Py_ssize_t size)
+PyObject *PyC_UnicodeFromBytesAndSize(const char *str, Py_ssize_t size)
 {
   PyObject *result = PyUnicode_FromStringAndSize(str, size);
   if (result) {
@@ -1079,9 +1081,9 @@ PyObject *PyC_UnicodeFromByteAndSize(const char *str, Py_ssize_t size)
   return result;
 }
 
-PyObject *PyC_UnicodeFromByte(const char *str)
+PyObject *PyC_UnicodeFromBytes(const char *str)
 {
-  return PyC_UnicodeFromByteAndSize(str, strlen(str));
+  return PyC_UnicodeFromBytesAndSize(str, strlen(str));
 }
 
 /** \} */
@@ -1096,12 +1098,12 @@ PyObject *PyC_DefaultNameSpace(const char *filename)
   PyObject *builtins = PyEval_GetBuiltins();
   PyObject *mod_main = PyModule_New("__main__");
   PyDict_SetItemString(modules, "__main__", mod_main);
-  Py_DECREF(mod_main); /* sys.modules owns now */
+  Py_DECREF(mod_main); /* `sys.modules` owns now. */
   PyModule_AddStringConstant(mod_main, "__name__", "__main__");
   if (filename) {
     /* __file__ mainly for nice UI'ness
      * NOTE: this won't map to a real file when executing text-blocks and buttons. */
-    PyModule_AddObject(mod_main, "__file__", PyC_UnicodeFromByte(filename));
+    PyModule_AddObject(mod_main, "__file__", PyC_UnicodeFromBytes(filename));
   }
   PyModule_AddObject(mod_main, "__builtins__", builtins);
   Py_INCREF(builtins); /* AddObject steals a reference */
@@ -1154,11 +1156,11 @@ bool PyC_IsInterpreterActive(void)
 /** \name #Py_SetPythonHome Wrapper
  * \{ */
 
-/* Would be nice if python had this built in
- * See: https://wiki.blender.org/wiki/Tools/Debugging/PyFromC
- */
 void PyC_RunQuicky(const char *filepath, int n, ...)
 {
+  /* NOTE: Would be nice if python had this built in
+   * See: https://wiki.blender.org/wiki/Tools/Debugging/PyFromC */
+
   FILE *fp = fopen(filepath, "r");
 
   if (fp) {
@@ -1303,7 +1305,6 @@ void PyC_RunQuicky(const char *filepath, int n, ...)
   }
 }
 
-/* generic function to avoid depending on RNA */
 void *PyC_RNA_AsPointer(PyObject *value, const char *type_name)
 {
   PyObject *as_pointer;
@@ -1311,7 +1312,8 @@ void *PyC_RNA_AsPointer(PyObject *value, const char *type_name)
 
   if (STREQ(Py_TYPE(value)->tp_name, type_name) &&
       (as_pointer = PyObject_GetAttrString(value, "as_pointer")) != NULL &&
-      PyCallable_Check(as_pointer)) {
+      PyCallable_Check(as_pointer))
+  {
     void *result = NULL;
 
     /* must be a 'type_name' object */

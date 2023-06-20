@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -48,7 +50,7 @@ typedef struct RNA_DepsgraphIterator {
 #  ifdef WITH_PYTHON
   /**
    * Store the Python instance so the #BPy_StructRNA can be set as invalid iteration is completed.
-   * Otherwise accessing from Python (console auto-complete for e.g.) crashes, see: T100286. */
+   * Otherwise accessing from Python (console auto-complete for e.g.) crashes, see: #100286. */
   void *py_instance;
 #  endif
 } RNA_DepsgraphIterator;
@@ -244,9 +246,9 @@ static bool rna_DepsgraphUpdate_is_updated_geometry_get(PointerRNA *ptr)
 
 /* **************** Depsgraph **************** */
 
-static void rna_Depsgraph_debug_relations_graphviz(Depsgraph *depsgraph, const char *filename)
+static void rna_Depsgraph_debug_relations_graphviz(Depsgraph *depsgraph, const char *filepath)
 {
-  FILE *f = fopen(filename, "w");
+  FILE *f = fopen(filepath, "w");
   if (f == NULL) {
     return;
   }
@@ -255,14 +257,14 @@ static void rna_Depsgraph_debug_relations_graphviz(Depsgraph *depsgraph, const c
 }
 
 static void rna_Depsgraph_debug_stats_gnuplot(Depsgraph *depsgraph,
-                                              const char *filename,
-                                              const char *output_filename)
+                                              const char *filepath,
+                                              const char *output_filepath)
 {
-  FILE *f = fopen(filename, "w");
+  FILE *f = fopen(filepath, "w");
   if (f == NULL) {
     return;
   }
-  DEG_debug_stats_gnuplot(depsgraph, f, "Timing Statistics", output_filename);
+  DEG_debug_stats_gnuplot(depsgraph, f, "Timing Statistics", output_filepath);
   fclose(f);
 }
 
@@ -348,7 +350,7 @@ static PointerRNA rna_Depsgraph_objects_get(CollectionPropertyIterator *iter)
  * Contains extra information about duplicator and persistent ID.
  */
 
-/* XXX Ugly python seems to query next item of an iterator before using current one (see T57558).
+/* XXX Ugly python seems to query next item of an iterator before using current one (see #57558).
  * This forces us to use that nasty ping-pong game between two sets of iterator data,
  * so that previous one remains valid memory for python to access to. Yuck.
  */
@@ -693,15 +695,15 @@ static void rna_def_depsgraph(BlenderRNA *brna)
   func = RNA_def_function(
       srna, "debug_relations_graphviz", "rna_Depsgraph_debug_relations_graphviz");
   parm = RNA_def_string_file_path(
-      func, "filename", NULL, FILE_MAX, "File Name", "Output path for the graphviz debug file");
+      func, "filepath", NULL, FILE_MAX, "File Name", "Output path for the graphviz debug file");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
   func = RNA_def_function(srna, "debug_stats_gnuplot", "rna_Depsgraph_debug_stats_gnuplot");
   parm = RNA_def_string_file_path(
-      func, "filename", NULL, FILE_MAX, "File Name", "Output path for the gnuplot debug file");
+      func, "filepath", NULL, FILE_MAX, "File Name", "Output path for the gnuplot debug file");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
   parm = RNA_def_string_file_path(func,
-                                  "output_filename",
+                                  "output_filepath",
                                   NULL,
                                   FILE_MAX,
                                   "Output File Name",

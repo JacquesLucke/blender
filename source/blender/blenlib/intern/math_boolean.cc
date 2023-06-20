@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bli
@@ -7,7 +9,7 @@
 #include "BLI_hash.hh"
 #include "BLI_math_boolean.hh"
 #include "BLI_math_mpq.hh"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_span.hh"
 #include "BLI_utildefines.h"
 
@@ -201,7 +203,7 @@ static RobustInitCaller init_caller;
   y = bvirt - b
 
 #define Fast_Two_Diff(a, b, x, y) \
-  x = (double)(a - b); \
+  x = double(a - b); \
   Fast_Two_Diff_Tail(a, b, x, y)
 
 #define Two_Sum_Tail(a, b, x, y) \
@@ -253,7 +255,7 @@ static RobustInitCaller init_caller;
   y = (alo * blo) - err3
 
 #define Two_Product_2Presplit(a, ahi, alo, b, bhi, blo, x, y) \
-  x = (double)(a * b); \
+  x = double(a * b); \
   err1 = x - (ahi * bhi); \
   err2 = err1 - (alo * bhi); \
   err3 = err2 - (ahi * blo); \
@@ -412,7 +414,6 @@ static double isperrboundA, isperrboundB, isperrboundC;
  *
  *  Don't change this routine unless you fully understand it.
  */
-
 void exactinit()
 {
   double half;
@@ -501,11 +502,15 @@ static int fast_expansion_sum_zeroelim(
     while ((eindex < elen) && (findex < flen)) {
       if ((fnow > enow) == (fnow > -enow)) {
         Two_Sum(Q, enow, Qnew, hh);
-        enow = e[++eindex];
+        if (++eindex < elen) {
+          enow = e[eindex];
+        }
       }
       else {
         Two_Sum(Q, fnow, Qnew, hh);
-        fnow = f[++findex];
+        if (++findex < flen) {
+          fnow = f[findex];
+        }
       }
       Q = Qnew;
       if (hh != 0.0) {
@@ -515,7 +520,9 @@ static int fast_expansion_sum_zeroelim(
   }
   while (eindex < elen) {
     Two_Sum(Q, enow, Qnew, hh);
-    enow = e[++eindex];
+    if (++eindex < elen) {
+      enow = e[eindex];
+    }
     Q = Qnew;
     if (hh != 0.0) {
       h[hindex++] = hh;
@@ -523,7 +530,9 @@ static int fast_expansion_sum_zeroelim(
   }
   while (findex < flen) {
     Two_Sum(Q, fnow, Qnew, hh);
-    fnow = f[++findex];
+    if (++findex < flen) {
+      fnow = f[findex];
+    }
     Q = Qnew;
     if (hh != 0.0) {
       h[hindex++] = hh;
@@ -883,7 +892,8 @@ static double orient3dadapt(
 
   if ((adxtail == 0.0) && (bdxtail == 0.0) && (cdxtail == 0.0) && (adytail == 0.0) &&
       (bdytail == 0.0) && (cdytail == 0.0) && (adztail == 0.0) && (bdztail == 0.0) &&
-      (cdztail == 0.0)) {
+      (cdztail == 0.0))
+  {
     return det;
   }
 
@@ -1411,7 +1421,8 @@ static double incircleadapt(
   Two_Diff_Tail(pc[0], pd[0], cdx, cdxtail);
   Two_Diff_Tail(pc[1], pd[1], cdy, cdytail);
   if ((adxtail == 0.0) && (bdxtail == 0.0) && (cdxtail == 0.0) && (adytail == 0.0) &&
-      (bdytail == 0.0) && (cdytail == 0.0)) {
+      (bdytail == 0.0) && (cdytail == 0.0))
+  {
     return det;
   }
 
@@ -2314,7 +2325,8 @@ static double insphereadapt(const double *pa,
   Two_Diff_Tail(pd[2], pe[2], dez, deztail);
   if ((aextail == 0.0) && (aeytail == 0.0) && (aeztail == 0.0) && (bextail == 0.0) &&
       (beytail == 0.0) && (beztail == 0.0) && (cextail == 0.0) && (ceytail == 0.0) &&
-      (ceztail == 0.0) && (dextail == 0.0) && (deytail == 0.0) && (deztail == 0.0)) {
+      (ceztail == 0.0) && (dextail == 0.0) && (deytail == 0.0) && (deztail == 0.0))
+  {
     return det;
   }
 

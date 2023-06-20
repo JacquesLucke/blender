@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -14,7 +16,7 @@
 #include "BKE_customdata.h"
 #include "BKE_editmesh.h"
 #include "BKE_editmesh_tangent.h"
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 #include "BKE_mesh_tangent.h" /* for utility functions */
 
 #include "MEM_guardedalloc.h"
@@ -151,7 +153,7 @@ static void emDM_calc_loop_tangents_thread(TaskPool *__restrict /*pool*/, void *
 
 void BKE_editmesh_loop_tangent_calc(BMEditMesh *em,
                                     bool calc_active_tangent,
-                                    const char (*tangent_names)[MAX_NAME],
+                                    const char (*tangent_names)[MAX_CUSTOMDATA_LAYER_NAME],
                                     int tangent_names_len,
                                     const float (*poly_normals)[3],
                                     const float (*loop_normals)[3],
@@ -192,9 +194,10 @@ void BKE_editmesh_loop_tangent_calc(BMEditMesh *em,
       }
     }
     if ((tangent_mask & DM_TANGENT_MASK_ORCO) &&
-        CustomData_get_named_layer_index(loopdata_out, CD_TANGENT, "") == -1) {
+        CustomData_get_named_layer_index(loopdata_out, CD_TANGENT, "") == -1)
+    {
       CustomData_add_layer_named(
-          loopdata_out, CD_TANGENT, CD_SET_DEFAULT, nullptr, int(loopdata_out_len), "");
+          loopdata_out, CD_TANGENT, CD_SET_DEFAULT, int(loopdata_out_len), "");
     }
     if (calc_act && act_uv_name[0]) {
       BKE_mesh_add_loop_tangent_named_layer_for_uv(
@@ -254,7 +257,7 @@ void BKE_editmesh_loop_tangent_calc(BMEditMesh *em,
         /* NOTE: we assume we do have tessellated loop normals at this point
          * (in case it is object-enabled), have to check this is valid. */
         mesh2tangent->precomputedLoopNormals = loop_normals;
-        mesh2tangent->cd_loop_uv_offset = CustomData_get_n_offset(&bm->ldata, CD_MLOOPUV, n);
+        mesh2tangent->cd_loop_uv_offset = CustomData_get_n_offset(&bm->ldata, CD_PROP_FLOAT2, n);
 
         /* needed for indexing loop-tangents */
         int htype_index = BM_LOOP;
@@ -270,8 +273,8 @@ void BKE_editmesh_loop_tangent_calc(BMEditMesh *em,
         else {
           /* Fill the resulting tangent_mask */
           int uv_ind = CustomData_get_named_layer_index(
-              &bm->ldata, CD_MLOOPUV, loopdata_out->layers[index].name);
-          int uv_start = CustomData_get_layer_index(&bm->ldata, CD_MLOOPUV);
+              &bm->ldata, CD_PROP_FLOAT2, loopdata_out->layers[index].name);
+          int uv_start = CustomData_get_layer_index(&bm->ldata, CD_PROP_FLOAT2);
           BLI_assert(uv_ind != -1 && uv_start != -1);
           BLI_assert(uv_ind - uv_start < MAX_MTFACE);
           tangent_mask_curr |= 1 << (uv_ind - uv_start);
@@ -306,7 +309,7 @@ void BKE_editmesh_loop_tangent_calc(BMEditMesh *em,
 
   *tangent_mask_curr_p = tangent_mask_curr;
 
-  int act_uv_index = CustomData_get_layer_index_n(&bm->ldata, CD_MLOOPUV, act_uv_n);
+  int act_uv_index = CustomData_get_layer_index_n(&bm->ldata, CD_PROP_FLOAT2, act_uv_n);
   if (act_uv_index >= 0) {
     int tan_index = CustomData_get_named_layer_index(
         loopdata_out, CD_TANGENT, bm->ldata.layers[act_uv_index].name);
@@ -314,7 +317,7 @@ void BKE_editmesh_loop_tangent_calc(BMEditMesh *em,
   } /* else tangent has been built from orco */
 
   /* Update render layer index */
-  int ren_uv_index = CustomData_get_layer_index_n(&bm->ldata, CD_MLOOPUV, ren_uv_n);
+  int ren_uv_index = CustomData_get_layer_index_n(&bm->ldata, CD_PROP_FLOAT2, ren_uv_n);
   if (ren_uv_index >= 0) {
     int tan_index = CustomData_get_named_layer_index(
         loopdata_out, CD_TANGENT, bm->ldata.layers[ren_uv_index].name);

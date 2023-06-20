@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2009-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup collada
@@ -43,8 +45,7 @@ bool AnimationExporter::open_animation_container(bool has_container, Object *ob)
 {
   if (!has_container) {
     char anim_id[200];
-    BLI_snprintf(
-        anim_id, sizeof(anim_id), "action_container-%s", translate_id(id_name(ob)).c_str());
+    SNPRINTF(anim_id, "action_container-%s", translate_id(id_name(ob)).c_str());
     openAnimation(anim_id, encode_xml(id_name(ob)));
   }
   return true;

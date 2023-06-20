@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2011-2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "scene/attribute.h"
 #include "scene/hair.h"
@@ -167,6 +168,12 @@ size_t Attribute::data_sizeof() const
     return sizeof(float2);
   else if (type == TypeDesc::TypeMatrix)
     return sizeof(Transform);
+  // The float3 type is not interchangeable with float4
+  // as it is now a packed type.
+  else if (type == TypeDesc::TypeFloat4)
+    return sizeof(float4);
+  else if (type == TypeRGBA)
+    return sizeof(float4);
   else
     return sizeof(float3);
 }
@@ -272,9 +279,11 @@ bool Attribute::same_storage(TypeDesc a, TypeDesc b)
     return true;
 
   if (a == TypeDesc::TypeColor || a == TypeDesc::TypePoint || a == TypeDesc::TypeVector ||
-      a == TypeDesc::TypeNormal) {
+      a == TypeDesc::TypeNormal)
+  {
     if (b == TypeDesc::TypeColor || b == TypeDesc::TypePoint || b == TypeDesc::TypeVector ||
-        b == TypeDesc::TypeNormal) {
+        b == TypeDesc::TypeNormal)
+    {
       return true;
     }
   }
@@ -300,7 +309,8 @@ void Attribute::add_with_weight(void *dst, void *src, float weight)
     *((float2 *)dst) += *((float2 *)src) * weight;
   }
   else if (same_storage(type, TypeDesc::TypeVector)) {
-    *((float4 *)dst) += *((float4 *)src) * weight;
+    // Points are float3s and not float4s
+    *((float3 *)dst) += *((float3 *)src) * weight;
   }
   else {
     assert(!"not implemented for this type");
@@ -453,9 +463,7 @@ AttributeSet::AttributeSet(Geometry *geometry, AttributePrimitive prim)
 {
 }
 
-AttributeSet::~AttributeSet()
-{
-}
+AttributeSet::~AttributeSet() {}
 
 Attribute *AttributeSet::add(ustring name, TypeDesc type, AttributeElement element)
 {
@@ -835,13 +843,9 @@ AttributeRequest::AttributeRequest(AttributeStandard std_)
 
 /* AttributeRequestSet */
 
-AttributeRequestSet::AttributeRequestSet()
-{
-}
+AttributeRequestSet::AttributeRequestSet() {}
 
-AttributeRequestSet::~AttributeRequestSet()
-{
-}
+AttributeRequestSet::~AttributeRequestSet() {}
 
 bool AttributeRequestSet::modified(const AttributeRequestSet &other)
 {

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spview3d
@@ -120,7 +122,7 @@ static void WIDGETGROUP_empty_image_setup(const bContext *UNUSED(C), wmGizmoGrou
                                                        __func__);
   igzgroup->gizmo = WM_gizmo_new("GIZMO_GT_cage_2d", gzgroup, NULL);
   wmGizmo *gz = igzgroup->gizmo;
-  RNA_enum_set(gz->ptr, "transform", ED_GIZMO_CAGE2D_XFORM_FLAG_SCALE);
+  RNA_enum_set(gz->ptr, "transform", ED_GIZMO_CAGE_XFORM_FLAG_SCALE);
 
   gzgroup->customdata = igzgroup;
 
@@ -143,8 +145,8 @@ static void WIDGETGROUP_empty_image_refresh(const bContext *C, wmGizmoGroup *gzg
 
   RNA_enum_set(gz->ptr,
                "transform",
-               ED_GIZMO_CAGE2D_XFORM_FLAG_TRANSLATE | ED_GIZMO_CAGE2D_XFORM_FLAG_SCALE |
-                   ED_GIZMO_CAGE2D_XFORM_FLAG_SCALE_UNIFORM);
+               ED_GIZMO_CAGE_XFORM_FLAG_TRANSLATE | ED_GIZMO_CAGE_XFORM_FLAG_SCALE |
+                   ED_GIZMO_CAGE_XFORM_FLAG_SCALE_UNIFORM);
 
   igzgroup->state.ob = ob;
 
@@ -174,7 +176,7 @@ static void WIDGETGROUP_empty_image_refresh(const bContext *C, wmGizmoGroup *gzg
 
   WM_gizmo_target_property_def_func(gz,
                                     "matrix",
-                                    &(const struct wmGizmoPropertyFnParams){
+                                    &(const wmGizmoPropertyFnParams){
                                         .value_get_fn = gizmo_empty_image_prop_matrix_get,
                                         .value_set_fn = gizmo_empty_image_prop_matrix_set,
                                         .range_get_fn = NULL,

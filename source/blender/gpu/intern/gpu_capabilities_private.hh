@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2020 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2020 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -42,6 +43,7 @@ struct GPUCapabilities {
 
   bool mem_stats_support = false;
   bool compute_shader_support = false;
+  bool geometry_shader_support = false;
   bool shader_storage_buffer_objects_support = false;
   bool shader_image_load_store_support = false;
   bool shader_draw_parameters_support = false;

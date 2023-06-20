@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2008-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -25,7 +27,8 @@ static bool inBox(const Vec3r &inter, const Vec3r &box_min, const Vec3r &box_max
 {
   if (((inter.x() >= box_min.x()) && (inter.x() < box_max.x())) &&
       ((inter.y() >= box_min.y()) && (inter.y() < box_max.y())) &&
-      ((inter.z() >= box_min.z()) && (inter.z() < box_max.z()))) {
+      ((inter.z() >= box_min.z()) && (inter.z() < box_max.z())))
+  {
     return true;
   }
   return false;
@@ -46,7 +49,8 @@ void firstIntersectionGridVisitor::examineOccluder(Polygon3r *occ)
       // Check whether the intersection is in the cell:
       if (inBox(ray_org_ + tmp_t * ray_dir_ / ray_dir_.norm(),
                 current_cell_->getOrigin(),
-                current_cell_->getOrigin() + cell_size_)) {
+                current_cell_->getOrigin() + cell_size_))
+      {
 #if 0
         Vec3d bboxdiag(_scene3d->bbox().getMax() - _scene3d->bbox().getMin());
         if ((t > 1.0e-06 * (min(min(bboxdiag.x(), bboxdiag.y()), bboxdiag.z()))) &&

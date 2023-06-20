@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2021 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2021 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -42,15 +43,21 @@ void ShaderBuilder::init()
 {
   CLG_init();
 
-  GHOST_GLSettings glSettings = {0};
+  GHOST_GPUSettings gpuSettings = {0};
   switch (GPU_backend_type_selection_get()) {
     case GPU_BACKEND_OPENGL:
-      glSettings.context_type = GHOST_kDrawingContextTypeOpenGL;
+      gpuSettings.context_type = GHOST_kDrawingContextTypeOpenGL;
       break;
 
 #ifdef WITH_METAL_BACKEND
     case GPU_BACKEND_METAL:
-      glSettings.context_type = GHOST_kDrawingContextTypeMetal;
+      gpuSettings.context_type = GHOST_kDrawingContextTypeMetal;
+      break;
+#endif
+
+#ifdef WITH_VULKAN_BACKEND
+    case GPU_BACKEND_VULKAN:
+      gpuSettings.context_type = GHOST_kDrawingContextTypeVulkan;
       break;
 #endif
 
@@ -60,8 +67,8 @@ void ShaderBuilder::init()
   }
 
   ghost_system_ = GHOST_CreateSystemBackground();
-  ghost_context_ = GHOST_CreateOpenGLContext(ghost_system_, glSettings);
-  GHOST_ActivateOpenGLContext(ghost_context_);
+  ghost_context_ = GHOST_CreateGPUContext(ghost_system_, gpuSettings);
+  GHOST_ActivateGPUContext(ghost_context_);
 
   gpu_context_ = GPU_context_create(nullptr, ghost_context_);
   GPU_init();
@@ -73,7 +80,7 @@ void ShaderBuilder::exit()
 
   GPU_context_discard(gpu_context_);
 
-  GHOST_DisposeOpenGLContext(ghost_system_, ghost_context_);
+  GHOST_DisposeGPUContext(ghost_system_, ghost_context_);
   GHOST_DisposeSystem(ghost_system_);
 
   CLG_exit();
@@ -101,6 +108,9 @@ int main(int argc, const char *argv[])
 #ifdef WITH_METAL_BACKEND
   backends_to_validate.append({"Metal", GPU_BACKEND_METAL});
 #endif
+#ifdef WITH_VULKAN_BACKEND
+  backends_to_validate.append({"Vulkan", GPU_BACKEND_VULKAN});
+#endif
   for (NamedBackend &backend : backends_to_validate) {
     GPU_backend_type_selection_set(backend.backend);
     if (!GPU_backend_supported()) {
@@ -113,6 +123,9 @@ int main(int argc, const char *argv[])
     if (!builder.bake_create_infos()) {
       printf("Shader compilation failed for %s backend\n", backend.name.c_str());
       exit_code = 1;
+    }
+    else {
+      printf("%s backend shader compilation succeeded.\n", backend.name.c_str());
     }
     builder.exit();
   }

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2017-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(OPENSUBDIV_EXTRA_ARGS
@@ -31,8 +33,7 @@ if(WIN32)
 else()
   set(OPENSUBDIV_EXTRA_ARGS
     ${OPENSUBDIV_EXTRA_ARGS}
-    -DTBB_INCLUDE_DIR=${LIBDIR}/tbb/include
-    -DTBB_tbb_LIBRARY=${LIBDIR}/tbb/lib/${LIBPREFIX}tbb_static${LIBEXT}
+    -DTBB_LOCATION=${LIBDIR}/tbb
   )
 endif()
 

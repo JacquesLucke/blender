@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2021 Blender Foundation.
- */
+/* SPDX-FileCopyrightText: 2021 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup eevee
@@ -82,14 +82,8 @@ class Sampling {
     return reset_;
   }
 
-  void bind_resources(DRWShadingGroup *grp)
-  {
-    DRW_shgroup_storage_block_ref(grp, "sampling_buf", &data_);
-  }
-
   template<typename T> void bind_resources(draw::detail::PassBase<T> *pass)
   {
-    /* Storage Buf. */
     pass->bind_ssbo(SAMPLING_BUF_SLOT, &data_);
   }
 

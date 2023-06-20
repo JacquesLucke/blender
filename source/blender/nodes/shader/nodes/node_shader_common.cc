@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2006 Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: 2006 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup shdnodes
@@ -9,11 +10,12 @@
 
 #include "BLI_utildefines.h"
 
-#include "BKE_node.h"
+#include "BKE_node.hh"
+#include "BKE_node_runtime.hh"
 
 #include "NOD_common.h"
 #include "node_common.h"
-#include "node_exec.h"
+#include "node_exec.hh"
 #include "node_shader_util.hh"
 
 #include "RNA_access.h"
@@ -24,7 +26,7 @@ static void group_gpu_copy_inputs(bNode *gnode, GPUNodeStack *in, bNodeStack *gs
 {
   bNodeTree *ngroup = (bNodeTree *)gnode->id;
 
-  LISTBASE_FOREACH (bNode *, node, &ngroup->nodes) {
+  for (bNode *node : ngroup->all_nodes()) {
     if (node->type == NODE_GROUP_INPUT) {
       int a;
       LISTBASE_FOREACH_INDEX (bNodeSocket *, sock, &node->outputs, a) {
@@ -42,19 +44,20 @@ static void group_gpu_copy_inputs(bNode *gnode, GPUNodeStack *in, bNodeStack *gs
  */
 static void group_gpu_move_outputs(bNode *gnode, GPUNodeStack *out, bNodeStack *gstack)
 {
-  bNodeTree *ngroup = (bNodeTree *)gnode->id;
+  const bNodeTree &ngroup = *reinterpret_cast<bNodeTree *>(gnode->id);
 
-  LISTBASE_FOREACH (bNode *, node, &ngroup->nodes) {
-    if (node->type == NODE_GROUP_OUTPUT && (node->flag & NODE_DO_OUTPUT)) {
-      int a;
-      LISTBASE_FOREACH_INDEX (bNodeSocket *, sock, &node->inputs, a) {
-        bNodeStack *ns = node_get_socket_stack(gstack, sock);
-        if (ns) {
-          /* convert the node stack data result back to gpu stack */
-          node_gpu_stack_from_data(&out[a], sock->type, ns);
-        }
-      }
-      break; /* only one active output node */
+  ngroup.ensure_topology_cache();
+  const bNode *group_output_node = ngroup.group_output_node();
+  if (!group_output_node) {
+    return;
+  }
+
+  int a;
+  LISTBASE_FOREACH_INDEX (bNodeSocket *, sock, &group_output_node->inputs, a) {
+    bNodeStack *ns = node_get_socket_stack(gstack, sock);
+    if (ns) {
+      /* convert the node stack data result back to gpu stack */
+      node_gpu_stack_from_data(&out[a], sock->type, ns);
     }
   }
 }
@@ -91,9 +94,9 @@ void register_node_type_sh_group()
   BLI_assert(ntype.rna_ext.srna != nullptr);
   RNA_struct_blender_type_set(ntype.rna_ext.srna, &ntype);
 
-  node_type_size(&ntype, 140, 60, 400);
+  blender::bke::node_type_size(&ntype, 140, 60, 400);
   ntype.labelfunc = node_group_label;
-  ntype.group_update_func = node_group_update;
+  ntype.declare_dynamic = blender::nodes::node_group_declare_dynamic;
   ntype.gpu_fn = gpu_group_execute;
 
   nodeRegisterType(&ntype);
@@ -108,6 +111,6 @@ void register_node_type_sh_custom_group(bNodeType *ntype)
   if (ntype->insert_link == nullptr) {
     ntype->insert_link = node_insert_link_default;
   }
-
+  ntype->declare_dynamic = blender::nodes::node_group_declare_dynamic;
   ntype->gpu_fn = gpu_group_execute;
 }

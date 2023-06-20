@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "GEO_resample_curves.hh"
 
@@ -15,15 +17,12 @@ NODE_STORAGE_FUNCS(NodeGeometryCurveResample)
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Geometry>(N_("Curve")).supported_type(GEO_COMPONENT_TYPE_CURVE);
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).supports_field().hide_value();
-  b.add_input<decl::Int>(N_("Count")).default_value(10).min(1).max(100000).supports_field();
-  b.add_input<decl::Float>(N_("Length"))
-      .default_value(0.1f)
-      .min(0.01f)
-      .supports_field()
-      .subtype(PROP_DISTANCE);
-  b.add_output<decl::Geometry>(N_("Curve"));
+  b.add_input<decl::Geometry>("Curve").supported_type(GeometryComponent::Type::Curve);
+  b.add_input<decl::Bool>("Selection").default_value(true).field_on_all().hide_value();
+  b.add_input<decl::Int>("Count").default_value(10).min(1).max(100000).field_on_all();
+  b.add_input<decl::Float>("Length").default_value(0.1f).min(0.01f).field_on_all().subtype(
+      PROP_DISTANCE);
+  b.add_output<decl::Geometry>("Curve").propagate_all();
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -47,8 +46,8 @@ static void node_update(bNodeTree *ntree, bNode *node)
   bNodeSocket *count_socket = static_cast<bNodeSocket *>(node->inputs.first)->next->next;
   bNodeSocket *length_socket = count_socket->next;
 
-  nodeSetSocketAvailability(ntree, count_socket, mode == GEO_NODE_CURVE_RESAMPLE_COUNT);
-  nodeSetSocketAvailability(ntree, length_socket, mode == GEO_NODE_CURVE_RESAMPLE_LENGTH);
+  bke::nodeSetSocketAvailability(ntree, count_socket, mode == GEO_NODE_CURVE_RESAMPLE_COUNT);
+  bke::nodeSetSocketAvailability(ntree, length_socket, mode == GEO_NODE_CURVE_RESAMPLE_LENGTH);
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
@@ -67,8 +66,7 @@ static void node_geo_exec(GeoNodeExecParams params)
       Field<int> count = params.extract_input<Field<int>>("Count");
       geometry_set.modify_geometry_sets([&](GeometrySet &geometry) {
         if (const Curves *src_curves_id = geometry.get_curves_for_read()) {
-          const bke::CurvesGeometry &src_curves = bke::CurvesGeometry::wrap(
-              src_curves_id->geometry);
+          const bke::CurvesGeometry &src_curves = src_curves_id->geometry.wrap();
           bke::CurvesGeometry dst_curves = geometry::resample_to_count(
               src_curves, selection, count);
           Curves *dst_curves_id = bke::curves_new_nomain(std::move(dst_curves));
@@ -82,8 +80,7 @@ static void node_geo_exec(GeoNodeExecParams params)
       Field<float> length = params.extract_input<Field<float>>("Length");
       geometry_set.modify_geometry_sets([&](GeometrySet &geometry) {
         if (const Curves *src_curves_id = geometry.get_curves_for_read()) {
-          const bke::CurvesGeometry &src_curves = bke::CurvesGeometry::wrap(
-              src_curves_id->geometry);
+          const bke::CurvesGeometry &src_curves = src_curves_id->geometry.wrap();
           bke::CurvesGeometry dst_curves = geometry::resample_to_length(
               src_curves, selection, length);
           Curves *dst_curves_id = bke::curves_new_nomain(std::move(dst_curves));
@@ -96,8 +93,7 @@ static void node_geo_exec(GeoNodeExecParams params)
     case GEO_NODE_CURVE_RESAMPLE_EVALUATED:
       geometry_set.modify_geometry_sets([&](GeometrySet &geometry) {
         if (const Curves *src_curves_id = geometry.get_curves_for_read()) {
-          const bke::CurvesGeometry &src_curves = bke::CurvesGeometry::wrap(
-              src_curves_id->geometry);
+          const bke::CurvesGeometry &src_curves = src_curves_id->geometry.wrap();
           bke::CurvesGeometry dst_curves = geometry::resample_to_evaluated(src_curves, selection);
           Curves *dst_curves_id = bke::curves_new_nomain(std::move(dst_curves));
           bke::curves_copy_parameters(*src_curves_id, *dst_curves_id);

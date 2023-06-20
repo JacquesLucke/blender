@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright Blender Foundation. All rights reserved. */
+/* SPDX-FileCopyrightText: Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 /** \file
@@ -72,14 +73,14 @@ typedef struct Cloth {
   unsigned char pad2;
   short pad3;
   struct BVHTree *bvhtree;     /* collision tree for this cloth object */
-  struct BVHTree *bvhselftree; /* collision tree for this cloth object */
+  struct BVHTree *bvhselftree; /* collision tree for this cloth object (may be same as bvhtree) */
   struct MVertTri *tri;
   struct Implicit_Data *implicit; /* our implicit solver connects to this pointer */
   struct EdgeSet *edgeset;        /* used for selfcollisions */
   int last_frame;
   float initial_mesh_volume;      /* Initial volume of the mesh. Used for pressure */
   float average_acceleration[3];  /* Moving average of overall acceleration. */
-  const struct MEdge *edges;      /* Used for hair collisions. */
+  const struct vec2i *edges;      /* Used for hair collisions. */
   struct EdgeSet *sew_edge_graph; /* Sewing edges represented using a GHash */
 } Cloth;
 
@@ -97,7 +98,7 @@ typedef struct ClothVertex {
   float tv[3];                /* temporary "velocity", mostly used as tv = tx-txold */
   float mass;                 /* mass / weight of the vertex      */
   float goal;                 /* goal, from SB            */
-  float impulse[3];           /* used in collision.c */
+  float impulse[3];           /* used in collision.cc */
   float xrest[3];             /* rest position of the vertex */
   float dcvel[3];             /* delta velocities to be applied by collision response */
   unsigned int impulse_count; /* same as above */
@@ -196,7 +197,7 @@ typedef enum {
 } CLOTH_SPRINGS_FLAGS;
 
 /* -------------------------------------------------------------------- */
-/* collision.c */
+/* collision.cc */
 
 struct CollPair;
 
@@ -232,7 +233,7 @@ void clothModifier_do(struct ClothModifierData *clmd,
 
 int cloth_uses_vgroup(struct ClothModifierData *clmd);
 
-/* Needed for collision.c */
+/* Needed for collision.cc */
 void bvhtree_update_from_cloth(struct ClothModifierData *clmd, bool moving, bool self);
 
 /* Needed for button_object.c */

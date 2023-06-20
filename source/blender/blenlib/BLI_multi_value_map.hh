@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -149,6 +151,11 @@ template<typename Key, typename Value> class MultiValueMap {
   void clear()
   {
     map_.clear();
+  }
+
+  void clear_and_shrink()
+  {
+    map_.clear_and_shrink();
   }
 };
 
