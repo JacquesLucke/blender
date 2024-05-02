@@ -92,6 +92,16 @@ const EnumPropertyItem rna_enum_node_socket_data_type_items[] = {
     {0, nullptr, 0, nullptr, nullptr},
 };
 
+const EnumPropertyItem rna_enum_node_group_class_items[] = {
+    {int(NodeGroupClass::Generic), "GENERIC", 0, "Generic", "Default class for new node groups"},
+    {int(NodeGroupClass::Input), "INPUT", 0, "Input", ""},
+    {int(NodeGroupClass::Geometry), "GEOMETRY", 0, "Geometry", ""},
+    {int(NodeGroupClass::Shader), "SHADER", 0, "Shader", ""},
+    {int(NodeGroupClass::Texture), "TEXTURE", 0, "Texture", ""},
+    {int(NodeGroupClass::Utility), "UTILITY", 0, "Utility", ""},
+    {0, nullptr, 0, nullptr, nullptr},
+};
+
 #ifndef RNA_RUNTIME
 static const EnumPropertyItem node_quality_items[] = {
     {NTREE_QUALITY_HIGH, "HIGH", 0, "High", "High quality"},
@@ -10352,6 +10362,11 @@ static void rna_def_nodetree(BlenderRNA *brna)
   RNA_def_struct_ui_icon(srna, ICON_NODETREE);
   RNA_def_struct_refine_func(srna, "rna_NodeTree_refine");
   RNA_def_struct_register_funcs(srna, "rna_NodeTree_register", "rna_NodeTree_unregister", nullptr);
+
+  prop = RNA_def_property(srna, "group_class", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, rna_enum_node_group_class_items);
+  RNA_def_property_ui_text(prop, "Class", "Category of the node group");
+  RNA_def_property_update(prop, NC_NODE, nullptr);
 
   prop = RNA_def_property(srna, "view_center", PROP_FLOAT, PROP_XYZ);
   RNA_def_property_array(prop, 2);

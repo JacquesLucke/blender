@@ -990,6 +990,8 @@ class NODE_PT_node_tree_properties(Panel):
         col.prop(group, "is_modifier")
         col.prop(group, "is_tool")
 
+        layout.prop(group, "group_class")
+
 
 # Grease Pencil properties
 class NODE_PT_annotation(AnnotationDataPanel, Panel):

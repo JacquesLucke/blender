@@ -79,6 +79,29 @@ void node_group_label(const bNodeTree * /*ntree*/,
       label, (node->id) ? node->id->name + 2 : IFACE_("Missing Data-Block"), label_maxncpy);
 }
 
+int node_group_ui_class(const bNode *node)
+{
+  const bNodeTree *group = reinterpret_cast<const bNodeTree *>(node->id);
+  if (!group) {
+    return NODE_CLASS_GROUP;
+  }
+  switch (NodeGroupClass(group->group_class)) {
+    case NodeGroupClass::Generic:
+      return NODE_CLASS_GROUP;
+    case NodeGroupClass::Input:
+      return NODE_CLASS_INPUT;
+    case NodeGroupClass::Geometry:
+      return NODE_CLASS_GEOMETRY;
+    case NodeGroupClass::Shader:
+      return NODE_CLASS_SHADER;
+    case NodeGroupClass::Texture:
+      return NODE_CLASS_TEXTURE;
+    case NodeGroupClass::Utility:
+      return NODE_CLASS_CONVERTER;
+  }
+  return NODE_CLASS_GROUP;
+}
+
 bool node_group_poll_instance(const bNode *node,
                               const bNodeTree *nodetree,
                               const char **disabled_hint)
