@@ -3390,7 +3390,7 @@ void RNA_property_float_set_index(PointerRNA *ptr, PropertyRNA *prop, int index,
   }
 }
 
-float RNA_property_float_get_default(PointerRNA * /*ptr*/, PropertyRNA *prop)
+float RNA_property_float_get_default(PointerRNA *ptr, PropertyRNA *prop)
 {
   FloatPropertyRNA *fprop = (FloatPropertyRNA *)rna_ensure_property(prop);
 
@@ -3404,6 +3404,9 @@ float RNA_property_float_get_default(PointerRNA * /*ptr*/, PropertyRNA *prop)
       const IDPropertyUIDataFloat *ui_data = (const IDPropertyUIDataFloat *)idprop->ui_data;
       return float(ui_data->default_value);
     }
+  }
+  if (fprop->get_default) {
+    return fprop->get_default(ptr, prop);
   }
 
   return fprop->defaultvalue;

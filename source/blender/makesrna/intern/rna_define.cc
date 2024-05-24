@@ -3283,6 +3283,35 @@ void RNA_def_property_float_funcs(PropertyRNA *prop,
   }
 }
 
+void RNA_def_property_float_default_func(PropertyRNA *prop, const char *get_default)
+{
+  StructRNA *srna = DefRNA.laststruct;
+
+  if (!DefRNA.preprocess) {
+    CLOG_ERROR(&LOG, "only during preprocessing");
+    return;
+  }
+  switch (prop->type) {
+    case PROP_FLOAT: {
+      FloatPropertyRNA *fprop = reinterpret_cast<FloatPropertyRNA *>(prop);
+      if (prop->arraydimension) {
+        /* TODO */
+      }
+      else {
+        if (get_default) {
+          fprop->get_default = reinterpret_cast<PropFloatGetFuncEx>(get_default);
+        }
+      }
+      break;
+    }
+    default: {
+      CLOG_ERROR(&LOG, "\"%s.%s\", type is not float.", srna->identifier, prop->identifier);
+      DefRNA.error = true;
+      break;
+    }
+  }
+}
+
 void RNA_def_property_float_funcs_runtime(PropertyRNA *prop,
                                           FloatPropertyGetFunc getfunc,
                                           FloatPropertySetFunc setfunc,

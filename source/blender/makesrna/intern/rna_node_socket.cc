@@ -52,6 +52,8 @@ const EnumPropertyItem rna_enum_node_socket_type_items[] = {
 
 #  include "DEG_depsgraph_build.hh"
 
+#  include "NOD_socket_declarations.hh"
+
 #  include "ED_node.hh"
 
 extern FunctionRNA rna_NodeSocket_draw_func;
@@ -365,6 +367,16 @@ void rna_NodeSocketStandard_float_range(
   *max = FLT_MAX;
   *softmin = dval->min;
   *softmax = dval->max;
+}
+
+float rna_NodeSocketStandard_float_default(PointerRNA *ptr, PropertyRNA * /*prop*/)
+{
+  bNodeSocket *sock = static_cast<bNodeSocket *>(ptr->data);
+  if (!sock->runtime->declaration) {
+    return 0.0f;
+  }
+  auto *decl = static_cast<const blender::nodes::decl::Float *>(sock->runtime->declaration);
+  return decl->default_value;
 }
 
 void rna_NodeSocketStandard_int_range(
@@ -778,6 +790,7 @@ static void rna_def_node_socket_float(BlenderRNA *brna,
   prop = RNA_def_property(srna, "default_value", PROP_FLOAT, subtype);
   RNA_def_property_float_sdna(prop, nullptr, "value");
   RNA_def_property_float_funcs(prop, nullptr, nullptr, "rna_NodeSocketStandard_float_range");
+  RNA_def_property_float_default_func(prop, "rna_NodeSocketStandard_float_default");
   RNA_def_property_ui_text(prop, "Default Value", "Input value used for unconnected socket");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeSocketStandard_value_update");
   RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
